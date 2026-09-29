@@ -21,12 +21,25 @@ review loop shown there, not a copy of the RUBRIC tools. Glossary: `CONTEXT.md`.
 | D13 | A global Claude skill invoked inside any project, with reels in `<project>/reels/` (ADR 0002). |
 | D14 | On first use, Claude discovers the brand sources and writes `reels/brand.md` for you to check once. |
 
+## Visual world
+
+Decided in a second grilling round with `ui-preview`. Composed mockup, which applies every row below:
+[2026-09-30-editor-visual-world.html](mockups/2026-09-30-editor-visual-world.html). Source:
+`C:\FIles\projects\Brands\Rubric\DESIGN.md` and `design-elements.html`. Editor surfaces are in
+operate mode, used full screen.
+
+| # | Decision |
+|---|---|
+| D15 | Rubric's structure is the editor's world: warm near-black ground, Outfit UI, Doto for the wordmark, shot numbers and timecodes, 0 radius, 7×7 pixel icons, the hex mark and hex cursor. No chrome-metal gradients anywhere. |
+| D16 | The light is ice blue, `oklch(.84 .11 225)`, the Rubric neon core given chroma. It marks pins, the current version, the playhead, hover outlines and glows, and never fills a surface. The frame well stays neutral. |
+| D17 | Stacked paper only on things in your hand: a hovered or focused shot, comment cards, the enlarged shot. The shell is flat ground with hairline dividers. |
+| D18 | Pinning: the hex cursor with a centre hotspot dot over the frame, an ice-blue outline and name tag on the element under it, and numbered filled hexes as pins, matching the comment list. |
+| D19 | Motion keeps Rubric's speeds: lift 380ms, shadow 180ms, colour 250ms, press 120ms, one curve `cubic-bezier(.2,.8,.2,1)`. This deliberately overrides CRAFT.md's near-zero operate budget. Scrubbing, frame-stepping and keyboard navigation never animate, and reduced motion drops chrome transitions to 0. |
+| D20 | No WebGL hex fluid. The dot-matrix terrain is the only texture, used in empty lanes and empty states. |
+| D21 | Dark only. |
+| D22 | Under the storyboard grid: three lanes (Shots, Pins, Overlays) on one shared time axis. Shot width is its duration. Storyboard pins sit at their shot's start time, side by side. Overlays are drawn at their real span, and an empty lane shows "None" over dot terrain. |
+
 ## Deferred
 
 Audio comments, trimming, the MP4 render and the element library format belong to the Review and
 Picker phases.
-
-## Open for design
-
-The visual identity. The candidate source is the Rubric brand reference
-(`C:\FIles\projects\Brands\Rubric\DESIGN.md`). Editor surfaces are in operate mode.
