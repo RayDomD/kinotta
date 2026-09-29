@@ -39,7 +39,36 @@ operate mode, used full screen.
 | D21 | Dark only. |
 | D22 | Under the storyboard grid: three lanes (Shots, Pins, Overlays) on one shared time axis. Shot width is its duration. Storyboard pins sit at their shot's start time, side by side. Overlays are drawn at their real span, and an empty lane shows "None" over dot terrain. |
 
+## Footage reels
+
+Decided in a third grilling round on long talking videos filled with b-roll. Terms Section and
+Transcript are in `CONTEXT.md`, and the shared format is in ADR 0001.
+
+| # | Decision |
+|---|---|
+| F1 | Short code-only reels and long b-roll videos matter equally. Storyboard stays first and handles both. |
+| F2 | A long reel splits into sections of a few minutes, chosen by topic from the transcript. The grid shows one section at a time, and the lanes show the whole reel. |
+| F3 | Comment batches are handed off per section. Claude rebuilds only that section, producing a new version of the whole reel with other sections carried over unchanged. |
+| F4 | Unsent comments on sections the new version left unchanged move forward to it. Only a handed-off batch freezes. |
+| F5 | The transcript is saved with the reel and shown in Kinotta. A pin can land on a spoken word. |
+| F6 | motion-broll is the planner for footage reels: density, cutaway or panel or nothing, and word-timed changes. Each planned clip becomes a storyboard shot. |
+| F7 | One shared format: the timing contract uses motion-broll's global `seek(t)`, and motion-broll's engine adds Kinotta's element names and scene timing (ADR 0001). |
+| F8 | A storyboard still for a panel clip is drawn over the real footage frame at that moment. A cutaway shows alone. The spoken line sits under each shot. |
+| F9 | Footage storyboards are in the Storyboard phase. Playback over footage stays in Review. |
+
 ## Deferred
 
 Audio comments, trimming, the MP4 render and the element library format belong to the Review and
 Picker phases.
+
+- **Color grading (Review phase).** Candidate: the video-use skill (`browser-use/video-use`, MIT),
+  which grades per footage segment with ffmpeg filter chains on an ASC CDL model and records the
+  grade in its `edl.json`. The same approach as motion-broll: video-use owns cuts, grade and
+  subtitles, Kinotta adds the review loop, and they share one format. Other options to weigh
+  then: ffmpeg `lut3d` with `.cube` LUTs (a round trip with DaVinci Resolve), a live WebGL LUT
+  preview (three.js `LUTCubeLoader` and `LUTPass`, unverified), and OpenColorIO for log or ACES
+  footage. Questions still to grill: a preview render or a live shader, CDL numbers or LUT files,
+  and a grade per clip or per section.
+- **Rendering at scale.** An hour of b-roll is hundreds of clips, and motion-broll renders slower
+  than real time. The render phase needs a queue and partial renders.
+- **Section boundaries.** Claude picks them. You ask for a change in a reel note.

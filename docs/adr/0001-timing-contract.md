@@ -11,6 +11,12 @@ The storyboard is the same contract applied early: scenes built unanimated plus 
 stills drawn live by jumping the page to each shot's time rather than from screenshots, so pins on
 a still resolve to elements too.
 
+The contract is shared with the motion-broll skill, which plans and builds b-roll for footage reels.
+The jump function is motion-broll's own global `seek(seconds)`, and motion-broll's engine adds
+Kinotta's element names and scene timing, so every clip it builds opens in Kinotta as-is. We chose
+one shared format over a converter because a conversion step between two tools is a place for them
+to drift apart.
+
 ## Considered Options
 
 - **Any HTML, played live.** Most native to Opus, but the editor could only screen-record: unreliable
