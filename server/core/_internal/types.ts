@@ -74,6 +74,19 @@ export interface Project {
    * an unknown shot or a position outside the frame, and `not-found` for an unknown reel or version.
    */
   addComment(slug: string, number: number, input: NewComment): Promise<AddedComment>;
+  /**
+   * Writes the version's comment batch to `reels/<slug>/v<n>/comments.json` (replacing any earlier copy) and
+   * returns the pasteable text. Throws `KinottaError` `invalid` when there are no comments and no note.
+   */
+  copyBatch(slug: string, number: number): Promise<CopiedBatch>;
+}
+
+export interface CopiedBatch {
+  /** What to paste to Claude: reel, version, each comment as shot, time, element: text, notes, saved path. */
+  text: string;
+  /** Where the batch was saved, relative to the project root with forward slashes. */
+  file: string;
+  count: number;
 }
 
 /** What the caller supplies for a frame pin; the core fills in the rest. */

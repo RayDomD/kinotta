@@ -7,6 +7,7 @@ import type { NewComment, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
+const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -79,6 +80,13 @@ async function handleComments(req: IncomingMessage, res: ServerResponse, project
   else res.writeHead(405).end();
 }
 
+async function handleBatch(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (req.method === 'POST') sendJson(res, 200, await project.copyBatch(slug, Number(route[2])));
+  else res.writeHead(405).end();
+}
+
 function sendFile(req: IncomingMessage, res: ServerResponse, file: string): void {
   res.writeHead(200, { 'content-type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream' });
   if (req.method === 'HEAD') res.end();
@@ -131,8 +139,11 @@ export function createHandler(project: Project, webRoot: string) {
       const { pathname } = new URL(req.url ?? '/', 'http://localhost');
       const versionRoute = VERSION_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
+      const batchRoute = BATCH_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
+      } else if (batchRoute) {
+        await handleBatch(req, res, project, batchRoute);
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (pathname === '/api/project') {

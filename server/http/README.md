@@ -14,6 +14,8 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
 - `POST /api/reels/<reel>/versions/<n>/comments` takes `{ pin: { shot, x, y, element }, text }` and answers 201
   with the core's `{ comment, comments }`. Malformed JSON is a 400, a body over 16 KB a 413, a refused comment
   (empty text, unknown shot) a 422, an unknown reel or version a 404. Other methods are a 405.
+- `POST /api/reels/<reel>/versions/<n>/batch` answers 200 with the core's `{ text, file, count }` after writing the
+  batch file. No comments and no note is a 422; an unknown reel or version a 404; other methods a 405.
 - `GET /reels/<reel>/v<n>/<file>` serves a version's files same-origin. Only version folders under `reels/`
   are reachable (no dot folders, no path escapes).
 - Any other `GET` (and `HEAD`) serves files from `webRoot` (the built UI), falling back to `index.html` for paths

@@ -1,4 +1,5 @@
 import { basename, join, resolve } from 'node:path';
+import { copyBatch } from './_internal/batch.ts';
 import { addComment, listComments } from './_internal/comments.ts';
 import { listReels } from './_internal/reels.ts';
 import type { Project } from './_internal/types.ts';
@@ -8,6 +9,7 @@ export { KinottaError } from './_internal/errors.ts';
 export type {
   AddedComment,
   Comment,
+  CopiedBatch,
   FramePin,
   NewComment,
   NewFramePin,
@@ -30,5 +32,6 @@ export function openProject(projectDir: string): Project {
     readVersion: (slug, number) => readVersion(dir, slug, number),
     listComments: (slug, number) => listComments(dir, slug, number),
     addComment: (slug, number, input) => addComment(dir, slug, number, input),
+    copyBatch: (slug, number) => copyBatch(dir, slug, number),
   };
 }

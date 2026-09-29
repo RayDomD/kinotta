@@ -25,6 +25,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `version`, `section` and `time` (the shot's start). `x` and `y` are fractions of the frame, rounded to 3
   decimals; `element` is the `data-el` name or null. Empty or whitespace text, an unknown shot and a position
   outside the frame throw `KinottaError` `invalid`; an unknown reel or version throws `not-found`.
+- `copyBatch(slug, n)` writes `reels/<reel>/v<n>/comments.json` (atomically, replacing any earlier copy) and returns
+  `{ text, file, count }`: the pasteable text for Claude, the saved path relative to the project root, and the
+  comment count. The batch covers the whole reel (`section: null`) and includes the version's note when it has
+  one. No comments and no note throws `KinottaError` `invalid` and writes nothing. It is the only place the editor
+  writes into a version folder; the state file is left as it was.
 
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at
@@ -34,8 +39,8 @@ Outside code imports from `index.ts` only.
 
 ## Does not handle
 
-Contract checks beyond a readable shot list (T7), stills, editing or deleting comments, notes, newest-version
-enforcement, batches and events. Later tickets add them here.
+Contract checks beyond a readable shot list (T7), stills, editing or deleting comments, notes, per-section batches, newest-version
+enforcement and events. Later tickets add them here.
 
 ## Dependencies
 

@@ -104,6 +104,18 @@ export const addComment = (slug: string, number: number, input: NewComment): Pro
     body: JSON.stringify(input),
   });
 
+export interface CopiedBatch {
+  /** The pasteable text for Claude. */
+  text: string;
+  /** Where the batch was saved, relative to the project root. */
+  file: string;
+  count: number;
+}
+
+/** Saves the version's comment batch into its folder (replacing any earlier copy) and returns the text to paste. */
+export const copyBatch = (slug: string, number: number): Promise<CopiedBatch> =>
+  requestJson(`${versionPath(slug, number)}/batch`, { method: 'POST' });
+
 /** Same-origin URL of a version's page. The stage loads it; nothing else builds server paths. */
 export const versionPageUrl = (slug: string, number: number): string =>
   `/reels/${encodeURIComponent(slug)}/v${number}/index.html`;

@@ -1,6 +1,6 @@
 // Playwright webServer entry: launches the real Kinotta server against a temp copy of a sample
 // project, with explicit mtimes so the rail order is deterministic.
-import { cpSync, mkdtempSync, readdirSync, statSync, utimesSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { register } from 'tsx/esm/api';
@@ -19,6 +19,9 @@ function setMtime(dir, when) {
 }
 setMtime(join(project, 'reels', 'broll-cutdown'), new Date('2026-01-01T10:00:00Z'));
 setMtime(join(project, 'reels', 'product-showreel'), new Date('2026-02-01T10:00:00Z'));
+
+// A spec that reads files the server wrote asks for the temp project's path here.
+if (process.env.KINOTTA_E2E_PROJECT_FILE) writeFileSync(process.env.KINOTTA_E2E_PROJECT_FILE, project);
 
 register();
 const { main } = await import('../../server/cli.ts');

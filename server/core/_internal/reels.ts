@@ -36,7 +36,7 @@ async function newestMtime(dir: string): Promise<number> {
   return sawFile ? newest : (await stat(dir)).mtimeMs;
 }
 
-async function readTitle(reelDir: string): Promise<string | null> {
+export async function readTitle(reelDir: string): Promise<string | null> {
   try {
     const parsed = JSON.parse(await readFile(join(reelDir, REEL_FILE), 'utf8')) as { title?: unknown };
     return typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title : null;

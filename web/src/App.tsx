@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchProject, fetchReels, fetchVersion } from './api/index.ts';
 import type { Comment, ReelListing, ReelSummary, Version } from './api/index.ts';
+import { CopyButton } from './CopyButton.tsx';
 import { Storyboard } from './Storyboard.tsx';
 import { formatDuration, formatTimecode } from './timecode.ts';
 import { useComments } from './useComments.ts';
@@ -37,7 +38,8 @@ function Empty({ children }: { children: string }) {
   );
 }
 
-function TopBar({ reel, version }: { reel: ReelSummary | undefined; version: Version | undefined }) {
+function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number }) {
+  const { reel, version, commentCount } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -54,6 +56,7 @@ function TopBar({ reel, version }: { reel: ReelSummary | undefined; version: Ver
           ),
         )}
       </nav>
+      {reel && version && <CopyButton slug={reel.slug} version={version.number} count={commentCount} />}
     </header>
   );
 }
@@ -192,7 +195,7 @@ export function App() {
   if (load.status !== 'ready') {
     return (
       <div className="app">
-        <TopBar reel={undefined} version={undefined} />
+        <TopBar reel={undefined} version={undefined} commentCount={0} />
         <div className="state">{load.status === 'loading' ? 'Loading…' : `Could not load reels. ${load.message}`}</div>
       </div>
     );
@@ -200,7 +203,7 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar reel={reel} version={openVersion} />
+      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} />
       <div className="body">
         <Rail project={load.project} listing={load.listing} current={reel?.slug} onOpen={setSelected} />
         <Main project={load.project} listing={load.listing} reel={reel} version={version} comments={comments} />

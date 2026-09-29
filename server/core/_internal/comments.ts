@@ -24,17 +24,17 @@ interface StateFile {
 /** Writes to one state file run one at a time, so two saves never overwrite each other. */
 const queues = new Map<string, Promise<unknown>>();
 
-function serialized<T>(file: string, task: () => Promise<T>): Promise<T> {
+export function serialized<T>(file: string, task: () => Promise<T>): Promise<T> {
   const run = (queues.get(file) ?? Promise.resolve()).then(task, task);
   queues.set(file, run.catch(() => undefined));
   return run;
 }
 
-function stateFilePath(projectDir: string, slug: string, number: number): string {
+export function stateFilePath(projectDir: string, slug: string, number: number): string {
   return join(projectDir, REELS_DIR, STATE_DIR, slug, `v${number}.json`);
 }
 
-async function readState(file: string, number: number): Promise<StateFile> {
+export async function readState(file: string, number: number): Promise<StateFile> {
   let text: string;
   try {
     text = await readFile(file, 'utf8');
@@ -59,7 +59,7 @@ async function writeState(file: string, state: StateFile): Promise<void> {
 }
 
 /** Ordered by shot start, then creation time (file order breaks exact ties), then numbered from 1. */
-function numbered(stored: StoredComment[]): Comment[] {
+export function numbered(stored: StoredComment[]): Comment[] {
   return stored
     .map((comment, index) => ({ comment, index }))
     .sort(

@@ -52,6 +52,15 @@ input { font: inherit; color: inherit; cursor: text; }
 .modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
 .modes span[aria-current] { color: var(--ink); border-color: var(--ink); }
 
+/* copy the comment batch for Claude */
+.copy { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.copy-error { max-width: 46ch; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
+.btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease); }
+.btn:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: var(--sheet-rest); }
+.btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; transition-duration: var(--t-press); }
+.btn .count { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: 6px; }
+.btn:disabled { background: none; color: var(--muted); border: 1.4px dashed var(--hairline); box-shadow: none; }
+
 /* body */
 .body { display: grid; grid-template-columns: 220px 1fr 320px; min-height: 0; }
 .state { padding: 28px; color: var(--ink-2); }

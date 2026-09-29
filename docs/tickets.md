@@ -53,17 +53,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `top`
 
-## T4 (#6). Copy the comment batch for Claude
+## T4 (#6). Copy the comment batch for Claude — Done
 
 **What to build:** "Copy all comments" writes the structured batch into the version folder and puts pasteable text on the clipboard: reel and version, each comment numbered as shot, time, element: text, then notes, and where the file was saved (D6). The button shows the comment count and confirms the copy. Copying again overwrites the saved batch (S7). An empty batch cannot be copied. This ticket adds the end-to-end browser test of the pin path (S8).
 
 **Acceptance criteria:**
 
-- [ ] Batch file is written into the version folder and matches the comments
-- [ ] Clipboard text names each comment's shot, time and element
-- [ ] Re-copy after a new comment overwrites the batch file
-- [ ] Copy is disabled or clearly empty with zero comments
-- [ ] End-to-end test: open storyboard, enlarge, pin a named element, comment, copy, assert file and clipboard
+- [x] Batch file is written into the version folder and matches the comments
+- [x] Clipboard text names each comment's shot, time and element
+- [x] Re-copy after a new comment overwrites the batch file
+- [x] Copy is disabled or clearly empty with zero comments
+- [x] End-to-end test: open storyboard, enlarge, pin a named element, comment, copy, assert file and clipboard
 
 **Blocked by:** #5
 

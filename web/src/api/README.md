@@ -7,7 +7,8 @@ The only module in the UI that talks to the Kinotta server (D10).
 `index.ts` exports `fetchProject()` (`{ name }`), `fetchReels()` (`{ state, reels }`),
 `fetchVersion(slug, n)` (a version's shots, overlays and sections), `versionPageUrl(slug, n)` (the same-origin
 URL of a version's `index.html`, the only place server paths are built), `fetchComments(slug, n)` (a version's
-numbered comments), `addComment(slug, n, { pin, text })` (resolves with `{ comment, comments }`) and their types.
+numbered comments), `addComment(slug, n, { pin, text })` (resolves with `{ comment, comments }`), `copyBatch(slug, n)` (saves the batch file, resolves with
+`{ text, file, count }`) and their types.
 
 ## Does not handle
 
