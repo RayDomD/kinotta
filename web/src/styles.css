@@ -31,8 +31,12 @@ body {
   color: var(--ink);
   font: 15px/1.5 Outfit, "Segoe UI", sans-serif;
   overflow: hidden;
+  cursor: var(--cur-hex), default;
 }
-button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: var(--cur-hex-fill), pointer; }
+button:disabled { cursor: var(--cur-hex), not-allowed; }
+input { font: inherit; color: inherit; cursor: text; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 :focus-visible { outline: 1.6px solid var(--ink); outline-offset: 2px; }
 
 .num { font-variant-numeric: tabular-nums; }
@@ -69,13 +73,23 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 /* storyboard grid */
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 22px; }
-.shot { display: block; width: 100%; text-align: left; padding: 8px; border: 1.6px solid transparent; transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease), background var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
-.shot:hover, .shot:focus-visible { outline: none; background: var(--card); border-color: var(--ink); transform: translate(-3px, -3px); box-shadow: var(--sheet-lift); }
+.shot { position: relative; display: block; width: 100%; text-align: left; padding: 8px; border: 1.6px solid transparent; transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease), background var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.shot:hover, .shot:has(.open:focus-visible) { background: var(--card); border-color: var(--ink); transform: translate(-3px, -3px); box-shadow: var(--sheet-lift); }
 .shot:active { transform: translate(3px, 3px); box-shadow: var(--sheet-press); background: var(--card-raised); transition-duration: var(--t-press); }
+/* the one real button of a card, stretched over all of it */
+.shot .open { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; }
+.shot .open:focus-visible { outline: none; }
 .lbl { display: flex; justify-content: space-between; align-items: baseline; margin-top: 9px; font-size: 15px; font-weight: 500; }
 .lbl .dot { color: var(--light); font-size: 14px; margin-right: 8px; }
 .lbl .t { font-family: Doto, monospace; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 .desc { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 3px; }
+.pins-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--light); font-size: 12px; margin-left: 8px; }
+
+/* pins */
+.hexpin { position: absolute; width: 22px; height: 22px; transform: translate(-50%, -50%); display: grid; place-items: center; filter: drop-shadow(0 0 4px var(--light-glow)); pointer-events: none; z-index: 1; }
+.hexpin svg { position: absolute; inset: 0; }
+.hexpin b { position: relative; font: 800 11px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ground); }
+.hexpin.draft { width: 26px; height: 26px; z-index: 4; }
 
 /* live still: the version page at 1920x1080, scaled down to the box */
 .still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: oklch(.13 .006 50); }
@@ -85,7 +99,40 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 /* comments column */
 .comments { border-left: 1px solid var(--rule); padding: 18px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.comments header { display: flex; justify-content: space-between; align-items: baseline; }
 .comments h2 { font-size: 16px; font-weight: 600; }
+.clist { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.c { background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 10px 12px; margin: 0 10px 6px 0; }
+.c .where { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.c .where .dot { color: var(--light); font-size: 13px; }
+.c .el { color: var(--light); }
+.c p { font-size: 14px; margin-top: 4px; color: var(--ink); overflow-wrap: anywhere; }
+
+/* enlarged shot */
+.scrim { position: fixed; inset: 52px 0 0 0; background: oklch(.12 .003 106 / .86); display: grid; overflow: auto; padding: 16px; z-index: 10; }
+.sheet { width: min(1040px, 78vw, max(480px, calc((100vh - 52px - 250px) * 16 / 9 + 64px))); margin: auto; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 16px 18px 18px; animation: sheet-in 300ms var(--ease); }
+.sheet:focus { outline: none; }
+@keyframes sheet-in { from { opacity: 0; transform: scale(.97); } }
+.sheet .lbl { margin: 0 0 12px; }
+.sheet .lbl .t { margin-left: 10px; }
+.sheet .close { color: var(--muted); font-size: 14px; transition: color var(--t-color) var(--ease); }
+.sheet .close:hover { color: var(--ink); }
+.well { background: var(--ground-deep); padding: 14px; }
+.pinnable { cursor: var(--cur-pin), crosshair; }
+.pinnable .hit { position: absolute; inset: 0; z-index: 3; cursor: var(--cur-pin), crosshair; }
+.pinnable .hot { position: absolute; outline: 1.5px solid var(--light); outline-offset: 3px; box-shadow: 0 0 12px var(--light-glow); pointer-events: none; z-index: 2; }
+.tag { position: absolute; background: var(--light); color: var(--ground); font: 600 12px Outfit, sans-serif; padding: 2px 7px; white-space: nowrap; pointer-events: none; z-index: 5; }
+.pop { position: absolute; z-index: 6; width: min(300px, 100%); padding: 8px; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); }
+.draft input { width: 100%; background: var(--ground-deep); border: 1.4px solid var(--hairline); color: var(--ink); font: 16px Outfit, sans-serif; padding: 7px 9px; transition: border-color var(--t-color) var(--ease); }
+.draft input:focus { outline: none; border-color: var(--light); }
+.draft-error { margin-top: 6px; font-size: 13px; color: var(--ink-2); }
+.pinrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+.pinrow .label { margin-right: 4px; }
+.chip { font-size: 13px; padding: 2px 9px; color: var(--ink-2); border: 1.2px solid var(--hairline); transition: color var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.chip:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
+.chip:disabled { color: var(--muted); border-style: dashed; }
+.hint { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); padding: 0 5px; color: var(--ink-2); }
 
 /* empty state with dot terrain */
 .empty { position: relative; border: 1.4px dashed var(--hairline); padding: 18px 14px 44px; color: var(--ink-2); font-size: 14px; max-width: 60ch; }

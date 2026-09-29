@@ -37,17 +37,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `top`
 
-## T3 (#5). Enlarge a shot and pin a comment to an element
+## T3 (#5). Enlarge a shot and pin a comment to an element — Done
 
 **What to build:** Clicking a shot opens it large in the stacked-paper sheet; arrow keys step shots and Esc or Close returns to the grid. Over the frame the hex cursor with a centre dot shows, and the element under it gets an ice-blue outline and a name tag that never covers the reel's content (D18). A click creates a pin (version, shot, time, x and y as frame fractions, element name or none) and the comment is typed right away. The core saves it; the pin shows as a numbered filled hex on the frame, the still and the comments panel as a stacked-paper card.
 
 **Acceptance criteria:**
 
-- [ ] Clicking a named element records its name; clicking empty frame records position only
-- [ ] The name tag repositions or flips so it never covers content or leaves the frame
-- [ ] Pins persist across a browser reload
-- [ ] Pin numbers match between frame, still and comments panel
-- [ ] Arrow keys, Esc and Close work; all controls are keyboard reachable
+- [x] Clicking a named element records its name; clicking empty frame records position only
+- [x] The name tag repositions or flips so it never covers content or leaves the frame
+- [x] Pins persist across a browser reload
+- [x] Pin numbers match between frame, still and comments panel
+- [x] Arrow keys, Esc and Close work; all controls are keyboard reachable
 
 **Blocked by:** #4
 

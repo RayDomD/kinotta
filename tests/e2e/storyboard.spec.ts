@@ -71,6 +71,7 @@ test('hover and keyboard focus lift a shot into stacked paper', async ({ page })
   await page.goto('/');
 
   const shot = page.locator('.grid .shot').nth(1);
+  const open = shot.getByRole('button');
   await expect(shot).toHaveCSS('transform', 'none');
   await expect(shot).toHaveCSS('transition-duration', /0\.38s/);
 
@@ -81,11 +82,22 @@ test('hover and keyboard focus lift a shot into stacked paper', async ({ page })
   await page.mouse.move(0, 0);
   await expect(shot).toHaveCSS('transform', 'none');
 
-  await shot.focus();
+  await open.focus();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Shift+Tab');
-  await expect(shot).toBeFocused();
+  await expect(open).toBeFocused();
   await expect(shot).toHaveCSS('transform', 'matrix(1, 0, 0, 1, -3, -3)');
+});
+
+test('each card has one real button named for its shot, and no button holds a frame', async ({ page }) => {
+  await page.goto('/');
+
+  const buttons = page.locator('.grid .shot').getByRole('button');
+  await expect(buttons).toHaveCount(6);
+  await expect(buttons.nth(0)).toHaveAccessibleName('Shot 01, Cube lands, 00.00');
+  await expect(buttons.nth(2)).toHaveAccessibleName('Shot 03, Word slams, 03.60');
+  await expect(page.locator('button iframe')).toHaveCount(0);
+  await expect(page.locator('.grid .shot').nth(2).locator('iframe')).toHaveCount(1);
 });
 
 test('reduced motion removes the lift transition', async ({ page }) => {

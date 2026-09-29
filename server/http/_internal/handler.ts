@@ -3,10 +3,22 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { KinottaError } from '../../core/index.ts';
-import type { Project } from '../../core/index.ts';
+import type { NewComment, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
+const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const VERSION_FOLDER = /^v\d+$/;
+const MAX_BODY_BYTES = 16 * 1024;
+
+/** A request the server cannot read: malformed JSON (400) or a body over the size limit (413). */
+class BadRequest extends Error {
+  constructor(
+    readonly status: 400 | 413,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 const REELS_PREFIX = '/reels/';
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -38,8 +50,33 @@ function sendNotFound(res: ServerResponse): void {
 }
 
 function sendError(res: ServerResponse, err: unknown): void {
-  if (err instanceof KinottaError) sendJson(res, err.code === 'not-found' ? 404 : 422, { error: err.message });
+  if (err instanceof BadRequest) sendJson(res, err.status, { error: err.message });
+  else if (err instanceof KinottaError) sendJson(res, err.code === 'not-found' ? 404 : 422, { error: err.message });
   else sendJson(res, 500, { error: err instanceof Error ? err.message : 'Server error' });
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > MAX_BODY_BYTES) throw new BadRequest(413, 'The request body is too large.');
+    chunks.push(chunk as Buffer);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw new BadRequest(400, 'The request body is not valid JSON.');
+  }
+}
+
+async function handleComments(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const version = Number(route[2]);
+  if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (req.method === 'POST') sendJson(res, 201, await project.addComment(slug, version, (await readJsonBody(req)) as NewComment));
+  else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { comments: await project.listComments(slug, version) });
+  else res.writeHead(405).end();
 }
 
 function sendFile(req: IncomingMessage, res: ServerResponse, file: string): void {
@@ -93,7 +130,10 @@ export function createHandler(project: Project, webRoot: string) {
     try {
       const { pathname } = new URL(req.url ?? '/', 'http://localhost');
       const versionRoute = VERSION_API.exec(pathname);
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const commentsRoute = COMMENTS_API.exec(pathname);
+      if (commentsRoute) {
+        await handleComments(req, res, project, commentsRoute);
+      } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { fetchProject, fetchReels, fetchVersion } from './api/index.ts';
-import type { ReelListing, ReelSummary, Version } from './api/index.ts';
+import type { Comment, ReelListing, ReelSummary, Version } from './api/index.ts';
 import { Storyboard } from './Storyboard.tsx';
-import { formatDuration } from './timecode.ts';
+import { formatDuration, formatTimecode } from './timecode.ts';
+import { useComments } from './useComments.ts';
+import type { CommentsState } from './useComments.ts';
 
 type Load =
   | { status: 'loading' }
@@ -78,8 +80,8 @@ function Rail(props: { project: string; listing: ReelListing; current: string | 
   );
 }
 
-function Main(props: { project: string; listing: ReelListing; reel: ReelSummary | undefined; version: VersionLoad }) {
-  const { project, listing, reel, version } = props;
+function Main(props: { project: string; listing: ReelListing; reel: ReelSummary | undefined; version: VersionLoad; comments: CommentsState }) {
+  const { project, listing, reel, version, comments } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
@@ -89,7 +91,13 @@ function Main(props: { project: string; listing: ReelListing; reel: ReelSummary 
   return (
     <main className="main">
       {version.status === 'ready' ? (
-        <Storyboard key={`${reel.slug}/${version.version.number}`} slug={reel.slug} version={version.version} />
+        <Storyboard
+          key={`${reel.slug}/${version.version.number}`}
+          slug={reel.slug}
+          version={version.version}
+          comments={comments.comments}
+          save={comments.save}
+        />
       ) : version.status === 'loading' ? (
         <div className="state">Loading…</div>
       ) : version.status === 'error' ? (
@@ -101,11 +109,39 @@ function Main(props: { project: string; listing: ReelListing; reel: ReelSummary 
   );
 }
 
-function Comments() {
+function CommentCard({ comment }: { comment: Comment }) {
+  const { pin } = comment;
+  return (
+    <li className="c">
+      <div className="where">
+        <span className="dot">{comment.number}</span>
+        <span className="num">{`Shot ${pin.shot} · ${formatTimecode(pin.time)}s`}</span>
+        <span className={pin.element ? 'el' : undefined}>{pin.element ?? 'position'}</span>
+      </div>
+      <p>{comment.text}</p>
+    </li>
+  );
+}
+
+function Comments({ version, state }: { version: number | undefined; state: CommentsState }) {
+  const { comments, error } = state;
   return (
     <aside className="comments" aria-label="Comments">
-      <header><h2>Comments</h2></header>
-      <Empty>No comments yet.</Empty>
+      <header>
+        <h2>Comments</h2>
+        {version !== undefined && <span className="meta num">{`v${version} · ${comments.length}`}</span>}
+      </header>
+      {error ? (
+        <Empty>{`Could not read the comments. ${error}`}</Empty>
+      ) : comments.length > 0 ? (
+        <ol className="clist" aria-label="Comments on this version">
+          {comments.map((comment) => (
+            <CommentCard key={comment.id} comment={comment} />
+          ))}
+        </ol>
+      ) : (
+        <Empty>No comments yet.</Empty>
+      )}
     </aside>
   );
 }
@@ -141,6 +177,8 @@ export function App() {
   const [selected, setSelected] = useState<string | undefined>();
   const reel = load.status === 'ready' ? load.listing.reels.find((r) => r.slug === selected) : undefined;
   const version = useNewestVersion(reel);
+  const openVersion = version.status === 'ready' ? version.version : undefined;
+  const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number);
 
   useEffect(() => {
     Promise.all([fetchProject(), fetchReels()])
@@ -162,11 +200,11 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar reel={reel} version={version.status === 'ready' ? version.version : undefined} />
+      <TopBar reel={reel} version={openVersion} />
       <div className="body">
         <Rail project={load.project} listing={load.listing} current={reel?.slug} onOpen={setSelected} />
-        <Main project={load.project} listing={load.listing} reel={reel} version={version} />
-        <Comments />
+        <Main project={load.project} listing={load.listing} reel={reel} version={version} comments={comments} />
+        <Comments version={openVersion?.number} state={comments} />
       </div>
     </div>
   );

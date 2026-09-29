@@ -12,12 +12,25 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
   to fill a 16:9 box, then `await Promise.resolve(seek(time))` and two animation frames. `data-state` on the
   root is `idle` (not in view yet), `loading`, `ready` or `failed`. A missing or throwing `seek` shows a plain
   labelled placeholder with the reason, never a black frame. Stills take no focus and no pointer events.
-- `seekPage(window, seconds)`, the seek-and-wait step on its own, for the enlarged frame in T3.
+  `PageStill` also draws its `children` (the still's pins) over the page.
+- `PinFrame({ pageUrl, time, title, onPick, onElements, draft, draftContent, children })`, the enlarged frame. Same
+  loading and seeking as a still. A transparent layer over the frame takes the pointer (the frame itself keeps
+  `pointer-events: none`). For the pointer position, the stage maps it into page coordinates, calls
+  `elementFromPoint` in the page and takes the closest `[data-el]`. The page is only read, never changed: the
+  ice-blue outline and the name tag are drawn in the parent. The tag goes above, below, right or left of the
+  element, at the first spot that stays inside the frame and off the element, every other named element, every
+  visible leaf element and every line of text (ancestors of the hovered element excepted); if none is clean it
+  takes the least overlap, always clamped inside the frame. `onPick({ x, y, element })` reports a click as
+  fractions of the frame and the element name or null. `onElements` reports the visible named elements
+  (`{ name, x, y }`, centre as fractions) after each draw, for a keyboard pin path. `draft` draws the pin being
+  placed and floats `draftContent` (the comment input) beside it by the same placement rule. `data-state` is
+  `loading`, `ready` or `failed`.
+- `seekPage(window, seconds)`, the seek-and-wait step on its own.
 - `renderUrl(pageUrl)`, `PAGE_WIDTH`, `PAGE_HEIGHT`.
 
 ## Does not handle
 
-Hit-testing on `data-el` elements, playback, the issue list for broken pages (T7). Later tickets add them here.
+Playback, word pins, the issue list for broken pages (T7). Later tickets add them here.
 
 ## Dependencies
 
