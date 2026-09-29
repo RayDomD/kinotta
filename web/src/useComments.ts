@@ -10,8 +10,11 @@ export interface CommentsState {
   save(input: NewComment): Promise<void>;
 }
 
-/** The comments of one version, loaded when the version changes and renumbered by every save. */
-export function useComments(slug: string | undefined, number: number | undefined): CommentsState {
+/**
+ * The comments of one version, loaded when the version changes (or `refresh` does, when the server says its comments
+ * changed) and renumbered by every save.
+ */
+export function useComments(slug: string | undefined, number: number | undefined, refresh = 0): CommentsState {
   const key = slug === undefined || number === undefined ? null : `${slug}/${number}`;
   const [loaded, setLoaded] = useState<{ key: string; comments: Comment[]; error: string | null } | null>(null);
 
@@ -25,7 +28,7 @@ export function useComments(slug: string | undefined, number: number | undefined
     return () => {
       current = false;
     };
-  }, [key, slug, number]);
+  }, [key, slug, number, refresh]);
 
   const save = useCallback(
     async (input: NewComment) => {

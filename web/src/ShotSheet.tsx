@@ -15,6 +15,8 @@ export interface ShotSheetProps {
   /** Index into `shots` of the enlarged shot. */
   index: number;
   comments: Comment[];
+  /** Set on a version that cannot take comments: the sheet then shows the frame only, with this line saying why. */
+  readOnlyNote?: string | null;
   save(input: NewComment): Promise<void>;
   onStep(index: number): void;
   onClose(): void;
@@ -25,12 +27,15 @@ interface Draft extends FramePick {
   id: number;
 }
 
+const ignorePick = (): void => undefined;
+
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, shots, index, comments, save, onStep, onClose }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, shots, index, comments, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
+  const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
   const draftCount = useRef(0);
@@ -116,10 +121,11 @@ export function ShotSheet({ pageUrl, shots, index, comments, save, onStep, onClo
   const pins = comments.filter((c) => c.pin.shot === shot.number);
   const timecode = formatTimecode(shot.start);
   const where = draft?.element ?? 'this position';
+  const openDraft = readOnly ? null : draft;
 
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={sheet} className="sheet" role="dialog" aria-modal="true" aria-labelledby={`${numberId} ${titleId}`} tabIndex={-1}>
+      <div ref={sheet} className={readOnly ? 'sheet readonly' : 'sheet'} role="dialog" aria-modal="true" aria-labelledby={`${numberId} ${titleId}`} tabIndex={-1}>
         <div className="lbl">
           <span>
             <span id={numberId} className="dot">{shot.number}</span>
@@ -133,14 +139,14 @@ export function ShotSheet({ pageUrl, shots, index, comments, save, onStep, onClo
             pageUrl={pageUrl}
             time={shot.start}
             title={`Shot ${shot.number}`}
-            onPick={startDraft}
+            onPick={readOnly ? ignorePick : startDraft}
             onElements={setElements}
-            draft={draft}
+            draft={openDraft}
             draftContent={
-              draft && (
+              openDraft && (
                 <form className="draft" onSubmit={submit}>
                   <input
-                    key={draft.id}
+                    key={openDraft.id}
                     autoFocus
                     type="text"
                     value={text}
@@ -161,17 +167,21 @@ export function ShotSheet({ pageUrl, shots, index, comments, save, onStep, onClo
             ))}
           </PinFrame>
         </div>
-        <div className="pinrow" role="group" aria-labelledby={`${titleId}-pin`}>
-          <span id={`${titleId}-pin`} className="label">Pin an element</span>
-          {(elements ?? []).map((el) => (
-            <button key={el.name} type="button" className="chip" onClick={() => startDraft({ x: el.x, y: el.y, element: el.name })}>
-              {el.name}
+        {readOnly ? (
+          <p className="pinrow meta">{readOnlyNote}</p>
+        ) : (
+          <div className="pinrow" role="group" aria-labelledby={`${titleId}-pin`}>
+            <span id={`${titleId}-pin`} className="label">Pin an element</span>
+            {(elements ?? []).map((el) => (
+              <button key={el.name} type="button" className="chip" onClick={() => startDraft({ x: el.x, y: el.y, element: el.name })}>
+                {el.name}
+              </button>
+            ))}
+            <button type="button" className="chip" disabled={elements === null} onClick={() => startDraft(FRAME_CENTRE)}>
+              Frame centre (position only)
             </button>
-          ))}
-          <button type="button" className="chip" disabled={elements === null} onClick={() => startDraft(FRAME_CENTRE)}>
-            Frame centre (position only)
-          </button>
-        </div>
+          </div>
+        )}
         <div className="hint">
           <span>{shot.description}</span>
           <span><kbd>←</kbd> <kbd>→</kbd> shots</span>

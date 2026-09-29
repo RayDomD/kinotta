@@ -7,9 +7,12 @@ import type { NewComment, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
+const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
+const HEARTBEAT_MS = 25_000;
+const HTTP_CONFLICT = 409;
 
 /** A request the server cannot read: malformed JSON (400) or a body over the size limit (413). */
 class BadRequest extends Error {
@@ -50,9 +53,11 @@ function sendNotFound(res: ServerResponse): void {
   res.end('Not found');
 }
 
+const KINOTTA_STATUS: Record<KinottaError['code'], number> = { 'not-found': 404, invalid: 422, frozen: HTTP_CONFLICT };
+
 function sendError(res: ServerResponse, err: unknown): void {
   if (err instanceof BadRequest) sendJson(res, err.status, { error: err.message });
-  else if (err instanceof KinottaError) sendJson(res, err.code === 'not-found' ? 404 : 422, { error: err.message });
+  else if (err instanceof KinottaError) sendJson(res, KINOTTA_STATUS[err.code], { error: err.message });
   else sendJson(res, 500, { error: err instanceof Error ? err.message : 'Server error' });
 }
 
@@ -85,6 +90,18 @@ async function handleBatch(req: IncomingMessage, res: ServerResponse, project: P
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'POST') sendJson(res, 200, await project.copyBatch(slug, Number(route[2])));
   else res.writeHead(405).end();
+}
+
+/** Server-sent events: every project event as one JSON message, and a comment line now and then to keep the stream open. */
+function streamEvents(res: ServerResponse, project: Project): void {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+  res.write(': connected\n\n');
+  const unsubscribe = project.subscribe((event) => res.write(`data: ${JSON.stringify(event)}\n\n`));
+  const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), HEARTBEAT_MS);
+  res.on('close', () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
 }
 
 function sendFile(req: IncomingMessage, res: ServerResponse, file: string): void {
@@ -139,6 +156,7 @@ export function createHandler(project: Project, webRoot: string) {
       const { pathname } = new URL(req.url ?? '/', 'http://localhost');
       const versionRoute = VERSION_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
+      const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
@@ -150,6 +168,12 @@ export function createHandler(project: Project, webRoot: string) {
         sendJson(res, 200, { name: project.name });
       } else if (pathname === '/api/reels') {
         sendJson(res, 200, await project.listReels());
+      } else if (pathname === '/api/events') {
+        streamEvents(res, project);
+      } else if (versionsRoute) {
+        const slug = safeDecode(versionsRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { versions: await project.listVersions(slug) });
       } else if (versionRoute) {
         const slug = safeDecode(versionRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });

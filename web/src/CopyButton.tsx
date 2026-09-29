@@ -8,8 +8,8 @@ type Outcome =
   | { status: 'copied'; count: number }
   | { status: 'failed'; message: string };
 
-/** Top bar button: saves the version's comment batch for Claude and puts the pasteable text on the clipboard. */
-export function CopyButton({ slug, version, count }: { slug: string; version: number; count: number }) {
+/** Top bar button (disabled on a version that is read-only): saves the version's comment batch for Claude and puts the pasteable text on the clipboard. */
+export function CopyButton({ slug, version, count, frozen = false }: { slug: string; version: number; count: number; frozen?: boolean }) {
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
   const [busy, setBusy] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -46,8 +46,8 @@ export function CopyButton({ slug, version, count }: { slug: string; version: nu
       <button
         type="button"
         className="btn"
-        disabled={empty || busy}
-        aria-label={empty ? 'Copy all comments, none yet' : copied ? 'Copied' : `Copy all comments, ${count}`}
+        disabled={frozen || empty || busy}
+        aria-label={frozen ? `Copy all comments, unavailable because v${version} is read-only` : empty ? 'Copy all comments, none yet' : copied ? 'Copied' : `Copy all comments, ${count}`}
         onClick={copy}
       >
         {copied ? 'Copied' : 'Copy all comments'}

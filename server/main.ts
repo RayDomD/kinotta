@@ -40,6 +40,11 @@ export async function startServer({ projectDir, port = DEFAULT_PORT }: StartOpti
   return {
     url: `http://localhost:${bound}`,
     port: bound,
-    close: () => new Promise((done) => server.close(() => done())),
+    close: () =>
+      new Promise((done) => {
+        server.close(() => done());
+        // Event streams stay open until the browser leaves; closing must not wait for them.
+        server.closeAllConnections();
+      }),
   };
 }

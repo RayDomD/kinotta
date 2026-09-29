@@ -48,6 +48,20 @@ export interface Version {
   changedSections?: string[];
 }
 
+/** One row of a reel's version rail. */
+export interface VersionEntry {
+  number: number;
+  isNewest: boolean;
+  /** v1 in this phase. */
+  isStoryboard: boolean;
+}
+
+/** What the server reports as it happens. */
+export type ProjectEvent =
+  | { type: 'version-added'; reel: string; version: number }
+  | { type: 'reels-changed' }
+  | { type: 'comments-changed'; reel: string; version: number };
+
 export interface FramePin {
   kind: 'frame';
   version: number;
@@ -90,6 +104,9 @@ const versionPath = (slug: string, number: number): string => `/api/reels/${enco
 
 export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
 export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
+/** A reel's versions, oldest first. */
+export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
+  (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;
 export const fetchVersion = (slug: string, number: number): Promise<Version> => getJson(versionPath(slug, number));
 
 /** A version's comments, in number order. */
@@ -119,3 +136,16 @@ export const copyBatch = (slug: string, number: number): Promise<CopiedBatch> =>
 /** Same-origin URL of a version's page. The stage loads it; nothing else builds server paths. */
 export const versionPageUrl = (slug: string, number: number): string =>
   `/reels/${encodeURIComponent(slug)}/v${number}/index.html`;
+
+/** Listens to the server's change events. Returns the function that stops listening; the browser reconnects on its own. */
+export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
+  const source = new EventSource('/api/events');
+  source.onmessage = (message: MessageEvent<string>) => {
+    try {
+      onEvent(JSON.parse(message.data) as ProjectEvent);
+    } catch {
+      // A message that is not an event is ignored.
+    }
+  };
+  return () => source.close();
+}

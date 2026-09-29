@@ -1,10 +1,11 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
-import type { Overlay, Section, Shot, Version } from './types.ts';
+import type { Overlay, Section, Shot, Version, VersionEntry } from './types.ts';
 
 const REELS_DIR = 'reels';
 const SHOTS_FILE = 'shots.json';
+const STORYBOARD_VERSION = 1;
 const SAFE_SLUG = /^[^./\\][^/\\]*$/;
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -15,13 +16,45 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
-async function newestVersionNumber(reelDir: string): Promise<number> {
-  const numbers = (await readdir(reelDir, { withFileTypes: true }))
+async function versionNumbers(reelDir: string): Promise<number[]> {
+  return (await readdir(reelDir, { withFileTypes: true }))
     .filter((e) => e.isDirectory())
     .map((e) => /^v(\d+)$/.exec(e.name))
     .filter((m): m is RegExpExecArray => m !== null)
-    .map((m) => Number(m[1]));
-  return Math.max(...numbers);
+    .map((m) => Number(m[1]))
+    .sort((a, b) => a - b);
+}
+
+async function newestVersionNumber(reelDir: string): Promise<number> {
+  return Math.max(...(await versionNumbers(reelDir)));
+}
+
+async function requireReelDir(projectDir: string, slug: string): Promise<string> {
+  const reelDir = join(projectDir, REELS_DIR, slug);
+  if (!SAFE_SLUG.test(slug) || !(await isDirectory(reelDir))) {
+    throw new KinottaError('not-found', `Reel "${slug}" not found.`);
+  }
+  return reelDir;
+}
+
+/** Every version folder of a reel, oldest first. v1 is the storyboard in this phase. */
+export async function listVersions(projectDir: string, slug: string): Promise<VersionEntry[]> {
+  const numbers = await versionNumbers(await requireReelDir(projectDir, slug));
+  const newest = numbers[numbers.length - 1];
+  return numbers.map((number) => ({ number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION }));
+}
+
+/**
+ * The one guard every comment change goes through (S6): only the newest version takes changes. Throws
+ * `not-found` for an unknown reel or version and `frozen` for an older one.
+ */
+export async function assertTakesComments(projectDir: string, slug: string, number: number): Promise<Version> {
+  const version = await readVersion(projectDir, slug, number);
+  if (!version.isNewest) {
+    const newest = await newestVersionNumber(join(projectDir, REELS_DIR, slug));
+    throw new KinottaError('frozen', `v${number} is frozen. Only the newest version, v${newest}, takes comments.`);
+  }
+  return version;
 }
 
 async function readShotsFile(versionDir: string, number: number): Promise<Record<string, unknown>> {
@@ -63,10 +96,7 @@ function readShots(raw: unknown, duration: number, number: number): Shot[] {
 }
 
 export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
-  const reelDir = join(projectDir, REELS_DIR, slug);
-  if (!SAFE_SLUG.test(slug) || !(await isDirectory(reelDir))) {
-    throw new KinottaError('not-found', `Reel "${slug}" not found.`);
-  }
+  const reelDir = await requireReelDir(projectDir, slug);
   const versionDir = join(reelDir, `v${number}`);
   if (!Number.isInteger(number) || number < 1 || !(await isDirectory(versionDir))) {
     throw new KinottaError('not-found', `Version ${number} of reel "${slug}" not found.`);

@@ -10,6 +10,10 @@ const PINS_PORT = 4398;
 const BATCH_PORT = 4397;
 const BATCH_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-batch-project.txt');
 
+/** A fourth for versions.spec.ts, which adds a version folder to the temp project while the editor is open. */
+const VERSIONS_PORT = 4395;
+const VERSIONS_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-versions-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -35,6 +39,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${BATCH_PORT}`,
       env: { ...serverEnv(BATCH_PORT), KINOTTA_E2E_PROJECT_FILE: BATCH_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${VERSIONS_PORT}`,
+      env: { ...serverEnv(VERSIONS_PORT), KINOTTA_E2E_PROJECT_FILE: VERSIONS_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },

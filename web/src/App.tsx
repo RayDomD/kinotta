@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { fetchProject, fetchReels, fetchVersion } from './api/index.ts';
-import type { Comment, ReelListing, ReelSummary, Version } from './api/index.ts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe } from './api/index.ts';
+import type { Comment, ProjectEvent, ReelListing, ReelSummary, Version, VersionEntry } from './api/index.ts';
 import { CopyButton } from './CopyButton.tsx';
 import { Storyboard } from './Storyboard.tsx';
+import { readOnlyNote } from './readOnly.ts';
 import { formatDuration, formatTimecode } from './timecode.ts';
 import { useComments } from './useComments.ts';
 import type { CommentsState } from './useComments.ts';
@@ -38,8 +39,8 @@ function Empty({ children }: { children: string }) {
   );
 }
 
-function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number }) {
-  const { reel, version, commentCount } = props;
+function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number; frozen: boolean }) {
+  const { reel, version, commentCount, frozen } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -56,13 +57,54 @@ function TopBar(props: { reel: ReelSummary | undefined; version: Version | undef
           ),
         )}
       </nav>
-      {reel && version && <CopyButton slug={reel.slug} version={version.number} count={commentCount} />}
+      {reel && version && <CopyButton slug={reel.slug} version={version.number} count={commentCount} frozen={frozen} />}
     </header>
   );
 }
 
-function Rail(props: { project: string; listing: ReelListing; current: string | undefined; onOpen(slug: string): void }) {
-  const { project, listing, current, onOpen } = props;
+interface VersionRailProps {
+  entries: VersionEntry[];
+  selected: number | undefined;
+  /** Versions Claude wrote since the reel was opened and the reviewer has not opened yet. */
+  ready: ReadonlySet<number>;
+  onOpen(number: number): void;
+}
+
+function VersionRail({ entries, selected, ready, onOpen }: VersionRailProps) {
+  return (
+    <div>
+      <div className="label">Versions</div>
+      <nav className="versions" aria-label="Versions">
+        {entries.map((entry) => (
+          <button
+            key={entry.number}
+            type="button"
+            aria-current={entry.number === selected ? 'true' : undefined}
+            data-newest={entry.isNewest ? 'true' : undefined}
+            onClick={() => onOpen(entry.number)}
+          >
+            <span>{`v${entry.number}`}</span>
+            <span className="tags">
+              {entry.isNewest ? <small className="num">now</small> : entry.isStoryboard ? <small className="num">storyboard</small> : null}
+              {ready.has(entry.number) && entry.number !== selected && <small className="num ready-mark">ready</small>}
+            </span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+interface RailProps {
+  project: string;
+  listing: ReelListing;
+  current: string | undefined;
+  versions: Omit<VersionRailProps, 'onOpen'> & { onOpenVersion(number: number): void };
+  onOpen(slug: string): void;
+}
+
+function Rail(props: RailProps) {
+  const { project, listing, current, versions, onOpen } = props;
   return (
     <aside className="rail" aria-label="Project">
       <div>
@@ -79,12 +121,39 @@ function Rail(props: { project: string; listing: ReelListing; current: string | 
           <div className="meta rail-none">None</div>
         )}
       </div>
+      {current !== undefined && versions.entries.length > 0 && (
+        <VersionRail entries={versions.entries} selected={versions.selected} ready={versions.ready} onOpen={versions.onOpenVersion} />
+      )}
     </aside>
   );
 }
 
-function Main(props: { project: string; listing: ReelListing; reel: ReelSummary | undefined; version: VersionLoad; comments: CommentsState }) {
-  const { project, listing, reel, version, comments } = props;
+function ReadyNotice({ version, onOpen }: { version: number | null; onOpen(number: number): void }) {
+  return (
+    <div className="notice-slot" role="status">
+      {version !== null && (
+        <div className="notice">
+          <span>{`v${version} is ready.`}</span>
+          <button type="button" className="btn" onClick={() => onOpen(version)}>{`Open v${version}`}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface MainProps {
+  project: string;
+  listing: ReelListing;
+  reel: ReelSummary | undefined;
+  version: VersionLoad;
+  newest: number | undefined;
+  readyVersion: number | null;
+  onOpenVersion(number: number): void;
+  comments: CommentsState;
+}
+
+function Main(props: MainProps) {
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
@@ -93,11 +162,13 @@ function Main(props: { project: string; listing: ReelListing; reel: ReelSummary 
   }
   return (
     <main className="main">
+      <ReadyNotice version={readyVersion} onOpen={onOpenVersion} />
       {version.status === 'ready' ? (
         <Storyboard
           key={`${reel.slug}/${version.version.number}`}
           slug={reel.slug}
           version={version.version}
+          newest={newest ?? version.version.number}
           comments={comments.comments}
           save={comments.save}
         />
@@ -126,7 +197,7 @@ function CommentCard({ comment }: { comment: Comment }) {
   );
 }
 
-function Comments({ version, state }: { version: number | undefined; state: CommentsState }) {
+function Comments({ version, newest, state }: { version: number | undefined; newest: number | undefined; state: CommentsState }) {
   const { comments, error } = state;
   return (
     <aside className="comments" aria-label="Comments">
@@ -134,6 +205,7 @@ function Comments({ version, state }: { version: number | undefined; state: Comm
         <h2>Comments</h2>
         {version !== undefined && <span className="meta num">{`v${version} · ${comments.length}`}</span>}
       </header>
+      {version !== undefined && newest !== undefined && version !== newest && <p className="readonly-note">{readOnlyNote(version, newest)}</p>}
       {error ? (
         <Empty>{`Could not read the comments. ${error}`}</Empty>
       ) : comments.length > 0 ? (
@@ -149,17 +221,31 @@ function Comments({ version, state }: { version: number | undefined; state: Comm
   );
 }
 
-/** Loads the newest version of the reel whenever the reel (or its newest version) changes. */
-function useNewestVersion(reel: ReelSummary | undefined): VersionLoad {
-  const [load, setLoad] = useState<VersionLoad>({ status: 'none' });
-  const slug = reel?.slug;
-  const number = reel?.newestVersion ?? null;
+/** A reel's versions, reloaded whenever `refresh` changes. Null until the current reel's list has arrived. */
+function useReelVersions(slug: string | undefined, refresh: number): VersionEntry[] | null {
+  const [loaded, setLoaded] = useState<{ slug: string; entries: VersionEntry[] } | null>(null);
 
   useEffect(() => {
-    if (slug === undefined || number === null) {
-      setLoad({ status: 'none' });
-      return;
-    }
+    if (slug === undefined) return;
+    let current = true;
+    fetchVersions(slug).then(
+      (entries) => current && setLoaded({ slug, entries }),
+      () => current && setLoaded({ slug, entries: [] }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [slug, refresh]);
+
+  return loaded !== null && loaded.slug === slug ? loaded.entries : null;
+}
+
+/** Loads the version the reviewer has chosen. Only the reviewer changes it. */
+function useVersion(slug: string | undefined, number: number | undefined, noVersions: boolean): VersionLoad {
+  const [load, setLoad] = useState<VersionLoad>({ status: 'none' });
+
+  useEffect(() => {
+    if (slug === undefined || number === undefined) return;
     let current = true;
     setLoad({ status: 'loading' });
     fetchVersion(slug, number).then(
@@ -171,43 +257,118 @@ function useNewestVersion(reel: ReelSummary | undefined): VersionLoad {
     };
   }, [slug, number]);
 
-  // Until the effect runs for a newly selected reel, the previous reel's version must not show.
-  return load.status === 'ready' && load.slug !== slug ? { status: 'loading' } : load;
+  if (slug === undefined || (number === undefined && noVersions)) return { status: 'none' };
+  if (number === undefined) return { status: 'loading' };
+  // Until the effect runs for a newly chosen reel or version, the previous one must not show.
+  return load.status === 'ready' && (load.slug !== slug || load.version.number !== number) ? { status: 'loading' } : load;
 }
 
 export function App() {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [selected, setSelected] = useState<string | undefined>();
+  /** The version on screen. Set to the newest when a reel is opened; after that only the reviewer changes it. */
+  const [chosen, setChosen] = useState<number | undefined>();
+  const [ready, setReady] = useState<ReadonlySet<number>>(new Set());
+  const [versionsTick, setVersionsTick] = useState(0);
+  const [commentsTick, setCommentsTick] = useState(0);
   const reel = load.status === 'ready' ? load.listing.reels.find((r) => r.slug === selected) : undefined;
-  const version = useNewestVersion(reel);
+  const entries = useReelVersions(reel?.slug, versionsTick);
+  const newest = entries?.find((e) => e.isNewest)?.number;
+  const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0);
   const openVersion = version.status === 'ready' ? version.version : undefined;
-  const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number);
+  const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
+
+  const openReel = useCallback((slug: string) => {
+    setSelected(slug);
+    setChosen(undefined);
+    setReady(new Set());
+  }, []);
+
+  const openVersionNumber = useCallback((number: number) => {
+    setChosen(number);
+    setReady((prev) => new Set([...prev].filter((n) => n > number)));
+  }, []);
 
   useEffect(() => {
     Promise.all([fetchProject(), fetchReels()])
       .then(([project, listing]) => {
         setLoad({ status: 'ready', project: project.name, listing });
-        setSelected(listing.reels[0]?.slug);
+        const first = listing.reels[0]?.slug;
+        if (first !== undefined) openReel(first);
       })
       .catch((err: unknown) => setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Could not reach the server' }));
+  }, [openReel]);
+
+  // Opening a reel selects its newest version, once. Later changes to the list never move the selection.
+  useEffect(() => {
+    if (chosen === undefined && entries !== null && newest !== undefined) setChosen(newest);
+  }, [chosen, entries, newest]);
+
+  // A reel appearing in an empty project is opened; one already open is left alone.
+  useEffect(() => {
+    if (load.status === 'ready' && selected === undefined && load.listing.reels[0]) openReel(load.listing.reels[0].slug);
+  }, [load, selected, openReel]);
+
+  const current = useRef({ slug: reel?.slug, version: chosen });
+  current.current = { slug: reel?.slug, version: chosen };
+
+  useEffect(() => {
+    const refreshListing = (): void => {
+      fetchReels().then(
+        (listing) => setLoad((prev) => (prev.status === 'ready' ? { ...prev, listing } : prev)),
+        () => undefined,
+      );
+    };
+    return subscribe((event: ProjectEvent) => {
+      if (event.type === 'reels-changed') {
+        refreshListing();
+      } else if (event.type === 'version-added') {
+        refreshListing();
+        if (event.reel === current.current.slug) {
+          setVersionsTick((n) => n + 1);
+          setReady((prev) => new Set([...prev, event.version]));
+        }
+      } else if (event.reel === current.current.slug && event.version === current.current.version) {
+        setCommentsTick((n) => n + 1);
+      }
+    });
   }, []);
 
   if (load.status !== 'ready') {
     return (
       <div className="app">
-        <TopBar reel={undefined} version={undefined} commentCount={0} />
+        <TopBar reel={undefined} version={undefined} commentCount={0} frozen={false} />
         <div className="state">{load.status === 'loading' ? 'Loading…' : `Could not load reels. ${load.message}`}</div>
       </div>
     );
   }
 
+  const readyVersion =
+    [...ready].filter((n) => openVersion === undefined || n > openVersion.number).sort((a, b) => b - a)[0] ?? null;
+  const frozen = openVersion !== undefined && newest !== undefined && openVersion.number !== newest;
+
   return (
     <div className="app">
-      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} />
+      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} frozen={frozen} />
       <div className="body">
-        <Rail project={load.project} listing={load.listing} current={reel?.slug} onOpen={setSelected} />
-        <Main project={load.project} listing={load.listing} reel={reel} version={version} comments={comments} />
-        <Comments version={openVersion?.number} state={comments} />
+        <Rail
+          project={load.project}
+          listing={load.listing}
+          current={reel?.slug}
+          versions={{ entries: entries ?? [], selected: chosen, ready, onOpenVersion: openVersionNumber }}
+          onOpen={openReel}
+        />
+        <Main
+          project={load.project}
+          listing={load.listing}
+          reel={reel}
+          version={version}
+          newest={newest}
+          readyVersion={readyVersion}
+          onOpenVersion={openVersionNumber}
+          comments={comments}
+        />
+        <Comments version={openVersion?.number} newest={newest} state={comments} />
       </div>
     </div>
   );

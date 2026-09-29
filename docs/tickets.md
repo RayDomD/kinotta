@@ -85,17 +85,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T6 (#8). Versions, read-only history and the ready notice
+## T6 (#8). Versions, read-only history and the ready notice — Done
 
 **What to build:** The version rail lists every version, marks the storyboard, and highlights the newest in ice blue with a non-colour cue. Only the newest version accepts comment changes, enforced in the core (S6); older versions open read-only with a line saying so. The server watches the reels folder and streams change events; when Claude writes a new version, it appears with a "ready" notice and opens on one click, never automatically (S4).
 
 **Acceptance criteria:**
 
-- [ ] Core refuses comment changes on a non-newest version with a clear error
-- [ ] Older versions show shots and comments read-only
-- [ ] A new version folder appearing on disk shows a ready notice without reload
-- [ ] The editor never switches version on its own
-- [ ] Core tests cover newest-version detection and change events
+- [x] Core refuses comment changes on a non-newest version with a clear error
+- [x] Older versions show shots and comments read-only
+- [x] A new version folder appearing on disk shows a ready notice without reload
+- [x] The editor never switches version on its own
+- [x] Core tests cover newest-version detection and change events
 
 **Blocked by:** #6
 

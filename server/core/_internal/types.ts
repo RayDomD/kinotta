@@ -59,6 +59,20 @@ export interface Version {
   changedSections?: string[];
 }
 
+/** One row of a reel's version rail. */
+export interface VersionEntry {
+  number: number;
+  isNewest: boolean;
+  /** v1 in this phase. */
+  isStoryboard: boolean;
+}
+
+/** What `Project.subscribe` reports. */
+export type ProjectEvent =
+  | { type: 'version-added'; reel: string; version: number }
+  | { type: 'reels-changed' }
+  | { type: 'comments-changed'; reel: string; version: number };
+
 export interface Project {
   /** The project folder's name. */
   name: string;
@@ -67,16 +81,25 @@ export interface Project {
   listReels(): Promise<ReelListing>;
   /** Reads a version's shot list. Throws `KinottaError` (`not-found` or `invalid`). */
   readVersion(slug: string, number: number): Promise<Version>;
+  /** A reel's version folders, oldest first. Throws `KinottaError` `not-found` for an unknown reel. */
+  listVersions(slug: string): Promise<VersionEntry[]>;
+  /**
+   * Calls `listener` when a version with a shots.json appears, a reel appears or goes, or a version's saved
+   * comments change. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
+   */
+  subscribe(listener: (event: ProjectEvent) => void): () => void;
   /** A version's comments in number order. Throws `KinottaError` for an unknown reel or version. */
   listComments(slug: string, number: number): Promise<Comment[]>;
   /**
    * Saves a pinned comment to the editor's working state. Throws `KinottaError` `invalid` for empty text,
-   * an unknown shot or a position outside the frame, and `not-found` for an unknown reel or version.
+   * an unknown shot or a position outside the frame, `not-found` for an unknown reel or version, and `frozen`
+   * for a version that is not the newest.
    */
   addComment(slug: string, number: number, input: NewComment): Promise<AddedComment>;
   /**
    * Writes the version's comment batch to `reels/<slug>/v<n>/comments.json` (replacing any earlier copy) and
-   * returns the pasteable text. Throws `KinottaError` `invalid` when there are no comments and no note.
+   * returns the pasteable text. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
+   * for a version that is not the newest.
    */
   copyBatch(slug: string, number: number): Promise<CopiedBatch>;
 }

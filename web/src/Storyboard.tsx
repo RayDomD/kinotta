@@ -4,6 +4,7 @@ import type { Comment, NewComment, Shot, Version } from './api/index.ts';
 import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge } from './Pins.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
+import { readOnlyNote } from './readOnly.ts';
 import { PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 
@@ -42,11 +43,14 @@ function ShotCard({ shot, pageUrl, pins, open, buttonRef }: ShotCardProps) {
 export interface StoryboardProps {
   slug: string;
   version: Version;
+  /** The reel's newest version. Any other version is read-only. */
+  newest: number;
   comments: Comment[];
   save(input: NewComment): Promise<void>;
 }
 
-export function Storyboard({ slug, version, comments, save }: StoryboardProps) {
+export function Storyboard({ slug, version, newest, comments, save }: StoryboardProps) {
+  const readOnly = version.number !== newest;
   const pageUrl = versionPageUrl(slug, version.number);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
@@ -73,8 +77,9 @@ export function Storyboard({ slug, version, comments, save }: StoryboardProps) {
     <>
       <div className="head">
         <h1>Storyboard, v{version.number}</h1>
-        <span className="meta">Click a shot to enlarge it and pin comments</span>
+        <span className="meta">{readOnly ? 'Click a shot to enlarge it' : 'Click a shot to enlarge it and pin comments'}</span>
       </div>
+      {readOnly && <p className="readonly-note">{readOnlyNote(version.number, newest)}</p>}
       <div className="grid">
         {version.shots.map((shot, i) => (
           <ShotCard
@@ -109,6 +114,7 @@ export function Storyboard({ slug, version, comments, save }: StoryboardProps) {
           shots={version.shots}
           index={openIndex}
           comments={comments}
+          readOnlyNote={readOnly ? readOnlyNote(version.number, newest) : null}
           save={save}
           onStep={setOpenIndex}
           onClose={close}

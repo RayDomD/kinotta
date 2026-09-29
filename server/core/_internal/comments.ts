@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
 import type { AddedComment, Comment, FramePin, NewComment, Shot } from './types.ts';
-import { readVersion } from './version.ts';
+import { assertTakesComments, readVersion } from './version.ts';
 
 const REELS_DIR = 'reels';
 const STATE_DIR = '.kinotta';
@@ -105,7 +105,7 @@ export async function listComments(projectDir: string, slug: string, number: num
 }
 
 export async function addComment(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
-  const version = await readVersion(projectDir, slug, number);
+  const version = await assertTakesComments(projectDir, slug, number);
   const pin = buildPin(input, number, version.shots);
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');

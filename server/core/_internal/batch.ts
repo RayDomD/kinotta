@@ -5,7 +5,7 @@ import { numbered, readState, serialized, stateFilePath } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { readTitle } from './reels.ts';
 import type { Comment, CopiedBatch } from './types.ts';
-import { readVersion } from './version.ts';
+import { assertTakesComments } from './version.ts';
 
 const REELS_DIR = 'reels';
 const BATCH_FILE = 'comments.json';
@@ -41,7 +41,7 @@ function pasteableText(title: string, version: number, file: string, comments: C
  * pasteable text. `section` is null for the whole reel; per-section batches extend this later.
  */
 export async function copyBatch(projectDir: string, slug: string, number: number): Promise<CopiedBatch> {
-  await readVersion(projectDir, slug, number);
+  await assertTakesComments(projectDir, slug, number);
   const state = await readState(stateFilePath(projectDir, slug, number), number);
   const comments = numbered(state.comments);
   const note = state.note.trim();
