@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kinotta editor world</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@700;800&display=swap">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);
+  --ease:cubic-bezier(.2,.8,.2,1);--t-press:120ms;--t-shadow:180ms;--t-color:250ms;--t-lift:380ms;
+  --sheet-rest:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --sheet-lift:7px 7px 0 -1.6px var(--ground),7px 7px 0 0 oklch(.945 .004 106 / .42),14px 14px 0 -1.6px var(--ground),14px 14px 0 0 oklch(.945 .004 106 / .18);
+  --sheet-press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+  --cur-hex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='none' stroke='%23f5f8fc' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14;
+  --cur-hex-fill:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='%23f5f8fc' stroke='%23131311' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14;
+  --cur-pin:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='none' stroke='%23f5f8fc' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='14' cy='14' r='1.8' fill='%23f5f8fc'/%3E%3C/svg%3E") 14 14;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 Outfit,"Segoe UI",sans-serif;cursor:var(--cur-hex),default;overflow:hidden}
+button,a{cursor:var(--cur-hex-fill),pointer;font:inherit;color:inherit;background:none;border:0}
+.num{font-variant-numeric:tabular-nums}
+.dot{font-family:Doto,monospace;font-weight:800}
+.app{height:100vh;display:grid;grid-template-rows:52px 1fr}
+/* top bar */
+.top{display:flex;align-items:center;gap:22px;padding:0 20px;border-bottom:1px solid var(--rule)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:.06em;font-size:14px}
+.reelname{font-weight:500}.reelname span{color:var(--muted);font-weight:400;margin-left:8px}
+.modes{display:flex;gap:2px;margin-left:8px}
+.modes button{padding:6px 12px;color:var(--muted);font-size:14px;border-bottom:1.6px solid transparent;transition:color var(--t-color) var(--ease)}
+.modes button[aria-current]{color:var(--ink);border-color:var(--ink)}
+.modes button:hover{color:var(--ink)}
+.btn{background:var(--ink);color:var(--ground);font-weight:600;font-size:14px;padding:8px 16px;border:1.6px solid var(--ink);box-shadow:var(--sheet-press);transition:transform var(--t-lift) var(--ease),box-shadow var(--t-shadow) var(--ease)}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:var(--sheet-rest)}
+.btn:active{transform:translate(1px,1px);box-shadow:none;transition-duration:var(--t-press)}
+.btn .count{font-family:Doto;font-weight:800;margin-left:6px}
+.top .btn{margin-left:auto}
+/* body */
+.body{display:grid;grid-template-columns:220px 1fr 320px;min-height:0}
+.rail{border-right:1px solid var(--rule);padding:18px 16px;display:flex;flex-direction:column;gap:22px}
+.label{font-size:13px;color:var(--muted)}
+.reels a{display:block;padding:7px 0;color:var(--ink-2);font-size:14px}
+.reels a[aria-current]{color:var(--ink);font-weight:500}
+.versions{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.versions button{display:flex;justify-content:space-between;padding:6px 10px;margin-left:-10px;font-size:14px;color:var(--muted);text-align:left;border-left:1.6px solid transparent}
+.versions button[aria-current]{color:var(--light);border-color:var(--light);text-shadow:0 0 10px var(--light-glow)}
+.versions small{font-size:12px}
+.meta{font-size:13px;color:var(--muted)}
+.main{overflow:auto;padding:22px 28px 40px 24px}
+.head{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
+.head h1{font-size:22px;font-weight:500;letter-spacing:-.4px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 22px}
+.shot{text-align:left;padding:8px;border:1.6px solid transparent;transition:transform var(--t-lift) var(--ease),box-shadow var(--t-shadow) var(--ease),background var(--t-color) var(--ease),border-color var(--t-color) var(--ease)}
+.shot:hover,.shot:focus-visible{outline:none;background:var(--card);border-color:var(--ink);transform:translate(-3px,-3px);box-shadow:var(--sheet-lift)}
+.shot:active{transform:translate(3px,3px);box-shadow:var(--sheet-press);background:var(--card-raised);transition-duration:var(--t-press)}
+.lbl{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;font-size:15px;font-weight:500}
+.lbl .dot{color:var(--light);font-size:14px;margin-right:8px}
+.lbl .t{font-family:Doto;font-weight:700;color:var(--muted);font-size:13px}
+.desc{color:var(--ink-2);font-size:13px;line-height:1.45;margin-top:3px}
+.pins-badge{display:inline-flex;align-items:center;gap:4px;color:var(--light);font-size:12px;margin-left:8px}
+/* stills (synthetic reel) */
+.still{position:relative;aspect-ratio:16/9;overflow:hidden;display:grid;place-items:center;background:oklch(.13 .006 50)}
+.s1 .cube{width:24%;aspect-ratio:1;background:linear-gradient(135deg,#ff9a3c,#c2521b);transform:rotate(45deg) skew(8deg,8deg)}
+.s2{background:#efe9df;color:#26221d;font:800 clamp(16px,2.4vw,40px)/1 system-ui;letter-spacing:-.03em}
+.s3{background:#efe9df;color:#26221d;font:800 clamp(10px,1.3vw,22px)/1.15 system-ui;text-align:center}
+.s3 i{color:#e8741c;font-style:normal}
+.s4{background:#1b1f26;padding:9%;place-items:stretch}
+.s4 .dash{display:grid;grid-template-columns:1fr 2fr;gap:6%}.s4 .dash div{background:#2c3440}.s4 .dash div:first-child{outline:2px solid #ff8a1f}
+.s5{background:#1b1f26}
+.s5 .icons{display:grid;grid-template-columns:repeat(3,1fr);gap:12%;width:38%}
+.s5 .icons span{aspect-ratio:1;background:#d9dde3}.s5 .icons span:first-child{background:#ff8a1f}
+.s6{background:#ff8a1f;color:#1d140b;font:800 clamp(12px,1.9vw,30px)/1 system-ui}
+.hexpin{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);display:grid;place-items:center;filter:drop-shadow(0 0 4px var(--light-glow))}
+.hexpin svg{position:absolute;inset:0}
+.hexpin b{position:relative;font:800 11px Doto,monospace;color:var(--ground)}
+/* strip */
+.lanes{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);display:grid;grid-template-columns:72px 1fr;gap:6px 14px;align-items:center;font-size:13px;color:var(--muted)}
+.lane{position:relative;min-width:0}
+.shots-lane{display:flex;height:50px;border-top:1.4px solid var(--hairline);border-bottom:1.4px solid var(--hairline)}
+.seg{min-width:0;text-align:left;padding:6px 9px;border-right:1.4px solid var(--hairline);transition:background var(--t-color) var(--ease)}
+.seg:last-child{border-right:0}
+.seg b{display:block;font:800 12px Doto,monospace;color:var(--light)}
+.seg span{display:block;color:var(--ink-2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color var(--t-color) var(--ease)}
+.seg.has{background:oklch(.84 .11 225 / .07)}
+.seg:hover,.seg:focus-visible{outline:none;background:var(--card)}.seg:hover span{color:var(--ink)}
+.pins-lane{height:28px;background:linear-gradient(var(--rule),var(--rule)) center/100% 1px no-repeat}
+.lpin{position:absolute;top:50%;width:20px;height:20px;transform:translateY(-50%);display:grid;place-items:center;filter:drop-shadow(0 0 4px var(--light-glow))}
+.lpin svg{position:absolute;inset:0}.lpin b{position:relative;font:800 10px Doto,monospace;color:var(--ground)}
+.lpin:hover{filter:drop-shadow(0 0 8px var(--light-glow))}
+.ov-lane{height:32px}
+.ov{position:absolute;top:3px;bottom:3px;background:var(--card);border:1.4px solid var(--hairline);padding:0 9px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;transition:border-color var(--t-color) var(--ease)}
+.ov b{font:700 11px Doto,monospace;color:var(--muted)}
+.ov:hover{border-color:var(--ink)}
+.ov-empty{display:flex;align-items:center;gap:12px;height:100%}.ov-empty .terrain{flex:1}
+.axis{position:relative;height:18px;font:700 12px Doto,monospace;color:var(--muted)}
+.axis span{position:absolute;top:2px;transform:translateX(-50%)}.axis span:first-child{transform:none}.axis span:last-child{transform:translateX(-100%)}
+.axis span::before{content:"";position:absolute;left:50%;top:-6px;width:1px;height:4px;background:var(--hairline)}
+.mock-toggle{font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;justify-self:end;grid-column:2}
+.terrain{height:18px;background-image:radial-gradient(var(--muted) .9px,transparent 1.3px);background-size:9px 9px;opacity:.45}
+/* comments */
+.comments{border-left:1px solid var(--rule);padding:18px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.comments header{display:flex;justify-content:space-between;align-items:baseline}
+.comments h2{font-size:16px;font-weight:600}
+.c{background:var(--card);border:1.6px solid var(--ink);box-shadow:var(--sheet-rest);padding:10px 12px;margin:0 10px 6px 0}
+.c .where{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.c .where .dot{color:var(--light);font-size:13px}
+.c .el{color:var(--light)}
+.c p{font-size:14px;margin-top:4px;color:var(--ink)}
+.empty{position:relative;border:1.4px dashed var(--hairline);padding:18px 14px 44px;color:var(--ink-2);font-size:14px}
+.empty .terrain{position:absolute;left:0;right:0;bottom:10px;height:26px}
+.note-box{margin-top:auto;border-top:1px solid var(--rule);padding-top:14px}
+.note-box textarea{width:100%;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);font:14px Outfit;padding:9px 10px;resize:none;height:62px}
+.note-box textarea:focus{outline:none;border-color:var(--light)}
+/* enlarge overlay */
+.scrim{position:fixed;inset:52px 0 0 0;background:oklch(.12 .003 106 / .86);display:none;place-items:center;z-index:10}
+.scrim.open{display:grid}
+.sheet{width:min(1040px,78vw);background:var(--card);border:1.6px solid var(--ink);box-shadow:var(--sheet-rest);padding:16px 18px 18px;animation:in 300ms var(--ease)}
+@keyframes in{from{opacity:0;transform:scale(.97)}}
+.sheet .lbl{margin:0 0 12px}
+.sheet .close{color:var(--muted);font-size:14px}.sheet .close:hover{color:var(--ink)}
+.well{background:var(--ground-deep);padding:14px}
+.pinnable{cursor:var(--cur-pin),crosshair}
+.pinnable [data-el]{position:relative}
+.pinnable [data-el].hot{outline:1.5px solid var(--light);outline-offset:3px;box-shadow:0 0 12px var(--light-glow)}
+.tag{position:absolute;background:var(--light);color:var(--ground);font:600 12px Outfit;padding:2px 7px;pointer-events:none;display:none;z-index:3}
+.hint{display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--muted)}
+kbd{font:600 12px Outfit;border:1.2px solid var(--hairline);padding:0 5px;color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:0ms!important;animation:none!important}}
+</style></head>
+<body>
+<div class="app">
+ <header class="top">
+  <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M4.5 8.5L14 14l9.5-5.5M14 14v11" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>KINOTTA</div>
+  <div class="reelname">Product showreel<span class="num">15.0s</span></div>
+  <nav class="modes" aria-label="Phase"><button aria-current="page">Storyboard</button><button>Review</button><button>Picker</button></nav>
+  <button class="btn" id="copy">Copy all comments<span class="count" id="count">2</span></button>
+ </header>
+ <div class="body">
+  <aside class="rail">
+   <div><div class="label">Reels in aroma/reels</div>
+    <nav class="reels"><a href="#" aria-current="page">Product showreel</a><a href="#">B-roll cutdown</a><a href="#">Launch teaser</a></nav></div>
+   <div><div class="label">Versions</div>
+    <div class="versions"><button>v1 <small class="num">storyboard</small></button><button aria-current="true">v2 <small class="num">now</small></button></div></div>
+   <div class="meta">6 shots · 15.0s<br>Taste list: 4 rules<br>Brand file checked</div>
+  </aside>
+  <main class="main">
+   <div class="head"><h1>Storyboard, v2</h1><span class="meta">Click a shot to enlarge it and pin comments</span></div>
+   <div class="grid" id="grid"></div>
+   <div class="lanes">
+    <span>Shots</span><div class="lane shots-lane" id="shotLane"></div>
+    <span>Pins</span><div class="lane pins-lane" id="pinLane"></div>
+    <span>Overlays</span><div class="lane ov-lane" id="ovLane"></div>
+    <span></span><div class="lane axis" id="axis"></div>
+    <button class="mock-toggle" id="ovToggle">Mockup only: show a reel without overlays</button>
+   </div>
+  </main>
+  <aside class="comments">
+   <header><h2>Comments</h2><span class="meta num" id="cmeta">v2 · 2</span></header>
+   <div id="clist"></div>
+   <div class="note-box"><div class="label" style="margin-bottom:6px">Note on the whole reel</div><textarea placeholder="Feedback that belongs to no single moment…"></textarea></div>
+  </aside>
+ </div>
+</div>
+
+<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Enlarged shot">
+ <div class="lbl"><span><span class="dot" id="on"></span><span id="ot"></span><span class="t" id="otime" style="margin-left:10px"></span></span><button class="close" id="closeBtn">Close <kbd>Esc</kbd></button></div>
+ <div class="well"><div class="still pinnable" id="big"></div></div>
+ <div class="hint"><span id="od"></span><span><kbd>←</kbd> <kbd>→</kbd> shots</span></div>
+</div></div>
+
+<script>
+const hex=(fill,stroke,w)=>`<svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="${fill}" stroke="${stroke}" stroke-width="${w}" stroke-linejoin="round"/></svg>`;
+const shots=[
+ {n:"01",t:"00.00",c:"s1",h:'<div class="cube" data-el="cube"></div>',title:"Cube lands",d:"An orange cube drops in, bounces once and settles in the centre."},
+ {n:"02",t:"01.80",c:"s2",h:'<span data-el="wordmark">PRODUCT</span>',title:"Logo lockup",d:"The wordmark snaps in letter by letter as the cube shrinks into the logo."},
+ {n:"03",t:"03.60",c:"s3",h:'<div data-el="word-stack">FLOWS · SKILLS<br><i data-el="icons-word">ICONS</i> · DOCS</div>',title:"Word slams",d:"Four feature words slam in on the beat, and ICONS stays lit."},
+ {n:"04",t:"05.90",c:"s4",h:'<div class="dash" style="height:100%"><div data-el="panel-left"></div><div data-el="panel-main"></div></div>',title:"All-in-one dashboard",d:"The camera whips to the first panel, then carries on across the others."},
+ {n:"05",t:"08.40",c:"s5",h:'<div class="icons" data-el="agent-grid"><span></span><span></span><span></span><span></span><span></span><span></span></div>',title:"Icons and flows",d:"Pixel agents pop in one at a time, and the first turns orange."},
+ {n:"06",t:"12.20",c:"s6",h:'<span data-el="cta">Start building →</span>',title:"Call to action",d:"The background floods orange, and the CTA types on."}
+];
+let comments=[{i:2,x:52,y:62,el:"icons-word",text:"Hold ICONS a beat longer before the cut."},{i:5,x:48,y:50,el:"cta",text:"Use the real logo bottom right, not text."}];
+let open=null;
+const TOTAL=15;
+const start=i=>parseFloat(shots[i].t);
+const dur=i=>(i<shots.length-1?start(i+1):TOTAL)-start(i);
+const overlays=[{kind:"B-ROLL",name:"Hands on keyboard",from:6.2,to:9.8},{kind:"L3",name:"Lower third: product name",from:12.4,to:14.6}];
+let showOverlays=true;
+ovToggle.onclick=()=>{showOverlays=!showOverlays;ovToggle.textContent=showOverlays?"Mockup only: show a reel without overlays":"Mockup only: show overlays";render()};
+const pinsHtml=i=>comments.map((c,k)=>c.i===i?`<span class="hexpin" style="left:${c.x}%;top:${c.y}%">${hex("var(--light)","var(--ground)",2.2)}<b>${k+1}</b></span>`:"").join("");
+function render(){
+ grid.innerHTML=shots.map((s,i)=>{const n=comments.filter(c=>c.i===i).length;return `<button class="shot" data-i="${i}"><div class="still ${s.c}">${s.h}${pinsHtml(i)}</div><div class="lbl"><span><span class="dot">${s.n}</span>${s.title}${n?`<span class="pins-badge">${hex("var(--light)","none",0).replace('<svg','<svg width="10" height="10"')}${n}</span>`:""}</span><span class="t">${s.t}</span></div><div class="desc">${s.d}</div></button>`}).join("");
+ grid.querySelectorAll(".shot").forEach(b=>b.onclick=()=>openShot(+b.dataset.i));
+ const pct=s=>(s/TOTAL*100).toFixed(3)+"%";
+ shotLane.innerHTML=shots.map((s,i)=>`<button class="seg${comments.some(c=>c.i===i)?" has":""}" style="flex:${dur(i)}" data-i="${i}" title="${s.n} ${s.title}, ${dur(i).toFixed(1)}s"><b>${s.n}</b><span>${s.title}</span></button>`).join("");
+ shotLane.querySelectorAll(".seg").forEach(b=>b.onclick=()=>openShot(+b.dataset.i));
+ const seen={};
+ pinLane.innerHTML=comments.map((c,k)=>{const off=(seen[c.i]=(seen[c.i]||0)+1)-1;return `<button class="lpin" style="left:calc(${pct(start(c.i))} + ${4+off*22}px)" title="${k+1}. ${c.text}" data-i="${c.i}">${hex("var(--light)","var(--ground)",2.2)}<b>${k+1}</b></button>`}).join("");
+ pinLane.querySelectorAll(".lpin").forEach(b=>b.onclick=()=>openShot(+b.dataset.i));
+ ovLane.innerHTML=showOverlays?overlays.map(o=>`<div class="ov" style="left:${pct(o.from)};width:${pct(o.to-o.from)}" title="${o.name}, ${o.from.toFixed(2)} to ${o.to.toFixed(2)}"><b>${o.kind}</b>${o.name}</div>`).join(""):`<div class="ov-empty"><span>None</span><div class="terrain"></div></div>`;
+ axis.innerHTML=[0,3,6,9,12,15].map(s=>`<span style="left:${pct(s)}">${s.toFixed(2).padStart(5,"0")}</span>`).join("");
+ clist.innerHTML=comments.length?comments.map((c,k)=>`<div class="c"><div class="where"><span class="dot">${k+1}</span><span class="num">Shot ${shots[c.i].n} · ${shots[c.i].t}s</span><span class="el">${c.el||"position"}</span></div><p>${c.text}</p></div>`).join(""):`<div class="empty">No comments on v2 yet. Enlarge a shot and click the frame to pin one.<div class="terrain"></div></div>`;
+ count.textContent=comments.length;cmeta.textContent="v2 · "+comments.length;
+ if(open!==null)drawBig();
+}
+const tag=document.createElement("div");tag.className="tag";
+function drawBig(){const s=shots[open];big.className="still pinnable "+s.c;big.innerHTML=s.h+pinsHtml(open);big.appendChild(tag);on.textContent=s.n+" ";ot.textContent=s.title;otime.textContent=s.t;od.textContent=s.d}
+function openShot(i){open=i;scrim.classList.add("open");drawBig()}
+function closeShot(){open=null;scrim.classList.remove("open")}
+closeBtn.onclick=closeShot;scrim.onclick=e=>{if(e.target===scrim)closeShot()};
+document.addEventListener("keydown",e=>{if(open===null)return;if(e.key==="Escape")closeShot();if(e.key==="ArrowRight"){open=Math.min(5,open+1);drawBig()}if(e.key==="ArrowLeft"){open=Math.max(0,open-1);drawBig()}});
+big.addEventListener("mousemove",e=>{big.querySelectorAll(".hot").forEach(x=>x.classList.remove("hot"));const el=e.target.closest("[data-el]");if(el&&big.contains(el)){el.classList.add("hot");const r=el.getBoundingClientRect(),b=big.getBoundingClientRect();tag.textContent=el.dataset.el;tag.style.display="block";tag.style.left=(r.left-b.left-4)+"px";tag.style.top=Math.max(0,r.top-b.top-26)+"px"}else tag.style.display="none"});
+big.addEventListener("mouseleave",()=>{tag.style.display="none";big.querySelectorAll(".hot").forEach(x=>x.classList.remove("hot"))});
+const samples=["Make this orange a touch darker.","Less text here.","Slow this entrance down.","Swap for the real asset."];
+big.addEventListener("click",e=>{const b=big.getBoundingClientRect();const el=e.target.closest("[data-el]");comments.push({i:open,x:Math.round((e.clientX-b.left)/b.width*100),y:Math.round((e.clientY-b.top)/b.height*100),el:el?el.dataset.el:null,text:samples[comments.length%4]});render()});
+copy.onclick=()=>{copy.firstChild.textContent="Copied ";setTimeout(()=>copy.firstChild.textContent="Copy all comments",1400)};
+render();
+</script>
+</body></html>
