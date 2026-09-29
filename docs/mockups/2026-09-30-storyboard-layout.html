@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Storyboard layouts</title>
+<style>
+:root{
+  --bg:oklch(0.17 0.008 50);--panel:oklch(0.21 0.009 50);--panel2:oklch(0.245 0.01 50);
+  --line:oklch(0.32 0.01 50 / .6);--text:oklch(0.93 0.01 70);--muted:oklch(0.72 0.012 60);
+  --accent:oklch(0.70 0.18 45);--accent-soft:oklch(0.70 0.18 45 / .16);
+  font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font-size:14px;padding:20px 24px 40px}
+h1{font-size:22px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 16px;max-width:75ch;line-height:1.5}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:9px 14px;border-radius:8px;cursor:pointer;font:inherit}
+.tab[aria-selected=true]{border-color:var(--accent);background:var(--accent-soft)}
+.tab b{color:var(--accent);margin-right:6px}
+.pick{margin-left:auto;background:var(--accent);color:oklch(0.18 0.02 45);border:0;padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+.pick:active{transform:scale(.97)}
+.pick.selected{outline:3px solid var(--text)}
+.why{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px;line-height:1.5;color:var(--muted)}
+.why b{color:var(--text)}
+/* app chrome */
+.app{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;height:640px;display:grid;grid-template-rows:44px 1fr}
+.top{display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.top .name{color:var(--text);font-weight:600}
+.top .mode{display:flex;gap:4px;margin-left:12px}
+.top .mode span{padding:4px 10px;border-radius:6px}
+.top .mode .on{background:var(--panel2);color:var(--text)}
+.top .copy{margin-left:auto;background:var(--accent);color:oklch(0.18 0.02 45);padding:6px 12px;border-radius:6px;font-weight:600}
+.body{display:grid;grid-template-columns:170px 1fr 250px;min-height:0}
+.side{border-right:1px solid var(--line);padding:12px;font-size:12px;color:var(--muted)}
+.side .reel{background:var(--panel2);border-radius:8px;padding:10px;color:var(--text);border-left:3px solid var(--accent)}
+.side .v{display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;margin:6px 4px 0 0;font-size:11px}
+.side .v.on{background:var(--accent);color:oklch(0.18 0.02 45);border-color:var(--accent)}
+.main{padding:14px;overflow:auto;min-height:0}
+.comments{border-left:1px solid var(--line);padding:12px;font-size:12px;overflow:auto}
+.comments h4{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:600;margin-bottom:10px}
+.c{background:var(--panel2);border-radius:8px;padding:9px 10px;margin-bottom:8px;line-height:1.45}
+.c .meta{color:var(--accent);font-size:11px;font-variant-numeric:tabular-nums}
+.empty{color:var(--muted)}
+/* stills */
+.still{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:oklch(0.13 0.006 50);display:grid;place-items:center;font-weight:800;letter-spacing:-.03em}
+.pin{position:absolute;width:18px;height:18px;border-radius:50% 50% 50% 0;background:var(--accent);transform:translate(-50%,-100%) rotate(-45deg);box-shadow:0 2px 6px oklch(0 0 0 / .5)}
+.s1 .cube{width:28%;aspect-ratio:1;background:linear-gradient(135deg,oklch(.72 .17 45),oklch(.5 .15 35));transform:rotate(45deg) skew(8deg,8deg);border-radius:6px}
+.s2{background:oklch(.95 .01 70);color:oklch(.2 .01 50);font-size:clamp(14px,3.2vw,40px)}
+.s3{background:oklch(.95 .01 70);color:oklch(.2 .01 50);font-size:clamp(10px,1.6vw,22px);text-align:center;line-height:1.1}
+.s3 i{color:var(--accent);font-style:normal}
+.s4{background:oklch(.19 .01 50);padding:8%;place-items:stretch}
+.s4 .dash{display:grid;grid-template-columns:1fr 2fr;gap:6%;}
+.s4 .dash div{background:oklch(.28 .01 50);border-radius:4px}
+.s4 .dash div:first-child{border:2px solid var(--accent)}
+.s5{background:oklch(.19 .01 50)}
+.s5 .icons{display:grid;grid-template-columns:repeat(3,1fr);gap:10%;width:40%}
+.s5 .icons span{aspect-ratio:1;background:oklch(.85 .01 70);clip-path:polygon(20% 0,80% 0,80% 20%,100% 20%,100% 80%,80% 80%,80% 100%,60% 100%,60% 80%,40% 80%,40% 100%,20% 100%,20% 80%,0 80%,0 20%,20% 20%)}
+.s5 .icons span:first-child{background:var(--accent)}
+.s6{background:var(--accent);color:oklch(.18 .02 45);font-size:clamp(12px,2.2vw,28px)}
+.lbl{display:flex;justify-content:space-between;font-size:12px;margin-top:6px;font-variant-numeric:tabular-nums}
+.lbl b{color:var(--accent);margin-right:6px}
+.desc{color:var(--muted);font-size:12px;line-height:1.4;margin-top:3px}
+/* A: grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.shot{cursor:pointer;border-radius:8px;padding:6px;border:1px solid transparent}
+.shot:hover{border-color:var(--line);background:var(--panel2)}
+.strip{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;font-size:11px;color:var(--muted);display:grid;grid-template-columns:50px 1fr;gap:6px 10px;align-items:center}
+.bar{height:16px;display:flex;gap:2px}
+.bar span{flex:1;background:var(--panel2);border-radius:3px}
+.bar span.hit{background:var(--accent)}
+.overlay{position:absolute;inset:0;background:oklch(0.1 0.005 50 / .82);display:none;place-items:center;z-index:5}
+.overlay.open{display:grid}
+.overlay .box{width:78%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.overlay .still{cursor:crosshair}
+.close{float:right;cursor:pointer;color:var(--muted)}
+/* B: focus */
+.focus{display:grid;grid-template-rows:1fr auto;gap:12px;height:100%}
+.focus .big{display:grid;grid-template-columns:1fr 200px;gap:14px;min-height:0}
+.focus .big .still{cursor:crosshair}
+.film{display:flex;gap:8px}
+.film .still{flex:1;cursor:pointer;opacity:.6;border:2px solid transparent}
+.film .still.cur{opacity:1;border-color:var(--accent)}
+.kbd{font-size:11px;color:var(--muted);margin-top:8px}
+.kbd kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px}
+/* C: list */
+.row{display:grid;grid-template-columns:220px 1fr;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row .still{cursor:crosshair}
+.row h5{font-size:13px;margin-bottom:4px}
+.rc{margin-top:8px;font-size:12px;color:var(--accent)}
+.view{position:relative;height:100%}
+.hide{display:none}
+</style>
+</head>
+<body>
+<h1>Q7. How should the storyboard be laid out?</h1>
+<p class="sub">This is the same six-shot reel in three layouts, and every one works. Click stills and click on frames to pin comments. When you've decided, press <b>Choose this layout</b>.</p>
+
+<div class="tabs" role="tablist">
+  <button class="tab" aria-selected="true" data-v="a"><b>A</b>Grid + enlarge (recommended)</button>
+  <button class="tab" aria-selected="false" data-v="b"><b>B</b>Big frame + filmstrip</button>
+  <button class="tab" aria-selected="false" data-v="c"><b>C</b>Script list</button>
+  <button class="pick" id="pick" data-choice="a">Choose this layout</button>
+</div>
+<div class="why" id="why"></div>
+
+<div class="app">
+  <div class="top"><span class="name">Product showreel</span><span>· 15.0s</span>
+    <div class="mode"><span class="on">Storyboard</span><span>Review</span><span>Picker</span></div>
+    <span class="copy">Copy all comments</span></div>
+  <div class="body">
+    <div class="side"><div class="reel">01 Product showreel<br><span class="v">V1</span><span class="v on">V2</span><br><span style="color:var(--muted)">6 shots · 15.0s</span></div></div>
+    <div class="main"><div class="view" id="view"></div></div>
+    <div class="comments"><h4>COMMENTS · V2</h4><div id="clist"><p class="empty">No comments yet. Click on any frame to pin one.</p></div></div>
+  </div>
+</div>
+
+<script>
+const shots=[
+ {n:"01",t:"0.00",cls:"s1",html:'<div class="cube"></div>',title:"Cube lands",d:"An orange cube drops in, bounces once and settles in the centre."},
+ {n:"02",t:"1.80",cls:"s2",html:'PRODUCT',title:"Logo lockup",d:"The wordmark snaps in letter by letter, and the cube shrinks to become the logo."},
+ {n:"03",t:"3.60",cls:"s3",html:'FLOWS · SKILLS<br><i>ICONS</i> · DOCS',title:"Word slams",d:"Four feature words slam in on the beat, and ICONS stays lit."},
+ {n:"04",t:"5.90",cls:"s4",html:'<div class="dash" style="height:100%"><div></div><div></div></div>',title:"All-in-one dashboard",d:"The camera whips to the first panel, then carries on across the panels."},
+ {n:"05",t:"8.40",cls:"s5",html:'<div class="icons"><span></span><span></span><span></span><span></span><span></span><span></span></div>',title:"Icons and flows",d:"Pixel agents pop in one at a time, and the first one turns orange."},
+ {n:"06",t:"12.20",cls:"s6",html:'Start building →',title:"Call to action",d:"The background floods orange, the CTA types on, and the logo sits bottom right."}
+];
+const why={
+ a:"<b>A. Grid, click a still to enlarge.</b> You see the whole plan at a glance, like the RUBRIC board. Clicking a shot opens it big so you can pin precisely. <b>Tradeoff:</b> it takes one extra click to pin.",
+ b:"<b>B. Big frame plus filmstrip.</b> You always pin on a large frame with the description beside it, and ← → step through shots. <b>Tradeoff:</b> you only see the whole plan as small thumbnails.",
+ c:"<b>C. Script list.</b> It reads top to bottom like a shot list, with the descriptions at full length and comments under each shot. <b>Tradeoff:</b> the stills are medium-sized, and a 14-shot reel means a long scroll."
+};
+let comments=[],cur=0,mode="a";
+const still=(s,extra="")=>`<div class="still ${s.cls}" data-i="${shots.indexOf(s)}" ${extra}>${s.html}</div>`;
+function pinsFor(i){return comments.filter(c=>c.i==i).map(c=>`<span class="pin" style="left:${c.x}%;top:${c.y}%"></span>`).join("")}
+function renderComments(){
+  const el=document.getElementById("clist");
+  el.innerHTML=comments.length?comments.map(c=>`<div class="c"><div class="meta">Shot ${shots[c.i].n}, ${shots[c.i].t}s, pin at ${c.x}% across, ${c.y}% down</div>${c.text}</div>`).join(""):'<p class="empty">No comments yet. Click on any frame to pin one.</p>';
+}
+const samples=["less text heavy","make this orange darker","hold this a beat longer","swap for our real logo"];
+function addPin(e,i){
+  const r=e.currentTarget.getBoundingClientRect();
+  comments.push({i,x:Math.round((e.clientX-r.left)/r.width*100),y:Math.round((e.clientY-r.top)/r.height*100),text:samples[comments.length%samples.length]});
+  renderComments();render();
+}
+function withPins(i,html){return html.replace('</div>',"")}
+function stillWithPins(i,cls=""){const s=shots[i];return `<div class="still ${s.cls} ${cls}" data-i="${i}">${s.html}${pinsFor(i)}</div>`}
+function render(){
+  const v=document.getElementById("view");
+  if(mode==="a"){
+    v.innerHTML=`<div class="grid">${shots.map((s,i)=>`<div class="shot" data-open="${i}">${stillWithPins(i)}<div class="lbl"><span><b>${s.n}</b>${s.title}</span><span>${s.t}s</span></div><div class="desc">${s.d}</div></div>`).join("")}</div>
+    <div class="strip"><span>SHOTS</span><div class="bar">${shots.map(()=>"<span></span>").join("")}</div><span>PINS</span><div class="bar">${shots.map((s,i)=>`<span class="${comments.some(c=>c.i==i)?"hit":""}"></span>`).join("")}</div></div>
+    <div class="overlay ${openI!=null?"open":""}"><div class="box">${openI!=null?`<span class="close" id="close">Close ✕</span><div class="lbl" style="margin:0 0 8px"><span><b>${shots[openI].n}</b>${shots[openI].title}</span><span>${shots[openI].t}s</span></div>${stillWithPins(openI,"pinnable")}<div class="desc" style="margin-top:8px">${shots[openI].d}</div>`:""}</div></div>`;
+    v.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>{openI=+el.dataset.open;render()});
+    const p=v.querySelector(".pinnable"); if(p)p.onclick=e=>addPin(e,openI);
+    const c=v.querySelector("#close"); if(c)c.onclick=()=>{openI=null;render()};
+  } else if(mode==="b"){
+    const s=shots[cur];
+    v.innerHTML=`<div class="focus"><div class="big"><div>${stillWithPins(cur,"pinnable")}<div class="kbd"><kbd>←</kbd> <kbd>→</kbd> step through shots · click the frame to pin</div></div><div><div class="lbl" style="margin:0"><span><b>${s.n}</b>${s.title}</span><span>${s.t}s</span></div><p class="desc" style="font-size:13px;margin-top:8px">${s.d}</p></div></div>
+    <div class="film">${shots.map((x,i)=>stillWithPins(i,i===cur?"cur":"")).join("")}</div></div>`;
+    v.querySelector(".pinnable").onclick=e=>addPin(e,cur);
+    v.querySelectorAll(".film .still").forEach(el=>el.onclick=()=>{cur=+el.dataset.i;render()});
+  } else {
+    v.innerHTML=shots.map((s,i)=>`<div class="row">${stillWithPins(i,"pinnable")}<div><h5><span style="color:var(--accent)">${s.n}</span> · ${s.title} <span style="color:var(--muted);font-weight:400">${s.t}s</span></h5><p class="desc" style="font-size:13px">${s.d}</p>${comments.filter(c=>c.i==i).map(c=>`<div class="rc">💬 ${c.text}</div>`).join("")}</div></div>`).join("");
+    v.querySelectorAll(".pinnable").forEach(el=>el.onclick=e=>addPin(e,+el.dataset.i));
+  }
+}
+let openI=null;
+document.addEventListener("keydown",e=>{if(mode!=="b")return;if(e.key==="ArrowRight")cur=Math.min(5,cur+1);if(e.key==="ArrowLeft")cur=Math.max(0,cur-1);render()});
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  mode=t.dataset.v;openI=null;
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
+  const p=document.getElementById("pick");p.dataset.choice=mode;p.classList.remove("selected");p.textContent="Choose this layout";
+  document.getElementById("why").innerHTML=why[mode];render();
+});
+document.getElementById("pick").onclick=function(){
+  if(window.toggleSelect)toggleSelect(this);
+  this.classList.add("selected");this.textContent="Chosen: "+mode.toUpperCase()+" ✓";
+};
+document.getElementById("why").innerHTML=why.a;render();
+</script>
+</body>
+</html>
