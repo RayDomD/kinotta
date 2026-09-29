@@ -1,6 +1,7 @@
 import { basename, join, resolve } from 'node:path';
 import { copyBatch } from './_internal/batch.ts';
 import { addComment, listComments } from './_internal/comments.ts';
+import { footageFile } from './_internal/footage.ts';
 import { listReels } from './_internal/reels.ts';
 import type { Project } from './_internal/types.ts';
 import { listVersions, readVersion } from './_internal/version.ts';
@@ -22,6 +23,7 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  TranscriptWord,
   Version,
   VersionEntry,
 } from './_internal/types.ts';
@@ -36,6 +38,7 @@ export function openProject(projectDir: string): Project {
     readVersion: (slug, number) => readVersion(dir, slug, number),
     listVersions: (slug) => listVersions(dir, slug),
     subscribe: watcher.subscribe,
+    footageFile: (slug) => footageFile(dir, slug),
     listComments: (slug, number) => listComments(dir, slug, number),
     addComment: (slug, number, input) => addComment(dir, slug, number, input),
     copyBatch: (slug, number) => copyBatch(dir, slug, number),

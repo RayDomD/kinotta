@@ -9,6 +9,7 @@ The only module in the UI that talks to the Kinotta server (D10).
 URL of a version's `index.html`, the only place server paths are built), `fetchComments(slug, n)` (a version's
 numbered comments), `addComment(slug, n, { pin, text })` (resolves with `{ comment, comments }`), `copyBatch(slug, n)` (saves the batch file, resolves with
 `{ text, file, count }`), `subscribe(onEvent)` (the server's change events over `EventSource`, returns a close function; the browser reconnects on its own) and their types.
+`{ text, file, count }`), `footageUrl(slug)` (the same-origin URL of a footage reel's footage file) and their types.
 
 ## Does not handle
 

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Founder talk v1</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:system-ui,sans-serif}
+[data-scene]{position:absolute;inset:0;display:none;overflow:hidden}
+[data-scene].active{display:block}
+/* cutaways are full-frame and opaque; panels draw only the panel so the footage shows around it */
+.cut1{background:#e9e4da}
+.cut1 .lap{position:absolute;top:30%;width:26%;aspect-ratio:1.5;background:#2b3038;border-bottom:.9vh solid #9aa1ab}
+.cut1 .lap.a{left:16%}.cut1 .lap.b{right:16%}
+.cut1 .doc{position:absolute;left:44%;top:26%;width:12%;aspect-ratio:.8;background:#ff8a1f}
+.cut4{background:#1b1f26}
+.cut4 i{position:absolute;width:18%;aspect-ratio:1;border:.6vh solid #d9dde3}
+.cut4 i:nth-child(1){left:20%;top:22%}.cut4 i:nth-child(2){left:20%;top:56%}
+.cut4 i:nth-child(3){left:62%;top:39%;border-color:#ff8a1f;background:#ff8a1f33}
+.panel{position:absolute;right:6%;top:14%;width:40%;height:62%;background:#f2ede4;color:#1d1a16;display:grid;place-items:center;text-align:center;font:800 4.4vh/1.05 system-ui;letter-spacing:-.02em;padding:6%}
+.panel small{display:block;font:600 2.4vh/1.2 system-ui;color:#6f675c;letter-spacing:0;margin-top:6%}
+.panel b{color:#d24b1f}
+</style></head>
+<body>
+<section class="cut1" data-scene="two-laptops" data-start="0" data-duration="3.2"><span class="lap a" data-el="laptop-left"></span><span class="lap b" data-el="laptop-right"></span><span class="doc" data-el="document"></span></section>
+<section data-scene="conflict-counter" data-start="3.2" data-duration="3"><div class="panel" data-el="conflict-panel"><div><b>12</b> conflicts<small>and counting</small></div></div></section>
+<section data-scene="last-write-wins" data-start="6.2" data-duration="3.2"><div class="panel" data-el="lww-panel"><div>Last write wins<small>Ana’s paragraph: lost</small></div></div></section>
+<section class="cut4" data-scene="merge-diagram" data-start="9.4" data-duration="2.6"><i data-el="edit-a"></i><i data-el="edit-b"></i><i data-el="merged"></i></section>
+<script>
+window.DURATION = 12;
+var scenes = Array.prototype.slice.call(document.querySelectorAll('[data-scene]'));
+window.seek = function (t) {
+  scenes.forEach(function (s) {
+    var start = parseFloat(s.dataset.start), end = start + parseFloat(s.dataset.duration);
+    s.classList.toggle('active', t >= start && t < end);
+  });
+};
+window.seek(0);
+</script>
+</body></html>

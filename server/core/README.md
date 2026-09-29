@@ -13,7 +13,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
 
 - `readVersion(slug, n)` returns a version: `number`, `isNewest`, `duration`, `shots` (`number`, `start`,
   computed `duration`, `title`, `description`, plus footage fields as parsed), `overlays` (empty when absent)
-  and, when present, `sections` and `changedSections`. It throws `KinottaError` with code `not-found` (unknown
+  and, when present, `sections` and `changedSections`. For a reel whose `reel.json` names `footage` it also returns
+  `footage` (`{ path, exists }`, the project-relative path; the file stays where it is, ADR 0002), `transcript` (the
+  timed words of `transcript.json`) and, on each shot with a `line` span, `words` (the transcript words whose start
+  falls inside the span) and `spoken` (those words joined). A missing or unreadable `transcript.json` gives
+  `transcriptProblem` (a readable reason) instead, never a throw. A code-only reel gets none of these. It throws `KinottaError` with code `not-found` (unknown
   reel or version) or `invalid` (missing or unparsable `shots.json`).
 
 - `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard }`
@@ -23,6 +27,9 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `{ type: 'comments-changed', reel, version }` (a saved-comments file changed). Debounced (150 ms), never repeated,
   `*.tmp` files ignored. It watches the reels folder while anyone is subscribed (recursive `fs.watch`, polling
   where that is unavailable).
+- `footageFile(slug)` returns the absolute path of the reel's footage file, or null when the reel has none, the file is
+  missing, or the path leaves the project folder.
+
 - `listComments(slug, n)` returns a version's comments, each with `id`, `number`, `pin`, `text` and `createdAt`.
   Comments are ordered by shot start, then creation time, and `number` is the 1-based position in that order.
   It is the number shown everywhere (frame, still, panel, later the pasted batch), so adding a pin on an earlier

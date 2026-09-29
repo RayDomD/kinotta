@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { versionPageUrl } from './api/index.ts';
+import { footageUrl, versionPageUrl } from './api/index.ts';
 import type { Comment, NewComment, Shot, Version } from './api/index.ts';
 import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge } from './Pins.tsx';
+import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
 import { readOnlyNote } from './readOnly.ts';
 import { PageStill } from './stage/index.ts';
@@ -11,17 +12,19 @@ import { formatTimecode } from './timecode.ts';
 interface ShotCardProps {
   shot: Shot;
   pageUrl: string;
+  /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
+  footage: string | undefined;
   pins: Comment[];
   open(): void;
   buttonRef(button: HTMLButtonElement | null): void;
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, pins, open, buttonRef }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, footage, pins, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
   return (
     <div className="shot">
-      <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`}>
+      <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined}>
         {pins.map((c) => (
           <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} />
         ))}
@@ -30,10 +33,12 @@ function ShotCard({ shot, pageUrl, pins, open, buttonRef }: ShotCardProps) {
         <span>
           <span className="dot">{shot.number}</span>
           {shot.title}
+          <ShotKind type={shot.type} />
           {pins.length > 0 && <PinsBadge count={pins.length} />}
         </span>
         <span className="t">{timecode}</span>
       </div>
+      <ShotLine text={shot.spoken} />
       <div className="desc">{shot.description}</div>
       <button ref={buttonRef} type="button" className="open" aria-label={`Shot ${shot.number}, ${shot.title}, ${timecode}`} onClick={open} />
     </div>
@@ -52,6 +57,7 @@ export interface StoryboardProps {
 export function Storyboard({ slug, version, newest, comments, save }: StoryboardProps) {
   const readOnly = version.number !== newest;
   const pageUrl = versionPageUrl(slug, version.number);
+  const footage = version.footage ? footageUrl(slug) : undefined;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const returnTo = useRef<string | null>(null);
@@ -86,6 +92,7 @@ export function Storyboard({ slug, version, newest, comments, save }: Storyboard
             key={shot.number}
             shot={shot}
             pageUrl={pageUrl}
+            footage={footage}
             pins={comments.filter((c) => c.pin.shot === shot.number)}
             open={() => {
               laneOpener.current = null;
@@ -111,6 +118,7 @@ export function Storyboard({ slug, version, newest, comments, save }: Storyboard
       {openIndex !== null && (
         <ShotSheet
           pageUrl={pageUrl}
+          footage={footage}
           shots={version.shots}
           index={openIndex}
           comments={comments}

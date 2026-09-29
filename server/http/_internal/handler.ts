@@ -9,6 +9,7 @@ const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
+const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
 const HEARTBEAT_MS = 25_000;
@@ -110,6 +111,47 @@ function sendFile(req: IncomingMessage, res: ServerResponse, file: string): void
   else createReadStream(file).pipe(res);
 }
 
+/** Parses a single `bytes=a-b` range against a file size; null when it is malformed or cannot be satisfied. */
+function parseRange(header: string, size: number): { start: number; end: number } | null {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match || (match[1] === '' && match[2] === '')) return null;
+  let start: number;
+  let end: number;
+  if (match[1] === '') {
+    start = Math.max(0, size - Number(match[2]));
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] === '' ? size - 1 : Math.min(Number(match[2]), size - 1);
+  }
+  return start <= end && start < size ? { start, end } : null;
+}
+
+/** Serves a file with byte-range support, which video seeking needs. */
+async function sendRanged(req: IncomingMessage, res: ServerResponse, file: string): Promise<void> {
+  const { size } = await stat(file);
+  const base = { 'content-type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream', 'accept-ranges': 'bytes' };
+  const header = req.headers.range;
+  const range = header === undefined ? null : parseRange(header, size);
+  if (header !== undefined && range === null) {
+    res.writeHead(416, { ...base, 'content-range': `bytes */${size}` }).end();
+    return;
+  }
+  const [status, extra] = range
+    ? [206, { 'content-range': `bytes ${range.start}-${range.end}/${size}`, 'content-length': String(range.end - range.start + 1) }]
+    : [200, { 'content-length': String(size) }];
+  res.writeHead(status, { ...base, ...extra });
+  if (req.method === 'HEAD') res.end();
+  else createReadStream(file, range ?? undefined).pipe(res);
+}
+
+async function serveFootage(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const file = slug === null ? null : await project.footageFile(slug);
+  if (file) await sendRanged(req, res, file);
+  else sendNotFound(res);
+}
+
 function safeDecode(text: string): string | null {
   try {
     return decodeURIComponent(text);
@@ -158,12 +200,15 @@ export function createHandler(project: Project, webRoot: string) {
       const commentsRoute = COMMENTS_API.exec(pathname);
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
+      const footageRoute = FOOTAGE_ROUTE.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
+      } else if (footageRoute) {
+        await serveFootage(req, res, project, footageRoute);
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });
       } else if (pathname === '/api/reels') {

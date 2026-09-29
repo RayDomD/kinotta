@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Comment, NewComment, Shot } from './api/index.ts';
 import { HexPin } from './Pins.tsx';
+import { ShotKind, ShotLine } from './Transcript.tsx';
 import { PinFrame } from './stage/index.ts';
 import type { FrameElement, FramePick } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
@@ -11,6 +12,8 @@ const FRAME_CENTRE: FramePick = { x: 0.5, y: 0.5, element: null };
 
 export interface ShotSheetProps {
   pageUrl: string;
+  /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
+  footage: string | undefined;
   shots: Shot[];
   /** Index into `shots` of the enlarged shot. */
   index: number;
@@ -34,7 +37,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, shots, index, comments, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, index, comments, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -130,6 +133,7 @@ export function ShotSheet({ pageUrl, shots, index, comments, readOnlyNote = null
           <span>
             <span id={numberId} className="dot">{shot.number}</span>
             <span id={titleId}>{shot.title}</span>
+            <ShotKind type={shot.type} />
             <span className="t">{timecode}</span>
           </span>
           <button type="button" className="close" onClick={onClose}>Close <kbd>Esc</kbd></button>
@@ -139,6 +143,7 @@ export function ShotSheet({ pageUrl, shots, index, comments, readOnlyNote = null
             pageUrl={pageUrl}
             time={shot.start}
             title={`Shot ${shot.number}`}
+            footageUrl={shot.type === 'panel' ? footage : undefined}
             onPick={readOnly ? ignorePick : startDraft}
             onElements={setElements}
             draft={openDraft}
@@ -182,6 +187,7 @@ export function ShotSheet({ pageUrl, shots, index, comments, readOnlyNote = null
             </button>
           </div>
         )}
+        <ShotLine text={shot.spoken} />
         <div className="hint">
           <span>{shot.description}</span>
           <span><kbd>←</kbd> <kbd>→</kbd> shots</span>

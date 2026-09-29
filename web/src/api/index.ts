@@ -1,4 +1,4 @@
-export { addComment, copyBatch, fetchComments, fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './_internal/client.ts';
+export { addComment, copyBatch, fetchComments, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, subscribe, versionPageUrl } from './_internal/client.ts';
 export type {
   Comment,
   CopiedBatch,
@@ -12,6 +12,7 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  TranscriptWord,
   Version,
   VersionEntry,
 } from './_internal/client.ts';

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { FootageLayer } from './FootageLayer.tsx';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekPage } from './page.ts';
 
 /** Start loading a still a little before it scrolls into view. */
@@ -14,6 +15,8 @@ export interface PageStillProps {
   time: number;
   /** Accessible name of the frame, for example "Shot 03 still". */
   title: string;
+  /** A footage file to draw under the (transparent) page, seeked to the same second. Absent for a page shown alone. */
+  footageUrl?: string;
   /** Drawn over the still, such as its pins. Not part of the page. */
   children?: ReactNode;
 }
@@ -22,7 +25,7 @@ export interface PageStillProps {
  * A live still: the version page in a same-origin frame, seeked to `time` and paused there.
  * The frame is only created once the still scrolls into view. Not interactive: it takes no focus and no pointer.
  */
-export function PageStill({ pageUrl, time, title, children }: PageStillProps) {
+export function PageStill({ pageUrl, time, title, footageUrl, children }: PageStillProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [visible, setVisible] = useState(false);
@@ -69,6 +72,7 @@ export function PageStill({ pageUrl, time, title, children }: PageStillProps) {
 
   return (
     <div ref={box} className="still" data-state={state}>
+      {visible && footageUrl !== undefined && <FootageLayer url={footageUrl} time={time} title={`${title.replace(/ still$/, '')} footage`} />}
       {visible && failure === null && (
         <iframe
           ref={frame}

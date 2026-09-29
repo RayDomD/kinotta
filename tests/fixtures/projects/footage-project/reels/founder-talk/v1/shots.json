@@ -1,0 +1,22 @@
+{
+  "contract": 1,
+  "duration": 12.0,
+  "sections": [
+    { "id": "cold-open", "name": "Cold open", "start": 0, "end": 6.0 },
+    { "id": "sync-problem", "name": "The sync problem", "start": 6.0, "end": 12.0 }
+  ],
+  "shots": [
+    { "number": "01", "start": 0, "title": "Two laptops, one doc",
+      "description": "Two laptops slide in from either side and share one orange document.",
+      "section": "cold-open", "type": "cutaway", "line": { "start": 0.4, "end": 3.0 } },
+    { "number": "02", "start": 3.2, "title": "Conflict counter",
+      "description": "A counter ticks up with every keystroke while he talks.",
+      "section": "cold-open", "type": "panel", "line": { "start": 3.3, "end": 6.0 } },
+    { "number": "03", "start": 6.2, "title": "Last write wins",
+      "description": "One edit overwrites the other and the lost text greys out.",
+      "section": "sync-problem", "type": "panel", "line": { "start": 6.3, "end": 9.3 } },
+    { "number": "04", "start": 9.4, "title": "Merge diagram",
+      "description": "Two edit boxes flow into one merged box that keeps both.",
+      "section": "sync-problem", "type": "cutaway", "line": { "start": 9.5, "end": 12.0 } }
+  ]
+}

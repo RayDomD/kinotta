@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { contentBoxes, findElement, hitTest, namedElements } from './dom.ts';
 import type { FrameElement } from './dom.ts';
+import { FootageLayer } from './FootageLayer.tsx';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekPage } from './page.ts';
 import { placeBox } from './placeBox.ts';
 import type { Rect, Size } from './placeBox.ts';
@@ -23,6 +24,8 @@ export interface PinFrameProps {
   time: number;
   /** Accessible name of the frame, for example "Shot 03". */
   title: string;
+  /** A footage file to draw under the (transparent) page, seeked to the same second. Absent for a page shown alone. */
+  footageUrl?: string;
   /** A click on the frame. Ignored until the frame has drawn. */
   onPick(pick: FramePick): void;
   /** The named elements in view, reported each time the frame draws. */
@@ -58,7 +61,7 @@ const sameSpot = (a: Rect | null, b: Rect): boolean => a !== null && sameRect(a,
  * The page itself is never touched beyond reading it; the hover outline, name tag and pins are drawn here
  * over a transparent layer that takes the pointer (the frame has `pointer-events: none`).
  */
-export function PinFrame({ pageUrl, time, title, onPick, onElements, draft = null, draftContent, children }: PinFrameProps) {
+export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements, draft = null, draftContent, children }: PinFrameProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const tagEl = useRef<HTMLDivElement>(null);
@@ -164,6 +167,7 @@ export function PinFrame({ pageUrl, time, title, onPick, onElements, draft = nul
 
   return (
     <div ref={box} className="still pinnable" data-state={state}>
+      {footageUrl !== undefined && <FootageLayer url={footageUrl} time={time} title={`${title} footage`} />}
       {failure === null && (
         <iframe
           ref={frame}

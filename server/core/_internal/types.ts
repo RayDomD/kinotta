@@ -30,6 +30,17 @@ export interface Shot {
   section?: string;
   type?: string;
   line?: { start: number; end: number };
+  /** Footage reels with a readable transcript: the words whose start falls inside `line`. */
+  words?: TranscriptWord[];
+  /** The words of `words` joined with spaces, the shot's spoken line. */
+  spoken?: string;
+}
+
+export interface TranscriptWord {
+  text: string;
+  /** Seconds. */
+  start: number;
+  end: number;
 }
 
 export interface Overlay {
@@ -57,6 +68,12 @@ export interface Version {
   /** Present only when shots.json has sections. */
   sections?: Section[];
   changedSections?: string[];
+  /** Footage reels only: the footage file named in reel.json, which stays where it is in the project. */
+  footage?: { path: string; exists: boolean };
+  /** Footage reels only: the timed words of transcript.json. Absent when it is missing or unreadable. */
+  transcript?: TranscriptWord[];
+  /** Footage reels only: why there is no transcript. */
+  transcriptProblem?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -88,6 +105,8 @@ export interface Project {
    * comments change. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
+  /** Absolute path of the reel's footage file, or null (code-only reel, file missing, or a path outside the project). */
+  footageFile(slug: string): Promise<string | null>;
   /** A version's comments in number order. Throws `KinottaError` for an unknown reel or version. */
   listComments(slug: string, number: number): Promise<Comment[]>;
   /**

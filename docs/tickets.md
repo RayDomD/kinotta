@@ -196,17 +196,17 @@ Parked for the unattended run: the change lands in `~/.agents/skills/motion-brol
 
 **Model:** `mid`
 
-## T13 (#15). Transcript and footage stills
+## T13 (#15). Transcript and footage stills — Done
 
 **What to build:** For footage reels the core reads the transcript (timed words) and the footage reference, which stays in the project (ADR 0002). Each shot shows its type (cutaway or panel) and the spoken line it covers. The stage draws a panel clip over the real footage frame at the same second, and shows a cutaway alone (F8). A click on the footage part records only a position; a click on the clip resolves its element.
 
 **Acceptance criteria:**
 
-- [ ] Panel stills show the clip over the footage frame at that time
-- [ ] Cutaway stills show the clip alone
-- [ ] Each shot shows its type and transcript line
-- [ ] Clicks on footage record position only; clicks on the clip record the element
-- [ ] Core tests cover transcript and footage reference reading
+- [x] Panel stills show the clip over the footage frame at that time
+- [x] Cutaway stills show the clip alone
+- [x] Each shot shows its type and transcript line
+- [x] Clicks on footage record position only; clicks on the clip record the element
+- [x] Core tests cover transcript and footage reference reading
 
 **Blocked by:** #5, #12
 

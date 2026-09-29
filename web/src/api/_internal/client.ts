@@ -22,6 +22,19 @@ export interface Shot {
   duration: number;
   title: string;
   description: string;
+  /** Footage reels only. */
+  section?: string;
+  type?: 'cutaway' | 'panel';
+  line?: { start: number; end: number };
+  /** Footage reels with a transcript: the words spoken over the shot, and the same words joined. */
+  words?: TranscriptWord[];
+  spoken?: string;
+}
+
+export interface TranscriptWord {
+  text: string;
+  start: number;
+  end: number;
 }
 
 export interface Overlay {
@@ -46,6 +59,10 @@ export interface Version {
   overlays: Overlay[];
   sections?: Section[];
   changedSections?: string[];
+  /** Footage reels only. */
+  footage?: { path: string; exists: boolean };
+  transcript?: TranscriptWord[];
+  transcriptProblem?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -149,3 +166,6 @@ export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
   };
   return () => source.close();
 }
+
+/** Same-origin URL of a footage reel's footage file (served with byte ranges so video can seek). */
+export const footageUrl = (slug: string): string => `/footage/${encodeURIComponent(slug)}`;

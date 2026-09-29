@@ -1,12 +1,12 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
+import { SAFE_SLUG, addFootage } from './footage.ts';
 import type { Overlay, Section, Shot, Version, VersionEntry } from './types.ts';
 
 const REELS_DIR = 'reels';
 const SHOTS_FILE = 'shots.json';
 const STORYBOARD_VERSION = 1;
-const SAFE_SLUG = /^[^./\\][^/\\]*$/;
 
 async function isDirectory(path: string): Promise<boolean> {
   try {
@@ -113,5 +113,5 @@ export async function readVersion(projectDir: string, slug: string, number: numb
   };
   if (Array.isArray(file.sections)) version.sections = file.sections as Section[];
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
-  return version;
+  return addFootage(projectDir, reelDir, version);
 }

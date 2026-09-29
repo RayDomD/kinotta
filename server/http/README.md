@@ -21,12 +21,16 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
   batch file. No comments and no note is a 422; an unknown reel or version a 404; a version that is not the newest a 409; other methods a 405.
 - `GET /reels/<reel>/v<n>/<file>` serves a version's files same-origin. Only version folders under `reels/`
   are reachable (no dot folders, no path escapes).
+- `GET /footage/<reel>` serves the reel's footage file (from `reel.json`, confined to the project folder) with byte
+  ranges: `Accept-Ranges: bytes`, `206` with `Content-Range` for a `Range` header, `416` for one past the end.
+  A reel without footage, a missing file or a path outside the project is a 404.
 - Any other `GET` (and `HEAD`) serves files from `webRoot` (the built UI), falling back to `index.html` for paths
   without a file extension.
 
 ## Does not handle
 
 Range requests, editing or deleting comments and notes. Later tickets add them.
+Editing or deleting comments, notes and SSE. Later tickets add them.
 
 ## Dependencies
 

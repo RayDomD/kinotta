@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { register } from 'tsx/esm/api';
 
-const fixture = resolve(import.meta.dirname, '../fixtures/projects/showreel-project');
+const fixtureName = process.env.KINOTTA_E2E_FIXTURE ?? 'showreel-project';
+const fixture = resolve(import.meta.dirname, '../fixtures/projects', fixtureName);
 const project = mkdtempSync(join(tmpdir(), 'kinotta-e2e-'));
 cpSync(fixture, project, { recursive: true });
 
@@ -17,8 +18,10 @@ function setMtime(dir, when) {
   }
   utimesSync(dir, when, when);
 }
-setMtime(join(project, 'reels', 'broll-cutdown'), new Date('2026-01-01T10:00:00Z'));
-setMtime(join(project, 'reels', 'product-showreel'), new Date('2026-02-01T10:00:00Z'));
+if (fixtureName === 'showreel-project') {
+  setMtime(join(project, 'reels', 'broll-cutdown'), new Date('2026-01-01T10:00:00Z'));
+  setMtime(join(project, 'reels', 'product-showreel'), new Date('2026-02-01T10:00:00Z'));
+}
 
 // A spec that reads files the server wrote asks for the temp project's path here.
 if (process.env.KINOTTA_E2E_PROJECT_FILE) writeFileSync(process.env.KINOTTA_E2E_PROJECT_FILE, project);

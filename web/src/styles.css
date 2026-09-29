@@ -112,6 +112,12 @@ input { font: inherit; color: inherit; cursor: text; }
 .desc { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 3px; }
 .pins-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--light); font-size: 12px; margin-left: 8px; }
 
+/* footage reels: type tag and the spoken line (sections-transcript mockup, option A) */
+.kind { display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--muted); border: 1.2px solid var(--hairline); padding: 0 5px; margin-left: 8px; vertical-align: 2px; }
+.line { font-size: 14px; color: var(--ink); line-height: 1.45; margin-top: 5px; }
+.line + .desc { color: var(--muted); }
+.sheet .line { margin-top: 10px; }
+
 /* time lanes under the grid */
 .lanes { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 72px 1fr; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
 .lane { position: relative; min-width: 0; }
@@ -151,7 +157,10 @@ input { font: inherit; color: inherit; cursor: text; }
 
 /* live still: the version page at 1920x1080, scaled down to the box */
 .still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: oklch(.13 .006 50); }
-.still-frame { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+.still-frame { position: absolute; top: 0; left: 0; border: 0; color-scheme: normal; transform-origin: 0 0; pointer-events: none; }
+.still-footage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.footage-failed { position: absolute; left: 0; bottom: 0; width: 55%; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1.4px dashed var(--hairline); color: var(--ink-2); font-size: 12px; line-height: 1.35; }
+.footage-failed strong { color: var(--ink); font-weight: 500; }
 .still-failed { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; border: 1.4px dashed var(--hairline); color: var(--ink-2); font-size: 12px; line-height: 1.35; overflow: hidden; }
 .still-failed strong { color: var(--ink); font-weight: 500; }
 
