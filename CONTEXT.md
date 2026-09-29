@@ -24,8 +24,12 @@ _Avoid_: Mockup, sketch
 One storyboard entry: a number, a start time, a title, and a description of what happens.
 _Avoid_: Frame, panel, slide
 
+**Section**:
+A named stretch of a reel, a few minutes long, chosen by topic from the transcript. It groups shots so a long reel can be reviewed one part at a time.
+_Avoid_: Chapter, chunk, part
+
 **Scene**:
-A timed section of a version, with a start time and a length.
+A timed piece of a version's page, with a start time and a length.
 _Avoid_: Segment, section
 
 **Element**:
@@ -36,6 +40,10 @@ _Avoid_: Node, layer, component
 One item on the timeline's video track: either a footage take or a scene.
 _Avoid_: Segment, track item
 
+**Transcript**:
+The timed words spoken in a reel's footage, saved with the reel. Claude plans b-roll against it, and each shot shows the line it covers.
+_Avoid_: Captions, subtitles, SRT
+
 **Overlay**:
 A clip layered above the main clips, such as b-roll or a lower third.
 _Avoid_: B-roll track, layer
@@ -43,7 +51,7 @@ _Avoid_: B-roll track, layer
 ### Feedback
 
 **Pin**:
-The anchor of a comment: a version, a time, a position on the frame, and the element under it when there is one.
+The anchor of a comment: a version, a time, and either a position on the frame (plus the element under it when there is one) or a word of the transcript.
 _Avoid_: Marker, annotation
 
 **Comment**:
@@ -55,8 +63,8 @@ Feedback on a whole reel that belongs to no single moment.
 _Avoid_: General comment
 
 **Comment batch**:
-Every comment on one version, handed to Claude together to produce the next version.
-It can be copied again, with changes, until the next version exists.
+The comments on one section of a version (or on the whole reel, when it has one section), handed to Claude together to produce the next version.
+It can be copied again, with changes, until the next version exists. Only a handed-off batch freezes; unsent comments on sections the next version left unchanged move forward to it.
 _Avoid_: Feedback round, export
 
 **Approval**:
