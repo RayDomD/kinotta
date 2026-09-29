@@ -9,7 +9,17 @@ type Outcome =
   | { status: 'failed'; message: string };
 
 /** Top bar button (disabled on a version that is read-only): saves the version's comment batch for Claude and puts the pasteable text on the clipboard. */
-export function CopyButton({ slug, version, count, frozen = false }: { slug: string; version: number; count: number; frozen?: boolean }) {
+export function CopyButton(props: {
+  slug: string;
+  version: number;
+  count: number;
+  /** The version has a note on the whole reel, which the batch then carries. */
+  hasNote?: boolean;
+  /** Runs before the batch is saved, so a note still being typed is in it. */
+  beforeCopy?(): Promise<void>;
+  frozen?: boolean;
+}) {
+  const { slug, version, count, hasNote = false, beforeCopy, frozen = false } = props;
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
   const [busy, setBusy] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -19,6 +29,7 @@ export function CopyButton({ slug, version, count, frozen = false }: { slug: str
   async function copy(): Promise<void> {
     window.clearTimeout(timer.current);
     setBusy(true);
+    await beforeCopy?.();
     let saved: Awaited<ReturnType<typeof copyBatch>>;
     try {
       saved = await copyBatch(slug, version);
@@ -38,7 +49,8 @@ export function CopyButton({ slug, version, count, frozen = false }: { slug: str
     timer.current = window.setTimeout(() => setOutcome({ status: 'idle' }), CONFIRM_MS);
   }
 
-  const empty = count === 0;
+  const empty = count === 0 && !hasNote;
+  const withNote = hasNote ? ', and the reel note' : '';
   const copied = outcome.status === 'copied';
   return (
     <div className="copy">
@@ -47,7 +59,7 @@ export function CopyButton({ slug, version, count, frozen = false }: { slug: str
         type="button"
         className="btn"
         disabled={frozen || empty || busy}
-        aria-label={frozen ? `Copy all comments, unavailable because v${version} is read-only` : empty ? 'Copy all comments, none yet' : copied ? 'Copied' : `Copy all comments, ${count}`}
+        aria-label={frozen ? `Copy all comments, unavailable because v${version} is read-only` : empty ? 'Copy all comments, none yet' : copied ? 'Copied' : `Copy all comments, ${count}${withNote}`}
         onClick={copy}
       >
         {copied ? 'Copied' : 'Copy all comments'}

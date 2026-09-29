@@ -45,6 +45,14 @@ function ShotCard({ shot, pageUrl, footage, pins, open, buttonRef }: ShotCardPro
   );
 }
 
+/** A request from the comments panel to open a comment's shot. `seq` changes with every request. */
+export interface Reveal {
+  commentId: string;
+  seq: number;
+  /** The panel control that asked, so focus returns to it when the sheet closes. */
+  opener: HTMLElement;
+}
+
 export interface StoryboardProps {
   slug: string;
   version: Version;
@@ -52,13 +60,17 @@ export interface StoryboardProps {
   newest: number;
   comments: Comment[];
   save(input: NewComment): Promise<void>;
+  reveal: Reveal | null;
 }
 
-export function Storyboard({ slug, version, newest, comments, save }: StoryboardProps) {
+export function Storyboard({ slug, version, newest, comments, save, reveal }: StoryboardProps) {
   const readOnly = version.number !== newest;
   const pageUrl = versionPageUrl(slug, version.number);
   const footage = version.footage ? footageUrl(slug) : undefined;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  /** The comment whose pin is highlighted while the sheet is open. */
+  const [markedId, setMarkedId] = useState<string | null>(null);
+  const handledReveal = useRef(reveal?.seq ?? 0);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const returnTo = useRef<string | null>(null);
   /** The lane control that opened the sheet, if one did; null when the grid opened it. */
@@ -74,9 +86,22 @@ export function Storyboard({ slug, version, newest, comments, save }: Storyboard
     }
   }, [openIndex]);
 
+  // A comment clicked in the panel opens its shot with its pin marked.
+  useEffect(() => {
+    if (!reveal || reveal.seq === handledReveal.current) return;
+    handledReveal.current = reveal.seq;
+    const comment = comments.find((c) => c.id === reveal.commentId);
+    const at = comment ? version.shots.findIndex((s) => s.number === comment.pin.shot) : -1;
+    if (!comment || at < 0) return;
+    laneOpener.current = reveal.opener;
+    setMarkedId(comment.id);
+    setOpenIndex(at);
+  }, [reveal]);
+
   function close(): void {
     returnTo.current = openIndex === null ? null : (version.shots[openIndex]?.number ?? null);
     setOpenIndex(null);
+    setMarkedId(null);
   }
 
   return (
@@ -122,6 +147,7 @@ export function Storyboard({ slug, version, newest, comments, save }: Storyboard
           shots={version.shots}
           index={openIndex}
           comments={comments}
+          markedId={markedId}
           readOnlyNote={readOnly ? readOnlyNote(version.number, newest) : null}
           save={save}
           onStep={setOpenIndex}

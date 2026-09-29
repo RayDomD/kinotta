@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, Version, VersionEntry } from './api/index.ts';
+import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
+import { Empty } from './Empty.tsx';
 import { Storyboard } from './Storyboard.tsx';
-import { readOnlyNote } from './readOnly.ts';
-import { formatDuration, formatTimecode } from './timecode.ts';
+import type { Reveal } from './Storyboard.tsx';
+import { formatDuration } from './timecode.ts';
 import { useComments } from './useComments.ts';
 import type { CommentsState } from './useComments.ts';
+import { useNote } from './useNote.ts';
+import type { NoteState } from './useNote.ts';
 
 type Load =
   | { status: 'loading' }
@@ -30,17 +34,8 @@ function HexMark() {
   );
 }
 
-function Empty({ children }: { children: string }) {
-  return (
-    <div className="empty" role="status">
-      {children}
-      <div className="terrain" aria-hidden="true" />
-    </div>
-  );
-}
-
-function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number; frozen: boolean }) {
-  const { reel, version, commentCount, frozen } = props;
+function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number; note?: NoteState; frozen: boolean }) {
+  const { reel, version, commentCount, note, frozen } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -57,7 +52,16 @@ function TopBar(props: { reel: ReelSummary | undefined; version: Version | undef
           ),
         )}
       </nav>
-      {reel && version && <CopyButton slug={reel.slug} version={version.number} count={commentCount} frozen={frozen} />}
+      {reel && version && (
+        <CopyButton
+          slug={reel.slug}
+          version={version.number}
+          count={commentCount}
+          hasNote={note !== undefined && note.text.trim() !== ''}
+          beforeCopy={note?.flush}
+          frozen={frozen}
+        />
+      )}
     </header>
   );
 }
@@ -150,10 +154,11 @@ interface MainProps {
   readyVersion: number | null;
   onOpenVersion(number: number): void;
   comments: CommentsState;
+  reveal: Reveal | null;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
@@ -171,6 +176,7 @@ function Main(props: MainProps) {
           newest={newest ?? version.version.number}
           comments={comments.comments}
           save={comments.save}
+          reveal={reveal}
         />
       ) : version.status === 'loading' ? (
         <div className="state">Loading…</div>
@@ -180,44 +186,6 @@ function Main(props: MainProps) {
         <Empty>{`${reel.title} has no versions yet. Ask Claude for a storyboard to add one.`}</Empty>
       )}
     </main>
-  );
-}
-
-function CommentCard({ comment }: { comment: Comment }) {
-  const { pin } = comment;
-  return (
-    <li className="c">
-      <div className="where">
-        <span className="dot">{comment.number}</span>
-        <span className="num">{`Shot ${pin.shot} · ${formatTimecode(pin.time)}s`}</span>
-        <span className={pin.element ? 'el' : undefined}>{pin.element ?? 'position'}</span>
-      </div>
-      <p>{comment.text}</p>
-    </li>
-  );
-}
-
-function Comments({ version, newest, state }: { version: number | undefined; newest: number | undefined; state: CommentsState }) {
-  const { comments, error } = state;
-  return (
-    <aside className="comments" aria-label="Comments">
-      <header>
-        <h2>Comments</h2>
-        {version !== undefined && <span className="meta num">{`v${version} · ${comments.length}`}</span>}
-      </header>
-      {version !== undefined && newest !== undefined && version !== newest && <p className="readonly-note">{readOnlyNote(version, newest)}</p>}
-      {error ? (
-        <Empty>{`Could not read the comments. ${error}`}</Empty>
-      ) : comments.length > 0 ? (
-        <ol className="clist" aria-label="Comments on this version">
-          {comments.map((comment) => (
-            <CommentCard key={comment.id} comment={comment} />
-          ))}
-        </ol>
-      ) : (
-        <Empty>No comments yet.</Empty>
-      )}
-    </aside>
   );
 }
 
@@ -277,6 +245,8 @@ export function App() {
   const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
+  const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
+  const [reveal, setReveal] = useState<Reveal | null>(null);
 
   const openReel = useCallback((slug: string) => {
     setSelected(slug);
@@ -349,7 +319,7 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} frozen={frozen} />
+      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} note={note} frozen={frozen} />
       <div className="body">
         <Rail
           project={load.project}
@@ -367,8 +337,17 @@ export function App() {
           readyVersion={readyVersion}
           onOpenVersion={openVersionNumber}
           comments={comments}
+          reveal={reveal}
         />
-        <Comments version={openVersion?.number} newest={newest} state={comments} />
+        <CommentsPanel
+          version={openVersion?.number}
+          newest={newest}
+          state={comments}
+          note={note}
+          onOpenComment={(comment: Comment, opener: HTMLElement) =>
+            setReveal((prev) => ({ commentId: comment.id, seq: (prev?.seq ?? 0) + 1, opener }))
+          }
+        />
       </div>
     </div>
   );

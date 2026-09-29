@@ -8,12 +8,11 @@ The only module in the UI that talks to the Kinotta server (D10).
 `fetchVersions(slug)` (the reel's version rail rows), `fetchVersion(slug, n)` (a version's shots, overlays and sections), `versionPageUrl(slug, n)` (the same-origin
 URL of a version's `index.html`, the only place server paths are built), `fetchComments(slug, n)` (a version's
 numbered comments), `addComment(slug, n, { pin, text })` (resolves with `{ comment, comments }`), `copyBatch(slug, n)` (saves the batch file, resolves with
-`{ text, file, count }`), `subscribe(onEvent)` (the server's change events over `EventSource`, returns a close function; the browser reconnects on its own) and their types.
-`{ text, file, count }`), `footageUrl(slug)` (the same-origin URL of a footage reel's footage file) and their types.
+`{ text, file, count }`), `editComment(slug, n, id, text)` (resolves with `{ comment, comments }`), `deleteComment(slug, n, id)` (resolves with the renumbered comments), `fetchNote(slug, n)` and `saveNote(slug, n, note)` (the note on the whole reel), `subscribe(onEvent)` (the server's change events over `EventSource`, returns a close function; the browser reconnects on its own), `footageUrl(slug)` (the same-origin URL of a footage reel's footage file) and their types.
 
 ## Does not handle
 
-Editing or deleting comments, and notes. Later tickets add them here.
+Section batches and word pins. Later tickets add them here.
 
 ## Dependencies
 

@@ -7,6 +7,8 @@ import type { NewComment, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
+const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
+const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
@@ -83,6 +85,33 @@ async function handleComments(req: IncomingMessage, res: ServerResponse, project
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'POST') sendJson(res, 201, await project.addComment(slug, version, (await readJsonBody(req)) as NewComment));
   else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { comments: await project.listComments(slug, version) });
+  else res.writeHead(405).end();
+}
+
+/** The one text field of a comment edit or a note. */
+async function readTextField(req: IncomingMessage, field: string): Promise<string> {
+  const body = await readJsonBody(req);
+  const value = body !== null && typeof body === 'object' ? (body as Record<string, unknown>)[field] : undefined;
+  if (typeof value !== 'string') throw new KinottaError('invalid', `The request needs a "${field}" text.`);
+  return value;
+}
+
+async function handleComment(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const id = safeDecode(route[3]!);
+  const version = Number(route[2]);
+  if (slug === null || id === null) sendJson(res, 404, { error: 'Not found' });
+  else if (req.method === 'PATCH') sendJson(res, 200, await project.editComment(slug, version, id, await readTextField(req, 'text')));
+  else if (req.method === 'DELETE') sendJson(res, 200, await project.deleteComment(slug, version, id));
+  else res.writeHead(405).end();
+}
+
+async function handleNote(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const version = Number(route[2]);
+  if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (req.method === 'PUT') sendJson(res, 200, await project.setNote(slug, version, await readTextField(req, 'note')));
+  else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { note: await project.readNote(slug, version) });
   else res.writeHead(405).end();
 }
 
@@ -198,11 +227,17 @@ export function createHandler(project: Project, webRoot: string) {
       const { pathname } = new URL(req.url ?? '/', 'http://localhost');
       const versionRoute = VERSION_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
+      const commentRoute = COMMENT_API.exec(pathname);
+      const noteRoute = NOTE_API.exec(pathname);
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
+      } else if (commentRoute) {
+        await handleComment(req, res, project, commentRoute);
+      } else if (noteRoute) {
+        await handleNote(req, res, project, noteRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {

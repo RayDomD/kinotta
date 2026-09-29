@@ -41,6 +41,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   outside the frame throw `KinottaError` `invalid`; an unknown reel or version throws `not-found`; a version that is
   not the newest throws `frozen` ("v1 is frozen. Only the newest version, v2, takes comments."). Every comment change
   goes through one guard (`assertTakesComments`).
+- `editComment(slug, n, id, text)` changes a comment's text (trimmed, not empty) and returns `{ comment, comments }`.
+  `deleteComment(slug, n, id)` removes it with its pin and returns `{ comments }`, renumbered without gaps.
+  `readNote(slug, n)` returns the version's note on the whole reel (empty string when none) and `setNote(slug, n, note)`
+  saves it trimmed (empty clears it, at most 4000 characters) and returns `{ note, comments }`. An unknown comment id
+  throws `not-found`, empty comment text or an over-long note `invalid`, a version that is not the newest `frozen`.
 - `copyBatch(slug, n)` writes `reels/<reel>/v<n>/comments.json` (atomically, replacing any earlier copy) and returns
   `{ text, file, count }`: the pasteable text for Claude, the saved path relative to the project root, and the
   comment count. The batch covers the whole reel (`section: null`) and includes the version's note when it has
@@ -56,7 +61,7 @@ Outside code imports from `index.ts` only.
 
 ## Does not handle
 
-Contract checks beyond a readable shot list (T7), stills, editing or deleting comments, notes, per-section batches,
+Contract checks beyond a readable shot list (T7), stills, per-section batches,
 and carry-forward. Later tickets add them here.
 
 ## Dependencies

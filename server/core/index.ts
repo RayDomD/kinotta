@@ -1,6 +1,6 @@
 import { basename, join, resolve } from 'node:path';
 import { copyBatch } from './_internal/batch.ts';
-import { addComment, listComments } from './_internal/comments.ts';
+import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
 import { listReels } from './_internal/reels.ts';
 import type { Project } from './_internal/types.ts';
@@ -11,10 +11,12 @@ export { KinottaError } from './_internal/errors.ts';
 export type {
   AddedComment,
   Comment,
+  CommentList,
   CopiedBatch,
   FramePin,
   NewComment,
   NewFramePin,
+  NoteSaved,
   Overlay,
   Project,
   ProjectEvent,
@@ -41,6 +43,10 @@ export function openProject(projectDir: string): Project {
     footageFile: (slug) => footageFile(dir, slug),
     listComments: (slug, number) => listComments(dir, slug, number),
     addComment: (slug, number, input) => addComment(dir, slug, number, input),
+    editComment: (slug, number, id, text) => editComment(dir, slug, number, id, text),
+    deleteComment: (slug, number, id) => deleteComment(dir, slug, number, id),
+    readNote: (slug, number) => readNote(dir, slug, number),
+    setNote: (slug, number, note) => setNote(dir, slug, number, note),
     copyBatch: (slug, number) => copyBatch(dir, slug, number),
   };
 }

@@ -69,17 +69,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T5 (#7). Edit, delete and cancel comments, and reel notes
+## T5 (#7). Edit, delete and cancel comments, and reel notes — Done
 
 **What to build:** Comments on the newest version can be edited and deleted along with their pins (S7). A pin with no text yet can be cancelled so a stray click leaves nothing. A note on the whole reel can be written. Clicking a comment opens its shot with the pin highlighted. The empty comments panel explains how to pin.
 
 **Acceptance criteria:**
 
-- [ ] Edit and delete persist and update pin numbering consistently
-- [ ] Cancelling an untyped pin removes it
-- [ ] Reel note saves and appears in the batch text
-- [ ] Clicking a comment opens its shot with the pin highlighted
-- [ ] Core tests cover edit and delete
+- [x] Edit and delete persist and update pin numbering consistently
+- [x] Cancelling an untyped pin removes it
+- [x] Reel note saves and appears in the batch text
+- [x] Clicking a comment opens its shot with the pin highlighted
+- [x] Core tests cover edit and delete
 
 **Blocked by:** #5
 

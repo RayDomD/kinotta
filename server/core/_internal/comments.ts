@@ -2,12 +2,13 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
-import type { AddedComment, Comment, FramePin, NewComment, Shot } from './types.ts';
+import type { AddedComment, Comment, CommentList, FramePin, NewComment, NoteSaved, Shot } from './types.ts';
 import { assertTakesComments, readVersion } from './version.ts';
 
 const REELS_DIR = 'reels';
 const STATE_DIR = '.kinotta';
 const POSITION_DECIMALS = 1000;
+const NOTE_MAX_LENGTH = 4000;
 
 interface StoredComment {
   id: string;
@@ -117,5 +118,58 @@ export async function addComment(projectDir: string, slug: string, number: numbe
     await writeState(file, { ...state, comments: [...state.comments, saved] });
     const comments = numbered([...state.comments, saved]);
     return { comment: comments.find((c) => c.id === saved.id)!, comments };
+  });
+}
+
+function unknownComment(id: string): KinottaError {
+  return new KinottaError('not-found', `Comment "${id}" not found.`);
+}
+
+export async function editComment(projectDir: string, slug: string, number: number, id: string, input: string): Promise<AddedComment> {
+  await assertTakesComments(projectDir, slug, number);
+  const text = typeof input === 'string' ? input.trim() : '';
+  if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
+
+  const file = stateFilePath(projectDir, slug, number);
+  return serialized(file, async () => {
+    const state = await readState(file, number);
+    if (!state.comments.some((c) => c.id === id)) throw unknownComment(id);
+    const stored = state.comments.map((c) => (c.id === id ? { ...c, text } : c));
+    await writeState(file, { ...state, comments: stored });
+    const comments = numbered(stored);
+    return { comment: comments.find((c) => c.id === id)!, comments };
+  });
+}
+
+export async function deleteComment(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {
+  await assertTakesComments(projectDir, slug, number);
+  const file = stateFilePath(projectDir, slug, number);
+  return serialized(file, async () => {
+    const state = await readState(file, number);
+    if (!state.comments.some((c) => c.id === id)) throw unknownComment(id);
+    const stored = state.comments.filter((c) => c.id !== id);
+    await writeState(file, { ...state, comments: stored });
+    return { comments: numbered(stored) };
+  });
+}
+
+export async function readNote(projectDir: string, slug: string, number: number): Promise<string> {
+  await readVersion(projectDir, slug, number);
+  return (await readState(stateFilePath(projectDir, slug, number), number)).note;
+}
+
+export async function setNote(projectDir: string, slug: string, number: number, input: string): Promise<NoteSaved> {
+  await assertTakesComments(projectDir, slug, number);
+  if (typeof input !== 'string') throw new KinottaError('invalid', 'A note must be text.');
+  const note = input.trim();
+  if (note.length > NOTE_MAX_LENGTH) {
+    throw new KinottaError('invalid', `A note can be at most ${NOTE_MAX_LENGTH} characters.`);
+  }
+
+  const file = stateFilePath(projectDir, slug, number);
+  return serialized(file, async () => {
+    const state = await readState(file, number);
+    await writeState(file, { ...state, note });
+    return { note, comments: numbered(state.comments) };
   });
 }

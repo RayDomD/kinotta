@@ -116,6 +116,20 @@ export interface Project {
    */
   addComment(slug: string, number: number, input: NewComment): Promise<AddedComment>;
   /**
+   * Changes a comment's text; its pin stays. Throws `KinottaError` `invalid` for empty text, `not-found` for an
+   * unknown reel, version or comment id, and `frozen` for a version that is not the newest.
+   */
+  editComment(slug: string, number: number, id: string, text: string): Promise<AddedComment>;
+  /** Removes a comment and its pin; the rest are renumbered without gaps. Same errors as `editComment` except `invalid`. */
+  deleteComment(slug: string, number: number, id: string): Promise<CommentList>;
+  /** The note on the whole reel for a version; an empty string when there is none. */
+  readNote(slug: string, number: number): Promise<string>;
+  /**
+   * Sets the version's note on the whole reel (trimmed; an empty string clears it). Throws `invalid` for a note longer
+   * than 4000 characters and `frozen` for a version that is not the newest.
+   */
+  setNote(slug: string, number: number, note: string): Promise<NoteSaved>;
+  /**
    * Writes the version's comment batch to `reels/<slug>/v<n>/comments.json` (replacing any earlier copy) and
    * returns the pasteable text. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
    * for a version that is not the newest.
@@ -169,6 +183,16 @@ export interface Comment {
 export interface NewComment {
   pin: NewFramePin;
   text: string;
+}
+
+export interface CommentList {
+  /** Every comment of the version, renumbered. */
+  comments: Comment[];
+}
+
+export interface NoteSaved extends CommentList {
+  /** The note as saved: trimmed. */
+  note: string;
 }
 
 export interface AddedComment {

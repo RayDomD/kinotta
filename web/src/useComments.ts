@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addComment, fetchComments } from './api/index.ts';
+import { addComment, deleteComment, editComment, fetchComments } from './api/index.ts';
 import type { Comment, NewComment } from './api/index.ts';
 
 export interface CommentsState {
@@ -8,6 +8,10 @@ export interface CommentsState {
   error: string | null;
   /** Saves a comment. Rejects with a readable message when the server refuses it. */
   save(input: NewComment): Promise<void>;
+  /** Changes a comment's text. Rejects with a readable message when the server refuses it. */
+  edit(id: string, text: string): Promise<void>;
+  /** Removes a comment and its pin; the rest renumber. */
+  remove(id: string): Promise<void>;
 }
 
 /**
@@ -39,6 +43,23 @@ export function useComments(slug: string | undefined, number: number | undefined
     [key, slug, number],
   );
 
+  const edit = useCallback(
+    async (id: string, text: string) => {
+      if (key === null || slug === undefined || number === undefined) throw new Error('No version is open.');
+      const { comments } = await editComment(slug, number, id, text);
+      setLoaded({ key, comments, error: null });
+    },
+    [key, slug, number],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      if (key === null || slug === undefined || number === undefined) throw new Error('No version is open.');
+      setLoaded({ key, comments: await deleteComment(slug, number, id), error: null });
+    },
+    [key, slug, number],
+  );
+
   const mine = loaded !== null && loaded.key === key ? loaded : null;
-  return { comments: mine?.comments ?? [], error: mine?.error ?? null, save };
+  return { comments: mine?.comments ?? [], error: mine?.error ?? null, save, edit, remove };
 }

@@ -138,6 +138,29 @@ export const addComment = (slug: string, number: number, input: NewComment): Pro
     body: JSON.stringify(input),
   });
 
+const commentPath = (slug: string, number: number, id: string): string => `${versionPath(slug, number)}/comments/${encodeURIComponent(id)}`;
+const jsonBody = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+/** Changes a comment's text. Resolves with the edited comment and the version's comments. */
+export const editComment = (slug: string, number: number, id: string, text: string): Promise<{ comment: Comment; comments: Comment[] }> =>
+  requestJson(commentPath(slug, number, id), jsonBody('PATCH', { text }));
+
+/** Removes a comment and its pin. Resolves with the version's renumbered comments. */
+export const deleteComment = async (slug: string, number: number, id: string): Promise<Comment[]> =>
+  (await requestJson<{ comments: Comment[] }>(commentPath(slug, number, id), { method: 'DELETE' })).comments;
+
+/** The version's note on the whole reel, empty when there is none. */
+export const fetchNote = async (slug: string, number: number): Promise<string> =>
+  (await getJson<{ note: string }>(`${versionPath(slug, number)}/note`)).note;
+
+/** Saves the version's note on the whole reel (an empty string clears it). Resolves with the note as saved. */
+export const saveNote = async (slug: string, number: number, note: string): Promise<string> =>
+  (await requestJson<{ note: string }>(`${versionPath(slug, number)}/note`, jsonBody('PUT', { note }))).note;
+
 export interface CopiedBatch {
   /** The pasteable text for Claude. */
   text: string;

@@ -18,6 +18,8 @@ export interface ShotSheetProps {
   /** Index into `shots` of the enlarged shot. */
   index: number;
   comments: Comment[];
+  /** The comment whose pin is highlighted, if any. */
+  markedId?: string | null;
   /** Set on a version that cannot take comments: the sheet then shows the frame only, with this line saying why. */
   readOnlyNote?: string | null;
   save(input: NewComment): Promise<void>;
@@ -37,7 +39,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, footage, shots, index, comments, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId = null, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -62,15 +64,18 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, readOnlyNo
     setElements(null);
   }, [shot.number]);
 
-  const latest = useRef({ index, count: shots.length, onStep, onClose });
-  latest.current = { index, count: shots.length, onStep, onClose };
+  const draftOpen = !readOnly && draft !== null;
+  const latest = useRef({ index, count: shots.length, onStep, onClose, draftOpen, cancelDraft });
+  latest.current = { index, count: shots.length, onStep, onClose, draftOpen, cancelDraft };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      const { index: at, count, onStep: step, onClose: close } = latest.current;
+      const { index: at, count, onStep: step, onClose: close, draftOpen: drafting, cancelDraft: cancel } = latest.current;
       if (e.key === 'Escape') {
         e.preventDefault();
-        close();
+        // With a pin being placed, Esc drops it and keeps the sheet; the next Esc closes the sheet.
+        if (drafting) cancel();
+        else close();
       } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !isTyping(e.target) && !e.altKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         const next = at + (e.key === 'ArrowRight' ? 1 : -1);
@@ -102,6 +107,14 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, readOnlyNo
     setDraft({ ...pick, id: draftCount.current });
     setText('');
     setError(null);
+  }
+
+  /** Drops the pin being placed. Nothing was saved, so nothing is removed from the version. */
+  function cancelDraft(): void {
+    setDraft(null);
+    setText('');
+    setError(null);
+    sheet.current?.focus();
   }
 
   async function submit(e: FormEvent): Promise<void> {
@@ -162,13 +175,14 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, readOnlyNo
                     autoComplete="off"
                     disabled={saving}
                   />
+                  <button type="button" className="draft-cancel" disabled={saving} onClick={cancelDraft}>Cancel</button>
                   {error && <p id={`${titleId}-error`} role="alert" className="draft-error">{error}</p>}
                 </form>
               )
             }
           >
             {pins.map((c) => (
-              <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} />
+              <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} marked={c.id === markedId} />
             ))}
           </PinFrame>
         </div>
