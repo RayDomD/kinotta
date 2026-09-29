@@ -1,0 +1,8 @@
+{
+  "contract": 1,
+  "duration": 8.0,
+  "shots": [
+    { "number": "01", "start": 0.0, "title": "Keyboard close-up", "description": "A slow push-in on hands typing, warm light from the left." },
+    { "number": "02", "start": 4.0, "title": "Screen glow", "description": "The screen fills the frame and the cursor blinks twice." }
+  ]
+}

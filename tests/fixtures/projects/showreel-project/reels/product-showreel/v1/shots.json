@@ -1,0 +1,12 @@
+{
+  "contract": 1,
+  "duration": 15.0,
+  "shots": [
+    { "number": "01", "start": 0.0, "title": "Cube lands", "description": "An orange cube drops in, bounces once and settles in the centre." },
+    { "number": "02", "start": 1.8, "title": "Logo lockup", "description": "The wordmark snaps in letter by letter as the cube shrinks into the logo." },
+    { "number": "03", "start": 3.6, "title": "Word slams", "description": "Four feature words slam in on the beat, and ICONS stays lit." },
+    { "number": "04", "start": 5.9, "title": "All-in-one dashboard", "description": "The camera whips to the first panel, then carries on across the others." },
+    { "number": "05", "start": 8.4, "title": "Icons and flows", "description": "Pixel agents pop in one at a time, and the first turns orange." },
+    { "number": "06", "start": 12.2, "title": "Call to action", "description": "The background floods orange, and the CTA types on." }
+  ]
+}

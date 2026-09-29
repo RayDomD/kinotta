@@ -1,0 +1,76 @@
+:root {
+  color-scheme: dark;
+  --ground: oklch(.184 .004 106);
+  --ground-deep: oklch(.150 .003 106);
+  --card: oklch(.214 .005 90);
+  --card-raised: oklch(.246 .005 90);
+  --ink: oklch(.945 .004 106);
+  --ink-2: oklch(.820 .007 106);
+  --muted: oklch(.640 .008 106);
+  --rule: oklch(.945 .004 106 / .14);
+  --hairline: oklch(.945 .004 106 / .24);
+  --light: oklch(.84 .11 225);
+  --light-glow: oklch(.84 .11 225 / .5);
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --t-press: 120ms;
+  --t-shadow: 180ms;
+  --t-color: 250ms;
+  --t-lift: 380ms;
+  --cur-hex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='none' stroke='%23f5f8fc' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14;
+  --cur-hex-fill: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='%23f5f8fc' stroke='%23131311' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14;
+  --cur-pin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='none' stroke='%23f5f8fc' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='14' cy='14' r='1.8' fill='%23f5f8fc'/%3E%3C/svg%3E") 14 14;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.5 Outfit, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 1.6px solid var(--ink); outline-offset: 2px; }
+
+.num { font-variant-numeric: tabular-nums; }
+.app { height: 100vh; display: grid; grid-template-rows: 52px 1fr; }
+
+/* top bar */
+.top { display: flex; align-items: center; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: .06em; font-size: 14px; }
+.reelname { font-weight: 500; }
+.modes { display: flex; gap: 2px; margin-left: 8px; }
+.modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
+.modes span[aria-current] { color: var(--ink); border-color: var(--ink); }
+
+/* body */
+.body { display: grid; grid-template-columns: 220px 1fr 320px; min-height: 0; }
+.state { padding: 28px; color: var(--ink-2); }
+.label { font-size: 13px; color: var(--muted); }
+.meta { font-size: 13px; color: var(--muted); }
+
+/* rail */
+.rail { border-right: 1px solid var(--rule); padding: 18px 16px; display: flex; flex-direction: column; gap: 22px; overflow: auto; }
+.reels { display: flex; flex-direction: column; margin-top: 6px; }
+.reels button { display: block; width: calc(100% + 10px); margin-left: -10px; padding: 7px 10px; text-align: left; color: var(--ink-2); font-size: 14px; border-left: 1.6px solid transparent; transition: color var(--t-color) var(--ease); }
+.reels button:hover { color: var(--ink); }
+.reels button[aria-current] { color: var(--ink); font-weight: 500; border-color: var(--ink); }
+.rail-none { margin-top: 6px; }
+
+/* main */
+.main { overflow: auto; padding: 22px 28px 40px 24px; }
+.head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+.head h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+
+/* comments column */
+.comments { border-left: 1px solid var(--rule); padding: 18px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.comments h2 { font-size: 16px; font-weight: 600; }
+
+/* empty state with dot terrain */
+.empty { position: relative; border: 1.4px dashed var(--hairline); padding: 18px 14px 44px; color: var(--ink-2); font-size: 14px; max-width: 60ch; }
+.empty .terrain { position: absolute; left: 0; right: 0; bottom: 10px; height: 26px; }
+.terrain { height: 18px; background-image: radial-gradient(var(--muted) .9px, transparent 1.3px); background-size: 9px 9px; opacity: .45; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0ms !important; animation: none !important; }
+}

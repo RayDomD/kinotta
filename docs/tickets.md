@@ -5,17 +5,17 @@ Plan: `docs/plans/2026-09-30-storyboard-phase.md`. Glossary: `CONTEXT.md`.
 
 Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the unattended run), or open.
 
-## T1 (#3). Walking skeleton: launcher, server and editor shell
+## T1 (#3). Walking skeleton: launcher, server and editor shell — Done
 
 **What to build:** Running `kinotta` inside a project starts the local server against that project's reels folder, prints the URL, and opens the editor shell in the Rubric world (D15-D22). The rail lists the reels found in the reels folder and opens the most recently changed one. Plain empty states cover a project with no reels folder and one with no reels. Test runners exist for core tests and one Playwright smoke test. The server keeps its logic independent of HTTP and the UI talks to it through one API client (D10).
 
 **Acceptance criteria:**
 
-- [ ] `kinotta` run in a sample project prints a local URL and serves the editor
-- [ ] The rail lists every reel in the sample reels folder, newest change first
-- [ ] No reels folder and empty reels folder each show a clear message
-- [ ] Core test runner and Playwright smoke test run and pass
-- [ ] Shell uses the approved tokens: warm near-black ground, Outfit, ice-blue light, 0 radius, dark only
+- [x] `kinotta` run in a sample project prints a local URL and serves the editor
+- [x] The rail lists every reel in the sample reels folder, newest change first
+- [x] No reels folder and empty reels folder each show a clear message
+- [x] Core test runner and Playwright smoke test run and pass
+- [x] Shell uses the approved tokens: warm near-black ground, Outfit, ice-blue light, 0 radius, dark only
 
 **Blocked by:** none
 
