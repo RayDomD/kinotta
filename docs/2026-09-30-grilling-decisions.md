@@ -55,6 +55,7 @@ Transcript are in `CONTEXT.md`, and the shared format is in ADR 0001.
 | F7 | One shared format: the timing contract uses motion-broll's global `seek(t)`, and motion-broll's engine adds Kinotta's element names and scene timing (ADR 0001). |
 | F8 | A storyboard still for a panel clip is drawn over the real footage frame at that moment. A cutaway shows alone. The spoken line sits under each shot. |
 | F9 | Footage storyboards are in the Storyboard phase. Playback over footage stays in Review. |
+| F10 | Section list and transcript line, chosen in a `ui-preview` round (T10, #12): sections are a list in the left rail above Versions, one row per section with its number, name, time span, shot count, pin count and a Waiting mark. The heading over the grid names the current section. Each grid shot shows its spoken line in quotes between the title and the description. The enlarged shot has a word row under the frame with the shot's words at full ink and a few muted context words either side. Hovering a word outlines it and puts a tag below it with the word and its time, and a word pin is a numbered hex above the word. Mockup: [2026-09-30-sections-transcript.html](mockups/2026-09-30-sections-transcript.html), option A. |
 
 ## Deferred
 
