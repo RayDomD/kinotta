@@ -55,6 +55,10 @@ export interface Section {
   name: string;
   start: number;
   end: number;
+  /** How many of the version's shots belong to this section. */
+  shots: number;
+  /** Set on the one section a reel gets when shots.json declares none. */
+  implicit?: true;
 }
 
 export interface Version {
@@ -65,8 +69,8 @@ export interface Version {
   shots: Shot[];
   /** Empty when the version has none. */
   overlays: Overlay[];
-  /** Present only when shots.json has sections. */
-  sections?: Section[];
+  /** Never empty: a reel without declared sections has one implicit section. On a reel with sections every shot names its own. */
+  sections: Section[];
   changedSections?: string[];
   /** Footage reels only: the footage file named in reel.json, which stays where it is in the project. */
   footage?: { path: string; exists: boolean };

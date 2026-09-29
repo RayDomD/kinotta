@@ -6,6 +6,8 @@ import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
+import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount } from './sections.ts';
+import { PinsBadge } from './Pins.tsx';
 import { formatDuration } from './timecode.ts';
 import { useComments } from './useComments.ts';
 import type { CommentsState } from './useComments.ts';
@@ -99,16 +101,47 @@ function VersionRail({ entries, selected, ready, onOpen }: VersionRailProps) {
   );
 }
 
+interface SectionRailProps {
+  version: Version;
+  comments: Comment[];
+  selected: string;
+  onSelect(id: string): void;
+}
+
+/** The sections of a multi-section reel: name, span, shot count and pin count, one button each. */
+function SectionRail({ version, comments, selected, onSelect }: SectionRailProps) {
+  const pins = pinCounts(comments, version.shots);
+  return (
+    <div>
+      <div className="label">{`Sections · ${version.sections.length}`}</div>
+      <nav className="secs" aria-label="Sections">
+        {version.sections.map((section, i) => (
+          <button key={section.id} type="button" aria-current={section.id === selected ? 'true' : undefined} onClick={() => onSelect(section.id)}>
+            <span className="n">{sectionNumber(i)}</span>
+            <span className="nm">{section.name}</span>
+            <span className="sub">
+              <span className="num">{sectionSpan(section)}</span>
+              <span>{shotCount(section.shots)}</span>
+              {(pins.get(section.id) ?? 0) > 0 && <PinsBadge count={pins.get(section.id)!} />}
+            </span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 interface RailProps {
   project: string;
   listing: ReelListing;
   current: string | undefined;
+  sections: SectionRailProps | null;
   versions: Omit<VersionRailProps, 'onOpen'> & { onOpenVersion(number: number): void };
   onOpen(slug: string): void;
 }
 
 function Rail(props: RailProps) {
-  const { project, listing, current, versions, onOpen } = props;
+  const { project, listing, current, sections, versions, onOpen } = props;
   return (
     <aside className="rail" aria-label="Project">
       <div>
@@ -125,6 +158,7 @@ function Rail(props: RailProps) {
           <div className="meta rail-none">None</div>
         )}
       </div>
+      {sections !== null && <SectionRail {...sections} />}
       {current !== undefined && versions.entries.length > 0 && (
         <VersionRail entries={versions.entries} selected={versions.selected} ready={versions.ready} onOpen={versions.onOpenVersion} />
       )}
@@ -155,10 +189,12 @@ interface MainProps {
   onOpenVersion(number: number): void;
   comments: CommentsState;
   reveal: Reveal | null;
+  sectionId: string;
+  onSection(id: string): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
@@ -175,6 +211,8 @@ function Main(props: MainProps) {
           version={version.version}
           newest={newest ?? version.version.number}
           comments={comments.comments}
+          sectionId={sectionId}
+          onSection={onSection}
           save={comments.save}
           reveal={reveal}
         />
@@ -247,6 +285,18 @@ export function App() {
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
   const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
   const [reveal, setReveal] = useState<Reveal | null>(null);
+  // The section on screen is kept per reel and version, so opening another one starts on its first section.
+  const [pickedSection, setPickedSection] = useState<{ key: string; id: string } | null>(null);
+  const versionKey = openVersion ? `${reel?.slug}/${openVersion.number}` : null;
+  const sectionId =
+    openVersion === undefined ? '' : pickedSection?.key === versionKey && openVersion.sections.some((s) => s.id === pickedSection.id) ? pickedSection.id : openVersion.sections[0]!.id;
+  const pickSection = useCallback(
+    (id: string) => {
+      if (versionKey !== null) setPickedSection({ key: versionKey, id });
+    },
+    [versionKey],
+  );
+  const multiSection = openVersion !== undefined && hasSections(openVersion.sections);
 
   const openReel = useCallback((slug: string) => {
     setSelected(slug);
@@ -325,6 +375,7 @@ export function App() {
           project={load.project}
           listing={load.listing}
           current={reel?.slug}
+          sections={multiSection ? { version: openVersion, comments: comments.comments, selected: sectionId, onSelect: pickSection } : null}
           versions={{ entries: entries ?? [], selected: chosen, ready, onOpenVersion: openVersionNumber }}
           onOpen={openReel}
         />
@@ -338,6 +389,8 @@ export function App() {
           onOpenVersion={openVersionNumber}
           comments={comments}
           reveal={reveal}
+          sectionId={sectionId}
+          onSection={pickSection}
         />
         <CommentsPanel
           version={openVersion?.number}
@@ -346,6 +399,14 @@ export function App() {
           note={note}
           onOpenComment={(comment: Comment, opener: HTMLElement) =>
             setReveal((prev) => ({ commentId: comment.id, seq: (prev?.seq ?? 0) + 1, opener }))
+          }
+          section={
+            multiSection
+              ? {
+                  number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)),
+                  shots: new Set(openVersion.shots.filter((s) => s.section === sectionId).map((s) => s.number)),
+                }
+              : null
           }
         />
       </div>

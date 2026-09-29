@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
-import type { Comment, Overlay, Shot } from './api/index.ts';
-import { formatDuration, formatTimecode } from './timecode.ts';
+import type { Comment, Overlay, Section, Shot } from './api/index.ts';
+import { hasSections, sectionNumber } from './sections.ts';
+import { formatAxisTime, formatDuration, formatTimecode } from './timecode.ts';
 
 /** Candidate spacings between axis ticks, in seconds. */
 const TICK_STEPS = [0.5, 1, 2, 3, 5, 10, 15, 20, 30, 60, 120, 300, 600];
@@ -10,7 +11,7 @@ const MAX_TICKS = 8;
 const PIN_OFFSET_START = 4;
 const PIN_OFFSET_STEP = 22;
 
-/** Shared by every lane, so anything placed by time lines up (and T12 can place section bands the same way). */
+/** Shared by every lane, so anything placed by time lines up. */
 export function toPercent(time: number, duration: number): number {
   return (Math.min(Math.max(time, 0), duration) / duration) * 100;
 }
@@ -34,41 +35,72 @@ function axisTicks(duration: number): number[] {
 
 export interface LanesProps {
   duration: number;
+  /** Every shot of the reel. */
   shots: Shot[];
   comments: Comment[];
   overlays: Overlay[];
-  /** Open the shot at this index; `opener` is the control that was used, so focus can return to it. */
-  onOpen(index: number, opener: HTMLElement): void;
+  sections: Section[];
+  /** The section the grid shows: its shots are buttons on the shots lane, the reel's other shots are ticks. */
+  currentSection: string;
+  onSection(id: string): void;
+  /** Open this shot; `opener` is the control that was used, so focus can return to it. */
+  onOpen(shot: Shot, opener: HTMLElement): void;
 }
 
-/** Shots, Pins and Overlays on one time axis under the grid. */
-export function Lanes({ duration, shots, comments, overlays, onOpen }: LanesProps) {
-  const indexOf = new Map(shots.map((shot, i) => [shot.number, i]));
+/** Sections (on a multi-section reel), Shots, Pins and Overlays on one time axis under the grid. */
+export function Lanes({ duration, shots, comments, overlays, sections, currentSection, onSection, onOpen }: LanesProps) {
+  const multi = hasSections(sections);
+  const inView = (shot: Shot): boolean => !multi || shot.section === currentSection;
+  const shotByNumber = new Map(shots.map((shot) => [shot.number, shot]));
   const pinCount = new Map<string, number>();
   const pins = comments.flatMap((comment) => {
-    const index = indexOf.get(comment.pin.shot);
-    if (index === undefined) return [];
-    const shot = shots[index]!;
+    const shot = shotByNumber.get(comment.pin.shot);
+    if (shot === undefined) return [];
     const k = pinCount.get(shot.number) ?? 0;
     pinCount.set(shot.number, k + 1);
-    return [{ comment, index, shot, k }];
+    return [{ comment, shot, k }];
   });
 
   return (
     <section className="lanes" aria-label="Timeline">
+      {multi && (
+        <>
+          <span>Sections</span>
+          <div className="lane band-lane">
+            {sections.map((section, i) => (
+              <button
+                key={section.id}
+                type="button"
+                className="band"
+                style={{ flex: section.end - section.start }}
+                aria-current={section.id === currentSection ? 'true' : undefined}
+                title={`${sectionNumber(i)} ${section.name}`}
+                aria-label={`Section ${sectionNumber(i)}, ${section.name}`}
+                onClick={() => onSection(section.id)}
+              >
+                {sectionNumber(i)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <span>Shots</span>
-      <div className="lane shots-lane">
-        {shots.map((shot, i) => {
+      <div className={multi ? 'lane shots-lane spread' : 'lane shots-lane'}>
+        {shots.map((shot) => {
+          if (!inView(shot)) return <span key={shot.number} className="tick" style={{ left: pct(shot.start, duration) }} aria-hidden="true" />;
           const end = formatTimecode(shot.start + shot.duration);
+          const placed: CSSProperties = multi
+            ? { left: pct(shot.start, duration), width: `${toPercent(shot.start + shot.duration, duration) - toPercent(shot.start, duration)}%` }
+            : { flex: shot.duration };
           return (
             <button
               key={shot.number}
               type="button"
               className={pinCount.has(shot.number) ? 'seg has' : 'seg'}
-              style={{ flex: shot.duration }}
+              style={placed}
               title={`${shot.number} ${shot.title}, ${formatDuration(shot.duration)}`}
               aria-label={`Shot ${shot.number}, ${shot.title}, ${formatTimecode(shot.start)} to ${end}`}
-              onClick={(e) => onOpen(i, e.currentTarget)}
+              onClick={(e) => onOpen(shot, e.currentTarget)}
             >
               <b>{shot.number}</b>
               <span>{shot.title}</span>
@@ -78,7 +110,7 @@ export function Lanes({ duration, shots, comments, overlays, onOpen }: LanesProp
       </div>
       <span>Pins</span>
       <div className="lane pins-lane">
-        {pins.map(({ comment, index, shot, k }) => (
+        {pins.map(({ comment, shot, k }) => (
           <button
             key={comment.id}
             type="button"
@@ -86,7 +118,7 @@ export function Lanes({ duration, shots, comments, overlays, onOpen }: LanesProp
             style={{ left: `calc(${pct(shot.start, duration)} + ${PIN_OFFSET_START + k * PIN_OFFSET_STEP}px)` }}
             title={`${comment.number}. ${comment.text}`}
             aria-label={`Pin ${comment.number}, shot ${shot.number}: ${comment.text}`}
-            onClick={(e) => onOpen(index, e.currentTarget)}
+            onClick={(e) => onOpen(shot, e.currentTarget)}
           >
             <svg viewBox="0 0 28 28" aria-hidden="true">
               <path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="2.2" strokeLinejoin="round" />
@@ -123,7 +155,7 @@ export function Lanes({ duration, shots, comments, overlays, onOpen }: LanesProp
           const edge = t === 0 ? 'first' : t === duration ? 'last' : undefined;
           return (
             <span key={t} className={edge} style={style}>
-              {formatTimecode(t)}
+              {formatAxisTime(t, duration)}
             </span>
           );
         })}

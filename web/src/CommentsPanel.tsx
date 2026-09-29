@@ -159,11 +159,14 @@ interface PanelProps {
   state: CommentsState;
   note: NoteState;
   onOpenComment(comment: Comment, opener: HTMLElement): void;
+  /** On a multi-section reel: the current section's number and the shots it holds; the column lists only its comments. */
+  section?: { number: string; shots: ReadonlySet<string> } | null;
 }
 
 /** The comments column: a card per pin (open, edit, delete with undo), and the note on the whole reel. */
-export function CommentsPanel({ version, newest, state, note, onOpenComment }: PanelProps) {
-  const { comments, error } = state;
+export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null }: PanelProps) {
+  const { error } = state;
+  const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
   const readOnly = version !== undefined && newest !== undefined && version !== newest;
   const [undo, setUndo] = useState<{ comment: Comment; number: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -211,7 +214,9 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment }: P
     <aside className="comments" aria-label="Comments">
       <header>
         <h2>Comments</h2>
-        {version !== undefined && <span className="meta num">{`v${version} · ${comments.length}`}</span>}
+        {version !== undefined && (
+          <span className="meta num">{section ? `v${version} · section ${section.number} · ${comments.length}` : `v${version} · ${comments.length}`}</span>
+        )}
       </header>
       {readOnly && newest !== undefined && <p className="readonly-note">{readOnlyNote(version, newest)}</p>}
       <div className="undo" role="status" aria-live="polite">

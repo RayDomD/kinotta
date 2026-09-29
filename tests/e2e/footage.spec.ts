@@ -17,7 +17,18 @@ const SHOTS = [
   { number: '04', type: 'Cutaway', line: '“what you actually want is for both edits to survive”' },
 ];
 
-const card = (page: Page, number: string): Locator => page.locator('.grid .shot').nth(Number(number) - 1);
+/** The grid shows one section at a time (T12): shots 01 and 02 are section 1, 03 and 04 section 2. */
+const SECTION_OF: Record<string, number> = { '01': 1, '02': 1, '03': 2, '04': 2 };
+
+const card = (page: Page, number: string): Locator =>
+  page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: new RegExp(`^Shot ${number},`) }) });
+
+/** Switches the grid, through the rail, to the section that holds this shot. */
+async function showShot(page: Page, number: string): Promise<void> {
+  const button = page.getByRole('navigation', { name: 'Sections' }).getByRole('button').nth(SECTION_OF[number]! - 1);
+  await button.click();
+  await expect(button).toHaveAttribute('aria-current', 'true');
+}
 const dialog = (page: Page): Locator => page.getByRole('dialog');
 
 interface Box {
@@ -77,6 +88,7 @@ const distance = (a: number[], b: number[]): number => Math.max(...a.map((v, i) 
 
 async function openShot(page: Page, number: string): Promise<void> {
   await page.goto('/');
+  await showShot(page, number);
   await card(page, number).locator('.open').click();
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).locator('.still')).toHaveAttribute('data-state', 'ready');
@@ -87,6 +99,7 @@ test('each shot shows its type and the line it covers, between the title and the
   await page.goto('/');
 
   for (const shot of SHOTS) {
+    await showShot(page, shot.number);
     const el = card(page, shot.number);
     await expect(el.locator('.lbl .kind')).toHaveText(shot.type);
     await expect(el.locator('.line')).toHaveText(shot.line);
@@ -100,6 +113,7 @@ test('a panel still draws the clip over the footage frame at that second', async
   await page.goto('/');
 
   for (const [number, time] of [['02', 3.2], ['03', 6.2]] as const) {
+    await showShot(page, number);
     const still = card(page, number).locator('.still');
     await expect(still).toHaveAttribute('data-state', 'ready');
     await expect(still.locator('video')).toHaveAttribute('data-footage', 'ready');
@@ -140,6 +154,7 @@ test('a cutaway still is the clip alone, with no footage under it', async ({ pag
   await page.goto('/');
 
   for (const number of ['01', '04']) {
+    await showShot(page, number);
     const still = card(page, number).locator('.still');
     await expect(still).toHaveAttribute('data-state', 'ready');
     await expect(still.locator('video')).toHaveCount(0);

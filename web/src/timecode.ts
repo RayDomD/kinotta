@@ -13,6 +13,17 @@ export function formatTimecode(seconds: number): string {
   return `${pad(Math.floor(whole / SECONDS_PER_MINUTE))}:${pad(whole % SECONDS_PER_MINUTE)}.${fraction}`;
 }
 
+/** A whole-second clock, `mm:ss`: section spans and the time axis of a reel past 99s. */
+export function formatClock(seconds: number): string {
+  const whole = Math.round(Math.max(0, seconds));
+  return `${pad(Math.floor(whole / SECONDS_PER_MINUTE))}:${pad(whole % SECONDS_PER_MINUTE)}`;
+}
+
+/** A time axis label: the shot timecode on a short reel, `mm:ss` once the reel passes 99s. */
+export function formatAxisTime(seconds: number, reelDuration: number): string {
+  return reelDuration >= PLAIN_LIMIT ? formatClock(seconds) : formatTimecode(seconds);
+}
+
 /** Reel length next to the reel name: `15.0s`. */
 export function formatDuration(seconds: number): string {
   return `${seconds.toFixed(1)}s`;

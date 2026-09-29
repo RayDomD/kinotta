@@ -49,6 +49,8 @@ export interface Section {
   name: string;
   start: number;
   end: number;
+  shots: number;
+  implicit?: true;
 }
 
 export interface Version {
@@ -57,7 +59,7 @@ export interface Version {
   duration: number;
   shots: Shot[];
   overlays: Overlay[];
-  sections?: Section[];
+  sections: Section[];
   changedSections?: string[];
   /** Footage reels only. */
   footage?: { path: string; exists: boolean };

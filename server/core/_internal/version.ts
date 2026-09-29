@@ -2,7 +2,9 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
 import { SAFE_SLUG, addFootage } from './footage.ts';
-import type { Overlay, Section, Shot, Version, VersionEntry } from './types.ts';
+import { readTitle } from './reels.ts';
+import { readSections } from './sections.ts';
+import type { Overlay, Shot, Version, VersionEntry } from './types.ts';
 
 const REELS_DIR = 'reels';
 const SHOTS_FILE = 'shots.json';
@@ -104,14 +106,15 @@ export async function readVersion(projectDir: string, slug: string, number: numb
   const file = await readShotsFile(versionDir, number);
   const duration = Number(file.duration);
   if (!Number.isFinite(duration)) throw new KinottaError('invalid', `Version ${number}: ${SHOTS_FILE} has no duration.`);
+  const { sections, shots } = readSections(file.sections, readShots(file.shots, duration, number), duration, (await readTitle(reelDir)) ?? slug);
   const version: Version = {
     number,
     isNewest: number === (await newestVersionNumber(reelDir)),
     duration,
-    shots: readShots(file.shots, duration, number),
+    shots,
     overlays: listOf<Overlay>(file.overlays),
+    sections,
   };
-  if (Array.isArray(file.sections)) version.sections = file.sections as Section[];
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
   return addFootage(projectDir, reelDir, version);
 }

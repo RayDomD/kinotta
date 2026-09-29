@@ -5,6 +5,7 @@ import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge } from './Pins.tsx';
 import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
+import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount } from './sections.ts';
 import { readOnlyNote } from './readOnly.ts';
 import { PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
@@ -59,14 +60,22 @@ export interface StoryboardProps {
   /** The reel's newest version. Any other version is read-only. */
   newest: number;
   comments: Comment[];
+  /** The section the grid shows. */
+  sectionId: string;
+  onSection(id: string): void;
   save(input: NewComment): Promise<void>;
   reveal: Reveal | null;
 }
 
-export function Storyboard({ slug, version, newest, comments, save, reveal }: StoryboardProps) {
+export function Storyboard({ slug, version, newest, comments, sectionId, onSection, save, reveal }: StoryboardProps) {
   const readOnly = version.number !== newest;
   const pageUrl = versionPageUrl(slug, version.number);
   const footage = version.footage ? footageUrl(slug) : undefined;
+  const multi = hasSections(version.sections);
+  const sectionIndex = Math.max(0, version.sections.findIndex((s) => s.id === sectionId));
+  const section = version.sections[sectionIndex]!;
+  /** What the grid and the enlarged shot step through: the current section's shots (all of them on a one-section reel). */
+  const shots = multi ? version.shots.filter((shot) => shot.section === section.id) : version.shots;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   /** The comment whose pin is highlighted while the sheet is open. */
   const [markedId, setMarkedId] = useState<string | null>(null);
@@ -91,15 +100,17 @@ export function Storyboard({ slug, version, newest, comments, save, reveal }: St
     if (!reveal || reveal.seq === handledReveal.current) return;
     handledReveal.current = reveal.seq;
     const comment = comments.find((c) => c.id === reveal.commentId);
-    const at = comment ? version.shots.findIndex((s) => s.number === comment.pin.shot) : -1;
-    if (!comment || at < 0) return;
+    const shot = comment ? version.shots.find((s) => s.number === comment.pin.shot) : undefined;
+    if (!comment || !shot) return;
+    // The sheet steps through one section's shots, so bring the comment's section into the grid first.
+    if (multi && shot.section !== undefined && shot.section !== section.id) onSection(shot.section);
     laneOpener.current = reveal.opener;
     setMarkedId(comment.id);
-    setOpenIndex(at);
+    setOpenIndex(version.shots.filter((s) => !multi || s.section === shot.section).indexOf(shot));
   }, [reveal]);
 
   function close(): void {
-    returnTo.current = openIndex === null ? null : (version.shots[openIndex]?.number ?? null);
+    returnTo.current = openIndex === null ? null : (shots[openIndex]?.number ?? null);
     setOpenIndex(null);
     setMarkedId(null);
   }
@@ -107,12 +118,23 @@ export function Storyboard({ slug, version, newest, comments, save, reveal }: St
   return (
     <>
       <div className="head">
-        <h1>Storyboard, v{version.number}</h1>
-        <span className="meta">{readOnly ? 'Click a shot to enlarge it' : 'Click a shot to enlarge it and pin comments'}</span>
+        {multi ? (
+          <>
+            <h1>
+              <span className="dot">{sectionNumber(sectionIndex)}</span> {section.name}
+            </h1>
+            <span className="meta num">{`${sectionSpan(section)} · ${shotCount(shots.length)} · ${pinCounts(comments, version.shots).get(section.id) ?? 0} pins`}</span>
+          </>
+        ) : (
+          <>
+            <h1>Storyboard, v{version.number}</h1>
+            <span className="meta">{readOnly ? 'Click a shot to enlarge it' : 'Click a shot to enlarge it and pin comments'}</span>
+          </>
+        )}
       </div>
       {readOnly && <p className="readonly-note">{readOnlyNote(version.number, newest)}</p>}
       <div className="grid">
-        {version.shots.map((shot, i) => (
+        {shots.map((shot, i) => (
           <ShotCard
             key={shot.number}
             shot={shot}
@@ -135,16 +157,21 @@ export function Storyboard({ slug, version, newest, comments, save, reveal }: St
         shots={version.shots}
         comments={comments}
         overlays={version.overlays}
-        onOpen={(i, opener) => {
+        sections={version.sections}
+        currentSection={section.id}
+        onSection={onSection}
+        onOpen={(shot, opener) => {
           laneOpener.current = opener;
-          setOpenIndex(i);
+          // A pin on another section's shot brings that section into the grid first.
+          if (multi && shot.section !== undefined && shot.section !== section.id) onSection(shot.section);
+          setOpenIndex(version.shots.filter((s) => !multi || s.section === shot.section).indexOf(shot));
         }}
       />
       {openIndex !== null && (
         <ShotSheet
           pageUrl={pageUrl}
           footage={footage}
-          shots={version.shots}
+          shots={shots}
           index={openIndex}
           comments={comments}
           markedId={markedId}

@@ -63,8 +63,52 @@ describe('readVersion', () => {
 
     const version = await openProject(dir).readVersion('talk', 1);
 
-    expect(version.sections).toEqual([{ id: 'intro', name: 'Intro', start: 0, end: 10 }]);
+    expect(version.sections).toEqual([{ id: 'intro', name: 'Intro', start: 0, end: 10, shots: 1 }]);
     expect(version.changedSections).toEqual(['intro']);
+  });
+
+  it('reads the sections of a footage reel with their spans and shot counts', async () => {
+    const version = await openProject(copyFixture('footage-project')).readVersion('founder-talk', 1);
+
+    expect(version.sections).toEqual([
+      { id: 'cold-open', name: 'Cold open', start: 0, end: 6, shots: 2 },
+      { id: 'sync-problem', name: 'The sync problem', start: 6, end: 12, shots: 2 },
+    ]);
+    expect(version.shots.map((s) => s.section)).toEqual(['cold-open', 'cold-open', 'sync-problem', 'sync-problem']);
+  });
+
+  it('gives a reel without sections one implicit section named for the reel', async () => {
+    const version = await openProject(copyFixture('showreel-project')).readVersion('product-showreel', 2);
+
+    expect(version.sections).toEqual([{ id: 'reel', name: 'Product showreel', start: 0, end: 15, shots: 6, implicit: true }]);
+    expect(version.shots.every((s) => s.section === undefined)).toBe(true);
+  });
+
+  it('puts a shot with no section in the section that holds its start time', async () => {
+    const dir = emptyProject();
+    const versionDir = join(dir, 'reels', 'talk', 'v1');
+    mkdirSync(versionDir, { recursive: true });
+    writeFileSync(
+      join(versionDir, 'shots.json'),
+      JSON.stringify({
+        contract: 1,
+        duration: 10,
+        sections: [
+          { id: 'a', name: 'A', start: 0, end: 5 },
+          { id: 'b', name: 'B', start: 5, end: 10 },
+        ],
+        shots: [
+          { number: '01', start: 0, title: 'One', description: '' },
+          { number: '02', start: 6, title: 'Two', description: '' },
+          { number: '03', start: 8, title: 'Three', description: '', section: 'a' },
+        ],
+      }),
+    );
+
+    const version = await openProject(dir).readVersion('talk', 1);
+
+    expect(version.shots.map((s) => s.section)).toEqual(['a', 'b', 'a']);
+    expect(version.sections.map((s) => s.shots)).toEqual([2, 1]);
   });
 
   it('fails clearly for an unknown reel or version', async () => {

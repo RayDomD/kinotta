@@ -181,16 +181,16 @@ Parked for the unattended run: the change lands in `~/.agents/skills/motion-brol
 
 **Model:** `mid`
 
-## T12 (#14). Sections for long reels
+## T12 (#14). Sections for long reels — Done
 
 **What to build:** The core reads sections (name and time span) from the shot list (F2). A section list shows each section's name, span, shot count and pin count. The grid shows one section's shots at a time; the lanes span the whole reel with section bands and the current section highlighted. Built to the mockup from the design ticket.
 
 **Acceptance criteria:**
 
-- [ ] Section list switches the grid to that section
-- [ ] Lanes show section bands with the current one highlighted
-- [ ] A reel with one section behaves exactly as before
-- [ ] Core tests cover section reading
+- [x] Section list switches the grid to that section
+- [x] Lanes show section bands with the current one highlighted
+- [x] A reel with one section behaves exactly as before
+- [x] Core tests cover section reading
 
 **Blocked by:** #10, #12
 
