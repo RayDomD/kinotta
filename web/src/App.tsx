@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
-import { fetchProject, fetchReels } from './api/index.ts';
-import type { ReelListing, ReelSummary } from './api/index.ts';
+import { fetchProject, fetchReels, fetchVersion } from './api/index.ts';
+import type { ReelListing, ReelSummary, Version } from './api/index.ts';
+import { Storyboard } from './Storyboard.tsx';
+import { formatDuration } from './timecode.ts';
 
 type Load =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; project: string; listing: ReelListing };
+
+type VersionLoad =
+  | { status: 'none' }
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ready'; slug: string; version: Version };
 
 const PHASES = ['Storyboard', 'Review', 'Picker'] as const;
 
@@ -27,11 +35,14 @@ function Empty({ children }: { children: string }) {
   );
 }
 
-function TopBar({ reel }: { reel: ReelSummary | undefined }) {
+function TopBar({ reel, version }: { reel: ReelSummary | undefined; version: Version | undefined }) {
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
-      <div className="reelname">{reel?.title}</div>
+      <div className="reelname">
+        {reel?.title}
+        {version && <span className="num">{formatDuration(version.duration)}</span>}
+      </div>
       <nav className="modes" aria-label="Phase">
         {PHASES.map((phase) =>
           phase === 'Storyboard' ? (
@@ -67,8 +78,8 @@ function Rail(props: { project: string; listing: ReelListing; current: string | 
   );
 }
 
-function Main(props: { project: string; listing: ReelListing; reel: ReelSummary | undefined }) {
-  const { project, listing, reel } = props;
+function Main(props: { project: string; listing: ReelListing; reel: ReelSummary | undefined; version: VersionLoad }) {
+  const { project, listing, reel, version } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
@@ -77,11 +88,15 @@ function Main(props: { project: string; listing: ReelListing; reel: ReelSummary 
   }
   return (
     <main className="main">
-      <div className="head">
-        <h1>{reel.title}</h1>
-        {reel.newestVersion !== null && <span className="meta num">v{reel.newestVersion}</span>}
-      </div>
-      <Empty>The storyboard grid appears here.</Empty>
+      {version.status === 'ready' ? (
+        <Storyboard key={`${reel.slug}/${version.version.number}`} slug={reel.slug} version={version.version} />
+      ) : version.status === 'loading' ? (
+        <div className="state">Loading…</div>
+      ) : version.status === 'error' ? (
+        <Empty>{`Could not read the storyboard. ${version.message}`}</Empty>
+      ) : (
+        <Empty>{`${reel.title} has no versions yet. Ask Claude for a storyboard to add one.`}</Empty>
+      )}
     </main>
   );
 }
@@ -95,9 +110,37 @@ function Comments() {
   );
 }
 
+/** Loads the newest version of the reel whenever the reel (or its newest version) changes. */
+function useNewestVersion(reel: ReelSummary | undefined): VersionLoad {
+  const [load, setLoad] = useState<VersionLoad>({ status: 'none' });
+  const slug = reel?.slug;
+  const number = reel?.newestVersion ?? null;
+
+  useEffect(() => {
+    if (slug === undefined || number === null) {
+      setLoad({ status: 'none' });
+      return;
+    }
+    let current = true;
+    setLoad({ status: 'loading' });
+    fetchVersion(slug, number).then(
+      (version) => current && setLoad({ status: 'ready', slug, version }),
+      (err: unknown) => current && setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Could not reach the server' }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [slug, number]);
+
+  // Until the effect runs for a newly selected reel, the previous reel's version must not show.
+  return load.status === 'ready' && load.slug !== slug ? { status: 'loading' } : load;
+}
+
 export function App() {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [selected, setSelected] = useState<string | undefined>();
+  const reel = load.status === 'ready' ? load.listing.reels.find((r) => r.slug === selected) : undefined;
+  const version = useNewestVersion(reel);
 
   useEffect(() => {
     Promise.all([fetchProject(), fetchReels()])
@@ -111,19 +154,18 @@ export function App() {
   if (load.status !== 'ready') {
     return (
       <div className="app">
-        <TopBar reel={undefined} />
+        <TopBar reel={undefined} version={undefined} />
         <div className="state">{load.status === 'loading' ? 'Loading…' : `Could not load reels. ${load.message}`}</div>
       </div>
     );
   }
 
-  const reel = load.listing.reels.find((r) => r.slug === selected);
   return (
     <div className="app">
-      <TopBar reel={reel} />
+      <TopBar reel={reel} version={version.status === 'ready' ? version.version : undefined} />
       <div className="body">
         <Rail project={load.project} listing={load.listing} current={reel?.slug} onOpen={setSelected} />
-        <Main project={load.project} listing={load.listing} reel={reel} />
+        <Main project={load.project} listing={load.listing} reel={reel} version={version} />
         <Comments />
       </div>
     </div>

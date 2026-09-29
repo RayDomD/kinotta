@@ -11,11 +11,16 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   tell them apart without an error. Each reel has `slug`, `title` (reel.json, else the slug),
   `newestVersion` and `lastChange` (newest file mtime in the reel), newest change first.
 
+- `readVersion(slug, n)` returns a version: `number`, `isNewest`, `duration`, `shots` (`number`, `start`,
+  computed `duration`, `title`, `description`, plus footage fields as parsed), `overlays` (empty when absent)
+  and, when present, `sections` and `changedSections`. It throws `KinottaError` with code `not-found` (unknown
+  reel or version) or `invalid` (missing or unparsable `shots.json`).
+
 Outside code imports from `index.ts` only.
 
 ## Does not handle
 
-Shots, stills, versions, comments and events. Later tickets add them here.
+Contract checks beyond a readable shot list (T7), stills, comments and events. Later tickets add them here.
 
 ## Dependencies
 

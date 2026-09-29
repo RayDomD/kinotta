@@ -21,17 +21,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T2 (#4). Storyboard grid with live stills
+## T2 (#4). Storyboard grid with live stills — Done
 
 **What to build:** Opening a reel shows its newest storyboard version as a grid of every shot. The core reads the version's shot list (number, start time, title, description). The stage loads the version page in a same-origin frame and jumps it to each shot's time with the page's global `seek(seconds)` (ADR 0001, D9), so each still is the live page, not a screenshot. Stills load lazily as shots scroll into view. Shots lift into stacked paper on hover and focus at Rubric speeds (D17, D19).
 
 **Acceptance criteria:**
 
-- [ ] Grid shows every shot with number and timecode (Doto, tabular), title and description
-- [ ] Each still is the live page paused at the shot's start via `seek`
-- [ ] Stills below the fold load only when scrolled into view
-- [ ] Hover and keyboard focus lift a shot into stacked paper; reduced motion removes the transition
-- [ ] Core tests cover shot list reading against sample reels
+- [x] Grid shows every shot with number and timecode (Doto, tabular), title and description
+- [x] Each still is the live page paused at the shot's start via `seek`
+- [x] Stills below the fold load only when scrolled into view
+- [x] Hover and keyboard focus lift a shot into stacked paper; reduced motion removes the transition
+- [x] Core tests cover shot list reading against sample reels
 
 **Blocked by:** #3
 

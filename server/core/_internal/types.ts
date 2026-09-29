@@ -17,8 +17,54 @@ export interface ReelListing {
   reels: ReelSummary[];
 }
 
+export interface Shot {
+  /** Two-digit string, "01". */
+  number: string;
+  /** Seconds. */
+  start: number;
+  /** Seconds, running to the next shot's start (or the reel duration for the last shot). */
+  duration: number;
+  title: string;
+  description: string;
+  /** Footage reels only, passed through as parsed. */
+  section?: string;
+  type?: string;
+  line?: { start: number; end: number };
+}
+
+export interface Overlay {
+  kind: string;
+  name: string;
+  start: number;
+  end: number;
+}
+
+export interface Section {
+  id: string;
+  name: string;
+  start: number;
+  end: number;
+}
+
+export interface Version {
+  number: number;
+  isNewest: boolean;
+  /** Seconds. */
+  duration: number;
+  shots: Shot[];
+  /** Empty when the version has none. */
+  overlays: Overlay[];
+  /** Present only when shots.json has sections. */
+  sections?: Section[];
+  changedSections?: string[];
+}
+
 export interface Project {
   /** The project folder's name. */
   name: string;
+  /** Absolute path of the project's reels/ folder. */
+  reelsDir: string;
   listReels(): Promise<ReelListing>;
+  /** Reads a version's shot list. Throws `KinottaError` (`not-found` or `invalid`). */
+  readVersion(slug: string, number: number): Promise<Version>;
 }

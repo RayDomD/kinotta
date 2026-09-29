@@ -16,6 +16,9 @@
   --t-shadow: 180ms;
   --t-color: 250ms;
   --t-lift: 380ms;
+  --sheet-rest: 5px 5px 0 -1.6px var(--ground), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px var(--ground), 10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --sheet-lift: 7px 7px 0 -1.6px var(--ground), 7px 7px 0 0 oklch(.945 .004 106 / .42), 14px 14px 0 -1.6px var(--ground), 14px 14px 0 0 oklch(.945 .004 106 / .18);
+  --sheet-press: 2px 2px 0 -1.6px var(--ground), 2px 2px 0 0 oklch(.945 .004 106 / .42), 4px 4px 0 -1.6px var(--ground), 4px 4px 0 0 oklch(.945 .004 106 / .18);
   --cur-hex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='none' stroke='%23f5f8fc' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14;
   --cur-hex-fill: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='%23f5f8fc' stroke='%23131311' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14;
   --cur-pin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z' fill='none' stroke='%23f5f8fc' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='14' cy='14' r='1.8' fill='%23f5f8fc'/%3E%3C/svg%3E") 14 14;
@@ -33,12 +36,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 :focus-visible { outline: 1.6px solid var(--ink); outline-offset: 2px; }
 
 .num { font-variant-numeric: tabular-nums; }
+.dot { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; }
 .app { height: 100vh; display: grid; grid-template-rows: 52px 1fr; }
 
 /* top bar */
 .top { display: flex; align-items: center; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--rule); }
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: .06em; font-size: 14px; }
 .reelname { font-weight: 500; }
+.reelname span { color: var(--muted); font-weight: 400; margin-left: 8px; }
 .modes { display: flex; gap: 2px; margin-left: 8px; }
 .modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
 .modes span[aria-current] { color: var(--ink); border-color: var(--ink); }
@@ -61,6 +66,22 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .main { overflow: auto; padding: 22px 28px 40px 24px; }
 .head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
 .head h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+
+/* storyboard grid */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 22px; }
+.shot { display: block; width: 100%; text-align: left; padding: 8px; border: 1.6px solid transparent; transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease), background var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.shot:hover, .shot:focus-visible { outline: none; background: var(--card); border-color: var(--ink); transform: translate(-3px, -3px); box-shadow: var(--sheet-lift); }
+.shot:active { transform: translate(3px, 3px); box-shadow: var(--sheet-press); background: var(--card-raised); transition-duration: var(--t-press); }
+.lbl { display: flex; justify-content: space-between; align-items: baseline; margin-top: 9px; font-size: 15px; font-weight: 500; }
+.lbl .dot { color: var(--light); font-size: 14px; margin-right: 8px; }
+.lbl .t { font-family: Doto, monospace; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.desc { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 3px; }
+
+/* live still: the version page at 1920x1080, scaled down to the box */
+.still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: oklch(.13 .006 50); }
+.still-frame { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+.still-failed { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; border: 1.4px dashed var(--hairline); color: var(--ink-2); font-size: 12px; line-height: 1.35; overflow: hidden; }
+.still-failed strong { color: var(--ink); font-weight: 500; }
 
 /* comments column */
 .comments { border-left: 1px solid var(--rule); padding: 18px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
