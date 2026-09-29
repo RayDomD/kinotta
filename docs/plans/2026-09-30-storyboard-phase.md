@@ -1,9 +1,9 @@
 ---
 title: Storyboard phase
 date: 2026-09-30
-status: Draft
+status: Approved
 summary: First Kinotta phase. Open a project's reels, see a storyboard version's shots, pin comments to elements, hand the batch to Claude.
-spec:
+spec: docs/specs/2026-09-30-storyboard-phase.md (https://github.com/RayDomD/kinotta/issues/1)
 ---
 
 ## Intent
@@ -47,13 +47,48 @@ spec:
 
 ## Goal
 
+Run the whole storyboard loop for real in a client project. Claude writes v1 under the timing
+contract, using a checked brand file and the taste list. You open it in Kinotta, pin comments to
+named elements, and copy the batch. Claude writes v2 as a new frozen folder, and Kinotta offers it
+while v1 freezes.
+
 ## Approach
+
+Spec: `docs/specs/2026-09-30-storyboard-phase.md` (issue #1). Almost all behaviour lives in a reels
+core with no HTTP, tested directly against sample reels folders. A thin HTTP layer and one UI API
+client sit on top (D10). One stage module owns every contact with a version page. The UI is built
+to the approved mockup. The Kinotta skill and the sample reels share one format, so Claude and the
+tests agree.
 
 ## Steps
 
+Split into tracer-bullet tickets by `/to-tickets`. Expected order:
+
+1. Scaffold: Vite + React + TypeScript app, Node server, launcher, and test runners.
+2. Reels core: reels, versions, shot lists and static contract checks, against sample reels.
+3. Comments and batches in the core: newest-only rule, structured batch, pasteable text.
+4. HTTP layer, API client and change events.
+5. Stage: a same-origin frame, the jump to a second, and the element under a point.
+6. Storyboard UI: grid, lanes, enlarge and pin, comments panel, version rail, broken-version list.
+7. Kinotta skill: contract rules, brand file, taste list, consuming a batch.
+8. End-to-end browser test and one real run in a client project.
+9. `DESIGN.md` from the built Storyboard, then the finish review.
+
 ## Risks
 
+- Many live frames on one grid may be slow. Lazy loading comes first; measure before changing.
+- Same-origin frames trust the version pages. That's acceptable locally for one user, and needs a
+  revisit before any sharing.
+- Claude may drift from the contract. The broken-version list (S5) makes the drift visible, and the
+  skill's examples come from the test samples.
+
 ## Checks to run
+
+- Core test suite passes.
+- End-to-end browser test passes.
+- A real run in a client project: v1 opens, pins land on the named element, the batch reaches
+  Claude, and v2 appears with the "ready" notice.
+- `/impeccable audit` on the Storyboard UI, AA contrast in the one dark theme, and keyboard-only pass.
 
 ## Changelog
 
@@ -61,3 +96,5 @@ spec:
 - Plan created with Intent only, awaiting approval.
 - Open questions resolved in a grilling round (S1 to S8). Two glossary rules added to CONTEXT.md:
   only the newest version takes comments, and a batch can be re-copied until the next version.
+- Intent approved. Goal, Approach, Steps, Risks and Checks written. Spec saved and published as
+  issue #1 on the new GitHub remote. Status set to Approved.
