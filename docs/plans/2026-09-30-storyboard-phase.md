@@ -30,15 +30,20 @@ spec:
 - Out of scope: The Review phase (animated playback, scrubbing, a timeline of footage clips), the
   Picker, the MP4 render, audio comments, trimming, the element library format, approval, and
   Electron packaging.
-- Open questions:
-  1. Does this phase include the Claude skill's storyboard-writing rules (shot list format, timing
-     contract markup), or only the editor with a hand-made fixture reel? Recommended: include the
-     skill rules, since the loop is untestable end to end without them.
-  2. Brand file (D14) and taste list (D12): in this phase or deferred? Recommended: taste list
-     read-only display and brand file creation in the skill. Rule suggestions from repeated
-     comments are deferred.
-  3. How does the editor learn a new version exists? Recommended: it watches the reels folder and
-     shows the new version without a reload.
+- Open questions: none. Resolved in a grilling round on 2026-09-30:
+  - S1. The phase includes the Kinotta skill's storyboard-writing rules, so the whole loop runs.
+  - S2. The skill writes `reels/brand.md` on first use, for you to check once (D14).
+  - S3. Claude reads the global taste list and `reels/taste.md`, which you edit by hand. Rule
+    suggestions from repeated comments are deferred.
+  - S4. The editor watches the reels folder. A new version appears in the list with a "ready"
+    notice, and you open it with one click; it never switches on its own.
+  - S5. A version that breaks the timing contract still opens. It lists what is broken, and pins on
+    unnamed elements record only a position.
+  - S6. Only the newest version takes comments. Older versions are read-only.
+  - S7. Copying a comment batch locks nothing. Comments can be added, edited and deleted, and the
+    batch copied again, until the next version exists.
+  - S8. Tests: fast core tests against a sample reels folder, plus one end-to-end browser test of
+    the pin path.
 
 ## Goal
 
@@ -54,3 +59,5 @@ spec:
 
 ### 2026-09-30
 - Plan created with Intent only, awaiting approval.
+- Open questions resolved in a grilling round (S1 to S8). Two glossary rules added to CONTEXT.md:
+  only the newest version takes comments, and a batch can be re-copied until the next version.

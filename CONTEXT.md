@@ -13,6 +13,7 @@ _Avoid_: Video, project, clip
 
 **Version**:
 A frozen build of a reel, produced by Claude from one comment batch. It never changes after it exists.
+Only the newest version of a reel takes comments; older versions can be viewed but not commented on.
 _Avoid_: Draft, revision, iteration
 
 **Storyboard**:
@@ -55,6 +56,7 @@ _Avoid_: General comment
 
 **Comment batch**:
 Every comment on one version, handed to Claude together to produce the next version.
+It can be copied again, with changes, until the next version exists.
 _Avoid_: Feedback round, export
 
 **Approval**:
