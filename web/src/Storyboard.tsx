@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { versionPageUrl } from './api/index.ts';
 import type { Comment, NewComment, Shot, Version } from './api/index.ts';
+import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge } from './Pins.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
 import { PageStill } from './stage/index.ts';
@@ -50,12 +51,16 @@ export function Storyboard({ slug, version, comments, save }: StoryboardProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const returnTo = useRef<string | null>(null);
+  /** The lane control that opened the sheet, if one did; null when the grid opened it. */
+  const laneOpener = useRef<HTMLElement | null>(null);
 
-  // When the sheet closes, focus goes back to the button of the shot it was showing.
+  // When the sheet closes, focus goes back to the lane control that opened it, else to the button of the shot it was showing.
   useEffect(() => {
     if (openIndex === null && returnTo.current !== null) {
-      buttons.current.get(returnTo.current)?.focus();
+      const opener = laneOpener.current;
+      (opener?.isConnected ? opener : buttons.current.get(returnTo.current))?.focus();
       returnTo.current = null;
+      laneOpener.current = null;
     }
   }, [openIndex]);
 
@@ -77,7 +82,10 @@ export function Storyboard({ slug, version, comments, save }: StoryboardProps) {
             shot={shot}
             pageUrl={pageUrl}
             pins={comments.filter((c) => c.pin.shot === shot.number)}
-            open={() => setOpenIndex(i)}
+            open={() => {
+              laneOpener.current = null;
+              setOpenIndex(i);
+            }}
             buttonRef={(button) => {
               if (button) buttons.current.set(shot.number, button);
               else buttons.current.delete(shot.number);
@@ -85,6 +93,16 @@ export function Storyboard({ slug, version, comments, save }: StoryboardProps) {
           />
         ))}
       </div>
+      <Lanes
+        duration={version.duration}
+        shots={version.shots}
+        comments={comments}
+        overlays={version.overlays}
+        onOpen={(i, opener) => {
+          laneOpener.current = opener;
+          setOpenIndex(i);
+        }}
+      />
       {openIndex !== null && (
         <ShotSheet
           pageUrl={pageUrl}

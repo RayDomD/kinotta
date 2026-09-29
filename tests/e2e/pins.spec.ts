@@ -32,7 +32,7 @@ const inside = (inner: Box, outer: Box): boolean =>
   inner.x + inner.width <= outer.x + outer.width + 0.5 &&
   inner.y + inner.height <= outer.y + outer.height + 0.5;
 
-const shotButton = (page: Page, name: string): Locator => page.getByRole('button', { name: new RegExp(`^Shot ${name}, `) });
+const shotButton = (page: Page, name: string): Locator => page.locator('.grid').getByRole('button', { name: new RegExp(`^Shot ${name}, `) });
 const dialog = (page: Page): Locator => page.getByRole('dialog');
 const bigFrame = (page: Page): Locator => dialog(page).locator('.still');
 
@@ -389,4 +389,56 @@ test('the keyboard control can also pin the frame centre as a position only', as
   await page.keyboard.press('Escape');
   await expect(page.locator('.clist .c .dot')).toHaveText(after.map((c) => String(c.number)));
   await expect(page.locator('.grid .shot').nth(2).locator('.hexpin b')).toHaveText('2');
+});
+
+test('two pins on one shot sit side by side in the Pins lane at that shot start, and open it', async ({ page }) => {
+  await openShot(page, '02');
+  const before = await saved(page);
+  expect(before.filter((c) => c.pin.shot === '02')).toHaveLength(0);
+
+  for (const text of ['Lane pin one.', 'Lane pin two.']) {
+    await dialog(page).getByRole('button', { name: 'Frame centre (position only)' }).click();
+    const input = dialog(page).getByRole('textbox', { name: 'Comment on this position, shot 02' });
+    await expect(input).toBeFocused();
+    await input.fill(text);
+    await page.keyboard.press('Enter');
+    await expect(input).toHaveCount(0);
+  }
+  await page.keyboard.press('Escape');
+  await expect(dialog(page)).toHaveCount(0);
+
+  const after = await saved(page);
+  expect(after).toHaveLength(before.length + 2);
+  const onShot = after.filter((c) => c.pin.shot === '02');
+  expect(onShot.map((c) => c.text)).toEqual(['Lane pin one.', 'Lane pin two.']);
+
+  // One lane pin per comment, numbered like the comments panel.
+  const lanePins = page.locator('.pins-lane .lpin');
+  await expect(lanePins).toHaveCount(after.length);
+  await expect(lanePins.locator('b')).toHaveText(after.map((c) => String(c.number)));
+  await expect(page.locator('.clist .c .dot')).toHaveText(after.map((c) => String(c.number)));
+
+  const first = page.getByRole('button', { name: `Pin ${onShot[0]!.number}, shot 02: Lane pin one.` });
+  const second = page.getByRole('button', { name: `Pin ${onShot[1]!.number}, shot 02: Lane pin two.` });
+  await expect(first.locator('b')).toHaveText(String(onShot[0]!.number));
+  await expect(second.locator('b')).toHaveText(String(onShot[1]!.number));
+
+  const lane = (await page.locator('.pins-lane').boundingBox())!;
+  const a = (await first.boundingBox())!;
+  const b = (await second.boundingBox())!;
+  const shotStart = 1.8;
+  const reelDuration = 15;
+  expect(Math.abs(a.x - (lane.x + (shotStart / reelDuration) * lane.width + 4))).toBeLessThan(1.5);
+  expect(Math.abs(b.x - a.x - 22)).toBeLessThan(0.5);
+  expect(Math.abs(b.y - a.y)).toBeLessThan(0.5);
+
+  // The segment is marked as holding pins, and a lane pin opens its shot.
+  await expect(page.locator('.shots-lane .seg.has')).toHaveCount(new Set(after.map((c) => c.pin.shot)).size);
+  await expect(page.getByRole('button', { name: /^Shot 02, .*01\.80 to 03\.60$/ })).toHaveClass(/has/);
+  await second.click();
+  await expect(dialog(page)).toBeVisible();
+  await expect(dialog(page)).toHaveAccessibleName('02 Logo lockup');
+  await page.keyboard.press('Escape');
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(second).toBeFocused();
 });

@@ -117,17 +117,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T8 (#10). Time lanes under the grid
+## T8 (#10). Time lanes under the grid — Done
 
 **What to build:** Under the grid, Shots, Pins and Overlays lanes share one time axis (D22). Each shot's width is its duration; storyboard pins sit at their shot's start, side by side; overlays sit at their real span, and an empty Overlays lane shows "None" over dot terrain. Clicking a segment or a pin opens that shot. Built to the approved mockup.
 
 **Acceptance criteria:**
 
-- [ ] Segment widths are proportional to shot durations
-- [ ] Pins sit at their shot's start and stack side by side
-- [ ] Overlays render at their real span; none shows the empty state
-- [ ] Clicking a segment or pin opens the shot
-- [ ] Matches docs/mockups/2026-09-30-editor-visual-world.html
+- [x] Segment widths are proportional to shot durations
+- [x] Pins sit at their shot's start and stack side by side
+- [x] Overlays render at their real span; none shows the empty state
+- [x] Clicking a segment or pin opens the shot
+- [x] Matches docs/mockups/2026-09-30-editor-visual-world.html
 
 **Blocked by:** #5
 

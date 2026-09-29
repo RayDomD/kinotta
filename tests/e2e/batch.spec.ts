@@ -29,7 +29,7 @@ function batchOnDisk(): BatchFile {
 
 async function openShot(page: Page, number: string): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: new RegExp(`^Shot ${number}, `) }).click();
+  await page.locator('.grid').getByRole('button', { name: new RegExp(`^Shot ${number}, `) }).click();
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).locator('.still')).toHaveAttribute('data-state', 'ready');
   // The sheet scales in over 300ms; click only once that has finished.

@@ -94,6 +94,37 @@ input { font: inherit; color: inherit; cursor: text; }
 .desc { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 3px; }
 .pins-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--light); font-size: 12px; margin-left: 8px; }
 
+/* time lanes under the grid */
+.lanes { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 72px 1fr; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.lane { position: relative; min-width: 0; }
+.shots-lane { display: flex; height: 50px; border-top: 1.4px solid var(--hairline); border-bottom: 1.4px solid var(--hairline); }
+/* padding sits on the children, not the button, so each segment's width is exactly its share of the flex space */
+.seg { min-width: 0; text-align: left; box-shadow: inset -1.4px 0 0 var(--hairline); transition: background var(--t-color) var(--ease); }
+.seg:last-child { box-shadow: none; }
+.seg b { display: block; padding: 6px 9px 0; font: 800 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--light); }
+.seg span { display: block; padding: 0 9px; color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--t-color) var(--ease); }
+.seg.has { background: oklch(.84 .11 225 / .07); }
+.seg:hover, .seg:focus-visible { background: var(--card); }
+.seg:hover span { color: var(--ink); }
+.pins-lane { height: 28px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
+.lpin { position: absolute; top: 50%; width: 20px; height: 20px; transform: translateY(-50%); display: grid; place-items: center; filter: drop-shadow(0 0 4px var(--light-glow)); transition: filter var(--t-shadow) var(--ease); }
+.lpin svg { position: absolute; inset: 0; }
+.lpin b { position: relative; font: 800 10px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ground); }
+.lpin:hover { filter: drop-shadow(0 0 8px var(--light-glow)); }
+.ov-lane { height: 32px; }
+.ov { position: absolute; top: 3px; bottom: 3px; background: var(--card); border: 1.4px solid var(--hairline); padding: 0 9px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; transition: border-color var(--t-color) var(--ease); }
+.ov b { font: 700 11px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ov:hover { border-color: var(--ink); }
+.ov-empty { display: flex; align-items: center; gap: 12px; height: 100%; }
+.ov-empty .terrain { flex: 1; }
+.axis { height: 18px; font: 700 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--muted); }
+.axis span { position: absolute; top: 2px; transform: translateX(-50%); }
+.axis span.first { transform: none; }
+.axis span.last { transform: translateX(-100%); }
+.axis span::before { content: ""; position: absolute; left: 50%; top: -6px; width: 1px; height: 4px; background: var(--hairline); }
+.axis span.first::before { left: 0; }
+.axis span.last::before { left: 100%; }
+
 /* pins */
 .hexpin { position: absolute; width: 22px; height: 22px; transform: translate(-50%, -50%); display: grid; place-items: center; filter: drop-shadow(0 0 4px var(--light-glow)); pointer-events: none; z-index: 1; }
 .hexpin svg { position: absolute; inset: 0; }
