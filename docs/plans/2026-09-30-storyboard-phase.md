@@ -1,7 +1,7 @@
 ---
 title: Storyboard phase
 date: 2026-09-30
-status: Approved
+status: In Progress
 summary: First Kinotta phase. Storyboards for short code-only reels and long b-roll videos, pinned comments on elements and words, section batches handed to Claude.
 spec: docs/specs/2026-09-30-storyboard-phase.md (https://github.com/RayDomD/kinotta/issues/1)
 ---
@@ -127,3 +127,5 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
   carry-forward, transcript and word pins, panel stills over footage, motion-broll as planner with a
   shared `seek(t)` contract. Intent, Goal, Approach, Steps 8 to 11, and Risks updated. Color
   grading recorded as deferred to Review.
+- Unattended build run started on `feat/storyboard-phase`. Tickets file `docs/tickets.md` generated
+  from issues #3 to #19; T10 done, T9, T11 and T16 parked for the owner. Status set to In Progress.
