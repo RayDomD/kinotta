@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
@@ -6,6 +6,10 @@ import type { FramePin, WordPin } from './types.ts';
 
 const REELS_DIR = 'reels';
 const STATE_DIR = '.kinotta';
+/** Windows refuses a rename over a file another handle has open for a moment (a reader, the folder watcher, a scanner). */
+const BUSY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const RENAME_ATTEMPTS = 8;
+const RENAME_BACKOFF_MS = 25;
 
 export interface StoredComment {
   id: string;
@@ -64,9 +68,28 @@ export async function readState(file: string, number: number): Promise<StateFile
   }
 }
 
-export async function writeState(file: string, state: StateFile): Promise<void> {
+/**
+ * Writes a file whole or not at all: a temp file beside it, then a rename over it. The rename is retried briefly when
+ * Windows reports the target busy, and the temp file is removed if it never lands.
+ */
+export async function writeFileAtomic(file: string, text: string): Promise<void> {
   await mkdir(join(file, '..'), { recursive: true });
   const temp = `${file}.${randomUUID()}.tmp`;
-  await writeFile(temp, `${JSON.stringify(state, null, 2)}\n`);
-  await rename(temp, file);
+  await writeFile(temp, text);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await rename(temp, file);
+      return;
+    } catch (err) {
+      if (!BUSY_CODES.has((err as NodeJS.ErrnoException).code ?? '') || attempt === RENAME_ATTEMPTS) {
+        await rm(temp, { force: true });
+        throw err;
+      }
+      await new Promise((done) => setTimeout(done, RENAME_BACKOFF_MS * attempt));
+    }
+  }
+}
+
+export async function writeState(file: string, state: StateFile): Promise<void> {
+  await writeFileAtomic(file, `${JSON.stringify(state, null, 2)}\n`);
 }

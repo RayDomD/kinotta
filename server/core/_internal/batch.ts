@@ -1,11 +1,9 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sectionOfComment, settleNewest } from './carry.ts';
 import { numbered } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { readTitle } from './reels.ts';
-import { readState, serialized, stateFilePath, writeState } from './state.ts';
+import { readState, serialized, stateFilePath, writeFileAtomic, writeState } from './state.ts';
 import type { BatchOptions, Comment, CopiedBatch, Section, Version } from './types.ts';
 import { assertTakesComments } from './version.ts';
 
@@ -104,10 +102,7 @@ export async function copyBatch(projectDir: string, slug: string, number: number
       notes,
       ...(issues.length > 0 ? { issues } : {}),
     };
-    await mkdir(join(path, '..'), { recursive: true });
-    const temp = `${path}.${randomUUID()}.tmp`;
-    await writeFile(temp, `${JSON.stringify(batch, null, 2)}\n`);
-    await rename(temp, path);
+    await writeFileAtomic(path, `${JSON.stringify(batch, null, 2)}\n`);
     await writeState(stateFile, {
       ...state,
       handedOff: { ...state.handedOff, [section.id]: { copiedAt, commentIds: comments.map((c) => c.id) } },
