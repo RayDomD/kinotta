@@ -76,7 +76,7 @@ test('pinning an unnamed area records position only, and the batch can include t
   expect(plain).not.toContain('Contract issues');
 
   await page.getByLabel('Include contract issues').check();
-  await expect(copy).toContainText('Copy all comments');
+  await expect(copy).toHaveClass(/\bsent\b/);
   await copy.click();
   await expect(copy).toHaveText('Copied');
   const withIssues = (await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n');

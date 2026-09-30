@@ -63,6 +63,15 @@ input { font: inherit; color: inherit; cursor: text; }
 .btn:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: var(--sheet-rest); }
 .btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; transition-duration: var(--t-press); }
 .btn .count { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: 6px; }
+/* after a copy, until the comments change: lit in the Tally light, asking to copy again on hover or focus (D24) */
+.btn.sent { display: inline-grid; background: none; color: var(--light); border-color: var(--light); box-shadow: 0 0 10px var(--light-glow); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease), color var(--t-color) var(--ease), background-color var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.btn.sent > span { grid-area: 1 / 1; }
+.btn.sent:hover, .btn.sent:focus-visible { background: var(--ink); color: var(--ground); border-color: var(--ink); box-shadow: var(--sheet-rest); }
+.sent-rest { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.sent-rest svg { width: 12px; height: 12px; }
+.sent-ask { visibility: hidden; text-align: center; }
+.btn.sent:hover .sent-rest, .btn.sent:focus-visible .sent-rest { visibility: hidden; }
+.btn.sent:hover .sent-ask, .btn.sent:focus-visible .sent-ask { visibility: visible; }
 .btn:disabled { background: none; color: var(--muted); border: 1.4px dashed var(--hairline); box-shadow: none; }
 
 /* body */

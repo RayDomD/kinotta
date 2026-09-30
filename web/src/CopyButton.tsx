@@ -30,8 +30,8 @@ export function CopyButton(props: {
   const [includeIssues, setIncludeIssues] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
   const [busy, setBusy] = useState(false);
-  /** What the last copy covered, so the button can say a second copy sends the same batch again. */
-  const [sent, setSent] = useState<{ key: string; count: number } | null>(null);
+  /** What the last copy covered and when, so the button can show it was sent and that a second copy sends the same batch again. */
+  const [sent, setSent] = useState<{ key: string; count: number; at: string } | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -63,7 +63,7 @@ export function CopyButton(props: {
       setOutcome({ status: 'failed', message: `Saved to ${saved.file}, but the clipboard is not available. Ask Claude to read that file.` });
       return;
     }
-    setSent({ key: batchKey, count: saved.count });
+    setSent({ key: batchKey, count: saved.count, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) });
     setOutcome({ status: 'copied', count: saved.count });
     timer.current = window.setTimeout(() => setOutcome({ status: 'idle' }), CONFIRM_MS);
   }
@@ -72,7 +72,8 @@ export function CopyButton(props: {
   const empty = count === 0 && !hasNote;
   const withNote = hasNote ? ', and the reel note' : '';
   const copied = outcome.status === 'copied';
-  const again = sent !== null && sent.key === batchKey && sent.count === count ? ' again' : '';
+  const sentAt = sent !== null && sent.key === batchKey && sent.count === count ? sent.at : null;
+  const lit = sentAt !== null && !copied && !frozen;
   return (
     <div className="copy">
       {outcome.status === 'failed' && <span className="copy-error">{outcome.message}</span>}
@@ -84,14 +85,29 @@ export function CopyButton(props: {
       )}
       <button
         type="button"
-        className="btn"
+        className={lit ? 'btn sent' : 'btn'}
         disabled={frozen || empty}
         aria-disabled={busy || undefined}
-        aria-label={frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : `Copy ${what}${again}, ${count}${withNote}`}
+        aria-label={frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : lit ? `Copy ${what} again, sent at ${sentAt}, ${count}${withNote}` : `Copy ${what}, ${count}${withNote}`}
         onClick={copy}
       >
-        {copied ? 'Copied' : `Copy ${what}${again}`}
-        {!copied && <span className="count">{count}</span>}
+        {lit ? (
+          <>
+            {/* Both labels share one grid cell, so the button keeps its width when hover or focus swaps them. */}
+            <span className="sent-rest">
+              <svg viewBox="0 0 28 28" aria-hidden="true">
+                <path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
+              </svg>
+              Sent<span className="count">{sentAt}</span>
+            </span>
+            <span className="sent-ask">Copy again?</span>
+          </>
+        ) : (
+          <>
+            {copied ? 'Copied' : `Copy ${what}`}
+            {!copied && <span className="count">{count}</span>}
+          </>
+        )}
       </button>
       <span className="sr-only" role="status">
         {copied ? `Copied ${outcome.count} ${outcome.count === 1 ? 'comment' : 'comments'} for Claude` : ''}

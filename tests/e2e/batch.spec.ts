@@ -88,9 +88,13 @@ test('pin a named element, comment, copy: the button confirms, the clipboard and
   expect(batch.comments).toHaveLength(1);
   expect(batch.comments[0]).toMatchObject({ number: 1, shot: '03', time: 3.6, element: 'icons-word', text });
 
-  // The confirmation is brief, then the label says a second copy sends the same batch again. Focus never leaves the button.
-  await expect(copyButton(page)).toContainText('Copy all comments again');
-  await expect(copyButton(page)).toHaveAccessibleName('Copy all comments again, 1');
+  // The confirmation is brief, then the button stays lit as sent and asks to copy again on hover. Focus never leaves the button.
+  await expect(copyButton(page)).toHaveClass(/\bsent\b/);
+  await expect(copyButton(page)).toHaveAccessibleName(/^Copy all comments again, sent at \d\d:\d\d, 1$/);
+  await expect(copyButton(page).locator('.sent-ask')).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(copyButton(page).locator('.sent-rest')).toBeVisible();
+  await expect(copyButton(page).locator('.sent-ask')).toBeHidden();
   await expect(copyButton(page)).toBeEnabled();
   await expect(copyButton(page)).toBeFocused();
 });
