@@ -1,10 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import type { Comment, NewComment, Shot, TranscriptWord } from './api/index.ts';
-import { HexPin } from './Pins.tsx';
 import { ShotKind, ShotLine, WordRow, isWordComment, wordLabel } from './Transcript.tsx';
 import { PinFrame } from './stage/index.ts';
-import type { FrameElement, FramePick } from './stage/index.ts';
+import type { FrameElement, FramePick, FramePin } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 
 const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -178,7 +177,9 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   }
 
   const pins = comments.filter((c) => c.pin.shot === shot.number);
-  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' ? [{ comment: c, pin: c.pin }] : []));
+  const framePins: FramePin[] = pins.flatMap((c) =>
+    c.pin.kind === 'frame' ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y, element: c.pin.element, text: c.text, marked: c.id === markedId }] : [],
+  );
   const wordPins = pins.filter(isWordComment);
   const timecode = formatTimecode(shot.start);
   const where = draft?.element ?? 'this position';
@@ -229,11 +230,8 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
             onElements={setElements}
             draft={openDraft}
             draftContent={openDraft && draftForm(openDraft.id, where)}
-          >
-            {framePins.map(({ comment: c, pin }) => (
-              <HexPin key={c.id} number={c.number} x={pin.x} y={pin.y} marked={c.id === markedId} />
-            ))}
-          </PinFrame>
+            pins={framePins}
+          />
         </div>
         {readOnly ? (
           <p className="pinrow meta">{readOnlyNote}</p>

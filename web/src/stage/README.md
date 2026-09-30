@@ -13,7 +13,10 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
   root is `idle` (not in view yet), `loading`, `ready` or `failed`. A missing or throwing `seek` shows a plain
   labelled placeholder with the reason, never a black frame. Stills take no focus and no pointer events.
   `PageStill` also draws its `children` (the still's pins) over the page.
-- `PinFrame({ pageUrl, time, title, footageUrl?, onPick, onElements, draft, draftContent, children })`, the enlarged frame. Same
+- `PinMark({ number, x, y, marked?, text?, tagStyle?, stack? })`, a saved pin (D25): a small anchor hex on the spot and
+  a numbered tag. Without `tagStyle` the tag sits below right of the anchor, flipped near the edges, stepped `stack`
+  tag heights clear of nearby tags.
+- `PinFrame({ pageUrl, time, title, footageUrl?, onPick, onElements, draft, draftContent, pins })`, the enlarged frame. Same
   loading and seeking as a still. A transparent layer over the frame takes the pointer (the frame itself keeps
   `pointer-events: none`). For the pointer position, the stage maps it into page coordinates, calls
   `elementFromPoint` in the page and takes the closest `[data-el]`. The page is only read, never changed: the
@@ -23,7 +26,9 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
   takes the least overlap, always clamped inside the frame. `onPick({ x, y, element })` reports a click as
   fractions of the frame and the element name or null. `onElements` reports the visible named elements
   (`{ name, x, y }`, centre as fractions) after each draw, for a keyboard pin path. `draft` draws the pin being
-  placed and floats `draftContent` (the comment input) beside it by the same placement rule. `data-state` is
+  placed and floats `draftContent` (the comment input) beside it by the same placement rule. `pins` (`FramePin`:
+  `{ id, number, x, y, element, text, marked? }`) draws each saved pin as a `PinMark` whose tag goes beside its
+  element (or its anchor) by the same rule, clear of every anchor and earlier tag, with a hairline to the anchor. `data-state` is
   `loading`, `ready` or `failed`.
 - `footageUrl` on both (a panel shot of a footage reel): a muted, paused `<video>` of the footage (`preload="auto"`,
   `playsInline`) is stacked under the clip frame and seeked to the same `time` (`currentTime`, `seeked`, two animation

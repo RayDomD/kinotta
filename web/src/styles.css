@@ -203,13 +203,22 @@ input { font: inherit; color: inherit; cursor: text; }
 .axis span.last::before { left: 100%; }
 
 /* pins */
-.hexpin { position: absolute; width: 22px; height: 22px; transform: translate(-50%, -50%); display: grid; place-items: center; filter: drop-shadow(0 0 4px var(--light-glow)); pointer-events: none; z-index: 1; }
-.hexpin svg { position: absolute; inset: 0; }
-.hexpin b { position: relative; font: 800 11px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ground); }
+/* a saved pin (D25): a small anchor hex on the exact spot, and a numbered tag off the element; stills place the tag below right, flipped near the edges, and the enlarged frame places it with placeBox */
+.hexpin { position: absolute; width: 12px; height: 12px; transform: translate(-50%, -50%); pointer-events: none; z-index: 1; }
+.hexpin > svg { position: absolute; inset: 0; overflow: visible; filter: drop-shadow(0 0 4px var(--light-glow)); }
+.pintag { position: absolute; left: 12px; top: 12px; display: flex; align-items: baseline; gap: 6px; max-width: 26ch; background: var(--light); color: var(--ground); font: 600 12px/1.5 Outfit, sans-serif; padding: 1px 7px; white-space: nowrap; box-shadow: 0 0 10px var(--light-glow); }
+.pintag b { font: 800 12px/1.5 Doto, monospace; font-variant-numeric: tabular-nums; }
+.pintext { overflow: hidden; text-overflow: ellipsis; }
+.hexpin.flip-x .pintag { left: auto; right: 12px; }
+.hexpin.flip-y .pintag { top: auto; bottom: 12px; }
+.pinlines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
+.pinlines line { stroke: var(--light); stroke-width: 1.2; }
+/* the pin being placed: the larger outlined hex, until it is saved */
 .hexpin.draft { width: 26px; height: 26px; z-index: 4; }
-/* a pin the reviewer opened from the comments panel: a ring around it and a stronger glow */
-.hexpin.marked { filter: drop-shadow(0 0 9px var(--light-glow)) drop-shadow(0 0 3px var(--light)); z-index: 2; }
-.hexpin.marked svg { overflow: visible; }
+/* a pin the reviewer opened from the comments panel: a ring around the anchor, a stronger glow and an ink edge on the tag */
+.hexpin.marked { z-index: 2; }
+.hexpin.marked > svg { filter: drop-shadow(0 0 9px var(--light-glow)) drop-shadow(0 0 3px var(--light)); }
+.hexpin.marked .pintag { outline: 1.6px solid var(--ink); outline-offset: 1px; }
 
 /* live still: the version page at 1920x1080, scaled down to the box */
 .still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--still-ground); }

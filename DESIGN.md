@@ -177,7 +177,7 @@ Zero radius everywhere (`rounded.none`). Borders are 1.4 to 1.6px hairlines. The
 - **Phase nav:** Storyboard is current with an ink underline; Review and Picker are visible and inactive ("Not built yet").
 
 ### Pinning (signature)
-Over the enlarged frame the cursor is the hex with a centre dot. The element under it gets an ice outline with glow, drawn in the editor, never inside the reel's page, and an ice name tag placed outside the element so it never covers the reel's content. A click drops a numbered filled hex; the same number appears on the still, in the Pins lane and on the comment card.
+Over the enlarged frame the cursor is the hex with a centre dot. The element under it gets an ice outline with glow, drawn in the editor, never inside the reel's page, and an ice name tag placed outside the element so it never covers the reel's content. A click drops a saved pin (D25): a small filled hex anchor on the exact spot and an ice tag with the comment number and the start of its text, placed outside the element and off the page's content, joined to the anchor by a hairline. Grid stills show the anchor and a number-only tag, stacked clear of nearby tags. The same number appears in the Pins lane and on the comment card.
 
 ### Word row (signature)
 Under a footage shot's frame, the spoken words sit in a row at full ink with a few muted context words either side. Hovering or focusing a word outlines it and shows a tag below it with the word and its time; a word pin is a numbered hex above the word.

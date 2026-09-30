@@ -64,7 +64,7 @@
     {
       "name": "Numbered hex pin",
       "kind": "custom",
-      "description": "A pin on a frame, a still, a word or a lane, numbered like its comment.",
+      "description": "A pin on a word or a lane, numbered like its comment. Frame and still pins are an anchor hex plus a numbered tag (D25).",
       "html": "<span class=\"ds-hexpin\"><svg viewBox=\"0 0 28 28\"><path d=\"M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z\" fill=\"oklch(.84 .11 225)\" stroke=\"oklch(.184 .004 106)\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/></svg><b>2</b></span>",
       "css": ".ds-hexpin { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; filter: drop-shadow(0 0 4px oklch(.84 .11 225 / .5)); } .ds-hexpin svg { position: absolute; inset: 0; } .ds-hexpin b { position: relative; font: 800 11px Doto, monospace; color: oklch(.184 .004 106); }"
     },

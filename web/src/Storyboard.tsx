@@ -4,7 +4,7 @@ import type { Comment, NewComment, Shot, Version } from './api/index.ts';
 import { IssueList } from './IssueList.tsx';
 import type { VersionIssues } from './issues.ts';
 import { Lanes } from './Lanes.tsx';
-import { HexPin, PinsBadge } from './Pins.tsx';
+import { HexPin, PinsBadge, tagStacks } from './Pins.tsx';
 import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
 import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount, pinCount } from './sections.ts';
@@ -28,10 +28,12 @@ interface ShotCardProps {
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
 function ShotCard({ shot, pageUrl, footage, pins, unavailable, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
+  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
+  const stacks = tagStacks(framePins);
   return (
     <div className="shot">
       <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
-        {pins.map((c) => (c.pin.kind === 'frame' ? <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} /> : null))}
+        {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
       </PageStill>
       <div className="lbl">
         <span>

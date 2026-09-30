@@ -5,6 +5,7 @@ import type { FrameElement } from './dom.ts';
 import { FootageLayer } from './FootageLayer.tsx';
 import { useSeekReporter } from './issues.ts';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekPage } from './page.ts';
+import { ANCHOR_SIZE, PinMark } from './PinMark.tsx';
 import { placeBox } from './placeBox.ts';
 import type { Rect, Size } from './placeBox.ts';
 
@@ -16,6 +17,14 @@ export interface FramePick {
   x: number;
   y: number;
   element: string | null;
+}
+
+/** A saved pin to draw on the frame, with the start of its comment for the tag. */
+export interface FramePin extends FramePick {
+  id: string;
+  number: number;
+  text: string;
+  marked?: boolean;
 }
 
 export interface PinFrameProps {
@@ -36,8 +45,8 @@ export interface PinFrameProps {
   /** A pin being placed. Drawn as an outlined hex, with `draftContent` floated beside it. */
   draft?: FramePick | null;
   draftContent?: ReactNode;
-  /** Saved pins, drawn by the caller over the page. They must not take the pointer. */
-  children?: ReactNode;
+  /** Saved pins: each an anchor on its spot, with its tag placed off its element and off the page's content. */
+  pins?: FramePin[];
 }
 
 interface Hover {
@@ -59,16 +68,26 @@ const sameRect = (a: Rect, b: Rect): boolean => a.left === b.left && a.top === b
 
 const sameSpot = (a: Rect | null, b: Rect): boolean => a !== null && sameRect(a, b);
 
+/** A saved pin's anchor hex, in frame pixels. */
+const anchorBox = (p: FramePick, size: Size): Rect => ({
+  left: p.x * size.width - ANCHOR_SIZE / 2,
+  top: p.y * size.height - ANCHOR_SIZE / 2,
+  width: ANCHOR_SIZE,
+  height: ANCHOR_SIZE,
+});
+
 /**
  * The enlarged frame: the version page in a same-origin frame at 1920x1080, scaled to fit, seeked to `time`.
  * The page itself is never touched beyond reading it; the hover outline, name tag and pins are drawn here
  * over a transparent layer that takes the pointer (the frame has `pointer-events: none`).
  */
-export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick, onElements, draft = null, draftContent, children }: PinFrameProps) {
+export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick, onElements, draft = null, draftContent, pins = [] }: PinFrameProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const tagEl = useRef<HTMLDivElement>(null);
   const popEl = useRef<HTMLDivElement>(null);
+  const pinTags = useRef(new Map<string, HTMLSpanElement>());
+  const [pinSpots, setPinSpots] = useState<Record<string, Rect>>({});
   const elementsCallback = useRef(onElements);
   elementsCallback.current = onElements;
 
@@ -167,6 +186,27 @@ export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick
     }
   });
 
+  // Each pin's tag goes beside its element (or its anchor, for a position pin), clear of every anchor, the
+  // page's content and the tags placed before it. Until the frame draws, tags keep their default spot.
+  useLayoutEffect(() => {
+    const doc = frame.current?.contentDocument;
+    if (!drawn || !doc || scale === 0) return;
+    const anchors = pins.map((p) => anchorBox(p, size));
+    const placed: Rect[] = [];
+    const next: Record<string, Rect> = {};
+    for (const p of pins) {
+      const tag = pinTags.current.get(p.id);
+      if (!tag) continue;
+      const found = p.element ? findElement(doc, p.element) : null;
+      const target = found ? scaled(found.rect, scale) : anchorBox(p, size);
+      const obstacles = [...anchors, ...contentBoxes(doc, found?.element ?? null).map((r) => scaled(r, scale)), ...placed];
+      const spot = placeBox(target, { width: tag.offsetWidth, height: tag.offsetHeight }, obstacles, size);
+      placed.push(spot);
+      next[p.id] = spot;
+    }
+    setPinSpots((prev) => (Object.keys(next).length === Object.keys(prev).length && Object.entries(next).every(([id, r]) => sameSpot(prev[id] ?? null, r)) ? prev : next));
+  }, [pins, drawn, scale, size]);
+
   const reason = unavailable ?? failure;
   const state = reason !== null ? 'failed' : drawn ? 'ready' : 'loading';
   const at = (r: Rect | null): CSSProperties => ({ left: r?.left ?? 0, top: r?.top ?? 0 });
@@ -191,7 +231,39 @@ export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick
           <span>{reason}</span>
         </div>
       )}
-      {children}
+      {pins.length > 0 && (
+        <svg className="pinlines" aria-hidden="true">
+          {pins.map((p) => {
+            const spot = pinSpots[p.id];
+            if (!spot) return null;
+            const ax = p.x * size.width;
+            const ay = p.y * size.height;
+            // To the nearest point of the tag, so the line never crosses it.
+            const tx = Math.min(Math.max(ax, spot.left), spot.left + spot.width);
+            const ty = Math.min(Math.max(ay, spot.top), spot.top + spot.height);
+            return <line key={p.id} x1={ax} y1={ay} x2={tx} y2={ty} />;
+          })}
+        </svg>
+      )}
+      {pins.map((p) => {
+        const spot = pinSpots[p.id];
+        const anchor = anchorBox(p, size);
+        return (
+          <PinMark
+            key={p.id}
+            number={p.number}
+            x={p.x}
+            y={p.y}
+            marked={p.marked}
+            text={p.text}
+            tagStyle={spot && { left: spot.left - anchor.left, top: spot.top - anchor.top }}
+            tagRef={(el) => {
+              if (el) pinTags.current.set(p.id, el);
+              else pinTags.current.delete(p.id);
+            }}
+          />
+        );
+      })}
       {draft && (
         <span className="hexpin draft" style={{ left: `${draft.x * 100}%`, top: `${draft.y * 100}%` }} aria-hidden="true">
           <svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--ground)" stroke="var(--light)" strokeWidth="2.2" strokeLinejoin="round" /></svg>
