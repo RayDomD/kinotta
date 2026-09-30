@@ -133,6 +133,10 @@ input { font: inherit; color: inherit; cursor: text; }
 .issues ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .issues li { position: relative; padding-left: 14px; font-size: 14px; line-height: 1.4; color: var(--ink-2); overflow-wrap: anywhere; }
 .issues li::before { content: ""; position: absolute; left: 0; top: .6em; width: 6px; height: 1.4px; background: var(--muted); }
+.issues-line { margin-top: 8px; display: flex; align-items: baseline; gap: 10px; font-size: 14px; line-height: 1.4; color: var(--ink-2); min-width: 0; }
+.issues-line .first { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.issues-line .more { flex: none; color: var(--muted); }
+.issues-line .issues-toggle { flex: none; margin: 0 0 0 auto; }
 .issues-toggle { margin-top: 8px; padding: 2px 0; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--hairline); }
 .issues-toggle:hover { border-color: var(--ink); }
 .copy-issues { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }

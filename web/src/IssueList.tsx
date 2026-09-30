@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 
-/** A list longer than this starts collapsed to this many rows. */
-const COLLAPSED_ROWS = 5;
+/** A list longer than this starts collapsed to one line, so the grid and lanes stay in view (D26). */
+const FULL_ROWS = 3;
 
 function WarnMark() {
   return (
@@ -18,8 +18,12 @@ export function IssueList({ issues }: { issues: string[] }) {
   const listId = useId();
   const [expanded, setExpanded] = useState(false);
   if (issues.length === 0) return null;
-  const long = issues.length > COLLAPSED_ROWS;
-  const shown = long && !expanded ? issues.slice(0, COLLAPSED_ROWS) : issues;
+  const long = issues.length > FULL_ROWS;
+  const toggle = long && (
+    <button type="button" className="issues-toggle" aria-expanded={expanded} aria-controls={listId} onClick={() => setExpanded((open) => !open)}>
+      {expanded ? 'Show fewer' : `Show all ${issues.length}`}
+    </button>
+  );
   return (
     <section className="issues" aria-labelledby={titleId}>
       <h2 id={titleId}>
@@ -27,15 +31,21 @@ export function IssueList({ issues }: { issues: string[] }) {
         This version breaks the timing contract
         <span className="num">{issues.length === 1 ? '1 issue' : `${issues.length} issues`}</span>
       </h2>
-      <ul id={listId}>
-        {shown.map((issue) => (
-          <li key={issue}>{issue}</li>
-        ))}
-      </ul>
-      {long && (
-        <button type="button" className="issues-toggle" aria-expanded={expanded} aria-controls={listId} onClick={() => setExpanded((open) => !open)}>
-          {expanded ? 'Show fewer' : `Show all ${issues.length}`}
-        </button>
+      {long && !expanded ? (
+        <p id={listId} className="issues-line">
+          <span className="first">{issues[0]}</span>{' '}
+          <span className="more">and {issues.length - 1} more</span>{' '}
+          {toggle}
+        </p>
+      ) : (
+        <>
+          <ul id={listId}>
+            {issues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+          {toggle}
+        </>
       )}
     </section>
   );

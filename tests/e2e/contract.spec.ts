@@ -36,7 +36,12 @@ test('a broken version opens and lists each issue in plain words', async ({ page
 
   await expect(issues(page).getByRole('heading')).toContainText('This version breaks the timing contract');
   await expect(issues(page).getByRole('heading')).toContainText('4 issues');
+  // Longer than three, the list starts as one line so the grid and lanes stay in view.
+  await expect(issues(page).locator('.issues-line')).toContainText(`${LAUNCH_TEASER_ISSUES[0]} and 3 more`);
+  await expect(issues(page).locator('li')).toHaveCount(0);
+  await issues(page).getByRole('button', { name: 'Show all 4' }).click();
   await expect(issues(page).locator('li')).toHaveText(LAUNCH_TEASER_ISSUES);
+  await expect(issues(page).getByRole('button', { name: 'Show fewer' })).toHaveAttribute('aria-expanded', 'true');
   // Every shot is still in the grid.
   await expect(page.locator('.grid .shot')).toHaveCount(5);
   await expect(shotCard(page, '01').locator('.still')).toHaveAttribute('data-state', 'ready');
