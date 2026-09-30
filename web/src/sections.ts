@@ -20,6 +20,10 @@ export function shotCount(count: number): string {
   return `${count} ${count === 1 ? 'shot' : 'shots'}`;
 }
 
+export function pinCount(count: number): string {
+  return `${count} ${count === 1 ? 'pin' : 'pins'}`;
+}
+
 /** Pins per section, counted in one place: a pin belongs to the section of its shot. */
 export function pinCounts(comments: Comment[], shots: Shot[]): Map<string, number> {
   const sectionOfShot = new Map(shots.map((shot) => [shot.number, shot.section]));

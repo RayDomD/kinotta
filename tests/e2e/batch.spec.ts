@@ -88,10 +88,11 @@ test('pin a named element, comment, copy: the button confirms, the clipboard and
   expect(batch.comments).toHaveLength(1);
   expect(batch.comments[0]).toMatchObject({ number: 1, shot: '03', time: 3.6, element: 'icons-word', text });
 
-  // The confirmation is brief: the label returns and the button stays usable.
-  await expect(copyButton(page)).toContainText('Copy all comments');
-  await expect(copyButton(page)).toHaveAccessibleName('Copy all comments, 1');
+  // The confirmation is brief, then the label says a second copy sends the same batch again. Focus never leaves the button.
+  await expect(copyButton(page)).toContainText('Copy all comments again');
+  await expect(copyButton(page)).toHaveAccessibleName('Copy all comments again, 1');
   await expect(copyButton(page)).toBeEnabled();
+  await expect(copyButton(page)).toBeFocused();
 });
 
 test('copying again after a new comment overwrites the batch file', async ({ page }) => {

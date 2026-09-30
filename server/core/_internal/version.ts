@@ -12,6 +12,7 @@ const REELS_DIR = 'reels';
 const SHOTS_FILE = 'shots.json';
 const PAGE_FILE = 'index.html';
 const STORYBOARD_VERSION = 1;
+const UNTITLED_SHOT = 'Untitled shot';
 
 async function isDirectory(path: string): Promise<boolean> {
   try {
@@ -121,7 +122,8 @@ function readShots(raw: unknown, duration: number): Shot[] {
       number: String(shot.number ?? ''),
       start,
       duration: Math.max(0, end - start),
-      title: String(shot.title ?? ''),
+      // A shot with no title still needs a name on screen; the contract check reports the missing title.
+      title: typeof shot.title === 'string' && shot.title.trim() !== '' ? shot.title : UNTITLED_SHOT,
       description: String(shot.description ?? ''),
     } as Shot;
   });

@@ -259,16 +259,16 @@ Parked for the unattended run: the last criterion needs a real run on a talking 
 
 **Model:** `mid`
 
-## T17 (#19). DESIGN.md and finish review
+## T17 (#19). DESIGN.md and finish review — Done
 
 **What to build:** Write DESIGN.md from the built Storyboard with /impeccable document, recording D19's motion override. Run /impeccable audit, check AA contrast in the dark theme, and do a keyboard-only pass. Fix what the audit flags.
 
 **Acceptance criteria:**
 
-- [ ] DESIGN.md exists and matches the built editor
-- [ ] Audit findings resolved or recorded
-- [ ] AA contrast verified
-- [ ] Full keyboard-only pass completes the pin and copy path
+- [x] DESIGN.md exists and matches the built editor
+- [x] Audit findings resolved or recorded
+- [x] AA contrast verified
+- [x] Full keyboard-only pass completes the pin and copy path
 
 **Blocked by:** #8, #9, #10, #14, #15, #16
 

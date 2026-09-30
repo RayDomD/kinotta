@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T01:20:00Z",
+  "title": "Design System: Kinotta",
+  "extensions": {
+    "colorMeta": {
+      "light": { "role": "primary", "displayName": "Ice Light", "canonical": "oklch(.84 .11 225)", "tonalRamp": ["oklch(.20 .05 225)", "oklch(.30 .07 225)", "oklch(.42 .09 225)", "oklch(.54 .10 225)", "oklch(.66 .11 225)", "oklch(.76 .11 225)", "oklch(.84 .11 225)", "oklch(.93 .05 225)"] },
+      "ground": { "role": "neutral", "displayName": "Warm Ground", "canonical": "oklch(.184 .004 106)", "tonalRamp": ["oklch(.15 .003 106)", "oklch(.184 .004 106)", "oklch(.214 .005 90)", "oklch(.246 .005 90)", "oklch(.40 .006 106)", "oklch(.64 .008 106)", "oklch(.82 .007 106)", "oklch(.945 .004 106)"] },
+      "card": { "role": "neutral", "displayName": "Paper", "canonical": "oklch(.214 .005 90)" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "oklch(.945 .004 106)" },
+      "muted": { "role": "neutral", "displayName": "Muted", "canonical": "oklch(.640 .008 106)" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "The storyboard or section heading over the grid." },
+      "numeral": { "displayName": "Numeral", "purpose": "Shot numbers, timecodes, pin numbers, counts: Doto with tabular figures." }
+    },
+    "shadows": [
+      { "name": "sheet-rest", "value": "5px 5px 0 -1.6px var(--ground), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px var(--ground), 10px 10px 0 0 oklch(.945 .004 106 / .18)", "purpose": "Comment cards and the enlarged sheet: stacked paper at rest." },
+      { "name": "sheet-lift", "value": "7px 7px 0 -1.6px var(--ground), 7px 7px 0 0 oklch(.945 .004 106 / .42), 14px 14px 0 -1.6px var(--ground), 14px 14px 0 0 oklch(.945 .004 106 / .18)", "purpose": "A hovered or focused shot." },
+      { "name": "sheet-press", "value": "2px 2px 0 -1.6px var(--ground), 2px 2px 0 0 oklch(.945 .004 106 / .42), 4px 4px 0 -1.6px var(--ground), 4px 4px 0 0 oklch(.945 .004 106 / .18)", "purpose": "Pressed shot or copy button." },
+      { "name": "light-glow", "value": "0 0 10px oklch(.84 .11 225 / .5)", "purpose": "Only behind lit state: current version, current band, hovered element, pins." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(.2, .8, .2, 1)", "purpose": "The one curve for all chrome motion (D19)." },
+      { "name": "t-press", "value": "120ms", "purpose": "Press." },
+      { "name": "t-shadow", "value": "180ms", "purpose": "Shadow changes." },
+      { "name": "t-color", "value": "250ms", "purpose": "Colour changes." },
+      { "name": "t-lift", "value": "380ms", "purpose": "Lift and translate. Stepping, scrubbing and keyboard navigation never animate." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Copy button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one hand-off action: copies the comment batch for Claude.",
+      "html": "<button class=\"ds-btn-copy\">Copy all comments<span class=\"ds-count\">2</span></button>",
+      "css": ".ds-btn-copy { background: var(--ink, oklch(.945 .004 106)); color: var(--ground, oklch(.184 .004 106)); font: 600 14px Outfit, sans-serif; padding: 8px 16px; border: 1.6px solid var(--ink, oklch(.945 .004 106)); border-radius: 0; box-shadow: 2px 2px 0 -1.6px oklch(.184 .004 106), 2px 2px 0 0 oklch(.945 .004 106 / .42), 4px 4px 0 -1.6px oklch(.184 .004 106), 4px 4px 0 0 oklch(.945 .004 106 / .18); transition: transform 380ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms cubic-bezier(.2,.8,.2,1); } .ds-btn-copy:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 -1.6px oklch(.184 .004 106), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px oklch(.184 .004 106), 10px 10px 0 0 oklch(.945 .004 106 / .18); } .ds-btn-copy:focus-visible { outline: 1.6px solid oklch(.945 .004 106); outline-offset: 2px; } .ds-count { font: 800 14px Doto, monospace; margin-left: 6px; }"
+    },
+    {
+      "name": "Comment card",
+      "kind": "card",
+      "refersTo": "card-comment",
+      "description": "A pinned comment as stacked paper.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-where\"><span class=\"ds-n\">1</span><span>Shot 03 · 03.60s</span><span class=\"ds-el\">icons-word</span></div><p>Hold ICONS a beat longer before the cut.</p></div>",
+      "css": ".ds-card { background: oklch(.214 .005 90); color: oklch(.945 .004 106); border: 1.6px solid oklch(.945 .004 106); border-radius: 0; padding: 10px 12px; box-shadow: 5px 5px 0 -1.6px oklch(.184 .004 106), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px oklch(.184 .004 106), 10px 10px 0 0 oklch(.945 .004 106 / .18); font: 14px Outfit, sans-serif; } .ds-where { display: flex; gap: 8px; font-size: 12px; color: oklch(.64 .008 106); } .ds-n { font: 800 13px Doto, monospace; color: oklch(.84 .11 225); } .ds-el { color: oklch(.84 .11 225); } .ds-card p { margin: 4px 0 0; }"
+    },
+    {
+      "name": "Note field",
+      "kind": "input",
+      "refersTo": "input-note",
+      "description": "The note on the whole reel.",
+      "html": "<textarea class=\"ds-note\" placeholder=\"Feedback that belongs to no single moment…\"></textarea>",
+      "css": ".ds-note { width: 100%; background: oklch(.150 .003 106); color: oklch(.945 .004 106); border: 1.4px solid oklch(.945 .004 106 / .24); border-radius: 0; font: 14px Outfit, sans-serif; padding: 9px 10px; resize: none; height: 62px; } .ds-note:focus { outline: none; border-color: oklch(.84 .11 225); }"
+    },
+    {
+      "name": "Version rail row",
+      "kind": "nav",
+      "description": "A version in the rail; the current one lit with a text cue.",
+      "html": "<div class=\"ds-versions\"><button>v1 <small>storyboard</small></button><button aria-current=\"true\">v2 <small>now</small></button></div>",
+      "css": ".ds-versions { display: flex; flex-direction: column; gap: 2px; font: 14px Outfit, sans-serif; } .ds-versions button { display: flex; justify-content: space-between; padding: 6px 10px; background: none; color: oklch(.64 .008 106); border: 0; border-left: 1.6px solid transparent; text-align: left; font: inherit; } .ds-versions button[aria-current] { color: oklch(.84 .11 225); border-color: oklch(.84 .11 225); text-shadow: 0 0 10px oklch(.84 .11 225 / .5); } .ds-versions small { font-size: 12px; }"
+    },
+    {
+      "name": "Numbered hex pin",
+      "kind": "custom",
+      "description": "A pin on a frame, a still, a word or a lane, numbered like its comment.",
+      "html": "<span class=\"ds-hexpin\"><svg viewBox=\"0 0 28 28\"><path d=\"M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z\" fill=\"oklch(.84 .11 225)\" stroke=\"oklch(.184 .004 106)\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/></svg><b>2</b></span>",
+      "css": ".ds-hexpin { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; filter: drop-shadow(0 0 4px oklch(.84 .11 225 / .5)); } .ds-hexpin svg { position: absolute; inset: 0; } .ds-hexpin b { position: relative; font: 800 11px Doto, monospace; color: oklch(.184 .004 106); }"
+    },
+    {
+      "name": "Element name tag",
+      "kind": "chip",
+      "refersTo": "tag-element-name",
+      "description": "Names the element under the cursor; placed outside it.",
+      "html": "<span class=\"ds-tag\">icons-word</span>",
+      "css": ".ds-tag { background: oklch(.84 .11 225); color: oklch(.184 .004 106); font: 600 12px Outfit, sans-serif; padding: 2px 7px; border-radius: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Light Table",
+    "overview": "Kinotta is a dark table the owner lays someone else's reel on. The table itself is warm near-black and flat, divided by hairlines, and carries no hue, because every reel brings its own client's brand and the chrome must never tint the judgment of colour or motion. One cold ice-blue light moves over the table: it marks the pin you placed, the version on screen, the section in view, and the element under the cursor. Nothing else is lit.",
+    "keyCharacteristics": [
+      "One light, never a fill: the ice blue marks state and never paints a surface.",
+      "Flat shell, stacked paper in hand: depth appears only on the hovered or focused shot, the enlarged sheet, and comment cards.",
+      "Numbers are machine type: every shot number, timecode, pin number and count is Doto with tabular figures.",
+      "Hexes are the only ornament: the cursor, the pins, the waiting mark and the brand mark share one hexagon.",
+      "Dot terrain is the only texture, and only where something is empty."
+    ],
+    "rules": [
+      { "name": "The One Light Rule", "body": "The ice blue marks state (pinned, current, hovered, waiting on its shape) and never fills a surface or decorates. If it isn't telling you where you are or what you touched, it isn't blue.", "section": "colors" },
+      { "name": "The Neutral Frame Rule", "body": "Anything that borders the reel (the well, the still ground, the scrim) is hueless, so the reel's own colour is judged against nothing.", "section": "colors" },
+      { "name": "The Machine Numbers Rule", "body": "Every number that identifies or measures (shot, pin, section, timecode, count) is Doto with tabular figures; prose numbers stay in Outfit.", "section": "typography" },
+      { "name": "The In-Hand Rule", "body": "Only what you are holding stacks: the shot under the pointer or focus, the enlarged sheet, and comment cards. Lanes, rails and panels stay flat.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do mark current and pinned state with the ice light and a second cue (shape, text or aria-current).",
+      "Do set every shot number, timecode, pin number and count in Doto with tabular figures.",
+      "Do keep Rubric's motion speeds on the chrome: lift 380ms, shadow 180ms, colour 250ms, press 120ms, one curve cubic-bezier(.2,.8,.2,1) (D19), and zero under reduced motion.",
+      "Do keep stepping shots, switching sections and keyboard navigation instant.",
+      "Do draw every outline, tag and pin in the editor, over the reel, never inside the reel's page."
+    ],
+    "donts": [
+      "Don't fill a surface with the ice blue or use it as decoration.",
+      "Don't round a corner or use chrome-metal gradients.",
+      "Don't add texture other than dot terrain, and only in empty places.",
+      "Don't let the element name tag cover the element or the reel's content.",
+      "Don't add a light theme (D21)."
+    ]
+  }
+}

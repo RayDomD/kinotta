@@ -30,11 +30,17 @@ export function CopyButton(props: {
   const [includeIssues, setIncludeIssues] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
   const [busy, setBusy] = useState(false);
+  /** What the last copy covered, so the button can say a second copy sends the same batch again. */
+  const [sent, setSent] = useState<{ key: string; count: number } | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
+  const batchKey = `${slug}/${version}/${section?.id ?? ''}`;
+
   async function copy(): Promise<void> {
+    // Busy is aria-disabled, not disabled, so keyboard focus stays on the button through the copy.
+    if (busy) return;
     window.clearTimeout(timer.current);
     setBusy(true);
     await beforeCopy?.();
@@ -57,6 +63,7 @@ export function CopyButton(props: {
       setOutcome({ status: 'failed', message: `Saved to ${saved.file}, but the clipboard is not available. Ask Claude to read that file.` });
       return;
     }
+    setSent({ key: batchKey, count: saved.count });
     setOutcome({ status: 'copied', count: saved.count });
     timer.current = window.setTimeout(() => setOutcome({ status: 'idle' }), CONFIRM_MS);
   }
@@ -65,6 +72,7 @@ export function CopyButton(props: {
   const empty = count === 0 && !hasNote;
   const withNote = hasNote ? ', and the reel note' : '';
   const copied = outcome.status === 'copied';
+  const again = sent !== null && sent.key === batchKey && sent.count === count ? ' again' : '';
   return (
     <div className="copy">
       {outcome.status === 'failed' && <span className="copy-error">{outcome.message}</span>}
@@ -77,11 +85,12 @@ export function CopyButton(props: {
       <button
         type="button"
         className="btn"
-        disabled={frozen || empty || busy}
-        aria-label={frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : `Copy ${what}, ${count}${withNote}`}
+        disabled={frozen || empty}
+        aria-disabled={busy || undefined}
+        aria-label={frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : `Copy ${what}${again}, ${count}${withNote}`}
         onClick={copy}
       >
-        {copied ? 'Copied' : `Copy ${what}`}
+        {copied ? 'Copied' : `Copy ${what}${again}`}
         {!copied && <span className="count">{count}</span>}
       </button>
       <span className="sr-only" role="status">

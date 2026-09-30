@@ -7,7 +7,7 @@ import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge } from './Pins.tsx';
 import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
-import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount } from './sections.ts';
+import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount, pinCount } from './sections.ts';
 import { readOnlyNote } from './readOnly.ts';
 import { WaitingMark } from './Waiting.tsx';
 import { PageStill } from './stage/index.ts';
@@ -127,7 +127,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
             <h1>
               <span className="dot">{sectionNumber(sectionIndex)}</span> {section.name}
             </h1>
-            <span className="meta num">{`${sectionSpan(section)} · ${shotCount(shots.length)} · ${pinCounts(comments, version.shots).get(section.id) ?? 0} pins`}</span>
+            <span className="meta num">{`${sectionSpan(section)} · ${shotCount(shots.length)} · ${pinCount(pinCounts(comments, version.shots).get(section.id) ?? 0)}`}</span>
             {section.waiting && <WaitingMark />}
           </>
         ) : (

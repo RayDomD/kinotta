@@ -67,6 +67,8 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [elements, setElements] = useState<FrameElement[] | null>(null);
+  /** The last saved comment, confirmed in the sheet because the comments column sits behind the scrim. */
+  const [savedLine, setSavedLine] = useState<string | null>(null);
 
   useEffect(() => {
     sheet.current?.focus();
@@ -79,6 +81,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
     setText('');
     setError(null);
     setElements(null);
+    setSavedLine(null);
   }, [shot.number]);
 
   const draftOpen = !readOnly && (draft !== null || wordDraft !== null);
@@ -161,6 +164,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
         : { shot: shot.number, x: draft!.x, y: draft!.y, element: draft!.element };
       await save({ pin, text: text.trim() });
       const word = wordDraft?.word ?? null;
+      setSavedLine(`Comment saved on ${word ? `word “${word.text}”` : (draft!.element ?? 'this position')}.`);
       setDraft(null);
       setWordDraft(null);
       setText('');
@@ -263,6 +267,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
             {openWordDraft && <div className="word-draft">{draftForm(openWordDraft.id, wordLabel(openWordDraft.word.text))}</div>}
           </>
         ) : null}
+        <p className="sheet-status" role="status">{savedLine}</p>
         <div className="hint">
           <span>{shot.description}</span>
           <span><kbd>←</kbd> <kbd>→</kbd> shots</span>

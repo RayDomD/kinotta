@@ -11,6 +11,9 @@
   --hairline: oklch(.945 .004 106 / .24);
   --light: oklch(.84 .11 225);
   --light-glow: oklch(.84 .11 225 / .5);
+  /** Behind a still before its page draws: a neutral near-black, so an unloaded frame never reads as part of the reel. */
+  --still-ground: oklch(.13 .006 50);
+  --scrim: oklch(.12 .003 106 / .86);
   --light-wash: oklch(.84 .11 225 / .07);
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t-press: 120ms;
@@ -168,7 +171,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .seg:last-child { box-shadow: none; }
 .seg b { display: block; padding: 6px 9px 0; font: 800 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--light); }
 .seg span { display: block; padding: 0 9px; color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--t-color) var(--ease); }
-.seg.has { background: oklch(.84 .11 225 / .07); }
+.seg.has { background: var(--light-wash); }
 .seg:hover, .seg:focus-visible { background: var(--card); }
 .seg:hover span { color: var(--ink); }
 .pins-lane { height: 28px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
@@ -200,7 +203,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .hexpin.marked svg { overflow: visible; }
 
 /* live still: the version page at 1920x1080, scaled down to the box */
-.still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: oklch(.13 .006 50); }
+.still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--still-ground); }
 .still-frame { position: absolute; top: 0; left: 0; border: 0; color-scheme: normal; transform-origin: 0 0; pointer-events: none; }
 .still-footage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .footage-failed { position: absolute; left: 0; bottom: 0; width: 55%; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1.4px dashed var(--hairline); color: var(--ink-2); font-size: 12px; line-height: 1.35; }
@@ -247,7 +250,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .note-read { font-size: 14px; color: var(--ink-2); overflow-wrap: anywhere; white-space: pre-wrap; }
 
 /* enlarged shot */
-.scrim { position: fixed; inset: 52px 0 0 0; background: oklch(.12 .003 106 / .86); display: grid; overflow: auto; padding: 16px; z-index: 10; }
+.scrim { position: fixed; inset: 52px 0 0 0; background: var(--scrim); display: grid; overflow: auto; padding: 16px; z-index: 10; }
 .sheet { width: min(1040px, 78vw, max(480px, calc((100vh - 52px - 250px) * 16 / 9 + 64px))); margin: auto; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 16px 18px 18px; animation: sheet-in 300ms var(--ease); }
 .sheet:focus { outline: none; }
 @keyframes sheet-in { from { opacity: 0; transform: scale(.97); } }
@@ -297,3 +300,6 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0ms !important; animation: none !important; }
 }
+
+/* confirmation of the last saved comment in the enlarged sheet */
+.sheet-status { min-height: 1.4em; margin-top: 8px; font-size: 13px; color: var(--ink-2); }

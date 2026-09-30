@@ -65,7 +65,7 @@ function TopBar(props: {
           phase === 'Storyboard' ? (
             <span key={phase} aria-current="page">{phase}</span>
           ) : (
-            <span key={phase} aria-disabled="true">{phase}</span>
+            <span key={phase} aria-disabled="true" title="Not built yet">{phase}</span>
           ),
         )}
       </nav>

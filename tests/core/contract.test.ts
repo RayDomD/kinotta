@@ -213,3 +213,13 @@ describe('copyBatch with contract issues', () => {
     expect(text).not.toContain('Contract issues');
   });
 });
+
+describe('a shot with no title', () => {
+  it('opens as "Untitled shot" while the contract check still reports the missing title', async () => {
+    const version = await openProject(copyFixture('broken-project')).readVersion('launch-teaser', 1);
+    const shot = version.shots.find((s) => s.number === '05');
+
+    expect(shot?.title).toBe('Untitled shot');
+    expect(version.issues.some((i) => i.code === 'shot-field' && i.message.includes('title'))).toBe(true);
+  });
+});
