@@ -4,6 +4,7 @@ import { copyBatch } from './api/index.ts';
 const CONFIRM_MS = 1400;
 /** The keyboard shortcut for Copy. Ctrl+Shift+C is taken by the browser's devtools. */
 const COPY_KEY = 'c';
+const COPY_CODE = 'KeyC';
 
 type Outcome =
   | { status: 'idle' }
@@ -42,7 +43,8 @@ export function CopyButton(props: {
   // C copies from anywhere on the storyboard, except while typing or with the enlarged shot open over the top bar.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (e.key.toLowerCase() !== COPY_KEY || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
+      // The physical key too, so the shortcut works on keyboard layouts that type another letter there.
+      if ((e.key.toLowerCase() !== COPY_KEY && e.code !== COPY_CODE) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
       const target = e.target;
       if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
       if (document.querySelector('[role="dialog"]')) return;

@@ -19,11 +19,7 @@ export function IssueList({ issues }: { issues: string[] }) {
   const [expanded, setExpanded] = useState(false);
   if (issues.length === 0) return null;
   const long = issues.length > FULL_ROWS;
-  const toggle = long && (
-    <button type="button" className="issues-toggle" aria-expanded={expanded} aria-controls={listId} onClick={() => setExpanded((open) => !open)}>
-      {expanded ? 'Show fewer' : `Show all ${issues.length}`}
-    </button>
-  );
+  const collapsed = long && !expanded;
   return (
     <section className="issues" aria-labelledby={titleId}>
       <h2 id={titleId}>
@@ -31,22 +27,26 @@ export function IssueList({ issues }: { issues: string[] }) {
         This version breaks the timing contract
         <span className="num">{issues.length === 1 ? '1 issue' : `${issues.length} issues`}</span>
       </h2>
-      {long && !expanded ? (
-        <p id={listId} className="issues-line">
-          <span className="first">{issues[0]}</span>{' '}
-          <span className="more">and {issues.length - 1} more</span>{' '}
-          {toggle}
-        </p>
-      ) : (
-        <>
+      {/* The toggle keeps one place in the tree in both states, so keyboard focus stays on it when it flips. */}
+      <div className={collapsed ? 'issues-body collapsed' : 'issues-body'}>
+        {collapsed ? (
+          <p id={listId} className="issues-line">
+            <span className="first">{issues[0]}</span>{' '}
+            <span className="more">and {issues.length - 1} more</span>
+          </p>
+        ) : (
           <ul id={listId}>
-            {issues.map((issue) => (
-              <li key={issue}>{issue}</li>
+            {issues.map((issue, i) => (
+              <li key={`${i}:${issue}`}>{issue}</li>
             ))}
           </ul>
-          {toggle}
-        </>
-      )}
+        )}
+        {long && (
+          <button type="button" className="issues-toggle" aria-expanded={expanded} aria-controls={listId} onClick={() => setExpanded((open) => !open)}>
+            {expanded ? 'Show fewer' : `Show all ${issues.length}`}
+          </button>
+        )}
+      </div>
     </section>
   );
 }
