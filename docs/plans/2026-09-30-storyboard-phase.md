@@ -93,6 +93,10 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
 11. Kinotta skill for footage: transcription, section splitting, planning through motion-broll.
 12. End-to-end browser test on both samples, and one real run of each reel kind in a client project.
 13. `DESIGN.md` from the built Storyboard, then the finish review.
+14. Finish-review follow-ups (D23 to D26, mockup `docs/mockups/2026-09-30-finish-review-decisions.html`):
+    Cutting bench colour names in `DESIGN.md`; the lit "Sent" Copy button; anchor-and-tag pins; the
+    one-line issue list; a `C` shortcut for Copy; then `/impeccable polish`, `harden` and a fresh
+    `audit`.
 
 ## Risks
 
@@ -132,3 +136,5 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
 - Build run finished. Every buildable ticket shipped on `feat/storyboard-phase` (T1 to T8, T12 to
   T15, T17); T9, T11 and T16 stay open for the owner, so status stays In Progress. Summary:
   `docs/session-summaries/2026-09-30-storyboard-phase-summary.md`.
+- Finish-review questions answered in a `ui-preview` round (D23 to D26). Step 14 added for the
+  follow-ups, approved by the owner.
