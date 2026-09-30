@@ -217,8 +217,8 @@ input { font: inherit; color: inherit; cursor: text; }
 .hexpin.flip-y .pintag { top: auto; bottom: 12px; }
 .pinlines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
 .pinlines line { stroke: var(--light); stroke-width: 1.2; }
-/* the pin being placed: the larger outlined hex, until it is saved */
-.hexpin.draft { width: 26px; height: 26px; z-index: 4; }
+/* the pin being placed: the same anchor it keeps once saved; the comment input beside it marks it unsaved */
+.hexpin.draft { z-index: 4; }
 /* a pin the reviewer opened from the comments panel: a ring around the anchor, a stronger glow and an ink edge on the tag */
 .hexpin.marked { z-index: 2; }
 .hexpin.marked > svg { filter: drop-shadow(0 0 9px var(--light-glow)) drop-shadow(0 0 3px var(--light)); }

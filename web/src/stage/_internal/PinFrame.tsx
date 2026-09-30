@@ -9,9 +9,6 @@ import { ANCHOR_SIZE, PinMark } from './PinMark.tsx';
 import { placeBox } from './placeBox.ts';
 import type { Rect, Size } from './placeBox.ts';
 
-/** Size of the pin hex drawn on the frame, in frame pixels. The comment input keeps clear of it. */
-const PIN_SIZE = 28;
-
 /** Where the reviewer pointed: fractions of the frame, and the named element there (null over empty frame). */
 export interface FramePick {
   x: number;
@@ -42,7 +39,7 @@ export interface PinFrameProps {
   onPick(pick: FramePick): void;
   /** The named elements in view, reported each time the frame draws. */
   onElements?(elements: FrameElement[]): void;
-  /** A pin being placed. Drawn as an outlined hex, with `draftContent` floated beside it. */
+  /** A pin being placed. Drawn as the anchor it keeps once saved, with `draftContent` floated beside it. */
   draft?: FramePick | null;
   draftContent?: ReactNode;
   /** Saved pins: each an anchor on its spot, with its tag placed off its element and off the page's content. */
@@ -167,7 +164,7 @@ export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick
   const pop = useMemo(() => {
     const doc = frame.current?.contentDocument;
     if (!draft || !drawn || !doc || scale === 0) return null;
-    const pin: Rect = { left: draft.x * size.width - PIN_SIZE / 2, top: draft.y * size.height - PIN_SIZE / 2, width: PIN_SIZE, height: PIN_SIZE };
+    const pin: Rect = { left: draft.x * size.width - ANCHOR_SIZE / 2, top: draft.y * size.height - ANCHOR_SIZE / 2, width: ANCHOR_SIZE, height: ANCHOR_SIZE };
     const found = draft.element ? findElement(doc, draft.element) : null;
     return {
       target: found ? scaled(found.rect, scale) : pin,
@@ -266,7 +263,7 @@ export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick
       })}
       {draft && (
         <span className="hexpin draft" style={{ left: `${draft.x * 100}%`, top: `${draft.y * 100}%` }} aria-hidden="true">
-          <svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--ground)" stroke="var(--light)" strokeWidth="2.2" strokeLinejoin="round" /></svg>
+          <svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="3" strokeLinejoin="round" /></svg>
         </span>
       )}
       {hover && (
