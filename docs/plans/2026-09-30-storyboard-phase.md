@@ -129,3 +129,6 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
   grading recorded as deferred to Review.
 - Unattended build run started on `feat/storyboard-phase`. Tickets file `docs/tickets.md` generated
   from issues #3 to #19; T10 done, T9, T11 and T16 parked for the owner. Status set to In Progress.
+- Build run finished. Every buildable ticket shipped on `feat/storyboard-phase` (T1 to T8, T12 to
+  T15, T17); T9, T11 and T16 stay open for the owner, so status stays In Progress. Summary:
+  `docs/session-summaries/2026-09-30-storyboard-phase-summary.md`.
