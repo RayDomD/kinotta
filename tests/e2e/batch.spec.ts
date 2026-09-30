@@ -115,3 +115,24 @@ test('copying again after a new comment overwrites the batch file', async ({ pag
   expect(clipboard).toContain('2. Shot 03, 03.60s,');
   expect(clipboard).toContain('Too empty down here.');
 });
+
+test('C copies the batch from the keyboard, but not while typing or with a shot open', async ({ page }) => {
+  await page.goto('/');
+  await expect(copyButton(page).locator('.count')).toHaveText('2');
+  await expect(copyButton(page)).toHaveAttribute('aria-keyshortcuts', 'C');
+
+  await page.getByRole('textbox', { name: /note/i }).fill('c');
+  await expect(copyButton(page)).not.toHaveText('Copied');
+
+  await openShot(page, '03');
+  await page.keyboard.press('c');
+  await page.keyboard.press('Escape');
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(copyButton(page)).not.toHaveClass(/\bsent\b/);
+
+  await page.locator('h1').click();
+  await page.keyboard.press('c');
+  await expect(copyButton(page)).toHaveText('Copied');
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboard).toContain('Too empty down here.');
+});

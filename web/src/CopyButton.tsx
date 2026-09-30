@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { copyBatch } from './api/index.ts';
 
 const CONFIRM_MS = 1400;
+/** The keyboard shortcut for Copy. Ctrl+Shift+C is taken by the browser's devtools. */
+const COPY_KEY = 'c';
 
 type Outcome =
   | { status: 'idle' }
@@ -33,8 +35,23 @@ export function CopyButton(props: {
   /** What the last copy covered and when, so the button can show it was sent and that a second copy sends the same batch again. */
   const [sent, setSent] = useState<{ key: string; count: number; at: string } | null>(null);
   const timer = useRef<number | undefined>(undefined);
+  const button = useRef<HTMLButtonElement>(null);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // C copies from anywhere on the storyboard, except while typing or with the enlarged shot open over the top bar.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if (e.key.toLowerCase() !== COPY_KEY || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
+      const target = e.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      e.preventDefault();
+      button.current?.click();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const batchKey = `${slug}/${version}/${section?.id ?? ''}`;
 
@@ -84,7 +101,10 @@ export function CopyButton(props: {
         </span>
       )}
       <button
+        ref={button}
         type="button"
+        title="Copy (C)"
+        aria-keyshortcuts="C"
         className={lit ? 'btn sent' : 'btn'}
         disabled={frozen || empty}
         aria-disabled={busy || undefined}

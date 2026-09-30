@@ -156,7 +156,7 @@ Zero radius everywhere (`rounded.none`). Borders are 1.4 to 1.6px hairlines. The
 
 ### Buttons
 - **Shape:** square corners (0).
-- **Primary (Copy):** ink fill, ground text, 600 weight, 8px 16px, with the count in Doto after the label. At rest it sits on the pressed shadow; hover lifts it to the rest shadow and translates it up and left; press drops it flat. After a copy, until the comments change, it is lit instead: Tally outline and glow, the outlined hex, "Sent" and the time in Doto; hover or focus turns it back to ink and asks "Copy again?" (D24).
+- **Primary (Copy):** ink fill, ground text, 600 weight, 8px 16px, with the count in Doto after the label. At rest it sits on the pressed shadow; hover lifts it to the rest shadow and translates it up and left; press drops it flat. After a copy, until the comments change, it is lit instead: Tally outline and glow, the outlined hex, "Sent" and the time in Doto; hover or focus turns it back to ink and asks "Copy again?" (D24). The C key copies from anywhere except a text field or the open sheet, and the tooltip says so.
 - **Quiet (Close, Edit, Delete, Cancel):** no fill, muted or soft-ink text, full ink on hover.
 - **Disabled:** dashed hairline and muted text, with the reason in its accessible name.
 
