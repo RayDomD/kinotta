@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import type { Comment, NewComment, Shot, TranscriptWord } from './api/index.ts';
 import { ShotKind, ShotLine, WordRow, isWordComment, wordLabel } from './Transcript.tsx';
@@ -177,8 +177,15 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   }
 
   const pins = comments.filter((c) => c.pin.shot === shot.number);
-  const framePins: FramePin[] = pins.flatMap((c) =>
-    c.pin.kind === 'frame' ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y, element: c.pin.element, text: c.text, marked: c.id === markedId }] : [],
+  // Kept stable across keystrokes in the comment input, since each new list re-places every tag on the frame.
+  const framePins = useMemo<FramePin[]>(
+    () =>
+      comments.flatMap((c) =>
+        c.pin.shot === shot.number && c.pin.kind === 'frame'
+          ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y, element: c.pin.element, text: c.text, marked: c.id === markedId }]
+          : [],
+      ),
+    [comments, shot.number, markedId],
   );
   const wordPins = pins.filter(isWordComment);
   const timecode = formatTimecode(shot.start);
