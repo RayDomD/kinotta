@@ -138,3 +138,5 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
   `docs/session-summaries/2026-09-30-storyboard-phase-summary.md`.
 - Finish-review questions answered in a `ui-preview` round (D23 to D26). Step 14 added for the
   follow-ups, approved by the owner.
+- Step 14 done: follow-ups shipped with polish, harden and a fresh audit (14/20). Summary updated.
+  Status stays In Progress for the parked tickets T9, T11 and T16.

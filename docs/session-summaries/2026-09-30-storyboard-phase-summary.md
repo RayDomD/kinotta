@@ -89,6 +89,28 @@ T11), and the real runs in a client project (step 12's second half).
 - The detector's `dark-glow` and `flat-type-hierarchy` findings are false positives against D16
   and the operate-mode scale. The CLI detector ran degraded (its HTML parser modules are missing).
 
+## Finish-review follow-ups (plan step 14)
+
+The owner answered the open design questions in a `ui-preview` round (D23 to D26, mockup
+`docs/mockups/2026-09-30-finish-review-decisions.html`), and the rest of the Impeccable pass ran.
+
+- Shipped: Cutting bench colour names in `DESIGN.md` and its sidecar, North Star kept (`b898e20`);
+  the lit "Sent" Copy button that asks "Copy again?" (`b32beaf`); anchor-and-tag pins with tags
+  placed off the element in the sheet and stacked on stills (`4888962`); the one-line issue list
+  (`c865585`); the C shortcut for Copy (`b016725`).
+- Kept as they were, by the owner's choice: the modal sheet, the space on short reels, and Review
+  and Picker visible but inactive.
+- Polish: the pin being placed is now the same anchor it keeps once saved (`d53fa56`).
+- Harden: the issue toggle keeps keyboard focus when it flips, and C also matches the physical key
+  on other layouts (`81d8a10`).
+- Audit (fresh): accessibility 3, performance 3, responsive 1 (desktop-only by decision), theming
+  4, implementation integrity 3: 14/20, Good. The one regression it found, the sheet re-placing
+  pin tags on every keystroke, is fixed (`03865ad`). The detector, now running fully, reports 19
+  `design-system-font-size` findings: 11, 14, 16, 17 and 19px sizes in `styles.css` that predate
+  this pass and are missing from `DESIGN.md`'s type ramp. Left for the owner: document them or fold
+  them into the ramp.
+- Checks: typecheck clean, core 123/123, Playwright 71/71 (one new shortcut test).
+
 ## Parked tickets: what the owner has to do
 
 - T9 (#11) Kinotta skill for code-only reels: write the skill rules (contract, folder layout,
