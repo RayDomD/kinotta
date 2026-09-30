@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Superpowers Brainstorming</title>
+  <style>
+    /*
+     * BRAINSTORM COMPANION FRAME TEMPLATE
+     *
+     * This template provides a consistent frame with:
+     * - OS-aware light/dark theming
+     * - Header branding and connection status
+     * - Scrollable main content area
+     * - CSS helpers for common UI patterns
+     *
+     * Content is injected via placeholder comment in #frame-content.
+     */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    /* ===== THEME VARIABLES ===== */
+    :root {
+      --bg-primary: #f5f5f7;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #e5e5e7;
+      --border: #d1d1d6;
+      --text-primary: #1d1d1f;
+      --text-secondary: #86868b;
+      --text-tertiary: #aeaeb2;
+      --accent: #0071e3;
+      --accent-hover: #0077ed;
+      --success: #34c759;
+      --warning: #ff9f0a;
+      --error: #ff3b30;
+      --selected-bg: #e8f4fd;
+      --selected-border: #0071e3;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1d1d1f;
+        --bg-secondary: #2d2d2f;
+        --bg-tertiary: #3d3d3f;
+        --border: #424245;
+        --text-primary: #f5f5f7;
+        --text-secondary: #86868b;
+        --text-tertiary: #636366;
+        --accent: #0a84ff;
+        --accent-hover: #409cff;
+        --selected-bg: rgba(10, 132, 255, 0.15);
+        --selected-border: #0a84ff;
+      }
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* ===== FRAME STRUCTURE ===== */
+    .brand { display: flex; align-items: center; min-width: 0; overflow: hidden; color: var(--text-secondary); line-height: 1; }
+    .brand a { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; line-height: 1; }
+    .brand-copy { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1; transform: translateY(-1px); }
+    .brand-logo { display: block; height: 1em; width: auto; max-width: 180px; flex-shrink: 0; filter: invert(1); }
+    @media (prefers-color-scheme: dark) {
+      .brand-logo { filter: none; }
+    }
+    .status { font-size: 0.7rem; color: var(--status-color, var(--success)); display: flex; align-items: center; gap: 0.4rem; justify-self: end; white-space: nowrap; line-height: 1; }
+    .status::before { content: ''; width: 6px; height: 6px; background: var(--status-color, var(--success)); border-radius: 50%; }
+
+    .main { flex: 1; overflow-y: auto; }
+    #frame-content { padding: 2rem; min-height: 100%; }
+
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1.5rem;
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 1rem;
+      min-height: 42px;
+    }
+    .header .brand { justify-self: start; width: 100%; font-size: 0.75rem; line-height: 1; }
+    .header .status { grid-column: 2; line-height: 1; }
+    .header span {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .header .selected-text {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ===== TYPOGRAPHY ===== */
+    h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+    h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; }
+    .section { margin-bottom: 2rem; }
+    .label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+
+    /* ===== OPTIONS (for A/B/C choices) ===== */
+    .options { display: flex; flex-direction: column; gap: 0.75rem; }
+    .option {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .option:hover { border-color: var(--accent); }
+    .option.selected { background: var(--selected-bg); border-color: var(--selected-border); }
+    .option .letter {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      width: 1.75rem; height: 1.75rem;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .option.selected .letter { background: var(--accent); color: white; }
+    .option .content { flex: 1; }
+    .option .content h3 { font-size: 0.95rem; margin-bottom: 0.15rem; }
+    .option .content p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; }
+
+    /* ===== CARDS (for showing designs/mockups) ===== */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .card.selected { border-color: var(--selected-border); border-width: 2px; }
+    .card-image { background: var(--bg-tertiary); aspect-ratio: 16/10; display: flex; align-items: center; justify-content: center; }
+    .card-body { padding: 1rem; }
+    .card-body h3 { margin-bottom: 0.25rem; }
+    .card-body p { color: var(--text-secondary); font-size: 0.85rem; }
+
+    /* ===== MOCKUP CONTAINER ===== */
+    .mockup {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .mockup-header {
+      background: var(--bg-tertiary);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .mockup-body { padding: 1.5rem; }
+
+    /* ===== SPLIT VIEW (side-by-side comparison) ===== */
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 700px) { .split { grid-template-columns: 1fr; } }
+
+    /* ===== PROS/CONS ===== */
+    .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+    .pros, .cons { background: var(--bg-secondary); border-radius: 8px; padding: 1rem; }
+    .pros h4 { color: var(--success); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .cons h4 { color: var(--error); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .pros ul, .cons ul { margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); }
+    .pros li, .cons li { margin-bottom: 0.25rem; }
+
+    /* ===== PLACEHOLDER (for mockup areas) ===== */
+    .placeholder {
+      background: var(--bg-tertiary);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-tertiary);
+    }
+
+    /* ===== INLINE MOCKUP ELEMENTS ===== */
+    .mock-nav { background: var(--accent); color: white; padding: 0.75rem 1rem; display: flex; gap: 1.5rem; font-size: 0.9rem; }
+    .mock-sidebar { background: var(--bg-tertiary); padding: 1rem; min-width: 180px; }
+    .mock-content { padding: 1.5rem; flex: 1; }
+    .mock-button { background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; }
+    .mock-input { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <!-- BRANDING -->
+    <div class="status">Connecting…</div>
+  </div>
+
+  <div class="main">
+    <div id="frame-content">
+      <h2>Kinotta finish-review decisions, 2026-09-30</h2>
+<p class="subtitle">Chosen in a ui-preview round after the T17 finish review. The screens below are the options as shown; the choices are listed here.</p>
+<ul class="section">
+<li>North Star stays "The Light Table".</li>
+<li>Colour names: set A, Cutting bench (Table, Gate, Slate, Slate Lifted, Title, Caption, Credits, Splice, Frame Line, Tally, Leader, Scrim). Token keys unchanged.</li>
+<li>After Copy: A, a lit "Sent" button (Tally outline, hex, time) that asks "Copy again?" on hover or focus, and returns to "Copy comments N" when comments change.</li>
+<li>Phase nav: Review and Picker stay visible and inactive (spec story 66).</li>
+<li>Enlarged shot: A, the modal sheet stays.</li>
+<li>Pins: B, a small anchor hex at the exact spot with a numbered comment tag placed outside the element; grid stills show the tag's number at a readable size.</li>
+<li>Short reels: A, leave the space as it is.</li>
+<li>Issue list: B, one line with the count and first issue, "Show all" expands; the batch still includes every issue.</li>
+</ul>
+<hr>
+<!-- design-decisions-v2.html -->
+<h2>Kinotta: colour names in Kinotta's language</h2>
+<p class="subtitle">North Star stays "The Light Table". Both sets take their names from the reel and film vocabulary in CONTEXT.md. Only the names in DESIGN.md change; the CSS token keys stay as they are.</p>
+
+<div class="section">
+<h3>1. Which naming set?</h3>
+<div class="cards">
+  <div class="card" data-choice="names-bench" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:16px;font-family:Outfit,sans-serif;font-size:12px;color:oklch(.820 .007 106)">
+      <div style="display:grid;grid-template-columns:28px 1fr 1.4fr;gap:6px 10px;align-items:center">
+        <span style="height:18px;background:oklch(.184 .004 106);outline:1px solid oklch(.945 .004 106 / .24)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Table</b><span>the shell (was Warm Ground)</span>
+        <span style="height:18px;background:oklch(.150 .003 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Gate</b><span>frame well, where the frame sits</span>
+        <span style="height:18px;background:oklch(.214 .005 90)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Slate</b><span>comment cards, the sheet</span>
+        <span style="height:18px;background:oklch(.246 .005 90)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Slate Lifted</b><span>hovered or pressed paper</span>
+        <span style="height:18px;background:oklch(.945 .004 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Title</b><span>primary text</span>
+        <span style="height:18px;background:oklch(.820 .007 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Caption</b><span>secondary text</span>
+        <span style="height:18px;background:oklch(.640 .008 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Credits</b><span>meta, small print</span>
+        <span style="height:18px;background:oklch(.945 .004 106 / .14)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Splice</b><span>region dividers (was Rule)</span>
+        <span style="height:18px;background:oklch(.945 .004 106 / .24)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Frame Line</b><span>lane and band borders</span>
+        <span style="height:18px;background:oklch(.84 .11 225)"></span><b style="color:oklch(.84 .11 225);font-weight:500">Tally</b><span>the light; Tally Glow, Tally Wash</span>
+        <span style="height:18px;background:oklch(.13 .006 50)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Leader</b><span>before a still draws</span>
+        <span style="height:18px;background:oklch(.12 .003 106 / .86);outline:1px solid oklch(.945 .004 106 / .24)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Scrim</b><span>unchanged, already a film term</span>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Cutting bench (recommended)</h3><p>A tally light shows which camera is live, so "Tally" means "current state" the way the One Light Rule needs. Title, Caption and Credits fall in the same order as the text ramp.</p></div>
+  </div>
+  <div class="card" data-choice="names-projection" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:16px;font-family:Outfit,sans-serif;font-size:12px;color:oklch(.820 .007 106)">
+      <div style="display:grid;grid-template-columns:28px 1fr 1.4fr;gap:6px 10px;align-items:center">
+        <span style="height:18px;background:oklch(.184 .004 106);outline:1px solid oklch(.945 .004 106 / .24)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Booth</b><span>the shell</span>
+        <span style="height:18px;background:oklch(.150 .003 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Gate</b><span>frame well</span>
+        <span style="height:18px;background:oklch(.214 .005 90)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Card</b><span>comment cards, the sheet</span>
+        <span style="height:18px;background:oklch(.246 .005 90)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Card Lifted</b><span>hovered or pressed paper</span>
+        <span style="height:18px;background:oklch(.945 .004 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Print</b><span>primary text</span>
+        <span style="height:18px;background:oklch(.820 .007 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Soft Print</b><span>secondary text</span>
+        <span style="height:18px;background:oklch(.640 .008 106)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Faded Print</b><span>meta</span>
+        <span style="height:18px;background:oklch(.945 .004 106 / .14)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Splice</b><span>region dividers</span>
+        <span style="height:18px;background:oklch(.945 .004 106 / .24)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Frame Line</b><span>lane and band borders</span>
+        <span style="height:18px;background:oklch(.84 .11 225)"></span><b style="color:oklch(.84 .11 225);font-weight:500">Lamp</b><span>the light; Lamp Glow, Lamp Wash</span>
+        <span style="height:18px;background:oklch(.13 .006 50)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Leader</b><span>before a still draws</span>
+        <span style="height:18px;background:oklch(.12 .003 106 / .86);outline:1px solid oklch(.945 .004 106 / .24)"></span><b style="color:oklch(.945 .004 106);font-weight:500">Scrim</b><span>unchanged</span>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Projection</h3><p>A light table's lamp is under the glass, which fits the North Star, but "Lamp" says "light", not "current". "Booth" pulls toward a screening room rather than a table.</p></div>
+  </div>
+</div>
+<p class="subtitle">Want to mix the two, like Table with Lamp? Say so in the terminal.</p>
+</div>
+
+
+<div class="section">
+<h3>2. After Copy: is the button label enough, or should "sent" be a lasting state in the top bar?</h3>
+<div class="cards">
+  <div class="card" data-choice="sent-button" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0">
+      <div style="display:flex;align-items:center;gap:18px;height:52px;padding:0 16px;border-bottom:1.4px solid oklch(.945 .004 106 / .14);font-family:Outfit,sans-serif;font-size:13px;color:oklch(.820 .007 106)">
+        <span style="color:oklch(.945 .004 106);font-weight:500">Ember launch</span>
+        <span style="font-family:Doto,monospace;font-weight:700">00:24</span>
+        <span style="flex:1"></span>
+        <span style="background:oklch(.945 .004 106);color:oklch(.184 .004 106);font-weight:600;padding:8px 14px">Copy comments again <span style="font-family:Doto,monospace;font-weight:800">4</span></span>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Button label only (current)</h3><p>"Copied" for 1.4s, then "Copy … again" until the comments change. You can't tell when it was sent.</p></div>
+  </div>
+  <div class="card" data-choice="sent-topbar" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0">
+      <div style="display:flex;align-items:center;gap:18px;height:52px;padding:0 16px;border-bottom:1.4px solid oklch(.945 .004 106 / .14);font-family:Outfit,sans-serif;font-size:13px;color:oklch(.820 .007 106)">
+        <span style="color:oklch(.945 .004 106);font-weight:500">Ember launch</span>
+        <span style="font-family:Doto,monospace;font-weight:700">00:24</span>
+        <span style="flex:1"></span>
+        <span style="display:inline-flex;align-items:center;gap:6px"><svg width="12" height="12" viewBox="0 0 24 24"><polygon points="6,2 18,2 24,12 18,22 6,22 0,12" fill="none" stroke="oklch(.84 .11 225)" stroke-width="2.4"/></svg><span style="font-family:Doto,monospace;font-weight:700;color:oklch(.945 .004 106)">v3</span> sent <span style="font-family:Doto,monospace;font-weight:700">14:02</span></span>
+        <span style="background:oklch(.945 .004 106);color:oklch(.184 .004 106);font-weight:600;padding:8px 14px">Copy comments again <span style="font-family:Doto,monospace;font-weight:800">4</span></span>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Lasting "sent" state</h3><p>The top bar shows that this version's batch went out and when, using the same outlined hex as Waiting.</p></div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>3. Phase nav: should Review and Picker show before they're built?</h3>
+<div class="cards">
+  <div class="card" data-choice="phases-visible" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0">
+      <div style="display:flex;align-items:center;gap:22px;height:52px;padding:0 16px;font-family:Outfit,sans-serif;font-size:13px;color:oklch(.640 .008 106)">
+        <span style="font-family:Doto,monospace;font-weight:800;color:oklch(.945 .004 106);letter-spacing:1px">KINOTTA</span>
+        <span style="color:oklch(.945 .004 106);font-weight:500">Ember launch</span>
+        <span style="flex:1"></span>
+        <span style="color:oklch(.945 .004 106);border-bottom:1.6px solid oklch(.945 .004 106);padding-bottom:3px">Storyboard</span>
+        <span style="opacity:.7">Review</span>
+        <span style="opacity:.7">Picker</span>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Visible, inactive (current)</h3><p>Shows where the product is heading and matches the approved mockup. Hovering says "Not built yet".</p></div>
+  </div>
+  <div class="card" data-choice="phases-hidden" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0">
+      <div style="display:flex;align-items:center;gap:22px;height:52px;padding:0 16px;font-family:Outfit,sans-serif;font-size:13px;color:oklch(.640 .008 106)">
+        <span style="font-family:Doto,monospace;font-weight:800;color:oklch(.945 .004 106);letter-spacing:1px">KINOTTA</span>
+        <span style="color:oklch(.945 .004 106);font-weight:500">Ember launch</span>
+        <span style="flex:1"></span>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Hidden until built</h3><p>A quieter bar with nothing that looks clickable but isn't. The nav comes back when a second phase ships.</p></div>
+  </div>
+</div>
+</div>
+
+<p class="subtitle">The modal sheet and the pin-as-anchor questions come next, as their own layout screen.</p>
+
+<hr>
+<!-- sent-hover.html -->
+<h2>After Copy: how should the button look once a batch has been sent?</h2>
+<p class="subtitle">Hover each button to see it ask "Copy again?". Colour names are now set A (Cutting bench).</p>
+
+<div class="cards">
+  <div class="card" data-choice="sent-label" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0">
+      <div style="display:flex;align-items:center;gap:18px;height:52px;padding:0 16px;font-family:Outfit,sans-serif;font-size:13px;color:oklch(.820 .007 106)">
+        <span style="color:oklch(.945 .004 106);font-weight:500">Ember launch</span>
+        <span style="flex:1"></span>
+        <span tabindex="0" style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border:1.6px solid oklch(.84 .11 225);color:oklch(.84 .11 225);box-shadow:0 0 10px oklch(.84 .11 225 / .5);cursor:pointer;min-width:150px;justify-content:center"
+          onmouseenter="this.style.background='oklch(.945 .004 106)';this.style.color='oklch(.184 .004 106)';this.style.borderColor='oklch(.945 .004 106)';this.style.boxShadow='none';this.querySelector('.t').textContent='Copy again?';this.querySelector('svg').style.display='none'"
+          onmouseleave="this.style.background='';this.style.color='oklch(.84 .11 225)';this.style.borderColor='oklch(.84 .11 225)';this.style.boxShadow='0 0 10px oklch(.84 .11 225 / .5)';this.querySelector('.t').textContent='Sent';this.querySelector('svg').style.display=''">
+          <svg width="12" height="12" viewBox="0 0 24 24"><polygon points="6,2 18,2 24,12 18,22 6,22 0,12" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>
+          <span class="t" style="font-weight:600">Sent</span>
+          <span style="font-family:Doto,monospace;font-weight:700">14:02</span>
+        </span>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Lit "Sent" button</h3><p>At rest it's a Tally outline with the hex, "Sent" and the time. Hovered, it turns back into a normal button that asks "Copy again?". Once a comment changes, it goes back to "Copy comments 4".</p></div>
+  </div>
+
+  <div class="card" data-choice="sent-underline" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0">
+      <div style="display:flex;align-items:center;gap:18px;height:52px;padding:0 16px;font-family:Outfit,sans-serif;font-size:13px;color:oklch(.820 .007 106)">
+        <span style="color:oklch(.945 .004 106);font-weight:500">Ember launch</span>
+        <span style="flex:1"></span>
+        <span style="display:inline-flex;align-items:center;gap:6px;color:oklch(.640 .008 106)"><svg width="11" height="11" viewBox="0 0 24 24"><polygon points="6,2 18,2 24,12 18,22 6,22 0,12" fill="none" stroke="oklch(.84 .11 225)" stroke-width="2.6"/></svg>sent <span style="font-family:Doto,monospace;font-weight:700">14:02</span></span>
+        <span tabindex="0" style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;background:oklch(.945 .004 106);color:oklch(.184 .004 106);font-weight:600;cursor:pointer;min-width:130px;justify-content:center;opacity:.72"
+          onmouseenter="this.style.opacity='1';this.querySelector('.t').textContent='Copy again?'"
+          onmouseleave="this.style.opacity='.72';this.querySelector('.t').textContent='Copy comments'">
+          <span class="t">Copy comments</span><span style="font-family:Doto,monospace;font-weight:800">4</span>
+        </span>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Quiet button with a "sent" tag beside it</h3><p>The button dims after sending and a small Tally hex with "sent 14:02" sits next to it. Hovered, the button comes back to full strength and asks "Copy again?".</p></div>
+  </div>
+</div>
+
+<p class="subtitle">In the build, keyboard focus will show the same "Copy again?" state as hover, so the question is never mouse-only.</p>
+
+<hr>
+<!-- sheet-and-pins.html -->
+<h2>The enlarged shot: sheet behaviour and pin shape</h2>
+<p class="subtitle">Wireframes use the real layout: 220px rail, main column, 320px comments column.</p>
+
+<div class="section">
+<h3>1. While you write a comment, should the comments column stay visible?</h3>
+<div class="cards">
+  <div class="card" data-choice="sheet-modal" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0;height:230px;position:relative;font-family:Outfit,sans-serif;font-size:11px;color:oklch(.640 .008 106)">
+      <div style="display:grid;grid-template-columns:60px 1fr 90px;height:100%">
+        <div style="border-right:1px solid oklch(.945 .004 106 / .14)"></div>
+        <div></div>
+        <div style="border-left:1px solid oklch(.945 .004 106 / .14);padding:8px">
+          <div style="height:26px;background:oklch(.214 .005 90);margin-bottom:6px"></div>
+          <div style="height:26px;background:oklch(.214 .005 90)"></div>
+        </div>
+      </div>
+      <div style="position:absolute;inset:0;background:oklch(.12 .003 106 / .86)"></div>
+      <div style="position:absolute;left:14%;right:14%;top:14px;bottom:14px;background:oklch(.214 .005 90);border:1.4px solid oklch(.945 .004 106);padding:8px;display:flex;flex-direction:column;gap:6px">
+        <div style="flex:1;background:oklch(.150 .003 106);display:flex;align-items:center;justify-content:center">frame</div>
+        <div style="height:24px;border:1px solid oklch(.84 .11 225);background:oklch(.150 .003 106);padding:5px;color:oklch(.820 .007 106)">Make this warmer…</div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Modal sheet (current)</h3><p>The sheet covers everything, so the frame is at its biggest. Your earlier comments are hidden behind the scrim while you write.</p></div>
+  </div>
+  <div class="card" data-choice="sheet-docked" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);padding:0;height:230px;position:relative;font-family:Outfit,sans-serif;font-size:11px;color:oklch(.640 .008 106)">
+      <div style="display:grid;grid-template-columns:60px 1fr 90px;height:100%">
+        <div style="border-right:1px solid oklch(.945 .004 106 / .14);background:oklch(.12 .003 106 / .6)"></div>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:6px">
+          <div style="flex:1;background:oklch(.214 .005 90);border:1.4px solid oklch(.945 .004 106);padding:8px;display:flex;flex-direction:column;gap:6px">
+            <div style="flex:1;background:oklch(.150 .003 106);display:flex;align-items:center;justify-content:center">frame</div>
+          </div>
+        </div>
+        <div style="border-left:1px solid oklch(.945 .004 106 / .14);padding:8px;display:flex;flex-direction:column;gap:6px">
+          <div style="height:26px;background:oklch(.214 .005 90)"></div>
+          <div style="height:26px;background:oklch(.214 .005 90)"></div>
+          <div style="height:40px;border:1px solid oklch(.84 .11 225);background:oklch(.150 .003 106);padding:5px;color:oklch(.820 .007 106)">Make this warmer…</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Sheet in the main column</h3><p>The shot enlarges inside the main column, and you write the comment in the comments column under your earlier ones. The frame is somewhat smaller; only the rail dims.</p></div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>2. How should a pin sit on the frame?</h3>
+<div class="cards">
+  <div class="card" data-choice="pin-centre" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.150 .003 106);height:170px;position:relative;font-family:Outfit,sans-serif">
+      <div style="position:absolute;left:22%;top:34%;width:56%;height:32%;background:oklch(.55 .12 40);display:flex;align-items:center;justify-content:center;color:oklch(.97 .01 60);font-size:18px;font-weight:600">HEADLINE</div>
+      <svg style="position:absolute;left:calc(50% - 13px);top:calc(50% - 12px)" width="26" height="24" viewBox="0 0 26 24"><polygon points="6.5,1 19.5,1 25,12 19.5,23 6.5,23 1,12" fill="oklch(.84 .11 225)" stroke="oklch(.184 .004 106)" stroke-width="1.6"/><text x="13" y="16" text-anchor="middle" font-family="Doto,monospace" font-weight="800" font-size="11" fill="oklch(.184 .004 106)">1</text></svg>
+    </div>
+    <div class="card-body"><h3>A. Hex on the click point (current)</h3><p>The pin sits exactly where you clicked. From the keyboard it lands on the element's centre and covers it. On the small grid stills its number is about 6px.</p></div>
+  </div>
+  <div class="card" data-choice="pin-anchor-tag" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.150 .003 106);height:170px;position:relative;font-family:Outfit,sans-serif">
+      <div style="position:absolute;left:22%;top:34%;width:56%;height:32%;background:oklch(.55 .12 40);display:flex;align-items:center;justify-content:center;color:oklch(.97 .01 60);font-size:18px;font-weight:600">HEADLINE</div>
+      <svg style="position:absolute;left:calc(50% - 5px);top:calc(50% - 5px)" width="10" height="10" viewBox="0 0 10 10"><polygon points="2.5,.5 7.5,.5 9.5,5 7.5,9.5 2.5,9.5 .5,5" fill="oklch(.84 .11 225)" stroke="oklch(.184 .004 106)" stroke-width="1"/></svg>
+      <div style="position:absolute;left:calc(50% + 4px);top:calc(50% - 1px);width:1px;height:38px;background:oklch(.84 .11 225);transform:rotate(-38deg);transform-origin:top left"></div>
+      <div style="position:absolute;left:calc(78% + 6px);top:74%;display:flex;align-items:center;gap:5px;background:oklch(.84 .11 225);color:oklch(.184 .004 106);padding:2px 7px;font-size:11px;white-space:nowrap"><b style="font-family:Doto,monospace;font-weight:800">1</b>Make this warmer</div>
+    </div>
+    <div class="card-body"><h3>B. Small anchor with a tag</h3><p>A tiny hex marks the exact spot, and the number and the start of the comment sit in a tag outside the element, just as the name tag does now. On grid stills only the tag's number shows, at a readable size.</p></div>
+  </div>
+</div>
+</div>
+
+<hr>
+<!-- main-column-fit.html -->
+<h2>The main column: short reels and long issue lists</h2>
+<p class="subtitle">The main column only (between the rail and the comments column), with the viewport's bottom edge marked. Pick one per question.</p>
+
+<div class="section">
+<h3>1. On a short reel (3 shots) there's empty space under the lanes. What fills it?</h3>
+<div class="cards">
+  <div class="card" data-choice="short-leave" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);height:240px;padding:10px;display:flex;flex-direction:column;gap:6px;font-family:Outfit,sans-serif;font-size:10px;color:oklch(.640 .008 106)">
+      <div style="color:oklch(.945 .004 106);font-size:12px">Storyboard</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div></div>
+      <div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed oklch(.945 .004 106 / .14)">empty</div>
+    </div>
+    <div class="card-body"><h3>A. Leave it (current)</h3><p>This matches the approved mockup. Everything sits at the top, with an empty band below.</p></div>
+  </div>
+  <div class="card" data-choice="short-grow" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);height:240px;padding:10px;display:flex;flex-direction:column;gap:6px;font-family:Outfit,sans-serif;font-size:10px;color:oklch(.640 .008 106)">
+      <div style="color:oklch(.945 .004 106);font-size:12px">Storyboard</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px"><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div></div>
+      <div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div>
+    </div>
+    <div class="card-body"><h3>B. Bigger stills when there are few shots</h3><p>With 4 shots or fewer the grid drops to two columns, so each still is larger and easier to judge before you enlarge it.</p></div>
+  </div>
+  <div class="card" data-choice="short-lanes-bottom" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);height:240px;padding:10px;display:flex;flex-direction:column;gap:6px;font-family:Outfit,sans-serif;font-size:10px;color:oklch(.640 .008 106)">
+      <div style="color:oklch(.945 .004 106);font-size:12px">Storyboard</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div></div>
+      <div style="flex:1"></div>
+      <div style="border-top:1px solid oklch(.945 .004 106 / .14);padding-top:6px;display:flex;flex-direction:column;gap:6px"><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div></div>
+    </div>
+    <div class="card-body"><h3>C. Lanes docked to the bottom</h3><p>The lanes always sit at the bottom of the screen like an editor's timeline, and the grid scrolls above them. This also answers question 2.</p></div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>2. A broken version with a long issue list pushes the grid and lanes out of view. How should the list show?</h3>
+<div class="cards">
+  <div class="card" data-choice="issues-full" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);height:240px;padding:10px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:5px;font-family:Outfit,sans-serif;font-size:10px;color:oklch(.820 .007 106)">
+      <div style="color:oklch(.945 .004 106);font-size:12px">Storyboard</div>
+      <div style="border:1px solid oklch(.945 .004 106 / .24);padding:6px;display:flex;flex-direction:column;gap:4px"><b style="font-weight:500;color:oklch(.945 .004 106)">v4 has 9 issues</b><span>Scene 2 has no start time</span><span>Element "logo" is unnamed</span><span>Scene 3 overlaps scene 4</span><span>Seek does not return</span><span>Scene 5 has no length</span><span>…4 more</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;border-top:1.4px dashed oklch(.84 .11 225);text-align:right;padding:2px 6px;color:oklch(.84 .11 225);background:oklch(.184 .004 106)">screen edge, lanes below</div>
+    </div>
+    <div class="card-body"><h3>A. Full list (current)</h3><p>Every issue shows at once, and the lanes are pushed off screen.</p></div>
+  </div>
+  <div class="card" data-choice="issues-collapsed" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:oklch(.184 .004 106);height:240px;padding:10px;position:relative;display:flex;flex-direction:column;gap:6px;font-family:Outfit,sans-serif;font-size:10px;color:oklch(.820 .007 106)">
+      <div style="color:oklch(.945 .004 106);font-size:12px">Storyboard</div>
+      <div style="border:1px solid oklch(.945 .004 106 / .24);padding:6px;display:flex;gap:8px;align-items:center"><b style="font-weight:500;color:oklch(.945 .004 106)">v4 has 9 issues</b><span>Scene 2 has no start time, and 8 more</span><span style="flex:1"></span><span style="color:oklch(.945 .004 106);text-decoration:underline">Show all</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div><div style="aspect-ratio:16/9;background:oklch(.13 .006 50)"></div></div>
+      <div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div><div style="height:9px;border:1px solid oklch(.945 .004 106 / .24)"></div>
+    </div>
+    <div class="card-body"><h3>B. One line, expand on demand</h3><p>The count and the first issue fit on one line, and "Show all" expands the list. The grid and lanes stay in view. The batch still includes every issue.</p></div>
+  </div>
+</div>
+</div>
+
+    </div>
+  </div>
+
+</body>
+</html>

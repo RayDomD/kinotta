@@ -38,6 +38,10 @@ operate mode, used full screen.
 | D20 | No WebGL hex fluid. The dot-matrix terrain is the only texture, used in empty lanes and empty states. |
 | D21 | Dark only. |
 | D22 | Under the storyboard grid: three lanes (Shots, Pins, Overlays) on one shared time axis. Shot width is its duration. Storyboard pins sit at their shot's start time, side by side. Overlays are drawn at their real span, and an empty lane shows "None" over dot terrain. |
+| D23 | Finish-review follow-ups, chosen in a `ui-preview` round after T17. North Star stays "The Light Table". Colour names in `DESIGN.md` use the Cutting bench set (Table, Gate, Slate, Slate Lifted, Title, Caption, Credits, Splice, Frame Line, Tally, Leader, Scrim); CSS token keys are unchanged. Mockup: [2026-09-30-finish-review-decisions.html](mockups/2026-09-30-finish-review-decisions.html). |
+| D24 | After a copy, the Copy button becomes a lit "Sent" button (Tally outline, hex, time) that asks "Copy again?" on hover or focus, and returns to "Copy comments N" when the comments change. Review and Picker stay visible and inactive. |
+| D25 | The enlarged shot stays a modal sheet. Pins become a small anchor hex at the exact spot plus a numbered comment tag placed outside the element; grid stills show the tag's number at a readable size. |
+| D26 | Short reels keep their layout. A long contract issue list collapses to one line (count and first issue) with "Show all"; the batch still includes every issue. |
 
 ## Footage reels
 
