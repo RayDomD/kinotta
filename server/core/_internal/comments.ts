@@ -2,17 +2,19 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
-import type { AddedComment, Comment, CommentList, FramePin, NewComment, NoteSaved, Shot } from './types.ts';
+import type { AddedComment, Comment, CommentList, FramePin, NewComment, NewWordPin, NoteSaved, Shot, WordPin } from './types.ts';
 import { assertTakesComments, readVersion } from './version.ts';
 
 const REELS_DIR = 'reels';
 const STATE_DIR = '.kinotta';
 const POSITION_DECIMALS = 1000;
 const NOTE_MAX_LENGTH = 4000;
+/** How far a word pin's time may be from the transcript word's start, in seconds. */
+const WORD_TIME_TOLERANCE = 0.01;
 
 interface StoredComment {
   id: string;
-  pin: FramePin;
+  pin: FramePin | WordPin;
   text: string;
   createdAt: string;
 }
@@ -59,7 +61,7 @@ async function writeState(file: string, state: StateFile): Promise<void> {
   await rename(temp, file);
 }
 
-/** Ordered by shot start, then creation time (file order breaks exact ties), then numbered from 1. */
+/** Ordered by pin time (a shot's start, or a word's), then creation time (file order breaks exact ties), then numbered from 1. */
 export function numbered(stored: StoredComment[]): Comment[] {
   return stored
     .map((comment, index) => ({ comment, index }))
@@ -79,11 +81,20 @@ function fraction(value: unknown, axis: string): number {
   return Math.round(value * POSITION_DECIMALS) / POSITION_DECIMALS;
 }
 
-function buildPin(input: NewComment, version: number, shots: Shot[]): FramePin {
+function buildWordPin(raw: NewWordPin, version: number, shot: Shot): WordPin {
+  const found = shot.words?.find((w) => Math.abs(w.start - raw.time) <= WORD_TIME_TOLERANCE && w.text === raw.word);
+  if (!found) {
+    throw new KinottaError('invalid', `Shot ${shot.number} has no spoken word "${String(raw.word)}" at ${String(raw.time)}s.`);
+  }
+  return { kind: 'word', version, section: shot.section ?? null, shot: shot.number, time: found.start, word: found.text };
+}
+
+function buildPin(input: NewComment, version: number, shots: Shot[]): FramePin | WordPin {
   const raw = input?.pin;
   if (raw === null || typeof raw !== 'object') throw new KinottaError('invalid', 'A comment needs a pin.');
   const shot = shots.find((s) => s.number === raw.shot);
   if (!shot) throw new KinottaError('invalid', `Version ${version} has no shot "${String(raw.shot)}".`);
+  if (raw.kind === 'word') return buildWordPin(raw, version, shot);
   const element = raw.element ?? null;
   if (element !== null && (typeof element !== 'string' || element === '')) {
     throw new KinottaError('invalid', "The pin's element must be a name or null.");

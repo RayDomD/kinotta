@@ -212,16 +212,16 @@ Parked for the unattended run: the change lands in `~/.agents/skills/motion-brol
 
 **Model:** `top`
 
-## T14 (#16). Word pins on the transcript
+## T14 (#16). Word pins on the transcript — Done
 
 **What to build:** In the enlarged shot the transcript line's words are selectable; selecting a word pins a comment to it, recording the word and its time (F5). Word pins appear in the comments panel and the batch text as "word".
 
 **Acceptance criteria:**
 
-- [ ] Selecting a word creates a word pin with word and time
-- [ ] Word pins show in the panel and lanes and appear in the batch text
-- [ ] Keyboard can select a word
-- [ ] Core tests cover word pins
+- [x] Selecting a word creates a word pin with word and time
+- [x] Word pins show in the panel and lanes and appear in the batch text
+- [x] Keyboard can select a word
+- [x] Core tests cover word pins
 
 **Blocked by:** #15
 

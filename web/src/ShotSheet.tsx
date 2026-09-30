@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
-import type { Comment, NewComment, Shot } from './api/index.ts';
+import type { FormEvent, ReactElement } from 'react';
+import type { Comment, NewComment, Shot, TranscriptWord } from './api/index.ts';
 import { HexPin } from './Pins.tsx';
-import { ShotKind, ShotLine } from './Transcript.tsx';
+import { ShotKind, ShotLine, WordRow, isWordComment, wordLabel } from './Transcript.tsx';
 import { PinFrame } from './stage/index.ts';
 import type { FrameElement, FramePick } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 
-const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const FRAME_CENTRE: FramePick = { x: 0.5, y: 0.5, element: null };
 
 export interface ShotSheetProps {
@@ -15,6 +15,8 @@ export interface ShotSheetProps {
   /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
   footage: string | undefined;
   shots: Shot[];
+  /** Every shot of the reel, when `shots` is one section of it. */
+  reelShots?: Shot[];
   /** Index into `shots` of the enlarged shot. */
   index: number;
   comments: Comment[];
@@ -32,14 +34,25 @@ interface Draft extends FramePick {
   id: number;
 }
 
+/** A comment being written on a spoken word. */
+interface WordDraft {
+  id: number;
+  word: TranscriptWord;
+}
+
 const ignorePick = (): void => undefined;
+
+/** Left and Right move between words while focus is in the word row; they must not step shots. */
+function inWordRow(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('[data-word-row]') !== null;
+}
 
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId = null, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -47,6 +60,7 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
   const titleId = useId();
   const numberId = useId();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [wordDraft, setWordDraft] = useState<WordDraft | null>(null);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,12 +73,13 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
   // A new shot starts clean: no draft, and no element list until its frame has drawn.
   useEffect(() => {
     setDraft(null);
+    setWordDraft(null);
     setText('');
     setError(null);
     setElements(null);
   }, [shot.number]);
 
-  const draftOpen = !readOnly && draft !== null;
+  const draftOpen = !readOnly && (draft !== null || wordDraft !== null);
   const latest = useRef({ index, count: shots.length, onStep, onClose, draftOpen, cancelDraft });
   latest.current = { index, count: shots.length, onStep, onClose, draftOpen, cancelDraft };
 
@@ -76,7 +91,7 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
         // With a pin being placed, Esc drops it and keeps the sheet; the next Esc closes the sheet.
         if (drafting) cancel();
         else close();
-      } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !isTyping(e.target) && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !isTyping(e.target) && !inWordRow(e.target) && !e.altKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         const next = at + (e.key === 'ArrowRight' ? 1 : -1);
         if (next >= 0 && next < count) step(next);
@@ -104,29 +119,51 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
 
   function startDraft(pick: FramePick): void {
     draftCount.current += 1;
+    setWordDraft(null);
     setDraft({ ...pick, id: draftCount.current });
     setText('');
     setError(null);
   }
 
-  /** Drops the pin being placed. Nothing was saved, so nothing is removed from the version. */
-  function cancelDraft(): void {
+  function startWordDraft(word: TranscriptWord): void {
+    draftCount.current += 1;
     setDraft(null);
+    setWordDraft({ word, id: draftCount.current });
     setText('');
     setError(null);
-    sheet.current?.focus();
+  }
+
+  /** Puts the keyboard back where the pin was placed: on its word, or on the sheet. */
+  function returnFocus(word: TranscriptWord | null): void {
+    const button = word ? sheet.current?.querySelector<HTMLElement>(`button[data-start="${word.start}"]`) : null;
+    (button ?? sheet.current)?.focus();
+  }
+
+  /** Drops the pin being placed. Nothing was saved, so nothing is removed from the version. */
+  function cancelDraft(): void {
+    const word = wordDraft?.word ?? null;
+    setDraft(null);
+    setWordDraft(null);
+    setText('');
+    setError(null);
+    returnFocus(word);
   }
 
   async function submit(e: FormEvent): Promise<void> {
     e.preventDefault();
-    if (!draft || saving || text.trim() === '') return;
+    if ((!draft && !wordDraft) || saving || text.trim() === '') return;
     setSaving(true);
     try {
-      await save({ pin: { shot: shot.number, x: draft.x, y: draft.y, element: draft.element }, text: text.trim() });
+      const pin = wordDraft
+        ? ({ kind: 'word', shot: shot.number, time: wordDraft.word.start, word: wordDraft.word.text } as const)
+        : { shot: shot.number, x: draft!.x, y: draft!.y, element: draft!.element };
+      await save({ pin, text: text.trim() });
+      const word = wordDraft?.word ?? null;
       setDraft(null);
+      setWordDraft(null);
       setText('');
       setError(null);
-      sheet.current?.focus();
+      returnFocus(word);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the comment.');
     } finally {
@@ -135,9 +172,33 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
   }
 
   const pins = comments.filter((c) => c.pin.shot === shot.number);
+  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' ? [{ comment: c, pin: c.pin }] : []));
+  const wordPins = pins.filter(isWordComment);
   const timecode = formatTimecode(shot.start);
   const where = draft?.element ?? 'this position';
   const openDraft = readOnly ? null : draft;
+  const openWordDraft = readOnly ? null : wordDraft;
+
+  function draftForm(key: number, where: string): ReactElement {
+    return (
+      <form className="draft" onSubmit={submit}>
+        <input
+          key={key}
+          autoFocus
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          aria-label={`Comment on ${where}, shot ${shot.number}`}
+          aria-describedby={error ? `${titleId}-error` : undefined}
+          placeholder="Add a comment…"
+          autoComplete="off"
+          disabled={saving}
+        />
+        <button type="button" className="draft-cancel" disabled={saving} onClick={cancelDraft}>Cancel</button>
+        {error && <p id={`${titleId}-error`} role="alert" className="draft-error">{error}</p>}
+      </form>
+    );
+  }
 
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -160,29 +221,10 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
             onPick={readOnly ? ignorePick : startDraft}
             onElements={setElements}
             draft={openDraft}
-            draftContent={
-              openDraft && (
-                <form className="draft" onSubmit={submit}>
-                  <input
-                    key={openDraft.id}
-                    autoFocus
-                    type="text"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    aria-label={`Comment on ${where}, shot ${shot.number}`}
-                    aria-describedby={error ? `${titleId}-error` : undefined}
-                    placeholder="Add a comment…"
-                    autoComplete="off"
-                    disabled={saving}
-                  />
-                  <button type="button" className="draft-cancel" disabled={saving} onClick={cancelDraft}>Cancel</button>
-                  {error && <p id={`${titleId}-error`} role="alert" className="draft-error">{error}</p>}
-                </form>
-              )
-            }
+            draftContent={openDraft && draftForm(openDraft.id, where)}
           >
-            {pins.map((c) => (
-              <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} marked={c.id === markedId} />
+            {framePins.map(({ comment: c, pin }) => (
+              <HexPin key={c.id} number={c.number} x={pin.x} y={pin.y} marked={c.id === markedId} />
             ))}
           </PinFrame>
         </div>
@@ -201,7 +243,23 @@ export function ShotSheet({ pageUrl, footage, shots, index, comments, markedId =
             </button>
           </div>
         )}
-        <ShotLine text={shot.spoken} />
+        {!(shot.words && shot.words.length > 0) && <ShotLine text={shot.spoken} />}
+        {shot.words && shot.words.length > 0 ? (
+          <>
+            <WordRow
+              key={shot.number}
+              shots={shots}
+              index={index}
+              reelShots={reelShots}
+              pins={wordPins}
+              markedId={markedId}
+              readOnly={readOnly}
+              draftWord={openWordDraft?.word ?? null}
+              onPick={startWordDraft}
+            />
+            {openWordDraft && <div className="word-draft">{draftForm(openWordDraft.id, wordLabel(openWordDraft.word.text))}</div>}
+          </>
+        ) : null}
         <div className="hint">
           <span>{shot.description}</span>
           <span><kbd>←</kbd> <kbd>→</kbd> shots</span>

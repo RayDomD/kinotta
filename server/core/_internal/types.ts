@@ -151,6 +151,8 @@ export interface CopiedBatch {
 
 /** What the caller supplies for a frame pin; the core fills in the rest. */
 export interface NewFramePin {
+  /** Omitted for a frame pin. */
+  kind?: 'frame';
   /** Shot number, "03". */
   shot: string;
   /** Fractions of the frame, 0 to 1. */
@@ -174,18 +176,41 @@ export interface FramePin {
   element: string | null;
 }
 
+/** What the caller supplies for a word pin: a word of the shot's spoken line, by its start time and text. */
+export interface NewWordPin {
+  kind: 'word';
+  /** Shot number, "03". */
+  shot: string;
+  /** The word's start, in seconds. */
+  time: number;
+  /** The word as the transcript spells it. */
+  word: string;
+}
+
+/** A comment pinned to a spoken word. The core stores the transcript's own text and time for it. */
+export interface WordPin {
+  kind: 'word';
+  version: number;
+  /** The shot's section, or null. */
+  section: string | null;
+  shot: string;
+  /** The word's start, in seconds. */
+  time: number;
+  word: string;
+}
+
 export interface Comment {
   id: string;
-  /** 1-based position in the version's comments, ordered by shot start then creation. The number shown everywhere. */
+  /** 1-based position in the version's comments, ordered by pin time then creation. The number shown everywhere. */
   number: number;
-  pin: FramePin;
+  pin: FramePin | WordPin;
   text: string;
   /** ISO 8601. */
   createdAt: string;
 }
 
 export interface NewComment {
-  pin: NewFramePin;
+  pin: NewFramePin | NewWordPin;
   text: string;
 }
 

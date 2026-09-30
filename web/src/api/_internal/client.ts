@@ -95,17 +95,28 @@ export interface FramePin {
   element: string | null;
 }
 
+/** A pin on a spoken word of the shot's line. */
+export interface WordPin {
+  kind: 'word';
+  version: number;
+  section: string | null;
+  shot: string;
+  /** The word's start, in seconds. */
+  time: number;
+  word: string;
+}
+
 export interface Comment {
   id: string;
-  /** Position in the version's comments by shot start then creation. The number shown everywhere. */
+  /** Position in the version's comments by pin time then creation. The number shown everywhere. */
   number: number;
-  pin: FramePin;
+  pin: FramePin | WordPin;
   text: string;
   createdAt: string;
 }
 
 export interface NewComment {
-  pin: { shot: string; x: number; y: number; element: string | null };
+  pin: { shot: string; x: number; y: number; element: string | null } | { kind: 'word'; shot: string; time: number; word: string };
   text: string;
 }
 

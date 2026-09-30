@@ -26,9 +26,7 @@ function ShotCard({ shot, pageUrl, footage, pins, open, buttonRef }: ShotCardPro
   return (
     <div className="shot">
       <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined}>
-        {pins.map((c) => (
-          <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} />
-        ))}
+        {pins.map((c) => (c.pin.kind === 'frame' ? <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} /> : null))}
       </PageStill>
       <div className="lbl">
         <span>
@@ -172,6 +170,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
           pageUrl={pageUrl}
           footage={footage}
           shots={shots}
+          reelShots={version.shots}
           index={openIndex}
           comments={comments}
           markedId={markedId}

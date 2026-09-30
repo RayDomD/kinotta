@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react';
 import type { Comment } from './api/index.ts';
 import { Empty } from './Empty.tsx';
 import { readOnlyNote } from './readOnly.ts';
+import { wordLabel } from './Transcript.tsx';
 import { formatTimecode } from './timecode.ts';
 import type { CommentsState } from './useComments.ts';
 import type { NoteState } from './useNote.ts';
@@ -75,13 +76,14 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
     }
   }
 
-  const where = pin.element ?? 'position';
+  const target = pin.kind === 'word' ? wordLabel(pin.word) : pin.element;
+  const where = target ?? 'position';
   return (
     <li className="c">
       <div className="where">
         <span className="dot">{comment.number}</span>
         <span className="num">{`Shot ${pin.shot} · ${formatTimecode(pin.time)}s`}</span>
-        <span className={pin.element ? 'el' : undefined}>{where}</span>
+        <span className={target ? 'el' : undefined}>{where}</span>
       </div>
       {editing ? (
         <div className="c-edit">
@@ -203,7 +205,10 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
     window.clearTimeout(undoTimer.current);
     setUndo(null);
     try {
-      await state.save({ pin: { shot: pin.shot, x: pin.x, y: pin.y, element: pin.element }, text });
+      await state.save({
+        pin: pin.kind === 'word' ? { kind: 'word', shot: pin.shot, time: pin.time, word: pin.word } : { shot: pin.shot, x: pin.x, y: pin.y, element: pin.element },
+        text,
+      });
     } catch (err) {
       setProblem(failure(err, 'Could not restore the comment.'));
     }

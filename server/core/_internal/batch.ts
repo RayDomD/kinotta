@@ -25,6 +25,7 @@ function timecode(seconds: number): string {
 }
 
 function target({ pin }: Comment): string {
+  if (pin.kind === 'word') return `word “${pin.word}”`;
   return pin.element ?? `position ${Math.round(pin.x * PERCENT)}% ${Math.round(pin.y * PERCENT)}%`;
 }
 
@@ -63,9 +64,7 @@ export async function copyBatch(projectDir: string, slug: string, number: number
       number: c.number,
       shot: c.pin.shot,
       time: c.pin.time,
-      element: c.pin.element,
-      x: c.pin.x,
-      y: c.pin.y,
+      ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y }),
       text: c.text,
     })),
     notes,

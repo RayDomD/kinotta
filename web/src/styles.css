@@ -255,6 +255,20 @@ input { font: inherit; color: inherit; cursor: text; }
 .chip:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
 .chip:disabled { color: var(--muted); border-style: dashed; }
 .hint { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+/* the spoken line as words (mockup 2026-09-30-sections-transcript, option A); line-height leaves room for a pin above and a tag below every line */
+.tr-a { position: relative; margin-top: 12px; padding: 32px 2px 34px; font-size: 19px; line-height: 3.2; border-top: 1px solid var(--rule); }
+.tr-a .who { position: absolute; top: 6px; left: 2px; font-size: 12px; line-height: 1.5; color: var(--muted); font-variant-numeric: tabular-nums; }
+.w { position: relative; display: inline-block; padding: 0 2px; line-height: 1.5; transition: color var(--t-color) var(--ease); }
+.w.pick { cursor: var(--cur-pin), crosshair; }
+.w.pick:hover, .w.pick:focus-visible, .w.hot { outline: 1.5px solid var(--light); outline-offset: 2px; box-shadow: 0 0 12px var(--light-glow); color: var(--ink); }
+.w.ctx { color: var(--muted); }
+.w .wpin { position: absolute; left: 50%; top: -24px; width: 20px; height: 20px; transform: translateX(-50%); display: grid; place-items: center; filter: drop-shadow(0 0 4px var(--light-glow)); pointer-events: none; }
+.w .wpin.marked { filter: drop-shadow(0 0 9px var(--light-glow)) drop-shadow(0 0 3px var(--light)); z-index: 1; }
+.w .wpin svg { position: absolute; inset: 0; overflow: visible; }
+.w .wpin b { position: relative; font: 800 10px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ground); }
+.wtag { position: absolute; left: -2px; top: calc(100% + 8px); background: var(--light); color: var(--ground); font: 600 12px Outfit, sans-serif; line-height: 1.5; padding: 2px 7px; pointer-events: none; white-space: nowrap; display: none; z-index: 3; }
+.w.pick:hover .wtag, .w.pick:focus-visible .wtag { display: block; }
+.word-draft { margin-top: 8px; }
 kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); padding: 0 5px; color: var(--ink-2); }
 
 /* empty state with dot terrain */

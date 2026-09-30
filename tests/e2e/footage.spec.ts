@@ -7,7 +7,7 @@ const FOOTAGE_SERVER = 'http://localhost:4396';
 const COMMENTS_API = `${FOOTAGE_SERVER}/api/reels/founder-talk/versions/1/comments`;
 const TIME_TOLERANCE = 0.1;
 
-test.use({ baseURL: FOOTAGE_SERVER });
+test.use({ baseURL: FOOTAGE_SERVER, permissions: ['clipboard-read', 'clipboard-write'] });
 test.describe.configure({ mode: 'serial' });
 
 const SHOTS = [
@@ -169,7 +169,9 @@ test('the enlarged panel shot shows the footage, its type and its line', async (
   await expect(still.locator('video')).toHaveAttribute('data-footage', 'ready');
   expect(Math.abs((await videoState(still))!.time - 6.2)).toBeLessThan(TIME_TOLERANCE);
   await expect(dialog(page).locator('.lbl .kind')).toHaveText('Panel');
-  await expect(dialog(page).locator('.line')).toHaveText(SHOTS[2]!.line);
+  // The word row replaces the quoted line in the enlarged sheet (F10): one pinnable word per spoken word.
+  await expect(dialog(page).locator('.line')).toHaveCount(0);
+  await expect(dialog(page).locator('[data-word-row] .words [data-start]')).toHaveCount(SHOTS[2]!.line.split(' ').length);
   const seen = await patchColour(page, still, 0.25, 0.5);
   expect(distance(seen, await footageColour(still, 0.25, 0.5))).toBeLessThan(80);
 });
@@ -179,7 +181,9 @@ test('the enlarged cutaway shot shows the clip alone', async ({ page }) => {
 
   await expect(dialog(page).locator('.still video')).toHaveCount(0);
   await expect(dialog(page).locator('.lbl .kind')).toHaveText('Cutaway');
-  await expect(dialog(page).locator('.line')).toHaveText(SHOTS[3]!.line);
+  // The word row replaces the quoted line in the enlarged sheet (F10): one pinnable word per spoken word.
+  await expect(dialog(page).locator('.line')).toHaveCount(0);
+  await expect(dialog(page).locator('[data-word-row] .words [data-start]')).toHaveCount(SHOTS[3]!.line.split(' ').length);
 });
 
 interface SavedComment {
@@ -223,4 +227,86 @@ test('a footage file that will not load gives a labelled placeholder, not black'
   await expect(still.locator('.footage-failed')).toContainText('Footage unavailable');
   await expect(still.locator('video')).toHaveCount(0);
   await expect(still.locator('iframe')).toHaveCount(1);
+});
+
+// Word pins (T14). Shot 03 speaks "the lazy answer is last write wins, and you lose work" from 6.3s.
+const wordButton = (page: Page, word: string): Locator => dialog(page).getByRole('button', { name: new RegExp(`^Word “${word}”`) });
+const REEL_SECONDS = 12;
+const LANE_PIN_OFFSET = 4;
+const copyButton = (page: Page): Locator => page.locator('.copy .btn');
+
+test('hovering a word outlines it and shows its tag below it', async ({ page }) => {
+  await openShot(page, '03');
+  const word = wordButton(page, 'lose');
+  await word.hover();
+
+  const tag = dialog(page).locator('.wtag:visible');
+  await expect(tag).toHaveText('word “lose” · 08.65');
+  await expect(word).toHaveCSS('outline-style', 'solid');
+  const [wordBox, tagBox] = [(await word.boundingBox()) as Box, (await tag.boundingBox()) as Box];
+  expect(tagBox.y).toBeGreaterThanOrEqual(wordBox.y + wordBox.height);
+  // Context words from the neighbouring shots are muted text, not pin targets.
+  await expect(dialog(page).locator('.w.ctx')).toHaveCount(2);
+  await expect(dialog(page).locator('.words button')).toHaveCount(11);
+});
+
+test('clicking a word pins it: card, hex above the word and a lane pin at the word time', async ({ page }) => {
+  await openShot(page, '03');
+  const before = (await saved(page)).length;
+  const text = 'Land this word harder.';
+
+  await wordButton(page, 'lose').click();
+  const input = dialog(page).getByRole('textbox');
+  await expect(input).toBeFocused();
+  // The input sits under the row, not over the words.
+  const [rowBox, inputBox] = [(await dialog(page).locator('.words').boundingBox()) as Box, (await input.boundingBox()) as Box];
+  expect(inputBox.y).toBeGreaterThanOrEqual(rowBox.y + rowBox.height);
+  await input.fill(text);
+  await page.keyboard.press('Enter');
+  await expect(input).toHaveCount(0);
+
+  expect(await saved(page)).toHaveLength(before + 1);
+  const card = page.locator('.clist .c', { hasText: text });
+  await expect(card.locator('.el')).toHaveText('word “lose”');
+  await expect(card.locator('.num')).toHaveText('Shot 03 · 08.65s');
+  const number = (await card.locator('.dot').textContent())!;
+
+  const hex = wordButton(page, 'lose').locator('.wpin');
+  await expect(hex.locator('b')).toHaveText(number);
+  const [wordBox, hexBox] = [(await wordButton(page, 'lose').boundingBox()) as Box, (await hex.boundingBox()) as Box];
+  expect(hexBox.y + hexBox.height).toBeLessThanOrEqual(wordBox.y + 1);
+
+  const lane = (await page.locator('.pins-lane').boundingBox()) as Box;
+  const lanePin = (await page.locator('.pins-lane .lpin', { hasText: number }).first().boundingBox()) as Box;
+  expect(Math.abs(lanePin.x - lane.x - (lane.width * (8.65 / REEL_SECONDS) + LANE_PIN_OFFSET))).toBeLessThan(3);
+});
+
+test('keyboard only: tab into the words, arrow along them, pin one, and copy the batch', async ({ page }) => {
+  await openShot(page, '03');
+  const before = (await saved(page)).length;
+  const text = 'Cut on this word.';
+
+  for (let i = 0; i < 40 && !(await page.evaluate(() => document.activeElement?.closest('[data-word-row]') != null)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(wordButton(page, 'the')).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(wordButton(page, 'answer')).toBeFocused();
+  // Arrows moved along the words, not between shots.
+  await expect(dialog(page).locator('.lbl .dot')).toHaveText('03');
+
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(text);
+  await page.keyboard.press('Enter');
+  await expect(dialog(page).getByRole('textbox')).toHaveCount(0);
+  expect(await saved(page)).toHaveLength(before + 1);
+  await expect(wordButton(page, 'answer')).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog(page)).toHaveCount(0);
+  await copyButton(page).click();
+  await expect(copyButton(page)).toHaveText('Copied');
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboard).toMatch(new RegExp(`\\d+\\. Shot 03, 06\\.80s, word “answer”: ${text}`));
 });

@@ -16,6 +16,7 @@ export type {
   FramePin,
   NewComment,
   NewFramePin,
+  NewWordPin,
   NoteSaved,
   Overlay,
   Project,
@@ -28,6 +29,7 @@ export type {
   TranscriptWord,
   Version,
   VersionEntry,
+  WordPin,
 } from './_internal/types.ts';
 
 export function openProject(projectDir: string): Project {

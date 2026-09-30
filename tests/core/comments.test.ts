@@ -68,7 +68,7 @@ describe('comments', () => {
 
     const reopened = await openProject(dir).listComments(REEL, 2);
 
-    expect(reopened.map((c) => [c.number, c.pin.shot, c.pin.element, c.text])).toEqual([[1, '03', 'icons-word', 'Hold ICONS.']]);
+    expect(reopened.map((c) => [c.number, c.pin.shot, 'element' in c.pin ? c.pin.element : undefined, c.text])).toEqual([[1, '03', 'icons-word', 'Hold ICONS.']]);
   });
 
   it('keeps versions apart', async () => {

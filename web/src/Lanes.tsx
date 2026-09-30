@@ -53,11 +53,14 @@ export function Lanes({ duration, shots, comments, overlays, sections, currentSe
   const inView = (shot: Shot): boolean => !multi || shot.section === currentSection;
   const shotByNumber = new Map(shots.map((shot) => [shot.number, shot]));
   const pinCount = new Map<string, number>();
+  /** Pins at the same moment (frame pins of one shot, or two on one word) sit side by side. */
+  const perMoment = new Map<number, number>();
   const pins = comments.flatMap((comment) => {
     const shot = shotByNumber.get(comment.pin.shot);
     if (shot === undefined) return [];
-    const k = pinCount.get(shot.number) ?? 0;
-    pinCount.set(shot.number, k + 1);
+    pinCount.set(shot.number, (pinCount.get(shot.number) ?? 0) + 1);
+    const k = perMoment.get(comment.pin.time) ?? 0;
+    perMoment.set(comment.pin.time, k + 1);
     return [{ comment, shot, k }];
   });
 
@@ -115,7 +118,7 @@ export function Lanes({ duration, shots, comments, overlays, sections, currentSe
             key={comment.id}
             type="button"
             className="lpin"
-            style={{ left: `calc(${pct(shot.start, duration)} + ${PIN_OFFSET_START + k * PIN_OFFSET_STEP}px)` }}
+            style={{ left: `calc(${pct(comment.pin.time, duration)} + ${PIN_OFFSET_START + k * PIN_OFFSET_STEP}px)` }}
             title={`${comment.number}. ${comment.text}`}
             aria-label={`Pin ${comment.number}, shot ${shot.number}: ${comment.text}`}
             onClick={(e) => onOpen(shot, e.currentTarget)}

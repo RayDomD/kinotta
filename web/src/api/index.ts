@@ -15,4 +15,5 @@ export type {
   TranscriptWord,
   Version,
   VersionEntry,
+  WordPin,
 } from './_internal/client.ts';
