@@ -101,17 +101,17 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T7 (#9). Broken versions open with an issue list
+## T7 (#9). Broken versions open with an issue list — Done
 
 **What to build:** A version that breaks the timing contract still opens (S5). The core's static checks (shot list validity, scene timing markup, missing or duplicate element names) and the stage's runtime checks (missing or throwing `seek`) merge into one list, such as "shot 04: no named elements". Shots that cannot render show a labelled placeholder, never a black frame. The owner can include the issue list in the copied batch.
 
 **Acceptance criteria:**
 
-- [ ] A broken sample version opens and lists each issue in plain words
-- [ ] Unrenderable shots show a placeholder with the reason
-- [ ] Pins on unnamed elements record position only
-- [ ] Issue list can be added to the batch text
-- [ ] Core tests cover static checks on good and broken samples; the e2e test opens the broken sample
+- [x] A broken sample version opens and lists each issue in plain words
+- [x] Unrenderable shots show a placeholder with the reason
+- [x] Pins on unnamed elements record position only
+- [x] Issue list can be added to the batch text
+- [x] Core tests cover static checks on good and broken samples; the e2e test opens the broken sample
 
 **Blocked by:** #6
 

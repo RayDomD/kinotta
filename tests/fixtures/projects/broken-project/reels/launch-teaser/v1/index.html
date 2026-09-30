@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Launch teaser v1</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#211b16;font-family:system-ui,sans-serif}
+[data-scene]{position:absolute;inset:0;display:none;place-items:center;overflow:hidden}
+[data-scene].active{display:grid}
+.s1{background:#211b16;color:#efe9df;font:800 9vh/1.1 system-ui;text-align:center}
+.s1 small{display:block;margin-top:2vh;font:400 3.4vh/1.2 system-ui;color:#c9b8a3}
+.s2{background:#efe9df;color:#26221d}
+.s2 .card{width:34%;padding:4vh 3vw;background:#fff;border:2px solid #26221d;font:800 6vh/1.1 system-ui}
+.s2 .card b{display:block;margin-top:2vh;color:#e8741c}
+.s3{background:#1b1f26;color:#efe9df;font:800 8vh/1 system-ui;letter-spacing:.2em}
+.s4{background:#ff8a1f;color:#1d140b;font:800 8vh/1 system-ui}
+</style></head>
+<body>
+<section class="s1" data-scene="headline" data-start="0" data-duration="3"><div><span data-el="headline">Ship the launch, not the busywork</span><small data-el="subhead">Ready in a day.</small></div></section>
+<section class="s2" data-scene="product-card" data-start="3" data-duration="3"><div class="card" data-el="card">Team plan<b data-el="card">$12 a seat</b></div></section>
+<section class="s3" data-scene="ticker" data-start="6" data-duration="2.5"><div>ACME · ORBIT · NORTHWIND · HALCYON</div></section>
+<section class="s4" data-scene="cta" data-start="9.5" data-duration="2.5"><span data-el="cta">Start free →</span></section>
+<script>
+window.DURATION = 12;
+var scenes = Array.prototype.slice.call(document.querySelectorAll('[data-scene]'));
+window.seek = function (t) {
+  scenes.forEach(function (s) {
+    var start = parseFloat(s.dataset.start), end = start + parseFloat(s.dataset.duration);
+    s.classList.toggle('active', t >= start && t < end);
+  });
+};
+window.seek(0);
+</script>
+</body></html>

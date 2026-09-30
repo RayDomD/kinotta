@@ -118,15 +118,18 @@ describe('readVersion', () => {
     await expect(project.readVersion('product-showreel', 9)).rejects.toThrow(/version 9 .*not found/i);
   });
 
-  it('fails clearly for a missing or unparsable shots.json', async () => {
+  it('opens a missing or unparsable shots.json with no shots and an issue instead of failing', async () => {
     const dir = emptyProject();
     mkdirSync(join(dir, 'reels', 'r', 'v1'), { recursive: true });
     mkdirSync(join(dir, 'reels', 'r', 'v2'), { recursive: true });
     writeFileSync(join(dir, 'reels', 'r', 'v2', 'shots.json'), '{ not json');
     const project = openProject(dir);
 
-    await expect(project.readVersion('r', 1)).rejects.toThrow(/shots\.json/);
-    await expect(project.readVersion('r', 2)).rejects.toThrow(/shots\.json/);
+    for (const number of [1, 2]) {
+      const version = await project.readVersion('r', number);
+      expect(version.shots).toEqual([]);
+      expect(version.issues[0]?.message).toMatch(/^shots\.json/);
+    }
   });
 
   it('rejects slugs that try to leave the reels folder', async () => {

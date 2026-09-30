@@ -108,6 +108,19 @@ input { font: inherit; color: inherit; cursor: text; }
 .notice-slot:not(:empty) { margin-bottom: 18px; }
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 60ch; padding: 8px 8px 8px 14px; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); }
 .readonly-note { margin: -8px 0 18px; font-size: 14px; color: var(--ink-2); max-width: 60ch; }
+/* a version that breaks the timing contract: a neutral hairline block, marked by shape and words, never by colour */
+.issues { margin: 0 0 20px; max-width: 72ch; padding: 12px 16px; border: 1px solid var(--hairline); }
+.issues h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.issues h2 svg { flex: none; }
+.issues h2 .num { margin-left: auto; color: var(--muted); font-weight: 400; font-size: 13px; }
+.issues ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.issues li { position: relative; padding-left: 14px; font-size: 14px; line-height: 1.4; color: var(--ink-2); overflow-wrap: anywhere; }
+.issues li::before { content: ""; position: absolute; left: 0; top: .6em; width: 6px; height: 1.4px; background: var(--muted); }
+.issues-toggle { margin-top: 8px; padding: 2px 0; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--hairline); }
+.issues-toggle:hover { border-color: var(--ink); }
+.copy-issues { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.copy-issues input { accent-color: var(--ink); width: 15px; height: 15px; cursor: var(--cur-hex-fill), pointer; }
+.copy-issues label { cursor: var(--cur-hex-fill), pointer; }
 .comments .readonly-note { margin: 0; font-size: 13px; }
 .sheet.readonly .hit { cursor: var(--cur-hex), default; }
 .sheet.readonly .hot, .sheet.readonly .tag { display: none; }

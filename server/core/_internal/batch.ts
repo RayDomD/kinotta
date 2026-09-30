@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { numbered, readState, serialized, stateFilePath } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { readTitle } from './reels.ts';
-import type { Comment, CopiedBatch } from './types.ts';
+import type { BatchOptions, Comment, CopiedBatch, Version } from './types.ts';
 import { assertTakesComments } from './version.ts';
 
 const REELS_DIR = 'reels';
@@ -29,20 +29,28 @@ function target({ pin }: Comment): string {
   return pin.element ?? `position ${Math.round(pin.x * PERCENT)}% ${Math.round(pin.y * PERCENT)}%`;
 }
 
-function pasteableText(title: string, version: number, file: string, comments: Comment[], notes: string[]): string {
+function pasteableText(title: string, version: number, file: string, comments: Comment[], notes: string[], issues: string[]): string {
   const lines = [`Kinotta comments: ${title}, v${version}`, `Saved as ${file}`, ''];
   for (const c of comments) lines.push(`${c.number}. Shot ${c.pin.shot}, ${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
   lines.push('');
   if (notes.length > 0) lines.push('Notes', ...notes.map((n) => `- ${n}`), '');
+  if (issues.length > 0) lines.push('Contract issues', ...issues.map((i) => `- ${i}`), '');
   return lines.join('\n');
+}
+
+/** The version's own contract issues followed by the browser's, each message once. Empty unless the batch asks for them. */
+function issueMessages(version: Version, options: BatchOptions): string[] {
+  if (options.includeIssues !== true) return [];
+  const runtime = (options.runtimeIssues ?? []).filter((m) => typeof m === 'string' && m.trim() !== '');
+  return [...new Set([...version.issues.map((i) => i.message), ...runtime])];
 }
 
 /**
  * Writes a version's comment batch into its folder (the only place the editor writes there) and returns the
  * pasteable text. `section` is null for the whole reel; per-section batches extend this later.
  */
-export async function copyBatch(projectDir: string, slug: string, number: number): Promise<CopiedBatch> {
-  await assertTakesComments(projectDir, slug, number);
+export async function copyBatch(projectDir: string, slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> {
+  const version = await assertTakesComments(projectDir, slug, number);
   const state = await readState(stateFilePath(projectDir, slug, number), number);
   const comments = numbered(state.comments);
   const note = state.note.trim();
@@ -51,6 +59,7 @@ export async function copyBatch(projectDir: string, slug: string, number: number
     throw new KinottaError('invalid', 'There are no comments or notes to copy yet.');
   }
 
+  const issues = issueMessages(version, options);
   const title = (await readTitle(join(projectDir, REELS_DIR, slug))) ?? slug;
   const file = `${REELS_DIR}/${slug}/v${number}/${BATCH_FILE}`;
   const path = join(projectDir, REELS_DIR, slug, `v${number}`, BATCH_FILE);
@@ -68,11 +77,12 @@ export async function copyBatch(projectDir: string, slug: string, number: number
       text: c.text,
     })),
     notes,
+    ...(issues.length > 0 ? { issues } : {}),
   };
   await serialized(path, async () => {
     const temp = `${path}.${randomUUID()}.tmp`;
     await writeFile(temp, `${JSON.stringify(batch, null, 2)}\n`);
     await rename(temp, path);
   });
-  return { text: pasteableText(title, number, file, comments, notes), file, count: comments.length };
+  return { text: pasteableText(title, number, file, comments, notes, issues), file, count: comments.length };
 }

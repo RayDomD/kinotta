@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { contentBoxes, findElement, hitTest, namedElements } from './dom.ts';
 import type { FrameElement } from './dom.ts';
 import { FootageLayer } from './FootageLayer.tsx';
+import { useSeekReporter } from './issues.ts';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekPage } from './page.ts';
 import { placeBox } from './placeBox.ts';
 import type { Rect, Size } from './placeBox.ts';
@@ -26,6 +27,8 @@ export interface PinFrameProps {
   title: string;
   /** A footage file to draw under the (transparent) page, seeked to the same second. Absent for a page shown alone. */
   footageUrl?: string;
+  /** Set when the shot is known not to render (a contract problem found before loading): shown as the reason, and the page is not loaded. */
+  unavailable?: string;
   /** A click on the frame. Ignored until the frame has drawn. */
   onPick(pick: FramePick): void;
   /** The named elements in view, reported each time the frame draws. */
@@ -61,7 +64,7 @@ const sameSpot = (a: Rect | null, b: Rect): boolean => a !== null && sameRect(a,
  * The page itself is never touched beyond reading it; the hover outline, name tag and pins are drawn here
  * over a transparent layer that takes the pointer (the frame has `pointer-events: none`).
  */
-export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements, draft = null, draftContent, children }: PinFrameProps) {
+export function PinFrame({ pageUrl, time, title, footageUrl, unavailable, onPick, onElements, draft = null, draftContent, children }: PinFrameProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const tagEl = useRef<HTMLDivElement>(null);
@@ -72,6 +75,7 @@ export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements,
   const [loaded, setLoaded] = useState(false);
   const [drawn, setDrawn] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const report = useSeekReporter(pageUrl);
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
   const [hover, setHover] = useState<Hover | null>(null);
   const [tagAt, setTagAt] = useState<Rect | null>(null);
@@ -98,10 +102,11 @@ export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements,
         if (!current) return;
         setFailure(null);
         setDrawn(true);
+        report(null);
         const doc = frame.current?.contentDocument;
         elementsCallback.current?.(doc ? namedElements(doc, { width: PAGE_WIDTH, height: PAGE_HEIGHT }) : []);
       },
-      (err: unknown) => current && setFailure(err instanceof Error ? err.message : String(err)),
+      (err: unknown) => current && (setFailure(err instanceof Error ? err.message : String(err)), report(err)),
     );
     return () => {
       current = false;
@@ -162,13 +167,14 @@ export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements,
     }
   });
 
-  const state = failure !== null ? 'failed' : drawn ? 'ready' : 'loading';
+  const reason = unavailable ?? failure;
+  const state = reason !== null ? 'failed' : drawn ? 'ready' : 'loading';
   const at = (r: Rect | null): CSSProperties => ({ left: r?.left ?? 0, top: r?.top ?? 0 });
 
   return (
     <div ref={box} className="still pinnable" data-state={state}>
       {footageUrl !== undefined && <FootageLayer url={footageUrl} time={time} title={`${title} footage`} />}
-      {failure === null && (
+      {reason === null && (
         <iframe
           ref={frame}
           className="still-frame"
@@ -179,10 +185,10 @@ export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements,
           onLoad={() => setLoaded(true)}
         />
       )}
-      {failure !== null && (
+      {reason !== null && (
         <div className="still-failed" role="img" aria-label={`${title} unavailable`}>
           <strong>Frame unavailable</strong>
-          <span>{failure}</span>
+          <span>{reason}</span>
         </div>
       )}
       {children}
@@ -201,7 +207,7 @@ export function PinFrame({ pageUrl, time, title, footageUrl, onPick, onElements,
           <div ref={tagEl} className="tag" style={at(tagAt)} aria-hidden="true">{hover.name}</div>
         </>
       )}
-      {failure === null && <div className="hit" onPointerMove={onMove} onPointerLeave={() => setHover(null)} onClick={onClick} />}
+      {reason === null && <div className="hit" onPointerMove={onMove} onPointerLeave={() => setHover(null)} onClick={onClick} />}
       {draft && (
         <div ref={popEl} className="pop" style={at(popAt)}>
           {draftContent}

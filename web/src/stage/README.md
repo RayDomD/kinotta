@@ -32,12 +32,16 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
   shown alone. The video has `data-footage` `loading`, `ready`; a file that fails to load is replaced by a labelled
   placeholder (`.footage-failed`), never black. Hit-testing is unchanged: a click over footage finds no named
   element and reports a position only.
+- `unavailable` on both: a reason the shot is known not to render (found statically); the page is not loaded and the same
+  labelled placeholder shows it.
+- `useSeekProblems(pageUrl)`, the runtime contract issues seen while driving that page (`{ kind: 'no-seek' }` or
+  `{ kind: 'seek-threw', time, detail }`), each once however many stills hit it. Stills and frames report their seeks here.
 - `seekPage(window, seconds)`, the seek-and-wait step on its own.
 - `renderUrl(pageUrl)`, `PAGE_WIDTH`, `PAGE_HEIGHT`.
 
 ## Does not handle
 
-Playback, word pins, the issue list for broken pages (T7). Later tickets add them here.
+Playback and word pins. The issue list itself is drawn by the app.
 
 ## Dependencies
 

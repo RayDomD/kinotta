@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FootageLayer } from './FootageLayer.tsx';
+import { useSeekReporter } from './issues.ts';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekPage } from './page.ts';
 
 /** Start loading a still a little before it scrolls into view. */
@@ -17,6 +18,8 @@ export interface PageStillProps {
   title: string;
   /** A footage file to draw under the (transparent) page, seeked to the same second. Absent for a page shown alone. */
   footageUrl?: string;
+  /** Set when the shot is known not to render (a contract problem found before loading): shown as the reason, and the page is not loaded. */
+  unavailable?: string;
   /** Drawn over the still, such as its pins. Not part of the page. */
   children?: ReactNode;
 }
@@ -25,7 +28,7 @@ export interface PageStillProps {
  * A live still: the version page in a same-origin frame, seeked to `time` and paused there.
  * The frame is only created once the still scrolls into view. Not interactive: it takes no focus and no pointer.
  */
-export function PageStill({ pageUrl, time, title, footageUrl, children }: PageStillProps) {
+export function PageStill({ pageUrl, time, title, footageUrl, unavailable, children }: PageStillProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [visible, setVisible] = useState(false);
@@ -33,6 +36,7 @@ export function PageStill({ pageUrl, time, title, footageUrl, children }: PageSt
   const [scale, setScale] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
   const [drawn, setDrawn] = useState(false);
+  const report = useSeekReporter(pageUrl);
 
   useEffect(() => {
     const el = box.current;
@@ -60,20 +64,21 @@ export function PageStill({ pageUrl, time, title, footageUrl, children }: PageSt
     let current = true;
     setDrawn(false);
     seekPage(frame.current?.contentWindow ?? null, time).then(
-      () => current && (setFailure(null), setDrawn(true)),
-      (err: unknown) => current && setFailure(err instanceof Error ? err.message : String(err)),
+      () => current && (setFailure(null), setDrawn(true), report(null)),
+      (err: unknown) => current && (setFailure(err instanceof Error ? err.message : String(err)), report(err)),
     );
     return () => {
       current = false;
     };
   }, [loaded, time]);
 
-  const state: StillState = failure !== null ? 'failed' : drawn ? 'ready' : visible ? 'loading' : 'idle';
+  const reason = unavailable ?? failure;
+  const state: StillState = reason !== null ? 'failed' : drawn ? 'ready' : visible ? 'loading' : 'idle';
 
   return (
     <div ref={box} className="still" data-state={state}>
       {visible && footageUrl !== undefined && <FootageLayer url={footageUrl} time={time} title={`${title.replace(/ still$/, '')} footage`} />}
-      {visible && failure === null && (
+      {visible && reason === null && (
         <iframe
           ref={frame}
           className="still-frame"
@@ -84,10 +89,10 @@ export function PageStill({ pageUrl, time, title, footageUrl, children }: PageSt
           onLoad={() => setLoaded(true)}
         />
       )}
-      {failure !== null && (
+      {reason !== null && (
         <div className="still-failed" role="img" aria-label={`${title} unavailable`}>
           <strong>Still unavailable</strong>
-          <span>{failure}</span>
+          <span>{reason}</span>
         </div>
       )}
       {children}

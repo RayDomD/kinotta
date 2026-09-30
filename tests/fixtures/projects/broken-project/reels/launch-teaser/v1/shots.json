@@ -1,0 +1,11 @@
+{
+  "contract": 1,
+  "duration": 12.0,
+  "shots": [
+    { "number": "01", "start": 0.0, "title": "Headline drops", "description": "The headline drops in and the subhead fades up under it." },
+    { "number": "02", "start": 3.0, "title": "Product card", "description": "A product card slides up with its price tag." },
+    { "number": "03", "start": 6.0, "title": "Ticker", "description": "A ticker of customer logos scrolls across the frame." },
+    { "number": "04", "start": 9.0, "title": "Call to action", "description": "The call to action types on over an orange field." },
+    { "number": "05", "start": 9.5, "description": "The URL settles in beneath the call to action." }
+  ]
+}

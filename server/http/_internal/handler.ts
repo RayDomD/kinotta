@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { KinottaError } from '../../core/index.ts';
-import type { NewComment, Project } from '../../core/index.ts';
+import type { BatchOptions, NewComment, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -64,7 +64,8 @@ function sendError(res: ServerResponse, err: unknown): void {
   else sendJson(res, 500, { error: err instanceof Error ? err.message : 'Server error' });
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+/** The request's JSON body. With `emptyAs`, a request with no body at all gives that instead of a 400. */
+async function readJsonBody(req: IncomingMessage, emptyAs?: unknown): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -72,6 +73,7 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     if (size > MAX_BODY_BYTES) throw new BadRequest(413, 'The request body is too large.');
     chunks.push(chunk as Buffer);
   }
+  if (size === 0 && emptyAs !== undefined) return emptyAs;
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
@@ -118,8 +120,19 @@ async function handleNote(req: IncomingMessage, res: ServerResponse, project: Pr
 async function handleBatch(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
-  else if (req.method === 'POST') sendJson(res, 200, await project.copyBatch(slug, Number(route[2])));
+  else if (req.method === 'POST') sendJson(res, 200, await project.copyBatch(slug, Number(route[2]), await readBatchOptions(req)));
   else res.writeHead(405).end();
+}
+
+/** The optional body of a batch request: `{ includeIssues, runtimeIssues }`. An empty body means the plain batch. */
+async function readBatchOptions(req: IncomingMessage): Promise<BatchOptions> {
+  const body = await readJsonBody(req, {});
+  if (body === null || typeof body !== 'object') return {};
+  const { includeIssues, runtimeIssues } = body as Record<string, unknown>;
+  return {
+    includeIssues: includeIssues === true,
+    runtimeIssues: Array.isArray(runtimeIssues) ? runtimeIssues.filter((m): m is string => typeof m === 'string') : [],
+  };
 }
 
 /** Server-sent events: every project event as one JSON message, and a comment line now and then to keep the stream open. */

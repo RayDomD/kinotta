@@ -1,0 +1,9 @@
+{
+  "contract": 1,
+  "duration": 9.0,
+  "shots": [
+    { "number": "01", "start": 0.0, "title": "Question", "description": "The question fades in on a dark ground." },
+    { "number": "02", "start": 3.0, "title": "Answer", "description": "The answer replaces it in orange." },
+    { "number": "03", "start": 6.0, "title": "Sign-off", "description": "The sign-off holds until the end." }
+  ]
+}

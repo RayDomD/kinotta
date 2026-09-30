@@ -24,6 +24,8 @@ export interface ShotSheetProps {
   markedId?: string | null;
   /** Set on a version that cannot take comments: the sheet then shows the frame only, with this line saying why. */
   readOnlyNote?: string | null;
+  /** Why a shot cannot render, by shot number. */
+  unavailable?: ReadonlyMap<string, string>;
   save(input: NewComment): Promise<void>;
   onStep(index: number): void;
   onClose(): void;
@@ -52,7 +54,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, save, onStep, onClose }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, unavailable, save, onStep, onClose }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -218,6 +220,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
             time={shot.start}
             title={`Shot ${shot.number}`}
             footageUrl={shot.type === 'panel' ? footage : undefined}
+            unavailable={unavailable?.get(shot.number)}
             onPick={readOnly ? ignorePick : startDraft}
             onElements={setElements}
             draft={openDraft}

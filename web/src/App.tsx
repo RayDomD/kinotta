@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe } from './api/index.ts';
+import { fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, Version, VersionEntry } from './api/index.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
+import { useVersionIssues } from './issues.ts';
+import type { VersionIssues } from './issues.ts';
 import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount } from './sections.ts';
 import { PinsBadge } from './Pins.tsx';
 import { formatDuration } from './timecode.ts';
@@ -36,8 +38,8 @@ function HexMark() {
   );
 }
 
-function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number; note?: NoteState; frozen: boolean }) {
-  const { reel, version, commentCount, note, frozen } = props;
+function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number; note?: NoteState; frozen: boolean; issues?: VersionIssues }) {
+  const { reel, version, commentCount, note, frozen, issues } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -62,6 +64,7 @@ function TopBar(props: { reel: ReelSummary | undefined; version: Version | undef
           hasNote={note !== undefined && note.text.trim() !== ''}
           beforeCopy={note?.flush}
           frozen={frozen}
+          issues={issues && { all: issues.messages, runtime: issues.runtime }}
         />
       )}
     </header>
@@ -191,10 +194,11 @@ interface MainProps {
   reveal: Reveal | null;
   sectionId: string;
   onSection(id: string): void;
+  issues: VersionIssues;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
@@ -215,6 +219,7 @@ function Main(props: MainProps) {
           onSection={onSection}
           save={comments.save}
           reveal={reveal}
+          issues={issues}
         />
       ) : version.status === 'loading' ? (
         <div className="state">Loading…</div>
@@ -296,6 +301,7 @@ export function App() {
     },
     [versionKey],
   );
+  const issues = useVersionIssues(openVersion, openVersion && reel ? versionPageUrl(reel.slug, openVersion.number) : '');
   const multiSection = openVersion !== undefined && hasSections(openVersion.sections);
 
   const openReel = useCallback((slug: string) => {
@@ -369,7 +375,7 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} note={note} frozen={frozen} />
+      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} note={note} frozen={frozen} issues={issues} />
       <div className="body">
         <Rail
           project={load.project}
@@ -391,6 +397,7 @@ export function App() {
           reveal={reveal}
           sectionId={sectionId}
           onSection={pickSection}
+          issues={issues}
         />
         <CommentsPanel
           version={openVersion?.number}

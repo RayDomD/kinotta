@@ -10,7 +10,9 @@ import { createWatcher } from './_internal/watch.ts';
 export { KinottaError } from './_internal/errors.ts';
 export type {
   AddedComment,
+  BatchOptions,
   Comment,
+  ContractIssue,
   CommentList,
   CopiedBatch,
   FramePin,
@@ -49,6 +51,6 @@ export function openProject(projectDir: string): Project {
     deleteComment: (slug, number, id) => deleteComment(dir, slug, number, id),
     readNote: (slug, number) => readNote(dir, slug, number),
     setNote: (slug, number, note) => setNote(dir, slug, number, note),
-    copyBatch: (slug, number) => copyBatch(dir, slug, number),
+    copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
   };
 }

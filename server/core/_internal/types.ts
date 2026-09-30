@@ -61,6 +61,16 @@ export interface Section {
   implicit?: true;
 }
 
+/** One way a version breaks the timing contract (ADR 0001). The message is plain words and complete on its own. */
+export interface ContractIssue {
+  code: string;
+  /** Shot number, when the problem belongs to one shot. */
+  shot?: string;
+  /** Scene name, when it belongs to one scene. */
+  scene?: string;
+  message: string;
+}
+
 export interface Version {
   number: number;
   isNewest: boolean;
@@ -71,6 +81,8 @@ export interface Version {
   overlays: Overlay[];
   /** Never empty: a reel without declared sections has one implicit section. On a reel with sections every shot names its own. */
   sections: Section[];
+  /** Static contract problems, in reading order. Empty for a version that keeps the contract. */
+  issues: ContractIssue[];
   changedSections?: string[];
   /** Footage reels only: the footage file named in reel.json, which stays where it is in the project. */
   footage?: { path: string; exists: boolean };
@@ -138,7 +150,15 @@ export interface Project {
    * returns the pasteable text. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
    * for a version that is not the newest.
    */
-  copyBatch(slug: string, number: number): Promise<CopiedBatch>;
+  copyBatch(slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch>;
+}
+
+/** What the editor adds to a batch beyond the comments. */
+export interface BatchOptions {
+  /** Add the contract issues to the batch text and file: the version's static ones plus `runtimeIssues`. */
+  includeIssues?: boolean;
+  /** Problems only the browser can see, such as a page with no seek(). Plain-word messages. */
+  runtimeIssues?: string[];
 }
 
 export interface CopiedBatch {

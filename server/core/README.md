@@ -18,7 +18,9 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   timed words of `transcript.json`) and, on each shot with a `line` span, `words` (the transcript words whose start
   falls inside the span) and `spoken` (those words joined). A missing or unreadable `transcript.json` gives
   `transcriptProblem` (a readable reason) instead, never a throw. A code-only reel gets none of these. It throws `KinottaError` with code `not-found` (unknown
-  reel or version) or `invalid` (missing or unparsable `shots.json`).
+  reel or version). A version that breaks the timing contract still opens: `issues` lists each problem in plain words
+  (`{ code, shot?, scene?, message }`, rules at the top of `_internal/contract.ts`), a missing or unparsable `shots.json`
+  gives zero shots and one issue, and `index.html` is parsed with `node-html-parser`. Nothing here throws for contract problems.
 
 - `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard }`
   (v1 is the storyboard in this phase). An unknown reel throws `not-found`.
@@ -46,11 +48,12 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `readNote(slug, n)` returns the version's note on the whole reel (empty string when none) and `setNote(slug, n, note)`
   saves it trimmed (empty clears it, at most 4000 characters) and returns `{ note, comments }`. An unknown comment id
   throws `not-found`, empty comment text or an over-long note `invalid`, a version that is not the newest `frozen`.
-- `copyBatch(slug, n)` writes `reels/<reel>/v<n>/comments.json` (atomically, replacing any earlier copy) and returns
+- `copyBatch(slug, n, { includeIssues?, runtimeIssues? }?)` writes `reels/<reel>/v<n>/comments.json` (atomically, replacing any earlier copy) and returns
   `{ text, file, count }`: the pasteable text for Claude, the saved path relative to the project root, and the
   comment count. The batch covers the whole reel (`section: null`) and includes the version's note when it has
   one. No comments and no note throws `KinottaError` `invalid` and writes nothing; a version that is not the newest
-  throws `frozen`. It is the only place the editor
+  throws `frozen`. With `includeIssues`, the version's issues plus `runtimeIssues` (problems only the browser saw) are
+  added once each as a "Contract issues" block after Notes and an `issues` array in the file. It is the only place the editor
   writes into a version folder; the state file is left as it was.
 
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
@@ -61,9 +64,9 @@ Outside code imports from `index.ts` only.
 
 ## Does not handle
 
-Contract checks beyond a readable shot list (T7), stills, per-section batches,
+Runtime contract checks (the stage does those), stills, per-section batches,
 and carry-forward. Later tickets add them here.
 
 ## Dependencies
 
-Node's `fs` and `path` only.
+Node's `fs` and `path`, and `node-html-parser`.

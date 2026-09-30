@@ -19,6 +19,10 @@ const FOOTAGE_PORT = 4396;
 /** A fifth for editing.spec.ts, which edits and deletes comments and writes the reel note. */
 const EDITING_PORT = 4394;
 
+/** A sixth for contract.spec.ts, started on the broken-project sample (versions that break the timing contract). */
+const CONTRACT_PORT = 4393;
+const CONTRACT_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-contract-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -65,6 +69,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${EDITING_PORT}`,
       env: serverEnv(EDITING_PORT),
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${CONTRACT_PORT}`,
+      env: { ...serverEnv(CONTRACT_PORT), KINOTTA_E2E_FIXTURE: 'broken-project', KINOTTA_E2E_PROJECT_FILE: CONTRACT_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },

@@ -6,6 +6,19 @@ export const PAGE_HEIGHT = 1080;
 const DRAW_WAIT_MS = 500;
 const DRAW_FRAMES = 2;
 
+/** Why a page could not be seeked, in a form the UI can turn into a plain-word issue. */
+export type SeekProblem = { kind: 'no-seek' } | { kind: 'seek-threw'; time: number; detail: string };
+
+/** A seek that failed. `message` is the reason shown on the placeholder; `problem` is what the issue list reports. */
+export class SeekError extends Error {
+  constructor(
+    message: string,
+    readonly problem: SeekProblem,
+  ) {
+    super(message);
+  }
+}
+
 type PageWindow = Window & { seek?: (seconds: number) => unknown };
 
 /** motion-broll's engine only stops its preview loop when the page is loaded with `?render`. */
@@ -30,12 +43,13 @@ function afterDraw(win: Window): Promise<void> {
 export async function seekPage(win: Window | null, seconds: number): Promise<void> {
   const page = win as PageWindow | null;
   if (!page || typeof page.seek !== 'function') {
-    throw new Error('The page has no global seek(seconds) function.');
+    throw new SeekError('The page has no global seek(seconds) function.', { kind: 'no-seek' });
   }
   try {
     await Promise.resolve(page.seek(seconds));
   } catch (err) {
-    throw new Error(`seek(${seconds}) threw: ${err instanceof Error ? err.message : String(err)}`);
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new SeekError(`seek(${seconds}) threw: ${detail}`, { kind: 'seek-threw', time: seconds, detail });
   }
   await afterDraw(page);
 }

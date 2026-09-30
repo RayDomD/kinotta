@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { footageUrl, versionPageUrl } from './api/index.ts';
 import type { Comment, NewComment, Shot, Version } from './api/index.ts';
+import { IssueList } from './IssueList.tsx';
+import type { VersionIssues } from './issues.ts';
 import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge } from './Pins.tsx';
 import { ShotKind, ShotLine } from './Transcript.tsx';
@@ -16,16 +18,18 @@ interface ShotCardProps {
   /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
   footage: string | undefined;
   pins: Comment[];
+  /** Why this shot cannot render, when it cannot. */
+  unavailable: string | undefined;
   open(): void;
   buttonRef(button: HTMLButtonElement | null): void;
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, footage, pins, open, buttonRef }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, footage, pins, unavailable, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
   return (
     <div className="shot">
-      <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined}>
+      <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
         {pins.map((c) => (c.pin.kind === 'frame' ? <HexPin key={c.id} number={c.number} x={c.pin.x} y={c.pin.y} /> : null))}
       </PageStill>
       <div className="lbl">
@@ -63,9 +67,10 @@ export interface StoryboardProps {
   onSection(id: string): void;
   save(input: NewComment): Promise<void>;
   reveal: Reveal | null;
+  issues: VersionIssues;
 }
 
-export function Storyboard({ slug, version, newest, comments, sectionId, onSection, save, reveal }: StoryboardProps) {
+export function Storyboard({ slug, version, newest, comments, sectionId, onSection, save, reveal, issues }: StoryboardProps) {
   const readOnly = version.number !== newest;
   const pageUrl = versionPageUrl(slug, version.number);
   const footage = version.footage ? footageUrl(slug) : undefined;
@@ -131,6 +136,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
         )}
       </div>
       {readOnly && <p className="readonly-note">{readOnlyNote(version.number, newest)}</p>}
+      <IssueList issues={issues.messages} />
       <div className="grid">
         {shots.map((shot, i) => (
           <ShotCard
@@ -139,6 +145,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
             pageUrl={pageUrl}
             footage={footage}
             pins={comments.filter((c) => c.pin.shot === shot.number)}
+            unavailable={issues.unavailable.get(shot.number)}
             open={() => {
               laneOpener.current = null;
               setOpenIndex(i);
@@ -174,6 +181,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
           index={openIndex}
           comments={comments}
           markedId={markedId}
+          unavailable={issues.unavailable}
           readOnlyNote={readOnly ? readOnlyNote(version.number, newest) : null}
           save={save}
           onStep={setOpenIndex}

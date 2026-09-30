@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { copyBatch } from './api/index.ts';
 
 const CONFIRM_MS = 1400;
@@ -18,8 +18,12 @@ export function CopyButton(props: {
   /** Runs before the batch is saved, so a note still being typed is in it. */
   beforeCopy?(): Promise<void>;
   frozen?: boolean;
+  /** The version's contract issues (plain words), and the ones only this browser saw. When there are any, the batch can include them. */
+  issues?: { all: string[]; runtime: string[] };
 }) {
-  const { slug, version, count, hasNote = false, beforeCopy, frozen = false } = props;
+  const { slug, version, count, hasNote = false, beforeCopy, frozen = false, issues } = props;
+  const includeId = useId();
+  const [includeIssues, setIncludeIssues] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
   const [busy, setBusy] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -32,7 +36,7 @@ export function CopyButton(props: {
     await beforeCopy?.();
     let saved: Awaited<ReturnType<typeof copyBatch>>;
     try {
-      saved = await copyBatch(slug, version);
+      saved = await copyBatch(slug, version, includeIssues && issues ? { includeIssues: true, runtimeIssues: issues.runtime } : undefined);
     } catch (err) {
       setBusy(false);
       setOutcome({ status: 'failed', message: `Could not save the comments. ${err instanceof Error ? err.message : 'Could not reach the server'}` });
@@ -55,6 +59,12 @@ export function CopyButton(props: {
   return (
     <div className="copy">
       {outcome.status === 'failed' && <span className="copy-error">{outcome.message}</span>}
+      {!frozen && issues !== undefined && issues.all.length > 0 && (
+        <span className="copy-issues">
+          <input id={includeId} type="checkbox" checked={includeIssues} onChange={(e) => setIncludeIssues(e.target.checked)} />
+          <label htmlFor={includeId}>Include contract issues</label>
+        </span>
+      )}
       <button
         type="button"
         className="btn"

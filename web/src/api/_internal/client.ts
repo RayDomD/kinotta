@@ -53,6 +53,15 @@ export interface Section {
   implicit?: true;
 }
 
+/** One way a version breaks the timing contract, found by the server's static check. */
+export interface ContractIssue {
+  code: string;
+  shot?: string;
+  scene?: string;
+  /** Plain words, complete on its own ("shot 04: no named elements"). */
+  message: string;
+}
+
 export interface Version {
   number: number;
   isNewest: boolean;
@@ -60,6 +69,8 @@ export interface Version {
   shots: Shot[];
   overlays: Overlay[];
   sections: Section[];
+  /** Empty for a version that keeps the timing contract. */
+  issues: ContractIssue[];
   changedSections?: string[];
   /** Footage reels only. */
   footage?: { path: string; exists: boolean };
@@ -182,9 +193,16 @@ export interface CopiedBatch {
   count: number;
 }
 
+/** What a batch carries beyond the comments. */
+export interface BatchOptions {
+  /** Add the contract issues to the batch. The server adds its own; `runtimeIssues` are the ones only this browser saw. */
+  includeIssues: boolean;
+  runtimeIssues: string[];
+}
+
 /** Saves the version's comment batch into its folder (replacing any earlier copy) and returns the text to paste. */
-export const copyBatch = (slug: string, number: number): Promise<CopiedBatch> =>
-  requestJson(`${versionPath(slug, number)}/batch`, { method: 'POST' });
+export const copyBatch = (slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch> =>
+  requestJson(`${versionPath(slug, number)}/batch`, options === undefined ? { method: 'POST' } : jsonBody('POST', options));
 
 /** Same-origin URL of a version's page. The stage loads it; nothing else builds server paths. */
 export const versionPageUrl = (slug: string, number: number): string =>
