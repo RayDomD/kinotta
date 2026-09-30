@@ -4,11 +4,11 @@
   "title": "Design System: Kinotta",
   "extensions": {
     "colorMeta": {
-      "light": { "role": "primary", "displayName": "Ice Light", "canonical": "oklch(.84 .11 225)", "tonalRamp": ["oklch(.20 .05 225)", "oklch(.30 .07 225)", "oklch(.42 .09 225)", "oklch(.54 .10 225)", "oklch(.66 .11 225)", "oklch(.76 .11 225)", "oklch(.84 .11 225)", "oklch(.93 .05 225)"] },
-      "ground": { "role": "neutral", "displayName": "Warm Ground", "canonical": "oklch(.184 .004 106)", "tonalRamp": ["oklch(.15 .003 106)", "oklch(.184 .004 106)", "oklch(.214 .005 90)", "oklch(.246 .005 90)", "oklch(.40 .006 106)", "oklch(.64 .008 106)", "oklch(.82 .007 106)", "oklch(.945 .004 106)"] },
-      "card": { "role": "neutral", "displayName": "Paper", "canonical": "oklch(.214 .005 90)" },
-      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "oklch(.945 .004 106)" },
-      "muted": { "role": "neutral", "displayName": "Muted", "canonical": "oklch(.640 .008 106)" }
+      "light": { "role": "primary", "displayName": "Tally", "canonical": "oklch(.84 .11 225)", "tonalRamp": ["oklch(.20 .05 225)", "oklch(.30 .07 225)", "oklch(.42 .09 225)", "oklch(.54 .10 225)", "oklch(.66 .11 225)", "oklch(.76 .11 225)", "oklch(.84 .11 225)", "oklch(.93 .05 225)"] },
+      "ground": { "role": "neutral", "displayName": "Table", "canonical": "oklch(.184 .004 106)", "tonalRamp": ["oklch(.15 .003 106)", "oklch(.184 .004 106)", "oklch(.214 .005 90)", "oklch(.246 .005 90)", "oklch(.40 .006 106)", "oklch(.64 .008 106)", "oklch(.82 .007 106)", "oklch(.945 .004 106)"] },
+      "card": { "role": "neutral", "displayName": "Slate", "canonical": "oklch(.214 .005 90)" },
+      "ink": { "role": "neutral", "displayName": "Title", "canonical": "oklch(.945 .004 106)" },
+      "muted": { "role": "neutral", "displayName": "Credits", "canonical": "oklch(.640 .008 106)" }
     },
     "typographyMeta": {
       "headline": { "displayName": "Headline", "purpose": "The storyboard or section heading over the grid." },
@@ -89,7 +89,7 @@
     ],
     "rules": [
       { "name": "The One Light Rule", "body": "The ice blue marks state (pinned, current, hovered, waiting on its shape) and never fills a surface or decorates. If it isn't telling you where you are or what you touched, it isn't blue.", "section": "colors" },
-      { "name": "The Neutral Frame Rule", "body": "Anything that borders the reel (the well, the still ground, the scrim) is hueless, so the reel's own colour is judged against nothing.", "section": "colors" },
+      { "name": "The Neutral Frame Rule", "body": "Anything that borders the reel (the Gate, the Leader, the Scrim) is hueless, so the reel's own colour is judged against nothing.", "section": "colors" },
       { "name": "The Machine Numbers Rule", "body": "Every number that identifies or measures (shot, pin, section, timecode, count) is Doto with tabular figures; prose numbers stay in Outfit.", "section": "typography" },
       { "name": "The In-Hand Rule", "body": "Only what you are holding stacks: the shot under the pointer or focus, the enlarged sheet, and comment cards. Lanes, rails and panels stay flat.", "section": "elevation" }
     ],

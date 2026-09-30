@@ -93,24 +93,24 @@ Motion keeps Rubric's speeds by the owner's explicit choice (D19), which overrid
 
 ## Colors
 
-A neutral warm-grey ramp with a single cold accent; the accent is a light, not a colour.
+A neutral warm-grey ramp with a single cold accent; the accent is a light, not a colour. The names come from the cutting bench (D23).
 
 ### Primary
-- **Ice Light** (`light`): pins, the current version, the current section band, hover outlines on elements and words, the element name tag, shot numbers. Its glow (`light-glow`) sits behind lit things; its wash (`light-wash`) tints a lane cell or band that holds pins or is current.
+- **Tally** (`light`): the ice-blue light, named for the lamp that shows which camera is live. Pins, the current version, the current section band, hover outlines on elements and words, the element name tag, shot numbers. Its glow (`light-glow`) sits behind lit things; its wash (`light-wash`) tints a lane cell or band that holds pins or is current.
 
 ### Neutral
-- **Warm Ground** (`ground`): the shell behind everything.
-- **Deep Ground** (`ground-deep`): the frame well around an enlarged shot, and the note field.
-- **Paper** (`card`) and **Raised Paper** (`card-raised`): comment cards, the enlarged sheet, a lifted shot, and its pressed state.
-- **Ink** (`ink`), **Soft Ink** (`ink-2`), **Muted** (`muted`): text in three steps. Muted is the floor for meta text and still clears AA at 5.2:1 on the ground.
-- **Rule** (`rule`) and **Hairline** (`hairline`): dividers between shell regions, and borders on lanes, bands and empty states.
-- **Still Ground** (`still-ground`): behind a live still before its page draws, so an unloaded frame never reads as part of the reel.
+- **Table** (`ground`): the shell behind everything.
+- **Gate** (`ground-deep`): the frame well around an enlarged shot, and the note field.
+- **Slate** (`card`) and **Slate Lifted** (`card-raised`): comment cards, the enlarged sheet, a lifted shot, and its pressed state.
+- **Title** (`ink`), **Caption** (`ink-2`), **Credits** (`muted`): text in three steps. Credits is the floor for meta text and still clears AA at 5.2:1 on the Table.
+- **Splice** (`rule`) and **Frame Line** (`hairline`): dividers between shell regions, and borders on lanes, bands and empty states.
+- **Leader** (`still-ground`): behind a live still before its page draws, so an unloaded frame never reads as part of the reel.
 - **Scrim** (`scrim`): dims the shell behind the enlarged sheet.
 
 ### Named Rules
 **The One Light Rule.** The ice blue marks state (pinned, current, hovered, waiting on its shape) and never fills a surface or decorates. If it isn't telling you where you are or what you touched, it isn't blue.
 
-**The Neutral Frame Rule.** Anything that borders the reel (the well, the still ground, the scrim) is hueless, so the reel's own colour is judged against nothing.
+**The Neutral Frame Rule.** Anything that borders the reel (the Gate, the Leader, the Scrim) is hueless, so the reel's own colour is judged against nothing.
 
 ## Typography
 
