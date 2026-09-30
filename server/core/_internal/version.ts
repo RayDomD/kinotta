@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { checkShotsAgainstPage, checkShotsFile, scanPage } from './contract.ts';
+import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
 import { SAFE_SLUG, addFootage } from './footage.ts';
 import { readTitle } from './reels.ts';
@@ -29,11 +30,11 @@ async function versionNumbers(reelDir: string): Promise<number[]> {
     .sort((a, b) => a - b);
 }
 
-async function newestVersionNumber(reelDir: string): Promise<number> {
+export async function newestVersionNumber(reelDir: string): Promise<number> {
   return Math.max(...(await versionNumbers(reelDir)));
 }
 
-async function requireReelDir(projectDir: string, slug: string): Promise<string> {
+export async function requireReelDir(projectDir: string, slug: string): Promise<string> {
   const reelDir = join(projectDir, REELS_DIR, slug);
   if (!SAFE_SLUG.test(slug) || !(await isDirectory(reelDir))) {
     throw new KinottaError('not-found', `Reel "${slug}" not found.`);
@@ -45,7 +46,15 @@ async function requireReelDir(projectDir: string, slug: string): Promise<string>
 export async function listVersions(projectDir: string, slug: string): Promise<VersionEntry[]> {
   const numbers = await versionNumbers(await requireReelDir(projectDir, slug));
   const newest = numbers[numbers.length - 1];
-  return numbers.map((number) => ({ number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION }));
+  return Promise.all(
+    numbers.map(async (number): Promise<VersionEntry> => {
+      const entry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION };
+      if (number === STORYBOARD_VERSION) return entry;
+      const version = await readVersion(projectDir, slug, number).catch(() => null);
+      // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
+      return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;
+    }),
+  );
 }
 
 /**
@@ -118,7 +127,7 @@ function readShots(raw: unknown, duration: number): Shot[] {
   });
 }
 
-export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
+async function readVersionFiles(projectDir: string, slug: string, number: number): Promise<Version> {
   const reelDir = await requireReelDir(projectDir, slug);
   const versionDir = join(reelDir, `v${number}`);
   if (!Number.isInteger(number) || number < 1 || !(await isDirectory(versionDir))) {
@@ -146,4 +155,35 @@ export async function readVersion(projectDir: string, slug: string, number: numb
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
   return addFootage(projectDir, reelDir, version);
+}
+
+/** The page of version n as text, or empty when it has none (for comparing two versions). */
+async function readPageText(reelDir: string, number: number): Promise<string> {
+  try {
+    return await readFile(join(reelDir, `v${number}`, PAGE_FILE), 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * A version as its files say it is, plus (from v2 on) which of its sections changed since the version before (F4).
+ * Nothing here reads or writes the editor's state; the public read in carry.ts adds that.
+ */
+export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
+  const version = await readVersionFiles(projectDir, slug, number);
+  if (number < 2) return version;
+  const reelDir = join(projectDir, REELS_DIR, slug);
+  let previous: Version;
+  try {
+    previous = await readVersionFiles(projectDir, slug, number - 1);
+  } catch {
+    // The version before is missing or unreadable, so there is nothing to compare with.
+    return version;
+  }
+  const { changed, claimMismatch } = detectChanges(
+    { version: previous, html: await readPageText(reelDir, number - 1) },
+    { version, html: await readPageText(reelDir, number) },
+  );
+  return { ...version, changedSections: changed, claimMismatch };
 }

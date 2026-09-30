@@ -11,6 +11,7 @@ import type { VersionIssues } from './issues.ts';
 import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount } from './sections.ts';
 import { PinsBadge } from './Pins.tsx';
 import { formatDuration } from './timecode.ts';
+import { WaitingMark } from './Waiting.tsx';
 import { useComments } from './useComments.ts';
 import type { CommentsState } from './useComments.ts';
 import { useNote } from './useNote.ts';
@@ -38,8 +39,20 @@ function HexMark() {
   );
 }
 
-function TopBar(props: { reel: ReelSummary | undefined; version: Version | undefined; commentCount: number; note?: NoteState; frozen: boolean; issues?: VersionIssues }) {
-  const { reel, version, commentCount, note, frozen, issues } = props;
+function TopBar(props: {
+  reel: ReelSummary | undefined;
+  version: Version | undefined;
+  commentCount: number;
+  note?: NoteState;
+  frozen: boolean;
+  /** On a reel with several sections: the one on screen, which the copy button copies. */
+  section?: { id: string; number: string } | null;
+  /** The batch was saved, which changes what the version says (a section now waiting). */
+  onCopied?(): void;
+  /** The version's contract issues, which the batch can include. */
+  issues?: VersionIssues;
+}) {
+  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -65,6 +78,8 @@ function TopBar(props: { reel: ReelSummary | undefined; version: Version | undef
           beforeCopy={note?.flush}
           frozen={frozen}
           issues={issues && { all: issues.messages, runtime: issues.runtime }}
+          section={section}
+          onSaved={onCopied}
         />
       )}
     </header>
@@ -76,10 +91,19 @@ interface VersionRailProps {
   selected: number | undefined;
   /** Versions Claude wrote since the reel was opened and the reviewer has not opened yet. */
   ready: ReadonlySet<number>;
+  /** Section ids in the order the open version lists them, on a reel with several; the rail numbers changed sections by it. */
+  sectionIds: string[] | null;
   onOpen(number: number): void;
 }
 
-function VersionRail({ entries, selected, ready, onOpen }: VersionRailProps) {
+/** `now · changed 01`, `changed 01, 02`, `storyboard`: what a version row says besides its number. */
+function versionTag(entry: VersionEntry, sectionIds: string[] | null): string {
+  const label = entry.isNewest ? 'now' : entry.isStoryboard ? 'storyboard' : '';
+  const numbers = (entry.changedSections ?? []).map((id) => sectionIds?.indexOf(id) ?? -1).filter((i) => i >= 0).sort((a, b) => a - b).map(sectionNumber);
+  return [label, numbers.length > 0 ? `changed ${numbers.join(', ')}` : ''].filter((part) => part !== '').join(' · ');
+}
+
+function VersionRail({ entries, selected, ready, sectionIds, onOpen }: VersionRailProps) {
   return (
     <div>
       <div className="label">Versions</div>
@@ -94,7 +118,7 @@ function VersionRail({ entries, selected, ready, onOpen }: VersionRailProps) {
           >
             <span>{`v${entry.number}`}</span>
             <span className="tags">
-              {entry.isNewest ? <small className="num">now</small> : entry.isStoryboard ? <small className="num">storyboard</small> : null}
+              {versionTag(entry, sectionIds) !== '' && <small className="num">{versionTag(entry, sectionIds)}</small>}
               {ready.has(entry.number) && entry.number !== selected && <small className="num ready-mark">ready</small>}
             </span>
           </button>
@@ -126,6 +150,7 @@ function SectionRail({ version, comments, selected, onSelect }: SectionRailProps
               <span className="num">{sectionSpan(section)}</span>
               <span>{shotCount(section.shots)}</span>
               {(pins.get(section.id) ?? 0) > 0 && <PinsBadge count={pins.get(section.id)!} />}
+              {section.waiting && <WaitingMark />}
             </span>
           </button>
         ))}
@@ -163,7 +188,13 @@ function Rail(props: RailProps) {
       </div>
       {sections !== null && <SectionRail {...sections} />}
       {current !== undefined && versions.entries.length > 0 && (
-        <VersionRail entries={versions.entries} selected={versions.selected} ready={versions.ready} onOpen={versions.onOpenVersion} />
+        <VersionRail
+          entries={versions.entries}
+          selected={versions.selected}
+          ready={versions.ready}
+          sectionIds={versions.sectionIds}
+          onOpen={versions.onOpenVersion}
+        />
       )}
     </aside>
   );
@@ -252,13 +283,14 @@ function useReelVersions(slug: string | undefined, refresh: number): VersionEntr
 }
 
 /** Loads the version the reviewer has chosen. Only the reviewer changes it. */
-function useVersion(slug: string | undefined, number: number | undefined, noVersions: boolean): VersionLoad {
+function useVersion(slug: string | undefined, number: number | undefined, noVersions: boolean, refresh: number): VersionLoad {
   const [load, setLoad] = useState<VersionLoad>({ status: 'none' });
 
   useEffect(() => {
     if (slug === undefined || number === undefined) return;
     let current = true;
-    setLoad({ status: 'loading' });
+    // A refresh reads the version again without taking it off the screen.
+    setLoad((prev) => (prev.status === 'ready' && prev.slug === slug && prev.version.number === number ? prev : { status: 'loading' }));
     fetchVersion(slug, number).then(
       (version) => current && setLoad({ status: 'ready', slug, version }),
       (err: unknown) => current && setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Could not reach the server' }),
@@ -266,7 +298,7 @@ function useVersion(slug: string | undefined, number: number | undefined, noVers
     return () => {
       current = false;
     };
-  }, [slug, number]);
+  }, [slug, number, refresh]);
 
   if (slug === undefined || (number === undefined && noVersions)) return { status: 'none' };
   if (number === undefined) return { status: 'loading' };
@@ -285,7 +317,8 @@ export function App() {
   const reel = load.status === 'ready' ? load.listing.reels.find((r) => r.slug === selected) : undefined;
   const entries = useReelVersions(reel?.slug, versionsTick);
   const newest = entries?.find((e) => e.isNewest)?.number;
-  const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0);
+  const [versionTick, setVersionTick] = useState(0);
+  const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
   const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
@@ -375,14 +408,29 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar reel={reel} version={openVersion} commentCount={comments.comments.length} note={note} frozen={frozen} issues={issues} />
+      <TopBar
+        reel={reel}
+        version={openVersion}
+        commentCount={multiSection ? (pinCounts(comments.comments, openVersion.shots).get(sectionId) ?? 0) : comments.comments.length}
+        note={note}
+        frozen={frozen}
+        issues={issues}
+        onCopied={() => setVersionTick((n) => n + 1)}
+        section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
+      />
       <div className="body">
         <Rail
           project={load.project}
           listing={load.listing}
           current={reel?.slug}
           sections={multiSection ? { version: openVersion, comments: comments.comments, selected: sectionId, onSelect: pickSection } : null}
-          versions={{ entries: entries ?? [], selected: chosen, ready, onOpenVersion: openVersionNumber }}
+          versions={{
+            entries: entries ?? [],
+            selected: chosen,
+            ready,
+            sectionIds: multiSection ? openVersion.sections.map((s) => s.id) : null,
+            onOpenVersion: openVersionNumber,
+          }}
           onOpen={openReel}
         />
         <Main
@@ -404,6 +452,8 @@ export function App() {
           newest={newest}
           state={comments}
           note={note}
+          sectionIds={multiSection ? openVersion.sections.map((s) => s.id) : null}
+          onOpenVersion={openVersionNumber}
           onOpenComment={(comment: Comment, opener: HTMLElement) =>
             setReveal((prev) => ({ commentId: comment.id, seq: (prev?.seq ?? 0) + 1, opener }))
           }

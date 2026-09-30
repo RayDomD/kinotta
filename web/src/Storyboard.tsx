@@ -9,6 +9,7 @@ import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
 import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount } from './sections.ts';
 import { readOnlyNote } from './readOnly.ts';
+import { WaitingMark } from './Waiting.tsx';
 import { PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 
@@ -127,6 +128,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
               <span className="dot">{sectionNumber(sectionIndex)}</span> {section.name}
             </h1>
             <span className="meta num">{`${sectionSpan(section)} · ${shotCount(shots.length)} · ${pinCounts(comments, version.shots).get(section.id) ?? 0} pins`}</span>
+            {section.waiting && <WaitingMark />}
           </>
         ) : (
           <>

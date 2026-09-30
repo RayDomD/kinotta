@@ -94,6 +94,11 @@ input { font: inherit; color: inherit; cursor: text; }
 .secs .nm { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .secs .sub { grid-column: 2; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .secs .pins-badge { margin-left: 0; }
+.waiting { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.waiting svg { width: 10px; height: 10px; }
+.head .waiting { margin-left: 4px; }
+.carry-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 14px; font-size: 13px; color: var(--ink-2); }
+.c .carry-state { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .secs button[aria-current] { border-color: var(--light); }
 .secs button[aria-current] .n { color: var(--light); text-shadow: 0 0 10px var(--light-glow); }
 .secs button[aria-current] .nm { color: var(--ink); font-weight: 500; }

@@ -86,8 +86,10 @@ async function handleComments(req: IncomingMessage, res: ServerResponse, project
   const version = Number(route[2]);
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'POST') sendJson(res, 201, await project.addComment(slug, version, (await readJsonBody(req)) as NewComment));
-  else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { comments: await project.listComments(slug, version) });
-  else res.writeHead(405).end();
+  else if (req.method === 'GET' || req.method === 'HEAD') {
+    const comments = await project.listComments(slug, version);
+    sendJson(res, 200, { comments, notCarried: await project.carryNotice(slug, version) });
+  } else res.writeHead(405).end();
 }
 
 /** The one text field of a comment edit or a note. */
@@ -120,7 +122,10 @@ async function handleNote(req: IncomingMessage, res: ServerResponse, project: Pr
 async function handleBatch(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
-  else if (req.method === 'POST') sendJson(res, 200, await project.copyBatch(slug, Number(route[2]), await readBatchOptions(req)));
+  else if (req.method === 'POST') {
+    const section = new URL(req.url ?? '/', 'http://localhost').searchParams.get('section') ?? undefined;
+    sendJson(res, 200, await project.copyBatch(slug, Number(route[2]), { ...(await readBatchOptions(req)), section }));
+  }
   else res.writeHead(405).end();
 }
 

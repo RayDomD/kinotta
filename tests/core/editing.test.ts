@@ -146,6 +146,7 @@ describe('editing a frozen version', () => {
     await expect(project.editComment(REEL, 1, comment.id, 'Changed')).rejects.toMatchObject({ code: 'frozen' });
     await expect(project.deleteComment(REEL, 1, comment.id)).rejects.toMatchObject({ code: 'frozen' });
     await expect(project.setNote(REEL, 1, 'A note')).rejects.toMatchObject({ code: 'frozen' });
-    expect(readFileSync(stateFile(dir, 1), 'utf8')).toBe(before);
+    const after = JSON.parse(readFileSync(stateFile(dir, 1), 'utf8')) as { comments: unknown; note: string };
+    expect({ comments: after.comments, note: after.note }).toEqual({ comments: JSON.parse(before).comments, note: JSON.parse(before).note });
   });
 });

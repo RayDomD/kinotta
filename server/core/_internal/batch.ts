@@ -1,17 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import { rename, writeFile } from 'node:fs/promises';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { numbered, readState, serialized, stateFilePath } from './comments.ts';
+import { sectionOfComment, settleNewest } from './carry.ts';
+import { numbered } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { readTitle } from './reels.ts';
-import type { BatchOptions, Comment, CopiedBatch, Version } from './types.ts';
+import { readState, serialized, stateFilePath, writeState } from './state.ts';
+import type { BatchOptions, Comment, CopiedBatch, Section, Version } from './types.ts';
 import { assertTakesComments } from './version.ts';
 
 const REELS_DIR = 'reels';
-const BATCH_FILE = 'comments.json';
+const WHOLE_REEL_FILE = 'comments.json';
 const SECONDS_PER_MINUTE = 60;
 const PLAIN_LIMIT = 100;
 const PERCENT = 100;
+const UNSAFE_FILE_CHARS = /[^A-Za-z0-9._-]/g;
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
@@ -29,8 +32,8 @@ function target({ pin }: Comment): string {
   return pin.element ?? `position ${Math.round(pin.x * PERCENT)}% ${Math.round(pin.y * PERCENT)}%`;
 }
 
-function pasteableText(title: string, version: number, file: string, comments: Comment[], notes: string[], issues: string[]): string {
-  const lines = [`Kinotta comments: ${title}, v${version}`, `Saved as ${file}`, ''];
+function pasteableText(heading: string, file: string, comments: Comment[], notes: string[], issues: string[]): string {
+  const lines = [`Kinotta comments: ${heading}`, `Saved as ${file}`, ''];
   for (const c of comments) lines.push(`${c.number}. Shot ${c.pin.shot}, ${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
   lines.push('');
   if (notes.length > 0) lines.push('Notes', ...notes.map((n) => `- ${n}`), '');
@@ -45,44 +48,70 @@ function issueMessages(version: Version, options: BatchOptions): string[] {
   return [...new Set([...version.issues.map((i) => i.message), ...runtime])];
 }
 
+/** The section a copy is for: the only one on a one-section reel, else the one asked for. */
+function sectionToCopy(sections: Section[], sectionId: string | undefined): { section: Section; index: number } {
+  if (sections.length === 1) return { section: sections[0]!, index: 0 };
+  const index = sections.findIndex((s) => s.id === sectionId);
+  if (index < 0) {
+    throw new KinottaError('invalid', sectionId === undefined ? 'Choose which section to copy.' : `This version has no section "${sectionId}".`);
+  }
+  return { section: sections[index]!, index };
+}
+
 /**
- * Writes a version's comment batch into its folder (the only place the editor writes there) and returns the
- * pasteable text. `section` is null for the whole reel; per-section batches extend this later.
+ * Writes a version's comment batch into its folder (the only place the editor writes there) and returns the pasteable
+ * text. A reel with one section gets `comments.json` for the whole reel. A reel with several gets
+ * `comments-<sectionId>.json` for the one section asked for. The reel note goes into every batch, and the contract
+ * issues when asked for. The copy is recorded in the version's editor state as that section's latest hand-off, which is
+ * what makes its comments "sent" and the section "waiting".
  */
 export async function copyBatch(projectDir: string, slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> {
+  await settleNewest(projectDir, slug);
   const version = await assertTakesComments(projectDir, slug, number);
-  const state = await readState(stateFilePath(projectDir, slug, number), number);
-  const comments = numbered(state.comments);
-  const note = state.note.trim();
-  const notes = note === '' ? [] : [note];
-  if (comments.length === 0 && notes.length === 0) {
-    throw new KinottaError('invalid', 'There are no comments or notes to copy yet.');
-  }
-
+  const { section, index } = sectionToCopy(version.sections, options.section);
+  const whole = version.sections.length === 1;
   const issues = issueMessages(version, options);
+  const stateFile = stateFilePath(projectDir, slug, number);
   const title = (await readTitle(join(projectDir, REELS_DIR, slug))) ?? slug;
-  const file = `${REELS_DIR}/${slug}/v${number}/${BATCH_FILE}`;
-  const path = join(projectDir, REELS_DIR, slug, `v${number}`, BATCH_FILE);
-  const batch = {
-    reel: slug,
-    title,
-    version: number,
-    section: null,
-    copiedAt: new Date().toISOString(),
-    comments: comments.map((c) => ({
-      number: c.number,
-      shot: c.pin.shot,
-      time: c.pin.time,
-      ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y }),
-      text: c.text,
-    })),
-    notes,
-    ...(issues.length > 0 ? { issues } : {}),
-  };
-  await serialized(path, async () => {
+  const fileName = whole ? WHOLE_REEL_FILE : `comments-${section.id.replace(UNSAFE_FILE_CHARS, '_')}.json`;
+  const file = `${REELS_DIR}/${slug}/v${number}/${fileName}`;
+  const path = join(projectDir, REELS_DIR, slug, `v${number}`, fileName);
+  const heading = whole ? `${title}, v${number}` : `${title}, v${number}, section ${pad(index + 1)} ${section.name}`;
+
+  return serialized(stateFile, async () => {
+    const state = await readState(stateFile, number);
+    const comments = numbered(state.comments).filter((c) => whole || sectionOfComment(version, c) === section.id);
+    const note = state.note.trim();
+    const notes = note === '' ? [] : [note];
+    if (comments.length === 0 && notes.length === 0) {
+      throw new KinottaError('invalid', 'There are no comments or notes to copy yet.');
+    }
+
+    const copiedAt = new Date().toISOString();
+    const batch = {
+      reel: slug,
+      title,
+      version: number,
+      section: whole ? null : section.id,
+      copiedAt,
+      comments: comments.map((c) => ({
+        number: c.number,
+        shot: c.pin.shot,
+        time: c.pin.time,
+        ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y }),
+        text: c.text,
+      })),
+      notes,
+      ...(issues.length > 0 ? { issues } : {}),
+    };
+    await mkdir(join(path, '..'), { recursive: true });
     const temp = `${path}.${randomUUID()}.tmp`;
     await writeFile(temp, `${JSON.stringify(batch, null, 2)}\n`);
     await rename(temp, path);
+    await writeState(stateFile, {
+      ...state,
+      handedOff: { ...state.handedOff, [section.id]: { copiedAt, commentIds: comments.map((c) => c.id) } },
+    });
+    return { text: pasteableText(heading, file, comments, notes, issues), file, count: comments.length };
   });
-  return { text: pasteableText(title, number, file, comments, notes, issues), file, count: comments.length };
 }

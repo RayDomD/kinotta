@@ -51,6 +51,8 @@ export interface Section {
   end: number;
   shots: number;
   implicit?: true;
+  /** Handed off to Claude, with no newer version having changed the section yet. */
+  waiting?: true;
 }
 
 /** One way a version breaks the timing contract, found by the server's static check. */
@@ -72,6 +74,7 @@ export interface Version {
   /** Empty for a version that keeps the timing contract. */
   issues: ContractIssue[];
   changedSections?: string[];
+  claimMismatch?: string[];
   /** Footage reels only. */
   footage?: { path: string; exists: boolean };
   transcript?: TranscriptWord[];
@@ -84,6 +87,8 @@ export interface VersionEntry {
   isNewest: boolean;
   /** v1 in this phase. */
   isStoryboard: boolean;
+  /** Reels with several sections only: the ids of the sections this version changed. */
+  changedSections?: string[];
 }
 
 /** What the server reports as it happens. */
@@ -124,6 +129,24 @@ export interface Comment {
   pin: FramePin | WordPin;
   text: string;
   createdAt: string;
+  /** Copied to Claude in its section's latest batch. */
+  sent?: true;
+  /** Once a newer version has settled: whether this comment moved to it. */
+  carried?: { to: number; moved: boolean };
+}
+
+/** Unsent comments that stayed on the version before because their section changed. */
+export interface CarryNotice {
+  from: number;
+  count: number;
+  /** Ids of their sections. */
+  sections: string[];
+}
+
+export interface CommentsOfVersion {
+  comments: Comment[];
+  /** Set on a version whose predecessor kept some comments back. */
+  notCarried: CarryNotice | null;
 }
 
 export interface NewComment {
@@ -151,8 +174,8 @@ export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
 export const fetchVersion = (slug: string, number: number): Promise<Version> => getJson(versionPath(slug, number));
 
 /** A version's comments, in number order. */
-export const fetchComments = async (slug: string, number: number): Promise<Comment[]> =>
-  (await getJson<{ comments: Comment[] }>(`${versionPath(slug, number)}/comments`)).comments;
+export const fetchComments = (slug: string, number: number): Promise<CommentsOfVersion> =>
+  getJson(`${versionPath(slug, number)}/comments`);
 
 /** Saves a pinned comment. Resolves with the saved comment and the version's renumbered comments. */
 export const addComment = (slug: string, number: number, input: NewComment): Promise<{ comment: Comment; comments: Comment[] }> =>
@@ -193,16 +216,24 @@ export interface CopiedBatch {
   count: number;
 }
 
-/** What a batch carries beyond the comments. */
+/** What a batch covers and carries beyond the comments. */
 export interface BatchOptions {
+  /** On a reel with several sections: the section to copy. */
+  section?: string;
   /** Add the contract issues to the batch. The server adds its own; `runtimeIssues` are the ones only this browser saw. */
-  includeIssues: boolean;
-  runtimeIssues: string[];
+  includeIssues?: boolean;
+  runtimeIssues?: string[];
 }
 
-/** Saves the version's comment batch into its folder (replacing any earlier copy) and returns the text to paste. */
-export const copyBatch = (slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch> =>
-  requestJson(`${versionPath(slug, number)}/batch`, options === undefined ? { method: 'POST' } : jsonBody('POST', options));
+/**
+ * Saves a comment batch into the version's folder (replacing any earlier copy) and returns the text to paste. A reel
+ * with several sections copies one section, named by `options.section`.
+ */
+export const copyBatch = (slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> => {
+  const { section, ...extra } = options;
+  const url = `${versionPath(slug, number)}/batch${section === undefined ? '' : `?section=${encodeURIComponent(section)}`}`;
+  return requestJson(url, extra.includeIssues ? jsonBody('POST', extra) : { method: 'POST' });
+};
 
 /** Same-origin URL of a version's page. The stage loads it; nothing else builds server paths. */
 export const versionPageUrl = (slug: string, number: number): string =>

@@ -98,13 +98,15 @@ describe('copyBatch', () => {
     expect(existsSync(join(dir, BATCH_PATH))).toBe(false);
   });
 
-  it('does not change the editor state file', async () => {
+  it('leaves the comments and note as they were, and only records the hand-off', async () => {
     const { dir, project } = await withTwoComments();
-    const before = readFileSync(stateFile(dir), 'utf8');
+    const before = JSON.parse(readFileSync(stateFile(dir), 'utf8')) as { comments: Array<{ id: string }>; note: string };
 
     await project.copyBatch(REEL, 2);
 
-    expect(readFileSync(stateFile(dir), 'utf8')).toBe(before);
+    const after = JSON.parse(readFileSync(stateFile(dir), 'utf8')) as typeof before & { handedOff: Record<string, { commentIds: string[] }> };
+    expect({ comments: after.comments, note: after.note }).toEqual(before);
+    expect(after.handedOff.reel!.commentIds.sort()).toEqual(before.comments.map((c) => c.id).sort());
   });
 
   it('rejects an unknown version as not-found', async () => {

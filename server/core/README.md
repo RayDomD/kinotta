@@ -48,13 +48,20 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `readNote(slug, n)` returns the version's note on the whole reel (empty string when none) and `setNote(slug, n, note)`
   saves it trimmed (empty clears it, at most 4000 characters) and returns `{ note, comments }`. An unknown comment id
   throws `not-found`, empty comment text or an over-long note `invalid`, a version that is not the newest `frozen`.
-- `copyBatch(slug, n, { includeIssues?, runtimeIssues? }?)` writes `reels/<reel>/v<n>/comments.json` (atomically, replacing any earlier copy) and returns
+- `copyBatch(slug, n, { section?, includeIssues?, runtimeIssues? }?)` writes `reels/<reel>/v<n>/comments.json` (atomically, replacing any earlier copy) and returns
   `{ text, file, count }`: the pasteable text for Claude, the saved path relative to the project root, and the
-  comment count. The batch covers the whole reel (`section: null`) and includes the version's note when it has
-  one. No comments and no note throws `KinottaError` `invalid` and writes nothing; a version that is not the newest
+  comment count. On a one-section reel the batch covers the whole reel (`section: null`). On a reel with several sections `section` is required and the
+  batch is that section's alone (`comments-<sectionId>.json`, `section: "<id>"`, header `..., v<n>, section 02 <name>`). The version's note goes
+  into every batch. Each copy is recorded in the state file as the section's latest hand-off (`handedOff`). No comments and no note throws `KinottaError` `invalid` and writes nothing; a version that is not the newest
   throws `frozen`. With `includeIssues`, the version's issues plus `runtimeIssues` (problems only the browser saw) are
   added once each as a "Contract issues" block after Notes and an `issues` array in the file. It is the only place the editor
-  writes into a version folder; the state file is left as it was.
+  writes into a version folder.
+
+From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
+and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
+since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles
+it once: unsent comments on unchanged sections move up from the version before, the rest stay and are listed by `carryNotice(slug, n)`;
+sent comments never move. Comments say whether they were `sent` and whether they `carried` on.
 
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at
@@ -64,9 +71,8 @@ Outside code imports from `index.ts` only.
 
 ## Does not handle
 
-Runtime contract checks (the stage does those), stills, per-section batches,
-and carry-forward. Later tickets add them here.
+Runtime contract checks (the stage does those) and stills.
 
 ## Dependencies
 
-Node's `fs` and `path`, and `node-html-parser`.
+Node's `fs` and `path`, and `node-html-parser` (contract checks, and comparing the scenes of two version pages).

@@ -65,13 +65,15 @@ describe('word pins', () => {
     await project.addComment(REEL, 1, { pin: LOSE, text: 'Land this word harder.' });
     await project.addComment(REEL, 1, { pin: { shot: '02', x: 0.5, y: 0.25, element: 'conflict-panel' }, text: 'Bigger count.' });
 
-    const { text, file } = await project.copyBatch(REEL, 1);
+    const { text: cold } = await project.copyBatch(REEL, 1, { section: 'cold-open' });
+    expect(cold).toContain('1. Shot 02, 03.20s, conflict-panel: Bigger count.');
+    const { text, file } = await project.copyBatch(REEL, 1, { section: 'sync-problem' });
 
-    expect(text).toContain('1. Shot 02, 03.20s, conflict-panel: Bigger count.');
     expect(text).toContain('2. Shot 03, 08.65s, word “lose”: Land this word harder.');
     const saved = JSON.parse(readFileSync(join(dir, file), 'utf8')) as { comments: Array<Record<string, unknown>> };
-    expect(saved.comments[1]).toEqual({ number: 2, shot: '03', time: 8.65, word: 'lose', element: null, text: 'Land this word harder.' });
-    expect(saved.comments[0]).not.toHaveProperty('word');
+    expect(saved.comments).toEqual([{ number: 2, shot: '03', time: 8.65, word: 'lose', element: null, text: 'Land this word harder.' }]);
+    const coldFile = JSON.parse(readFileSync(join(dir, 'reels', REEL, 'v1', 'comments-cold-open.json'), 'utf8')) as { comments: Array<Record<string, unknown>> };
+    expect(coldFile.comments[0]).not.toHaveProperty('word');
   });
 
   it('is refused on a version that is not the newest', async () => {

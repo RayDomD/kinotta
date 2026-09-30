@@ -20,8 +20,12 @@ export function CopyButton(props: {
   frozen?: boolean;
   /** The version's contract issues (plain words), and the ones only this browser saw. When there are any, the batch can include them. */
   issues?: { all: string[]; runtime: string[] };
+  /** On a reel with several sections: the one on screen, which is what the button copies. */
+  section?: { id: string; number: string } | null;
+  /** Runs once the batch is saved, so the version can show what the copy changed (a section now waiting). */
+  onSaved?(): void;
 }) {
-  const { slug, version, count, hasNote = false, beforeCopy, frozen = false, issues } = props;
+  const { slug, version, count, hasNote = false, beforeCopy, frozen = false, issues, section = null, onSaved } = props;
   const includeId = useId();
   const [includeIssues, setIncludeIssues] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
@@ -36,13 +40,17 @@ export function CopyButton(props: {
     await beforeCopy?.();
     let saved: Awaited<ReturnType<typeof copyBatch>>;
     try {
-      saved = await copyBatch(slug, version, includeIssues && issues ? { includeIssues: true, runtimeIssues: issues.runtime } : undefined);
+      saved = await copyBatch(slug, version, {
+        section: section?.id,
+        ...(includeIssues && issues ? { includeIssues: true, runtimeIssues: issues.runtime } : {}),
+      });
     } catch (err) {
       setBusy(false);
       setOutcome({ status: 'failed', message: `Could not save the comments. ${err instanceof Error ? err.message : 'Could not reach the server'}` });
       return;
     }
     setBusy(false);
+    onSaved?.();
     try {
       await navigator.clipboard.writeText(saved.text);
     } catch {
@@ -53,6 +61,7 @@ export function CopyButton(props: {
     timer.current = window.setTimeout(() => setOutcome({ status: 'idle' }), CONFIRM_MS);
   }
 
+  const what = section ? `section ${section.number} comments` : 'all comments';
   const empty = count === 0 && !hasNote;
   const withNote = hasNote ? ', and the reel note' : '';
   const copied = outcome.status === 'copied';
@@ -69,10 +78,10 @@ export function CopyButton(props: {
         type="button"
         className="btn"
         disabled={frozen || empty || busy}
-        aria-label={frozen ? `Copy all comments, unavailable because v${version} is read-only` : empty ? 'Copy all comments, none yet' : copied ? 'Copied' : `Copy all comments, ${count}${withNote}`}
+        aria-label={frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : `Copy ${what}, ${count}${withNote}`}
         onClick={copy}
       >
-        {copied ? 'Copied' : 'Copy all comments'}
+        {copied ? 'Copied' : `Copy ${what}`}
         {!copied && <span className="count">{count}</span>}
       </button>
       <span className="sr-only" role="status">

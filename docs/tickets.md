@@ -227,17 +227,17 @@ Parked for the unattended run: the change lands in `~/.agents/skills/motion-brol
 
 **Model:** `mid`
 
-## T15 (#17). Section batches and carry-forward
+## T15 (#17). Section batches and carry-forward — Done
 
 **What to build:** Copying hands off the current section's batch (the whole reel when it has one section) and marks that section as waiting (F3). When a newer version appears, handed-off batches freeze; unsent comments on sections the new version did not change move forward to it, and unsent comments on changed sections stay behind and are listed as not carried (F4). The core decides changed sections by comparing section contents, not only Claude's claim. The version list shows which sections each version changed.
 
 **Acceptance criteria:**
 
-- [ ] Batch file and text cover only the current section
-- [ ] Waiting mark shows until a newer version changes that section
-- [ ] Unsent comments on unchanged sections appear on the new version
-- [ ] Comments on changed sections are not carried and are listed
-- [ ] Core tests cover freeze, carry-forward and change detection
+- [x] Batch file and text cover only the current section
+- [x] Waiting mark shows until a newer version changes that section
+- [x] Unsent comments on unchanged sections appear on the new version
+- [x] Comments on changed sections are not carried and are listed
+- [x] Core tests cover freeze, carry-forward and change detection
 
 **Blocked by:** #8, #14
 

@@ -59,6 +59,8 @@ export interface Section {
   shots: number;
   /** Set on the one section a reel gets when shots.json declares none. */
   implicit?: true;
+  /** Handed off to Claude on this version, or on an earlier one that no version since has changed this section in. */
+  waiting?: true;
 }
 
 /** One way a version breaks the timing contract (ADR 0001). The message is plain words and complete on its own. */
@@ -83,7 +85,13 @@ export interface Version {
   sections: Section[];
   /** Static contract problems, in reading order. Empty for a version that keeps the contract. */
   issues: ContractIssue[];
+  /**
+   * Sections whose contents differ from the version before, or that the version's shots.json claims changed.
+   * Computed from v2 on; v1 passes the claim through.
+   */
   changedSections?: string[];
+  /** Sections the claim and the comparison disagree on: claimed changed but identical, or the reverse. */
+  claimMismatch?: string[];
   /** Footage reels only: the footage file named in reel.json, which stays where it is in the project. */
   footage?: { path: string; exists: boolean };
   /** Footage reels only: the timed words of transcript.json. Absent when it is missing or unreadable. */
@@ -98,6 +106,8 @@ export interface VersionEntry {
   isNewest: boolean;
   /** v1 in this phase. */
   isStoryboard: boolean;
+  /** Reels with several sections only, from v2 on: the ids of the sections this version changed. */
+  changedSections?: string[];
 }
 
 /** What `Project.subscribe` reports. */
@@ -147,18 +157,32 @@ export interface Project {
   setNote(slug: string, number: number, note: string): Promise<NoteSaved>;
   /**
    * Writes the version's comment batch to `reels/<slug>/v<n>/comments.json` (replacing any earlier copy) and
-   * returns the pasteable text. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
+   * returns the pasteable text. A reel with several sections needs `sectionId`: the batch is then that section's
+   * (`comments-<sectionId>.json`) and the section counts as waiting on Claude. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
    * for a version that is not the newest.
    */
   copyBatch(slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch>;
+  /** What the version before could not hand over because its section changed, or null when nothing was left behind. */
+  carryNotice(slug: string, number: number): Promise<CarryNotice | null>;
 }
 
-/** What the editor adds to a batch beyond the comments. */
+/** What a batch covers, and what the editor adds to it beyond the comments. */
 export interface BatchOptions {
+  /** On a reel with several sections: the section to copy. Required there, ignored on a one-section reel. */
+  section?: string;
   /** Add the contract issues to the batch text and file: the version's static ones plus `runtimeIssues`. */
   includeIssues?: boolean;
   /** Problems only the browser can see, such as a page with no seek(). Plain-word messages. */
   runtimeIssues?: string[];
+}
+
+/** Unsent comments that stayed on the version before because their section changed. */
+export interface CarryNotice {
+  /** The version they stayed on. */
+  from: number;
+  count: number;
+  /** Ids of the sections they belong to. */
+  sections: string[];
 }
 
 export interface CopiedBatch {
@@ -227,6 +251,10 @@ export interface Comment {
   text: string;
   /** ISO 8601. */
   createdAt: string;
+  /** Copied to Claude in its section's latest batch. */
+  sent?: true;
+  /** Once a newer version has settled: whether this comment moved to it. */
+  carried?: { to: number; moved: boolean };
 }
 
 export interface NewComment {

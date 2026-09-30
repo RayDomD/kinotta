@@ -23,6 +23,10 @@ const EDITING_PORT = 4394;
 const CONTRACT_PORT = 4393;
 const CONTRACT_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-contract-project.txt');
 
+/** A sixth for section-batches.spec.ts: the footage sample, copies per section and a version added while the editor is open. */
+const SECTION_BATCHES_PORT = 4392;
+const SECTION_BATCHES_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-section-batches-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -76,6 +80,17 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${CONTRACT_PORT}`,
       env: { ...serverEnv(CONTRACT_PORT), KINOTTA_E2E_FIXTURE: 'broken-project', KINOTTA_E2E_PROJECT_FILE: CONTRACT_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${SECTION_BATCHES_PORT}`,
+      env: {
+        ...serverEnv(SECTION_BATCHES_PORT),
+        KINOTTA_E2E_FIXTURE: 'footage-project',
+        KINOTTA_E2E_PROJECT_FILE: SECTION_BATCHES_PROJECT_FILE,
+      },
       timeout: 120_000,
       reuseExistingServer: false,
     },

@@ -1,0 +1,381 @@
+import { cpSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { KinottaError, openProject } from '../../server/core/index.ts';
+import type { Comment } from '../../server/core/index.ts';
+import { copyFixture } from '../helpers/project.ts';
+
+const REEL = 'founder-talk';
+const COLD = 'cold-open';
+const SYNC = 'sync-problem';
+const COLD_PIN = { shot: '01', x: 0.3, y: 0.4, element: 'document' };
+const COLD_PIN_TWO = { shot: '02', x: 0.5, y: 0.5, element: 'conflict-panel' };
+const SYNC_PIN = { shot: '03', x: 0.5, y: 0.6, element: null };
+const SYNC_WORD = { kind: 'word', shot: '03', time: 8.65, word: 'lose' } as const;
+
+interface ShotsFile {
+  duration: number;
+  sections: Array<{ id: string; name: string; start: number; end: number }>;
+  changedSections?: string[];
+  shots: Array<{ number: string; start: number; title: string; description: string; section: string; type: string; line: unknown }>;
+}
+
+interface Edits {
+  shots?(file: ShotsFile): void;
+  html?(page: string): string;
+}
+
+/** A new version the way Claude writes one: a copy of `from`, changed as asked. */
+function addVersion(dir: string, from: number, to: number, edits: Edits = {}): void {
+  const source = join(dir, 'reels', REEL, `v${from}`);
+  const target = join(dir, 'reels', REEL, `v${to}`);
+  cpSync(source, target, { recursive: true });
+  for (const name of ['comments.json', `comments-${COLD}.json`, `comments-${SYNC}.json`]) rmSync(join(target, name), { force: true });
+  if (edits.shots) {
+    const shotsFile = join(target, 'shots.json');
+    const file = JSON.parse(readFileSync(shotsFile, 'utf8')) as ShotsFile;
+    edits.shots(file);
+    writeFileSync(shotsFile, JSON.stringify(file, null, 2));
+  }
+  if (edits.html) writeFileSync(join(target, 'index.html'), edits.html(readFileSync(join(target, 'index.html'), 'utf8')));
+}
+
+const renameShot = (number: string, title: string) => (file: ShotsFile) => {
+  file.shots.find((s) => s.number === number)!.title = title;
+};
+
+const batchFile = (dir: string, version: number, name: string): string => join(dir, 'reels', REEL, `v${version}`, name);
+const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
+const texts = (comments: Comment[]): string[] => comments.map((c) => c.text);
+
+async function withComments() {
+  const dir = copyFixture('footage-project');
+  const project = openProject(dir);
+  await project.addComment(REEL, 1, { pin: COLD_PIN, text: 'Slide the laptops in faster.' });
+  await project.addComment(REEL, 1, { pin: COLD_PIN_TWO, text: 'Bigger count.' });
+  await project.addComment(REEL, 1, { pin: SYNC_PIN, text: 'Hold the grey-out longer.' });
+  await project.addComment(REEL, 1, { pin: SYNC_WORD, text: 'Land this word harder.' });
+  return { dir, project };
+}
+
+describe('section batches', () => {
+  it('covers only the asked-for section: file, fields and text', async () => {
+    const { dir, project } = await withComments();
+
+    const result = await project.copyBatch(REEL, 1, { section: COLD });
+
+    expect(result.file).toBe(`reels/${REEL}/v1/comments-${COLD}.json`);
+    expect(result.count).toBe(2);
+    expect(result.text).toContain('Kinotta comments: Founder talk: going local-first, v1, section 01 Cold open');
+    expect(result.text).toContain('1. Shot 01, 00.00s, document: Slide the laptops in faster.');
+    expect(result.text).toContain('2. Shot 02, 03.20s, conflict-panel: Bigger count.');
+    expect(result.text).not.toContain('grey-out');
+    const saved = readJson<{ section: string; comments: Array<{ shot: string }> }>(batchFile(dir, 1, `comments-${COLD}.json`));
+    expect(saved.section).toBe(COLD);
+    expect(saved.comments.map((c) => c.shot)).toEqual(['01', '02']);
+    expect(existsSync(batchFile(dir, 1, 'comments.json'))).toBe(false);
+    expect(existsSync(batchFile(dir, 1, `comments-${SYNC}.json`))).toBe(false);
+  });
+
+  it('keeps the numbers the comments column shows, and puts the reel note in every section batch', async () => {
+    const { dir, project } = await withComments();
+    await project.setNote(REEL, 1, 'Keep it punchy.');
+
+    const sync = await project.copyBatch(REEL, 1, { section: SYNC });
+    const cold = await project.copyBatch(REEL, 1, { section: COLD });
+
+    expect(sync.text).toContain('section 02 The sync problem');
+    expect(sync.text).toContain('3. Shot 03, 06.20s, position 50% 60%: Hold the grey-out longer.');
+    expect(sync.text).toContain('\nNotes\n- Keep it punchy.\n');
+    expect(cold.text).toContain('\nNotes\n- Keep it punchy.\n');
+    expect(readJson<{ notes: string[] }>(batchFile(dir, 1, `comments-${SYNC}.json`)).notes).toEqual(['Keep it punchy.']);
+  });
+
+  it('needs a known section on a reel with several', async () => {
+    const { project } = await withComments();
+
+    await expect(project.copyBatch(REEL, 1)).rejects.toMatchObject({ code: 'invalid' });
+    await expect(project.copyBatch(REEL, 1, { section: 'nope' })).rejects.toBeInstanceOf(KinottaError);
+  });
+
+  it('refuses a section with no comments and no note, and writes nothing', async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    await project.addComment(REEL, 1, { pin: COLD_PIN, text: 'Only here.' });
+
+    await expect(project.copyBatch(REEL, 1, { section: SYNC })).rejects.toMatchObject({ code: 'invalid' });
+    expect(existsSync(batchFile(dir, 1, `comments-${SYNC}.json`))).toBe(false);
+  });
+
+  it('records each copy as the latest hand-off of its section, replacing an earlier one', async () => {
+    const { dir, project } = await withComments();
+    await project.copyBatch(REEL, 1, { section: COLD });
+    const stateFile = join(dir, 'reels', '.kinotta', REEL, 'v1.json');
+    const first = readJson<{ handedOff: Record<string, { commentIds: string[] }> }>(stateFile).handedOff;
+    expect(first[COLD]!.commentIds).toHaveLength(2);
+    expect(first[SYNC]).toBeUndefined();
+
+    await project.addComment(REEL, 1, { pin: { ...COLD_PIN, x: 0.9 }, text: 'A third.' });
+    await project.copyBatch(REEL, 1, { section: COLD });
+
+    const again = readJson<{ handedOff: Record<string, { commentIds: string[] }> }>(stateFile).handedOff;
+    expect(again[COLD]!.commentIds).toHaveLength(3);
+    expect(readJson<{ comments: unknown[] }>(batchFile(dir, 1, `comments-${COLD}.json`)).comments).toHaveLength(3);
+    const listed = await project.listComments(REEL, 1);
+    expect(listed.filter((c) => c.sent).length).toBe(3);
+    expect(listed.filter((c) => !c.sent).length).toBe(2);
+  });
+});
+
+describe('change detection', () => {
+  it('finds the section whose shot title changed, and only that one', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+
+    const v2 = await openProject(dir).readVersion(REEL, 2);
+
+    expect(v2.changedSections).toEqual([COLD]);
+    expect(v2.claimMismatch).toEqual([]);
+  });
+
+  it('finds a changed scene page, judged by markup', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2, { html: (page) => page.replace('data-el="laptop-left"', 'data-el="laptop-left" title="left"') });
+
+    expect((await openProject(dir).readVersion(REEL, 2)).changedSections).toEqual([COLD]);
+  });
+
+  it('finds a changed section field, and a new section', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2, { shots: (f) => (f.sections[1]!.name = 'The merge problem') });
+    addVersion(dir, 2, 3, {
+      shots: (f) => {
+        f.sections.push({ id: 'wrap', name: 'Wrap', start: 12, end: 14 });
+        f.duration = 14;
+      },
+    });
+    const project = openProject(dir);
+
+    expect((await project.readVersion(REEL, 2)).changedSections).toEqual([SYNC]);
+    expect((await project.readVersion(REEL, 3)).changedSections).toEqual(['wrap']);
+  });
+
+  it('finds nothing in an identical copy', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2);
+
+    const v2 = await openProject(dir).readVersion(REEL, 2);
+
+    expect(v2.changedSections).toEqual([]);
+    expect(v2.claimMismatch).toEqual([]);
+  });
+
+  it('counts a claim as changed even when the contents match, and reports the mismatch', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2, { shots: (f) => (f.changedSections = [SYNC]) });
+
+    const v2 = await openProject(dir).readVersion(REEL, 2);
+
+    expect(v2.changedSections).toEqual([SYNC]);
+    expect(v2.claimMismatch).toEqual([SYNC]);
+  });
+
+  it('does not believe a claim of unchanged', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2, {
+      shots: (f) => {
+        f.changedSections = [];
+        renameShot('03', 'Last write always wins')(f);
+      },
+    });
+
+    const v2 = await openProject(dir).readVersion(REEL, 2);
+
+    expect(v2.changedSections).toEqual([SYNC]);
+    expect(v2.claimMismatch).toEqual([SYNC]);
+  });
+
+  it('treats the single section of a one-section reel as changed when anything differs', async () => {
+    const project = openProject(copyFixture('showreel-project'));
+
+    expect((await project.readVersion('product-showreel', 2)).changedSections).toEqual(['reel']);
+  });
+
+  it('lists the changed sections of each version on the version rail, for reels with several', async () => {
+    const dir = copyFixture('footage-project');
+    addVersion(dir, 1, 2, { shots: renameShot('03', 'Last write always wins') });
+
+    const entries = await openProject(dir).listVersions(REEL);
+
+    expect(entries).toEqual([
+      { number: 1, isNewest: false, isStoryboard: true },
+      { number: 2, isNewest: true, isStoryboard: false, changedSections: [SYNC] },
+    ]);
+  });
+});
+
+describe('carry-forward', () => {
+  it('moves unsent comments on unchanged sections, and keeps the rest on the old version', async () => {
+    const { project, dir } = await withComments();
+    await project.copyBatch(REEL, 1, { section: COLD });
+    await project.addComment(REEL, 1, { pin: { ...COLD_PIN, x: 0.9 }, text: 'Added after the copy.' });
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+
+    const v2 = await project.listComments(REEL, 2);
+
+    expect(texts(v2).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
+    expect(v2.every((c) => c.pin.version === 2)).toBe(true);
+    const word = v2.find((c) => c.pin.kind === 'word')!;
+    expect(word.pin).toMatchObject({ kind: 'word', shot: '03', section: SYNC, time: 8.65, word: 'lose' });
+    const v1 = await project.listComments(REEL, 1);
+    expect(v1).toHaveLength(5);
+    expect(v1.find((c) => c.text === 'Hold the grey-out longer.')!.carried).toEqual({ to: 2, moved: true });
+    expect(v1.find((c) => c.text === 'Added after the copy.')!.carried).toEqual({ to: 2, moved: false });
+    expect(v1.find((c) => c.text === 'Bigger count.')).toMatchObject({ sent: true });
+    expect(v1.find((c) => c.text === 'Bigger count.')!.carried).toBeUndefined();
+    expect(v2.map((c) => c.id).some((id) => v1.some((c) => c.id === id))).toBe(false);
+  });
+
+  it('lists what was left behind, by section', async () => {
+    const { project, dir } = await withComments();
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+
+    expect(await project.carryNotice(REEL, 2)).toEqual({ from: 1, count: 2, sections: [COLD] });
+    expect(await project.carryNotice(REEL, 1)).toBeNull();
+  });
+
+  it('has no notice when every left-behind comment was sent', async () => {
+    const { project, dir } = await withComments();
+    await project.copyBatch(REEL, 1, { section: COLD });
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+
+    expect(await project.carryNotice(REEL, 2)).toBeNull();
+  });
+
+  it('keeps sent comments on an unchanged section on the old version', async () => {
+    const { project, dir } = await withComments();
+    await project.copyBatch(REEL, 1, { section: SYNC });
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+
+    expect(await project.listComments(REEL, 2)).toEqual([]);
+    const v1 = await project.listComments(REEL, 1);
+    expect(v1.filter((c) => c.sent).map((c) => c.text).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
+    expect(v1.filter((c) => c.sent).every((c) => c.carried === undefined)).toBe(true);
+    expect(await project.carryNotice(REEL, 2)).toEqual({ from: 1, count: 2, sections: [COLD] });
+  });
+
+  it('moves a comment onto the same shot when the numbers shifted', async () => {
+    const { project, dir } = await withComments();
+    addVersion(dir, 1, 2, {
+      shots: (f) => {
+        f.shots.splice(2, 0, { number: '03', start: 4.5, title: 'An extra beat', description: 'New.', section: COLD, type: 'panel', line: { start: 4.5, end: 5.5 } });
+        f.shots[3]!.number = '04';
+        f.shots[4]!.number = '05';
+      },
+    });
+
+    const v2 = await project.listComments(REEL, 2);
+
+    expect(v2.map((c) => [c.text, c.pin.shot]).sort()).toEqual([
+      ['Hold the grey-out longer.', '04'],
+      ['Land this word harder.', '04'],
+    ]);
+  });
+
+  it('settles once: reading again changes nothing', async () => {
+    const { project, dir } = await withComments();
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+    const first = await project.listComments(REEL, 2);
+    const oldState = join(dir, 'reels', '.kinotta', REEL, 'v1.json');
+    const newState = join(dir, 'reels', '.kinotta', REEL, 'v2.json');
+    const before = [readFileSync(oldState, 'utf8'), readFileSync(newState, 'utf8')];
+
+    const second = await project.listComments(REEL, 2);
+    await project.readVersion(REEL, 2);
+    await project.listComments(REEL, 1);
+
+    expect(second.map((c) => c.id)).toEqual(first.map((c) => c.id));
+    expect([readFileSync(oldState, 'utf8'), readFileSync(newState, 'utf8')]).toEqual(before);
+  });
+
+  it('settles when the watcher sees the new version, before anyone reads it', async () => {
+    const { project, dir } = await withComments();
+    const seen: number[] = [];
+    const unsubscribe = project.subscribe((event) => {
+      if (event.type === 'version-added') seen.push(event.version);
+    });
+    addVersion(dir, 1, 2);
+    const deadline = Date.now() + 4000;
+    while (seen.length === 0 && Date.now() < deadline) await new Promise((done) => setTimeout(done, 25));
+    unsubscribe();
+
+    expect(seen).toEqual([2]);
+    expect(readJson<{ carriedFrom: { version: number; ids: string[] } }>(join(dir, 'reels', '.kinotta', REEL, 'v2.json')).carriedFrom).toMatchObject({ version: 1 });
+  });
+
+  it('leaves the batch files of the old version exactly as they were', async () => {
+    const { project, dir } = await withComments();
+    await project.copyBatch(REEL, 1, { section: COLD });
+    const file = batchFile(dir, 1, `comments-${COLD}.json`);
+    const before = { text: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs };
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+
+    await project.listComments(REEL, 2);
+    await project.listComments(REEL, 1);
+
+    expect({ text: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs }).toEqual(before);
+    await expect(project.addComment(REEL, 1, { pin: COLD_PIN, text: 'Too late.' })).rejects.toMatchObject({ code: 'frozen' });
+    await expect(project.copyBatch(REEL, 1, { section: COLD })).rejects.toMatchObject({ code: 'frozen' });
+  });
+
+  it('carries across a chain of versions, one step at a time', async () => {
+    const { project, dir } = await withComments();
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+    addVersion(dir, 2, 3, { shots: (f) => (f.sections[0]!.name = 'Cold open, again') });
+
+    const v3 = await project.listComments(REEL, 3);
+
+    expect(texts(v3).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
+    const v2 = await project.listComments(REEL, 2);
+    expect(v2.filter((c) => c.carried?.moved === true).map((c) => c.text).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
+  });
+});
+
+describe('waiting', () => {
+  const waitingIds = async (project: ReturnType<typeof openProject>, version: number): Promise<string[]> =>
+    (await project.readVersion(REEL, version)).sections.filter((s) => s.waiting).map((s) => s.id);
+
+  it('shows on the section that was copied, and only there', async () => {
+    const { project } = await withComments();
+    expect(await waitingIds(project, 1)).toEqual([]);
+
+    await project.copyBatch(REEL, 1, { section: COLD });
+
+    expect(await waitingIds(project, 1)).toEqual([COLD]);
+  });
+
+  it('persists across a version that leaves the section alone, and clears on the first that changes it', async () => {
+    const { project, dir } = await withComments();
+    await project.copyBatch(REEL, 1, { section: COLD });
+    await project.copyBatch(REEL, 1, { section: SYNC });
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+    addVersion(dir, 2, 3, { shots: renameShot('01', 'Two laptops, one file') });
+    addVersion(dir, 3, 4, { shots: renameShot('03', 'Last write always wins') });
+
+    expect(await waitingIds(project, 2)).toEqual([SYNC]);
+    expect(await waitingIds(project, 3)).toEqual([SYNC]);
+    expect(await waitingIds(project, 4)).toEqual([]);
+  });
+
+  it('starts again when the newest version is copied', async () => {
+    const { project, dir } = await withComments();
+    await project.copyBatch(REEL, 1, { section: COLD });
+    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
+    await project.addComment(REEL, 2, { pin: COLD_PIN, text: 'Round two.' });
+    expect(await waitingIds(project, 2)).toEqual([]);
+
+    await project.copyBatch(REEL, 2, { section: COLD });
+
+    expect(await waitingIds(project, 2)).toEqual([COLD]);
+  });
+});
