@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aroma Run Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@800&family=Outfit:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  /* Tokens verbatim from Kinotta's DESIGN.md. Dark only (D21). */
+  :root {
+    --ground: oklch(.184 .004 106);
+    --ground-deep: oklch(.150 .003 106);
+    --card: oklch(.214 .005 90);
+    --card-raised: oklch(.246 .005 90);
+    --ink: oklch(.945 .004 106);
+    --ink-2: oklch(.820 .007 106);
+    --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14);
+    --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225);
+    --light-wash: oklch(.84 .11 225 / .07);
+    --gutter: 22px;
+    --sans: Outfit, "Segoe UI", sans-serif;
+    --num: Doto, monospace;
+    --code: "JetBrains Mono", Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink-2);
+    font: 400 17px/1.65 var(--sans); letter-spacing: .005em;
+  }
+  main { max-width: 68ch; margin: 0 auto; padding: 56px var(--gutter) 96px; }
+  h1 { color: var(--ink); font-weight: 500; font-size: clamp(30px, 6vw, 42px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; }
+  h2 { color: var(--ink); font-weight: 500; font-size: 22px; letter-spacing: -.4px; line-height: 1.2; margin: 56px 0 12px; }
+  h3 { color: var(--ink); font-weight: 500; font-size: 17px; margin: 0 0 4px; }
+  p { margin: 0 0 14px; }
+  strong { color: var(--ink); font-weight: 500; }
+  a { color: var(--light); }
+  .lede { font-size: 19px; color: var(--ink); }
+  .meta { color: var(--muted); font-size: 14px; }
+  code { font-family: var(--code); font-size: .86em; color: var(--ink); background: var(--ground-deep); padding: 1px 5px; }
+  pre {
+    font-family: var(--code); font-size: 14px; line-height: 1.55; color: var(--ink);
+    background: var(--ground-deep); border-left: 1.6px solid var(--hairline);
+    margin: 10px 0 16px; padding: 12px 14px; overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 40px 0; }
+
+  figure { margin: 28px 0 8px; }
+  figure svg { width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+  ol.steps > li { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 22px 0; border-top: 1px solid var(--rule); }
+  ol.steps > li:last-child { border-bottom: 1px solid var(--rule); }
+  .num { font: 800 15px/1 var(--num); font-variant-numeric: tabular-nums; color: var(--light); padding-top: 4px; }
+  .step-body { min-width: 0; }
+  .step-body > :last-child { margin-bottom: 0; }
+  label.done { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; cursor: pointer; margin-top: 6px; }
+  label.done input { accent-color: var(--light); width: 16px; height: 16px; margin: 0; }
+  li.is-done .num { color: var(--muted); }
+  li.is-done h3 { color: var(--muted); }
+  .expect { border-left: 1.6px solid var(--light); background: var(--light-wash); padding: 8px 12px; margin: 10px 0 14px; color: var(--ink-2); }
+  .expect b { color: var(--light); font-weight: 500; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .table-wrap { overflow-x: auto; margin: 10px 0 16px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-top: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 400; font-size: 13px; }
+  td:first-child { color: var(--ink); white-space: nowrap; }
+
+  .fact { color: var(--muted); font-size: 13px; }
+  @media (max-width: 480px) {
+    main { padding-top: 36px; padding-left: 16px; padding-right: 16px; }
+    ol.steps > li { grid-template-columns: 32px 1fr; gap: 0 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="meta">Kinotta · T9 (#11) · K10 · 2026-10-03</p>
+  <h1>Your first real reel in Aroma</h1>
+  <p class="lede">Ask Claude for a 15-second brand intro in Aroma. Check the brand file once, review v1 in Kinotta, and paste one batch back. The run passes when v2 arrives with an <code>answers.md</code> and v1's own files are byte-for-byte unchanged.</p>
+  <p>The skill, the <code>kinotta</code> command and your taste list are already installed. You do everything on this page. Claude never starts the editor (K12). Tick each step as you go; the ticks stay in this browser only.</p>
+
+  <figure>
+    <svg viewBox="0 0 680 250" role="img" aria-labelledby="loop-title">
+      <title id="loop-title">The review loop: Claude writes a version into Aroma's reels folder, you review it in Kinotta, Copy writes comments.json and puts the batch on the clipboard, you paste it to Claude, and Claude writes the next version with answers.md.</title>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="oklch(.640 .008 106)"/>
+        </marker>
+      </defs>
+      <g font-family="Outfit, Segoe UI, sans-serif" font-size="14">
+        <rect x="10" y="20" width="190" height="72" fill="oklch(.214 .005 90)"/>
+        <text x="24" y="48" fill="oklch(.945 .004 106)" font-weight="500">Claude in Aroma</text>
+        <text x="24" y="72" fill="oklch(.640 .008 106)" font-size="13">kinotta skill</text>
+
+        <rect x="245" y="20" width="190" height="72" fill="oklch(.150 .003 106)" stroke="oklch(.945 .004 106 / .24)"/>
+        <text x="259" y="48" fill="oklch(.945 .004 106)" font-weight="500">reels/brand-intro/</text>
+        <text x="259" y="72" fill="oklch(.640 .008 106)" font-size="13">v1 → v2 (frozen)</text>
+
+        <rect x="480" y="20" width="190" height="72" fill="oklch(.214 .005 90)"/>
+        <text x="494" y="48" fill="oklch(.945 .004 106)" font-weight="500">kinotta editor</text>
+        <text x="494" y="72" fill="oklch(.640 .008 106)" font-size="13">you pin comments</text>
+
+        <rect x="245" y="160" width="190" height="72" fill="oklch(.150 .003 106)" stroke="oklch(.84 .11 225)"/>
+        <text x="259" y="188" fill="oklch(.84 .11 225)" font-weight="500">Copy all comments</text>
+        <text x="259" y="212" fill="oklch(.640 .008 106)" font-size="13">clipboard + v1/comments.json</text>
+
+        <line x1="200" y1="56" x2="243" y2="56" stroke="oklch(.640 .008 106)" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <line x1="435" y1="56" x2="478" y2="56" stroke="oklch(.640 .008 106)" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <path d="M575 92 V196 H437" fill="none" stroke="oklch(.640 .008 106)" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <path d="M245 196 H105 V94" fill="none" stroke="oklch(.640 .008 106)" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <text x="203" y="44" fill="oklch(.820 .007 106)" font-size="12">writes</text>
+        <text x="440" y="44" fill="oklch(.820 .007 106)" font-size="12">opens</text>
+        <text x="113" y="186" fill="oklch(.820 .007 106)" font-size="12">you paste</text>
+      </g>
+    </svg>
+    <figcaption>One round of the loop. The editor writes into a version folder only when you copy a batch (<code>server/core/_internal/batch.ts</code>).</figcaption>
+  </figure>
+
+  <h2>The run</h2>
+  <ol class="steps" id="steps">
+    <li data-step="1">
+      <div class="num">01</div>
+      <div class="step-body">
+        <h3>Open two terminals in Aroma</h3>
+        <p>Open them fresh, so they pick up the <code>kinotta</code> command that <code>npm link</code> added. One runs Claude and the other runs the editor.</p>
+<pre><code>cd C:\FIles\Projects\Brands\Aroma
+kinotta check</code></pre>
+        <div class="expect"><b>Expect</b> <code>Usage: kinotta check &lt;reel&gt; [version]</code>. "Command not found" means the terminal predates <code>npm link</code>; open a new one.</div>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="2">
+      <div class="num">02</div>
+      <div class="step-body">
+        <h3>Ask for the reel</h3>
+        <p>Start Claude in the first terminal and ask in plain words. The skill triggers on "reel", "brand intro" or "Kinotta".</p>
+<pre><code>Make a Kinotta reel: a code-only brand intro for Aroma,
+about 15 seconds, 5 to 7 shots.</code></pre>
+        <div class="expect"><b>Expect</b> Claude writes <code>reels/brand.md</code> with <code>checked: no</code>, summarises it and stops without building (K3). Aroma's <code>DESIGN.md</code> is not empty, so the "no design system" stop (K5) should not fire.</div>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="3">
+      <div class="num">03</div>
+      <div class="step-body">
+        <h3>Check the brand file once</h3>
+        <p>Open <code>reels/brand.md</code>. It should <strong>point at</strong> files rather than copy values (K4): <code>DESIGN.md</code> for colour and type, a logo in <code>Assets/</code>, <code>BRAND-GUIDELINES.md</code> and <code>brand-guidelines/</code>, and anything voice-like in <code>context/</code>. Hex codes or font sizes pasted into it are a skill bug, so note them.</p>
+        <p>Fix anything wrong, then tell Claude it's right. Claude sets <code>checked:</code> to today's date and builds.</p>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="4">
+      <div class="num">04</div>
+      <div class="step-body">
+        <h3>Let Claude build v1</h3>
+        <p>Claude reads <code>~/.kinotta/taste.md</code>, writes <code>reels/&lt;slug&gt;/v1/</code> (page, <code>assets/</code>, then <code>shots.json</code> last), and runs <code>kinotta check</code> until it's clean.</p>
+        <div class="expect"><b>Expect</b> a hand-over naming the reel, one line per shot, and an instruction to run <code>kinotta</code>. A still image only: nothing moves until the Review phase (K9).</div>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="5">
+      <div class="num">05</div>
+      <div class="step-body">
+        <h3>Open it in Kinotta</h3>
+        <p>In the second terminal, run <code>kinotta</code>. It opens the browser on Aroma's reels. Leave it running for the rest of the run.</p>
+        <div class="expect"><b>Expect</b> the reel listed with v1. Every shot shows a live still and no issue list. A labelled placeholder instead of a frame means the page's <code>seek</code> is broken, a runtime problem <code>kinotta check</code> can't see.</div>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="6">
+      <div class="num">06</div>
+      <div class="step-body">
+        <h3>Pin a few comments and copy the batch</h3>
+        <p>Enlarge a shot, hover until the element you mean is outlined and named, and click to pin. Do three or four, on different shots, and add one reel note. Then press <strong>Copy all comments</strong>.</p>
+        <div class="expect"><b>Expect</b> the clipboard to start with <code>Kinotta comments: &lt;title&gt;, v1</code> and a <code>Saved as reels/&lt;slug&gt;/v1/comments.json</code> line.</div>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="7">
+      <div class="num">07</div>
+      <div class="step-body">
+        <h3>Snapshot v1, then paste</h3>
+        <p>Take the snapshot <strong>after</strong> copying, because Copy itself adds <code>comments.json</code> to v1. Aroma has no git, so hash the files instead. Run this in the editor terminal after stopping <code>kinotta</code> with Ctrl+C, or in a third terminal. Replace <code>brand-intro</code> with the slug Claude chose.</p>
+<pre><code>Get-ChildItem reels\brand-intro\v1 -Recurse -File |
+  Get-FileHash | Select-Object Hash, Path |
+  Export-Csv $env:TEMP\v1-before.csv -NoTypeInformation</code></pre>
+        <p>Paste the batch into Claude.</p>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="8">
+      <div class="num">08</div>
+      <div class="step-body">
+        <h3>Let Claude build v2</h3>
+        <div class="expect"><b>Expect</b> <code>v2/</code> copied from v1, edited, <code>answers.md</code> with every comment marked Done, Partly done or Not done (with a reason), <code>shots.json</code> last with <code>changedSections</code>, and a clean <code>kinotta check</code>. Claude repeats the answers in chat (K6).</div>
+        <p>If <code>kinotta</code> was still running, it shows v2 as ready. Otherwise start it again.</p>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="9">
+      <div class="num">09</div>
+      <div class="step-body">
+        <h3>Prove v1 didn't change</h3>
+<pre><code>$before = Import-Csv $env:TEMP\v1-before.csv
+$after  = Get-ChildItem reels\brand-intro\v1 -Recurse -File |
+  Get-FileHash | Select-Object Hash, Path
+Compare-Object $before $after -Property Hash, Path</code></pre>
+        <div class="expect"><b>Expect</b> no output. Any line means v1 was touched, which breaks K12. Keep that output for the bug report.</div>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+
+    <li data-step="10">
+      <div class="num">10</div>
+      <div class="step-body">
+        <h3>Close T9</h3>
+        <p>In the Kinotta repo, tick the last box under T9 in <code>docs/tickets.md</code>: "A real run in Aroma: v1 opens in Kinotta, a batch produces v2 with <code>answers.md</code>, v1 stays unchanged (K10)". Then mark T9 done and note anything the run taught you about the skill.</p>
+        <label class="done"><input type="checkbox"> Done</label>
+      </div>
+    </li>
+  </ol>
+
+  <h2>If something goes sideways</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>You see</th><th>Why</th><th>Do</th></tr></thead>
+    <tbody>
+      <tr><td>Claude stops and asks you to run <code>npm link</code></td><td>The skill's preflight couldn't find <code>kinotta</code> (K8).</td><td>Open a new terminal, or run <code>npm link</code> in the Kinotta repo again.</td></tr>
+      <tr><td>Claude asks about the brand file again</td><td><code>checked:</code> still says <code>no</code>.</td><td>Confirm it, or set the date yourself.</td></tr>
+      <tr><td>A shot shows a placeholder, not a frame</td><td>The page has no working <code>window.seek</code>.</td><td>Copy the batch with issues included; Claude fixes it in v2.</td></tr>
+      <tr><td>Logo or font missing in a still</td><td>The editor serves only files inside the version folder.</td><td>Comment on it; the skill says to copy assets into <code>v&lt;n&gt;/assets/</code>.</td></tr>
+      <tr><td>You ask for motion</td><td>Kinotta can't review motion yet (K9).</td><td>Expect a warning and the motion written into the shot's description.</td></tr>
+      <tr><td>A <code>reels/.kinotta/</code> folder appears</td><td>The editor's working state for your comments.</td><td>Leave it alone.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <hr>
+  <p class="fact">Verified on 2026-10-03: <code>kinotta</code> resolves in Aroma and <code>kinotta check</code> prints its usage; Aroma's <code>DESIGN.md</code> is 15.7&nbsp;KB; Aroma has no git repository; Copy writes <code>comments.json</code> into the version folder; the editor serves only files inside version folders. Not yet verified: how Claude behaves on the real request (that's this run).</p>
+  <p class="fact">Sources: <code>docs/plans/2026-10-03-kinotta-skill.md</code>, <code>skill/kinotta/SKILL.md</code>, decisions K1 to K12.</p>
+</main>
+<script>
+  const KEY = 'kinotta-aroma-run-steps';
+  const boxes = [...document.querySelectorAll('#steps input[type=checkbox]')];
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { saved = []; }
+  const paint = () => boxes.forEach((b) => b.closest('li').classList.toggle('is-done', b.checked));
+  boxes.forEach((b, i) => {
+    b.checked = saved[i] === true;
+    b.addEventListener('change', () => {
+      paint();
+      try { localStorage.setItem(KEY, JSON.stringify(boxes.map((x) => x.checked))); } catch (e) {}
+    });
+  });
+  paint();
+</script>
+</body>
+</html>
