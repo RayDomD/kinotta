@@ -437,3 +437,22 @@ Decision K15. Mockup: `docs/mockups/2026-10-04-stills-per-clip.html` (grid B, sh
 **Blocked by:** none
 
 **Model:** `mid`
+
+## T27. Captions on footage reels
+
+Decisions C1 to C6; look picked in the sample pass (B, active word lit). No GitHub issue yet.
+
+**What to build:** A footage reel's plan turns captions on (`"captions": true`, or a look and colour). `build.py --plan` writes each caption phrase from the transcript as its own scene with a pinnable `caption` element; the page shows the phrase under way and marks the spoken word. The shot list adds one Captions overlay. The skill turns captions on by default and fixes misheard words in the transcript.
+
+**Acceptance criteria:**
+
+- [x] Each phrase is a scene `cap-001`… with a `caption` element, in the plan's look and colour
+- [x] The page shows the phrase under way at any second and marks the word being said
+- [x] A plan without captions builds the same page as before
+- [x] The shot list has one Captions overlay
+- [x] Skill rules cover turning captions on, the look, and fixing misheard words
+- [x] The sample reel passes `kinotta check` with captions
+
+**Blocked by:** none
+
+**Model:** `mid`
