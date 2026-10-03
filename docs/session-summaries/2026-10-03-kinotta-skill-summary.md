@@ -49,5 +49,13 @@ owner does from the checklist in the plan. No subagents were used.
 ## Not done
 
 - The real run in Aroma (K10, owner).
-- A whole-branch `/code-review` against T9 was not run; it spawns subagents, which needs the owner's
-  model choice first.
+
+## Branch review
+
+`/code-review` since `cbfc858` against T9, with two Sonnet workers (Standards, Spec) and Opus verifying.
+No hard violations. Fixed in `6d96628`: the batch path now checks `checked: no` (K3); the skill covers
+word pins and the contract issues a batch can carry; `contract.md` says the editor doesn't read
+`window.DURATION` yet and gives the 500ms draw fallback; the check usage text has one source. Left as
+is: `install-skill.mjs` goes beyond K8's documented junction (kept, documented in the README).
+After the fixes: typecheck clean, core 128/128. The owner's run guide is
+`docs/explainers/2026-10-03-kinotta-aroma-run.html` (`8940501`).
