@@ -428,11 +428,11 @@ Decision K15. Mockup: `docs/mockups/2026-10-04-stills-per-clip.html` (grid B, sh
 
 **Acceptance criteria:**
 
-- [ ] `shots.py` writes one shot per state, with its still, spoken line and clip; a clip without `stills` is unchanged
-- [ ] Shots split this way pass `kinotta check`
-- [ ] The grid card shows "n of m" for a clip's states
-- [ ] The enlarged shot shows the clip's states and switches to the one clicked
-- [ ] Skill rules say when to split a clip and how a batch maps `05b` back to clip 05
+- [x] `shots.py` writes one shot per state, with its still, spoken line and clip; a clip without `stills` is unchanged
+- [x] Shots split this way pass `kinotta check`
+- [x] The grid card shows "n of m" for a clip's states
+- [x] The enlarged shot shows the clip's states and switches to the one clicked
+- [x] Skill rules say when to split a clip and how a batch maps `05b` back to clip 05
 
 **Blocked by:** none
 

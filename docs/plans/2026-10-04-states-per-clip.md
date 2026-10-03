@@ -1,7 +1,7 @@
 ---
 title: States per clip (T26, K15)
 date: 2026-10-04
-status: Approved
+status: Done
 summary: T26. A clip that changes state gets one storyboard shot per state (05a, 05b, …); the grid shows "2 of 3" and the enlarged shot a strip of the clip's states.
 spec: docs/tickets.md T26; decision K15; mockup docs/mockups/2026-10-04-stills-per-clip.html
 ---
@@ -57,3 +57,4 @@ T26's acceptance criteria met, and the sample reel rebuilt with states for its l
 
 ### 2026-10-04
 - Plan created under the owner's goal run (design settled in K15).
+- Built, critiqued and audited; sample reel rebuilt. A state can set its own `still` (added in the run). Done.
