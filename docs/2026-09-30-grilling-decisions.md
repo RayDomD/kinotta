@@ -82,6 +82,7 @@ Brand file and Storyboard were sharpened in `CONTEXT.md`.
 | K12 | The owner runs `kinotta`; Claude never starts it. Claude builds `v<n+1>` as a copy of `v<n>`, writes `shots.json` last (the editor's new-version signal), and never edits `v<n>`. |
 | K13 | Exception to K9 for footage reels (decided 2026-10-03, recorded with T23): footage versions carry the motion engine's real animation. Kinotta shows their stills until the Review phase plays them. |
 | K14 | No plan approval in chat when building a footage reel for Kinotta (decided 2026-10-03, recorded with T23): v1 is the plan, and the owner answers it with comments in Kinotta. |
+| K15 | A clip that changes state gets one storyboard shot per state (`05a`, `05b`, …), more for longer clips; short clips keep one. The enlarged shot shows a strip of the clip's states under the frame, and clicking one opens it. Chosen in a `ui-preview` round on 2026-10-04 (B, then Y over states above the frame). Mockup: [2026-10-04-stills-per-clip.html](mockups/2026-10-04-stills-per-clip.html). Not built yet. |
 
 ## Deferred
 
