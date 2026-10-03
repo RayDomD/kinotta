@@ -46,9 +46,23 @@ owner does from the checklist in the plan. No subagents were used.
   its usage, `kinotta check brand-intro` says the reel is not found, and no `reels/` folder was
   created.
 
-## Not done
+## The Aroma run (K10)
 
-- The real run in Aroma (K10, owner).
+Done by the owner on 2026-10-03; checked from the files in `C:\FIles\Projects\Brands\Aromaeels\`.
+T9 is Done.
+
+- `brand.md` written, checked by the owner (`checked: 2026-10-03`).
+- `brand-intro` v1 (20s, ten shots, longer than K10's guide of about 15s), then v2 from notes given
+  in chat (v1's batch held no comments and a stray note, "can we m"), then v3 from a real pinned
+  batch on v2: three element pins (`city` on shot 01, `sun` and `moon` on shot 06), each answered
+  Done in `v3/answers.md`, with `changedSections: ["reel"]`.
+- `kinotta check` passes on v1, v2 and v3. No version holds animation code.
+- Frozen versions: no v1 file was written after 6:40 except `comments.json` (Copy, 6:41), and no v2
+  file after 6:49 except `comments.json` (Copy, 7:11). No hash snapshot was taken.
+- v2 has no `changedSections`; it was built from chat, not a batch.
+- Two comments asked for better motion. Claude kept the page still, described the motion in the
+  shots, and rendered `output/video/aroma-brand-intro-v3.mp4` with Aroma's own tooling to show it.
+  Motion review is the first thing the owner reached for, which points at the Review phase.
 
 ## Branch review
 

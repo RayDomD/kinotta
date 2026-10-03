@@ -133,7 +133,7 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T9 (#11). Kinotta skill for code-only reels — Parked (owner)
+## T9 (#11). Kinotta skill for code-only reels — Done
 
 Parked for the unattended run: the last criterion needs a real run in a client project with the owner. Everything else
 shipped on 2026-10-03 (plan `docs/plans/2026-10-03-kinotta-skill.md`, owner checklist inside).
@@ -149,7 +149,7 @@ Grilled 2026-10-03 (K1 to K12 in the grilling log): the skill lives in `skill/ki
 - [x] `kinotta check <reel> [version]` prints contract issues and exits non-zero on any, with a test (K7)
 - [x] README documents the install: `npm link` and the skill junction (K8)
 - [x] `~/.kinotta/taste.md` seeded with the K11 rules
-- [ ] A real run in Aroma: v1 opens in Kinotta, a batch produces v2 with `answers.md`, v1 stays unchanged (K10)
+- [x] A real run in Aroma: v1 opens in Kinotta, a batch produces v2 with `answers.md`, v1 stays unchanged (K10)
 
 **Blocked by:** #6
 

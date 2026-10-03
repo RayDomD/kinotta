@@ -80,3 +80,5 @@ rules, linking to the fixture reels as format examples. Install is a Node script
 - Steps 1 to 5 done (`ab64e0b`, `6f29f76`, `c82f721`, taste list seeded). Step 3 ran before step 2; the
   install also links `~/.claude/skills/kinotta`. Typecheck clean, core 128/128, Playwright 71/71.
   The Aroma run stays with the owner. Summary: `docs/session-summaries/2026-10-03-kinotta-skill-summary.md`.
+- Owner ran the Aroma run: a pinned batch on v2 produced v3 with `answers.md`, earlier versions
+  unchanged. T9 Done.
