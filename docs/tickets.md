@@ -379,10 +379,10 @@ Part of T16 (#18).
 
 **Acceptance criteria:**
 
-- [ ] Skill rules cover the transcript, the footage reference, sections, planning, building and composing v1
-- [ ] No plan approval step in chat when building for Kinotta
-- [ ] The K9 exception for footage reels is recorded in the grilling log and the skill
-- [ ] A v1 built from the footage sample passes `kinotta check` and opens with panel stills over the footage
+- [x] Skill rules cover the transcript, the footage reference, sections, planning, building and composing v1
+- [x] No plan approval step in chat when building for Kinotta
+- [x] The K9 exception for footage reels is recorded in the grilling log and the skill
+- [x] A v1 built from the footage sample passes `kinotta check` and opens with panel stills over the footage
 
 **Blocked by:** #23 (T20), #25 (T22)
 

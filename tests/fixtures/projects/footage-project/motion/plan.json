@@ -4,9 +4,59 @@
   "fps": "10",
   "duration": 12,
   "clips": [
-    {"id":"01","title":"Two laptops, one doc","in":0,"out":3.2,"kind":"full"},
-    {"id":"02","title":"Conflict counter","in":3.2,"out":6.2,"kind":"panel"},
-    {"id":"03","title":"Last write wins","in":6.2,"out":9.4,"kind":"panel"},
-    {"id":"04","title":"Merge diagram","in":9.4,"out":12,"kind":"full"}
+    {
+      "id": "01",
+      "title": "Two laptops, one doc",
+      "in": 0,
+      "out": 3.2,
+      "kind": "full",
+      "section": "cold-open",
+      "still": 0,
+      "description": "Two laptops slide in from either side and share one orange document."
+    },
+    {
+      "id": "02",
+      "title": "Conflict counter",
+      "in": 3.2,
+      "out": 6.2,
+      "kind": "panel",
+      "section": "cold-open",
+      "still": 0,
+      "description": "A counter ticks up with every keystroke while he talks."
+    },
+    {
+      "id": "03",
+      "title": "Last write wins",
+      "in": 6.2,
+      "out": 9.4,
+      "kind": "panel",
+      "section": "sync-problem",
+      "still": 0,
+      "description": "One edit overwrites the other and the lost text greys out."
+    },
+    {
+      "id": "04",
+      "title": "Merge diagram",
+      "in": 9.4,
+      "out": 12,
+      "kind": "full",
+      "section": "sync-problem",
+      "still": 0,
+      "description": "Two edit boxes flow into one merged box that keeps both."
+    }
+  ],
+  "sections": [
+    {
+      "id": "cold-open",
+      "name": "Cold open",
+      "start": 0,
+      "end": 6.0
+    },
+    {
+      "id": "sync-problem",
+      "name": "The sync problem",
+      "start": 6.0,
+      "end": 12.0
+    }
   ]
 }

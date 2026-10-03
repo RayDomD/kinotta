@@ -80,6 +80,8 @@ Brand file and Storyboard were sharpened in `CONTEXT.md`.
 | K10 | The real run is a code-only brand intro of about 15 seconds and 5 to 7 shots in Aroma. |
 | K11 | `~/.kinotta/taste.md` starts with these rules, and grows by hand: never system-ui as the only typeface; no pure `#000` or `#fff` surfaces; tight leading (1.0 to 1.1) on display type; no em dashes in on-screen copy; no arbitrary purple-to-blue gradients; no neon glows as decoration; text contrast of at least 4.5:1; one idea per shot; hold text long enough to read before a cut. `reels/taste.md` stays optional per project. |
 | K12 | The owner runs `kinotta`; Claude never starts it. Claude builds `v<n+1>` as a copy of `v<n>`, writes `shots.json` last (the editor's new-version signal), and never edits `v<n>`. |
+| K13 | Exception to K9 for footage reels (decided 2026-10-03, recorded with T23): footage versions carry the motion engine's real animation. Kinotta shows their stills until the Review phase plays them. |
+| K14 | No plan approval in chat when building a footage reel for Kinotta (decided 2026-10-03, recorded with T23): v1 is the plan, and the owner answers it with comments in Kinotta. |
 
 ## Deferred
 
