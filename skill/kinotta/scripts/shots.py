@@ -2,19 +2,23 @@
 the editor's signal that the version is ready.
 usage: python3 shots.py plan.json reels/<slug>/v<n>/shots.json [changedSection ...]
 The plan needs "duration" and "sections" ([{ "id", "name", "start", "end" }]), and each clip a "section". A shot
-starts "still" seconds into its clip (default 1, at most half the slot), where the clip has settled, since a
-clip opens on an empty canvas. Its line is the clip's span, so its spoken line is the words said under it.
+starts "still" seconds into its clip (default 1, at most half the slot; a set "still" must fall inside the
+slot), where the clip has settled, since a clip opens on an empty canvas. Its line is the clip's span, so its spoken line is the words said under it.
 "full" clips are cutaways, "panel" clips are panels. Changed sections (v2 on) follow the output path.
 A clip with "stills" ([{ "from", "title" }], "from" = clip-local seconds the state begins, the first at 0) gets
-one shot per state, numbered 05a, 05b, … with "clip": "05"; each state's line runs to the next state."""
+one shot per state, numbered 05a, 05b, … with "clip": "05"; each state's line runs to the next state. A state's
+"still" is seconds into the state (the first state falls back to the clip's)."""
 import json, sys, pathlib
 
 DEFAULT_STILL = 1.0
 TYPES = {'full': 'cutaway', 'panel': 'panel'}
 
-def shot(start, end, still):
-    """Where a shot's still is drawn (still seconds in, at most half its span) and its spoken span."""
-    return round(start + min(still, (end - start) / 2), 3), {'start': start, 'end': end}
+def shot(number, start, end, still):
+    """Where a shot's still is drawn and its spoken span. A set still is used as given; the default is capped at
+    half the span, so a short slot still shows its clip."""
+    if still is None: still = min(DEFAULT_STILL, (end - start) / 2)
+    elif not 0 <= still < end - start: sys.exit(f'shot {number}: "still" must fall inside it (0 to {round(end - start, 3)} s)')
+    return round(start + still, 3), {'start': start, 'end': end}
 
 def shots(plan):
     for key in ('duration', 'sections'):
@@ -26,11 +30,11 @@ def shots(plan):
         if c.get('section') not in ids: sys.exit(f'clip {c["id"]}: "section" must be one of {sorted(ids)}')
         if c['kind'] not in TYPES: sys.exit(f'clip {c["id"]}: kind must be full or panel')
         def add(number, title, start, end, still, extra={}):
-            at, line = shot(start, end, still)
+            at, line = shot(number, start, end, still)
             out.append({'number': number, **extra, 'start': at, 'title': title, 'description': c.get('description', c['title']),
                         'section': c['section'], 'type': TYPES[c['kind']], 'line': line})
         if 'stills' not in c:
-            add(c['id'], c['title'], c['in'], c['out'], c.get('still', DEFAULT_STILL))
+            add(c['id'], c['title'], c['in'], c['out'], c.get('still'))
             continue
         froms = [s['from'] for s in c['stills']]
         if not froms or froms[0] != 0 or froms != sorted(set(froms)) or froms[-1] >= c['out'] - c['in']:
@@ -38,7 +42,7 @@ def shots(plan):
         for i, s in enumerate(c['stills']):
             start = c['in'] + s['from']
             end = c['in'] + froms[i + 1] if i + 1 < len(froms) else c['out']
-            still = c.get('still', DEFAULT_STILL) if i == 0 else DEFAULT_STILL
+            still = s.get('still', c.get('still') if i == 0 else None)
             add(c['id'] + chr(ord('a') + i), s['title'], start, end, still, {'clip': c['id']})
     return {'contract': 1, 'duration': plan['duration'], 'sections': plan['sections'], 'shots': out}
 

@@ -238,7 +238,8 @@ built page and the shot list go in the version.
    each: `"stills": [{ "from": 0, "title": "StudyBuddy" }, { "from": 8.0, "title": "Schema" }]`, where
    `from` is the clip-local second the state begins (its morph), the first at 0. Give a state to each
    settled change, at most one per ~4 s and at most 4 per clip; a short clip keeps one shot and no
-   `stills`. Each state's title says what it shows. Check each state's still (1 s into it) with
+   `stills`. Each state's title says what it shows. Its still is 1 s into it; give a state its own
+   `still` (seconds into the state) when it settles later. Check each state's still with
    `engine/beats.js` too.
 8. **Build the clips** in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
    1920x1080 whatever the video's size, since Kinotta draws every page in that frame; map a speaker box

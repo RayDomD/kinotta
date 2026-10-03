@@ -123,6 +123,36 @@ describe('shots.py', () => {
     expect(shots[3]).toMatchObject({ clip: '02', title: 'Data integrity', start: 25.5, line: { start: 25, end: 26 } });
   });
 
+  it('draws a state\'s still where it says, even late in a short last state', () => {
+    const dir = temp();
+    const plan = {
+      duration: 20,
+      sections: [{ id: 'a', name: 'A', start: 0, end: 20 }],
+      clips: [{ id: '05', title: 'x', in: 2, out: 18.1, kind: 'panel', section: 'a', stills: [{ from: 0, title: 'Name' }, { from: 14.8, title: 'Data integrity', still: 0.9 }] }],
+    };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    expect(run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json')]).status).toBe(0);
+    const { shots } = json(join(dir, 'shots.json')) as { shots: Array<Record<string, unknown>> };
+
+    expect(shots[1]).toMatchObject({ number: '05b', start: 17.7, line: { start: 16.8, end: 18.1 } });
+  });
+
+  it('stops on a still past the end of its state', () => {
+    const dir = temp();
+    const plan = {
+      duration: 20,
+      sections: [{ id: 'a', name: 'A', start: 0, end: 20 }],
+      clips: [{ id: '01', title: 'x', in: 0, out: 10, kind: 'full', section: 'a', stills: [{ from: 0, title: 'one', still: 6 }, { from: 5, title: 'two' }] }],
+    };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    const result = run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json')]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('shot 01a: "still" must fall inside it');
+  });
+
   it('stops on stills that do not start at 0 or are out of order', () => {
     const dir = temp();
     const plan = {
