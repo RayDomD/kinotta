@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Footage Reel Tickets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@800&family=Outfit:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  /* Tokens verbatim from Kinotta's DESIGN.md. Dark only (D21). */
+  :root {
+    --ground: oklch(.184 .004 106);
+    --ground-deep: oklch(.150 .003 106);
+    --card: oklch(.214 .005 90);
+    --ink: oklch(.945 .004 106);
+    --ink-2: oklch(.820 .007 106);
+    --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14);
+    --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225);
+    --light-wash: oklch(.84 .11 225 / .07);
+    --gutter: 22px;
+    --sans: Outfit, "Segoe UI", sans-serif;
+    --num: Doto, monospace;
+    --code: "JetBrains Mono", Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink-2); font: 400 17px/1.65 var(--sans); letter-spacing: .005em; }
+  main { max-width: 68ch; margin: 0 auto; padding: 56px var(--gutter) 96px; }
+  h1 { color: var(--ink); font-weight: 500; font-size: clamp(30px, 6vw, 42px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; }
+  h2 { color: var(--ink); font-weight: 500; font-size: 22px; letter-spacing: -.4px; line-height: 1.2; margin: 56px 0 12px; }
+  h3 { color: var(--ink); font-weight: 500; font-size: 17px; margin: 0 0 4px; }
+  p { margin: 0 0 14px; }
+  strong { color: var(--ink); font-weight: 500; }
+  .lede { font-size: 19px; color: var(--ink); }
+  .meta { color: var(--muted); font-size: 14px; }
+  code { font-family: var(--code); font-size: .86em; color: var(--ink); background: var(--ground-deep); padding: 1px 5px; }
+  figure { margin: 24px 0 8px; }
+  figure svg { width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .group { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin: 32px 0 0; }
+  ol.tickets { list-style: none; margin: 0; padding: 0; }
+  ol.tickets > li { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 18px 0; border-top: 1px solid var(--rule); }
+  ol.tickets > li:last-child { border-bottom: 1px solid var(--rule); }
+  .num { font: 800 15px/1 var(--num); font-variant-numeric: tabular-nums; color: var(--muted); padding-top: 4px; }
+  .now .num { color: var(--light); }
+  .body { min-width: 0; }
+  .body p { margin-bottom: 6px; }
+  .tags { color: var(--muted); font-size: 14px; }
+  .tags b { color: var(--ink-2); font-weight: 500; }
+  .now-tag { color: var(--light); }
+  .table-wrap { overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 520px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 14px 12px 0; border-top: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 400; font-size: 13px; }
+  td:first-child { color: var(--ink); }
+  td.rec { color: var(--light); }
+  .fact { color: var(--muted); font-size: 13px; }
+  .note { border-left: 1.6px solid var(--light); background: var(--light-wash); padding: 8px 12px; margin: 14px 0; }
+  @media (max-width: 480px) {
+    main { padding: 36px 16px 72px; }
+    ol.tickets > li { grid-template-columns: 32px 1fr; gap: 0 10px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="meta">Kinotta · T11 (#13) and T16 (#18) · proposed, not published</p>
+  <h1>Eight tickets to make talking-video reels work</h1>
+  <p class="lede">Kinotta can already show a talking video with animations over it, but nothing makes those reels for real yet. Four tickets teach motion-broll to build animations Kinotta can open. Four more teach Claude's skill to build a whole talking-video reel and revise it from your comments.</p>
+  <p>You can start two of them today. You need to make three decisions first, and each comes with my recommendation.</p>
+
+  <h2>The gap in one picture</h2>
+  <p>motion-broll makes <strong>one web page per animation</strong>. A Kinotta version is <strong>one page for the whole video</strong>, with each animation as a timed scene. motion-broll's engine assumes one animation per page: it uses fixed element names and a single page-wide <code>seek</code>. So a reel page can't just be the clips pasted together.</p>
+  <figure>
+    <svg viewBox="0 0 680 190" role="img" aria-labelledby="gap-t">
+      <title id="gap-t">Today motion-broll builds three separate clip pages, 01, 02 and 03. Kinotta needs one reel page where each clip is a scene placed at its moment on the video's timeline.</title>
+      <g font-family="Outfit, Segoe UI, sans-serif" font-size="13">
+        <text x="10" y="18" fill="oklch(.640 .008 106)">motion-broll today</text>
+        <rect x="10" y="32" width="64" height="44" fill="oklch(.214 .005 90)"/><text x="24" y="59" fill="oklch(.945 .004 106)">01.html</text>
+        <rect x="84" y="32" width="64" height="44" fill="oklch(.214 .005 90)"/><text x="98" y="59" fill="oklch(.945 .004 106)">02.html</text>
+        <rect x="158" y="32" width="64" height="44" fill="oklch(.214 .005 90)"/><text x="172" y="59" fill="oklch(.945 .004 106)">03.html</text>
+        <text x="10" y="100" fill="oklch(.640 .008 106)" font-size="12">each its own page, own seek(t)</text>
+
+        <text x="300" y="18" fill="oklch(.640 .008 106)">Kinotta needs: one reel page</text>
+        <rect x="300" y="32" width="370" height="44" fill="oklch(.150 .003 106)" stroke="oklch(.945 .004 106 / .24)"/>
+        <rect x="318" y="42" width="60" height="24" fill="oklch(.214 .005 90)"/><text x="332" y="59" fill="oklch(.945 .004 106)">01</text>
+        <rect x="430" y="42" width="110" height="24" fill="oklch(.214 .005 90)" stroke="oklch(.84 .11 225)"/><text x="444" y="59" fill="oklch(.84 .11 225)">02 panel</text>
+        <rect x="590" y="42" width="44" height="24" fill="oklch(.214 .005 90)"/><text x="602" y="59" fill="oklch(.945 .004 106)">03</text>
+        <line x1="300" y1="96" x2="670" y2="96" stroke="oklch(.945 .004 106 / .24)"/>
+        <text x="300" y="114" fill="oklch(.640 .008 106)" font-size="12">the video's timeline: each clip sits at the moment it covers</text>
+        <path d="M232 54 H290" stroke="oklch(.640 .008 106)" stroke-width="1.4" fill="none"/>
+        <path d="M284 49 L291 54 L284 59" stroke="oklch(.640 .008 106)" stroke-width="1.4" fill="none"/>
+        <text x="300" y="150" fill="oklch(.820 .007 106)" font-size="12">A panel clip is see-through, so the speaker shows around it.</text>
+        <text x="300" y="170" fill="oklch(.820 .007 106)" font-size="12">Ticket 3 builds this page.</text>
+      </g>
+    </svg>
+  </figure>
+
+  <h2>What waits on what</h2>
+  <figure>
+    <svg viewBox="0 0 750 290" role="img" aria-labelledby="graph-t">
+      <title id="graph-t">Dependency graph. Ticket 1 leads to 2, 2 to 3, 3 to 4 and to 6. Ticket 5 also leads to 6. 6 leads to 7. Tickets 4 and 7 both lead to 8, the real run with you. Tickets 1 and 5 can start now.</title>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="oklch(.640 .008 106)"/></marker>
+      </defs>
+      <g font-family="Outfit, Segoe UI, sans-serif" font-size="12">
+        <text x="10" y="18" fill="oklch(.640 .008 106)">motion-broll (T11)</text>
+        <text x="10" y="186" fill="oklch(.640 .008 106)">Claude's skill (T16)</text>
+
+        <g fill="none" stroke="oklch(.640 .008 106)" stroke-width="1.3" marker-end="url(#ar)">
+          <path d="M110 57 H133"/><path d="M235 57 H258"/><path d="M360 57 H383"/>
+          <path d="M340 84 L400 197"/>
+          <path d="M110 227 H383"/>
+          <path d="M485 227 H508"/>
+          <path d="M485 57 L640 113"/>
+          <path d="M610 227 L645 172"/>
+        </g>
+
+        <rect x="10" y="30" width="100" height="54" fill="oklch(.214 .005 90)" stroke="oklch(.84 .11 225)" stroke-width="1.4"/>
+        <text x="20" y="50" fill="oklch(.84 .11 225)" font-family="Doto, monospace" font-weight="800">01</text>
+        <text x="20" y="70" fill="oklch(.945 .004 106)">Save its code</text>
+
+        <rect x="135" y="30" width="100" height="54" fill="oklch(.214 .005 90)"/>
+        <text x="145" y="50" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">02</text>
+        <text x="145" y="70" fill="oklch(.945 .004 106)">One clip opens</text>
+
+        <rect x="260" y="30" width="100" height="54" fill="oklch(.214 .005 90)"/>
+        <text x="270" y="50" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">03</text>
+        <text x="270" y="66" fill="oklch(.945 .004 106)">Many clips,</text>
+        <text x="270" y="79" fill="oklch(.945 .004 106)">one page</text>
+        <text x="330" y="50" fill="oklch(.640 .008 106)">top</text>
+
+        <rect x="385" y="30" width="100" height="54" fill="oklch(.214 .005 90)"/>
+        <text x="395" y="50" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">04</text>
+        <text x="395" y="70" fill="oklch(.945 .004 106)">Real clip in tests</text>
+
+        <rect x="10" y="200" width="100" height="54" fill="oklch(.214 .005 90)" stroke="oklch(.84 .11 225)" stroke-width="1.4"/>
+        <text x="20" y="220" fill="oklch(.84 .11 225)" font-family="Doto, monospace" font-weight="800">05</text>
+        <text x="20" y="240" fill="oklch(.945 .004 106)">Checker</text>
+
+        <rect x="385" y="200" width="100" height="54" fill="oklch(.214 .005 90)"/>
+        <text x="395" y="220" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">06</text>
+        <text x="455" y="220" fill="oklch(.640 .008 106)">top</text>
+        <text x="395" y="240" fill="oklch(.945 .004 106)">v1 from a video</text>
+
+        <rect x="510" y="200" width="100" height="54" fill="oklch(.214 .005 90)"/>
+        <text x="520" y="220" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">07</text>
+        <text x="520" y="240" fill="oklch(.945 .004 106)">Next version</text>
+
+        <rect x="635" y="115" width="105" height="54" fill="oklch(.150 .003 106)" stroke="oklch(.945 .004 106 / .24)" stroke-dasharray="4 3"/>
+        <text x="645" y="135" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">08</text>
+        <text x="645" y="155" fill="oklch(.945 .004 106)">Run with you</text>
+      </g>
+    </svg>
+    <figcaption>Lit borders mark what can start now; the dashed box is yours to do. "top" marks the two hardest tickets.</figcaption>
+  </figure>
+
+  <h2>The tickets</h2>
+  <p class="group">motion-broll learns the Kinotta format (T11)</p>
+  <ol class="tickets">
+    <li class="now"><div class="num">01</div><div class="body">
+      <h3>Save motion-broll's code history</h3>
+      <p>motion-broll lives in <code>~/.agents/skills/motion-broll</code>, which has no git history, so changes to it can't be saved or reviewed. This sets that up. It's the reason T11 was parked.</p>
+      <p class="tags"><span class="now-tag">Can start now</span> · Model <b>small</b> · Needs decision A</p>
+    </div></li>
+    <li><div class="num">02</div><div class="body">
+      <h3>One motion-broll animation opens in Kinotta</h3>
+      <p>The build step wraps a clip as a timed scene and names the parts a reviewer could point at (<code>data-el</code>). One example clip then opens in Kinotta, pins land on its named parts, and <code>kinotta check</code> passes. motion-broll's own video export keeps working.</p>
+      <p class="tags">Waits on 01 · Model <b>mid</b></p>
+    </div></li>
+    <li><div class="num">03</div><div class="body">
+      <h3>Many animations on one reel page</h3>
+      <p>The engine learns to run several clips on one page, and the build step combines a whole plan into one reel page, each clip at its moment. A full example, the six-clip demo motion-broll ships with, opens in Kinotta with see-through panels over the video. This is the hardest ticket, because it changes the engine's core.</p>
+      <p class="tags">Waits on 02 · Model <b>top</b></p>
+    </div></li>
+    <li><div class="num">04</div><div class="body">
+      <h3>A real motion-broll clip in Kinotta's tests</h3>
+      <p>The test project's hand-made panel gets replaced by a real motion-broll clip, and the existing footage tests must still pass.</p>
+      <p class="tags">Waits on 03 · Model <b>mid</b></p>
+    </div></li>
+  </ol>
+
+  <p class="group">Claude's skill learns talking-video reels (T16)</p>
+  <ol class="tickets">
+    <li class="now"><div class="num">05</div><div class="body">
+      <h3>The checker covers talking-video reels</h3>
+      <p><code>kinotta check</code> also catches a missing video file, a broken transcript, or a shot with no type or spoken line, so Claude finds those mistakes before you do.</p>
+      <p class="tags"><span class="now-tag">Can start now</span> · Model <b>mid</b></p>
+    </div></li>
+    <li><div class="num">06</div><div class="body">
+      <h3>Build version 1 from a video</h3>
+      <p>Claude transcribes the video (or uses your subtitle file), splits it into sections by topic, plans the animations with motion-broll's rules, builds them, and puts them together as v1.</p>
+      <p class="tags">Waits on 03 and 05 · Model <b>top</b> · Needs decisions B and C</p>
+    </div></li>
+    <li><div class="num">07</div><div class="body">
+      <h3>Next version from your comments</h3>
+      <p>When you hand over one section's comments, Claude rebuilds only that section, leaves the rest untouched, and answers each comment in <code>answers.md</code>.</p>
+      <p class="tags">Waits on 06 · Model <b>mid</b></p>
+    </div></li>
+    <li><div class="num">08</div><div class="body">
+      <h3>A real run with you</h3>
+      <p>On one of your talking videos: review a section, hand it off, and check that v2 changed only that section and kept your unsent comments.</p>
+      <p class="tags">Waits on 04 and 07 · Yours to do</p>
+    </div></li>
+  </ol>
+
+  <h2>Three decisions for you</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Decision</th><th>I recommend</th><th>The other way</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>A. Where motion-broll's code history lives</td><td class="rec">Its own private GitHub repo, linked into the skills folder like Kinotta's skill</td><td>Saved history on this computer only</td><td>A backup off the machine, and changes can be reviewed the same way as Kinotta's</td></tr>
+      <tr><td>B. Real animations in version 1</td><td class="rec">Yes. Kinotta shows a still of each shot until the Review phase plays them</td><td>Placeholder still pictures first, as code-only reels do</td><td>A motion-broll clip is its motion; a still stand-in would be thrown away</td></tr>
+      <tr><td>C. Approving the plan in chat first</td><td class="rec">Skip it when the request comes through Kinotta</td><td>Keep motion-broll's chat approval step</td><td>You review v1 in Kinotta anyway, so a chat approval is a second review of the same thing</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">Decision B makes an exception to the "versions stay unanimated" rule (K9), for talking-video reels only. Kinotta still can't play motion; you'd see stills until Review.</div>
+
+  <h2>After you approve</h2>
+  <p>The tickets go into <code>docs/tickets.md</code> and onto GitHub as sub-issues of T11 (#13) and T16 (#18), labelled <code>ready-for-agent</code>. Nothing is published until you say so.</p>
+
+  <hr style="border:0;border-top:1px solid var(--rule);margin:40px 0">
+  <p class="fact">Checked in the files: motion-broll's engine runs one clip per page (fixed element ids, one page-wide <code>seek</code>, in <code>engine/motion.js</code>); its preview loop switches off when the page address contains <code>?render</code>, which Kinotta already adds; <code>~/.agents/skills/motion-broll</code> is not a git repository; Kinotta's footage tests already cover a panel over video, word pins and section batches, using a hand-made panel. Not yet known: how much engine rework ticket 3 takes, until it starts.</p>
+</main>
+</body>
+</html>
