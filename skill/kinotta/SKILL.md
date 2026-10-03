@@ -171,6 +171,9 @@ footage. Its clips are built with the motion engine, which is part of this skill
   in `engine/fonts/OFL-Geist.txt`; keep it beside them.
 - `examples/opus-aoe2/`: six finished clips, the quality bar.
 
+On a footage reel, `kinotta check` also reports the footage file, the transcript and each shot's type
+and spoken line (codes in `reference/contract.md`); it must pass before a footage version is ready.
+
 The rules for turning clips into a Kinotta version (transcript, sections, shot list, one composed
 page) are not written yet. Until they are, tell the owner that footage reels can't be built for
 Kinotta yet, and don't build one.

@@ -363,9 +363,9 @@ Part of T16 (#18).
 
 **Acceptance criteria:**
 
-- [ ] Each footage problem prints on its own line with its code, with a test for each
-- [ ] The footage sample passes
-- [ ] Code-only reels are checked as before
+- [x] Each footage problem prints on its own line with its code, with a test for each
+- [x] The footage sample passes
+- [x] Code-only reels are checked as before
 
 **Blocked by:** none
 

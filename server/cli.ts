@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { openProject } from './core/index.ts';
+import { openProject, type ContractIssue, type Version } from './core/index.ts';
 import { DEFAULT_PORT, startServer } from './main.ts';
 
 const CHECK_COMMAND = 'kinotta check <reel> [version]';
@@ -39,7 +39,35 @@ function openBrowser(url: string): void {
   child.unref();
 }
 
-/** `kinotta check <reel> [version]` (K7): prints a version's static contract issues, one per line. Exit 1 on any. */
+const SHOT_TYPES = ['cutaway', 'panel'];
+
+/**
+ * What a footage reel needs beyond the timing contract (T22), with the `code` each reports under:
+ *
+ *   footage-missing  the footage file reel.json names is not in the project
+ *   transcript       transcript.json is missing or not valid
+ *   shot-type        a shot's type is not cutaway or panel
+ *   no-spoken-line   a shot has no line, or its line holds no transcript words
+ */
+function footageIssues(version: Version): ContractIssue[] {
+  if (!version.footage) return [];
+  const issues: ContractIssue[] = [];
+  if (!version.footage.exists) {
+    issues.push({ code: 'footage-missing', message: `footage file ${version.footage.path} not found` });
+  }
+  if (version.transcriptProblem) issues.push({ code: 'transcript', message: version.transcriptProblem });
+  for (const shot of version.shots) {
+    if (!SHOT_TYPES.includes(shot.type ?? '')) {
+      issues.push({ code: 'shot-type', shot: shot.number, message: `shots.json: shot ${shot.number} has no type (${SHOT_TYPES.join(' or ')})` });
+    }
+    // With no transcript, only a missing line can be told apart; the transcript issue covers the rest.
+    const silent = !shot.line || (version.transcript !== undefined && !shot.spoken);
+    if (silent) issues.push({ code: 'no-spoken-line', shot: shot.number, message: `shots.json: shot ${shot.number} has no spoken line` });
+  }
+  return issues;
+}
+
+/** `kinotta check <reel> [version]` (K7): prints a version's static contract issues, then a footage reel's footage problems, one per line. Exit 1 on any. */
 async function check(args: string[]): Promise<number> {
   const [slug, versionArg, ...extra] = args;
   const asked = versionArg === undefined ? null : Number(versionArg.replace(/^v/i, ''));
@@ -51,7 +79,8 @@ async function check(args: string[]): Promise<number> {
   try {
     const number = asked ?? (await project.listVersions(slug)).at(-1)?.number;
     if (number === undefined) throw new Error(`Reel "${slug}" has no versions yet.`);
-    const { issues } = await project.readVersion(slug, number);
+    const version = await project.readVersion(slug, number);
+    const issues = [...version.issues, ...footageIssues(version)];
     if (issues.length === 0) {
       console.log(`${slug} v${number}: no contract issues`);
       return 0;

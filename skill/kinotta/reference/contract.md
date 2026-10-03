@@ -115,6 +115,15 @@ The static rules, each with the code it prints in brackets:
 | `no-named-elements` | the scenes covering a shot have no `data-el` |
 | `duplicate-element` | a `data-el` name is used twice in one scene |
 
+On a footage reel (its `reel.json` names footage) it also reports, after those:
+
+| Code | Problem |
+|---|---|
+| `footage-missing` | the footage file `reel.json` names is not in the project |
+| `transcript` | the reel's `transcript.json` is missing or not valid |
+| `shot-type` | a shot's `type` is not `cutaway` or `panel` |
+| `no-spoken-line` | a shot has no `line`, or its `line` holds no transcript words |
+
 The check can't see runtime problems: a missing `window.seek`, a `seek` that throws, or a page that
 draws differently on each load. The editor shows those on the still and in its issue list, so keep
 `seek` simple enough to be right by reading it.

@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { copyFixture } from '../helpers/project.ts';
 
@@ -58,5 +59,92 @@ describe('kinotta check', () => {
 
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('Usage: kinotta check <reel> [version]');
+  });
+});
+
+describe('kinotta check on a footage reel', () => {
+  const REEL = 'founder-talk';
+  const reelPath = (dir: string, ...parts: string[]): string => join(dir, 'reels', REEL, ...parts);
+
+  /** Rewrites one shot of the footage sample's v1 shot list. */
+  function editShot(dir: string, number: string, edit: (shot: Record<string, unknown>) => void): void {
+    const file = reelPath(dir, 'v1', 'shots.json');
+    const shots = JSON.parse(readFileSync(file, 'utf8')) as { shots: Record<string, unknown>[] };
+    edit(shots.shots.find((s) => s.number === number)!);
+    writeFileSync(file, JSON.stringify(shots));
+  }
+
+  /** The issue lines of a run, after the summary line. */
+  const issueLines = (stdout: string): string[] => stdout.trim().split('\n').slice(1);
+
+  it('passes the footage sample', () => {
+    const run = check(copyFixture('footage-project'), [REEL]);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain(`${REEL} v1: no contract issues`);
+  });
+
+  it('reports a missing footage file', () => {
+    const dir = copyFixture('footage-project');
+    rmSync(join(dir, 'media', 'talk.mp4'));
+
+    const run = check(dir, [REEL]);
+
+    expect(run.status).toBe(1);
+    expect(issueLines(run.stdout)).toEqual(['  footage file media/talk.mp4 not found [footage-missing]']);
+  });
+
+  it('reports a missing transcript', () => {
+    const dir = copyFixture('footage-project');
+    rmSync(reelPath(dir, 'transcript.json'));
+
+    const run = check(dir, [REEL]);
+
+    expect(run.status).toBe(1);
+    expect(issueLines(run.stdout)).toEqual([expect.stringMatching(/no transcript\.json.*\[transcript\]$/)]);
+  });
+
+  it('reports an unreadable transcript', () => {
+    const dir = copyFixture('footage-project');
+    writeFileSync(reelPath(dir, 'transcript.json'), '{ "words": [ { "text": "hi" } ] }');
+
+    const run = check(dir, [REEL]);
+
+    expect(run.status).toBe(1);
+    expect(issueLines(run.stdout)).toEqual([expect.stringMatching(/transcript\.json is not valid.*\[transcript\]$/)]);
+  });
+
+  it('reports a shot with no type', () => {
+    const dir = copyFixture('footage-project');
+    editShot(dir, '02', (shot) => delete shot.type);
+
+    const run = check(dir, [REEL]);
+
+    expect(run.status).toBe(1);
+    expect(issueLines(run.stdout)).toEqual(['  shots.json: shot 02 has no type (cutaway or panel) [shot-type]']);
+  });
+
+  it('reports a shot with no spoken line, whether it has no line or its line holds no words', () => {
+    const dir = copyFixture('footage-project');
+    editShot(dir, '01', (shot) => delete shot.line);
+    editShot(dir, '03', (shot) => (shot.line = { start: 20, end: 21 }));
+
+    const run = check(dir, [REEL]);
+
+    expect(run.status).toBe(1);
+    expect(issueLines(run.stdout)).toEqual([
+      '  shots.json: shot 01 has no spoken line [no-spoken-line]',
+      '  shots.json: shot 03 has no spoken line [no-spoken-line]',
+    ]);
+  });
+
+  it('lists footage problems after the timing contract issues', () => {
+    const dir = copyFixture('footage-project');
+    editShot(dir, '02', (shot) => delete shot.title);
+    rmSync(join(dir, 'media', 'talk.mp4'));
+
+    const lines = issueLines(check(dir, [REEL]).stdout);
+
+    expect(lines.map((l) => l.match(/\[(.+)\]$/)?.[1])).toEqual(['shot-field', 'footage-missing']);
   });
 });
