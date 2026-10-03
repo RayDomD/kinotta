@@ -1,6 +1,9 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { openProject } from './core/index.ts';
 import { DEFAULT_PORT, startServer } from './main.ts';
+
+const CHECK_USAGE = 'Usage: kinotta check <reel> [version]';
 
 interface CliOptions {
   projectDir: string;
@@ -15,7 +18,7 @@ function parseArgs(argv: string[]): CliOptions {
     if (arg === '--no-open') options.open = false;
     else if (arg === '--project') options.projectDir = resolve(argv[++i] ?? '');
     else if (arg === '--port') options.port = Number(argv[++i]);
-    else throw new Error(`Unknown option ${arg}. Usage: kinotta [--project <dir>] [--port <n>] [--no-open]`);
+    else throw new Error(`Unknown option ${arg}. Usage: kinotta [--project <dir>] [--port <n>] [--no-open], or kinotta check <reel> [version]`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535) {
     throw new Error('--port needs a number from 0 to 65535');
@@ -35,7 +38,37 @@ function openBrowser(url: string): void {
   child.unref();
 }
 
+/** `kinotta check <reel> [version]` (K7): prints a version's static contract issues, one per line. Exit 1 on any. */
+async function check(args: string[]): Promise<number> {
+  const [slug, versionArg, ...extra] = args;
+  const asked = versionArg === undefined ? null : Number(versionArg.replace(/^v/i, ''));
+  if (slug === undefined || extra.length > 0 || (asked !== null && !(Number.isInteger(asked) && asked > 0))) {
+    console.error(CHECK_USAGE);
+    return 1;
+  }
+  const project = openProject(process.cwd());
+  try {
+    const number = asked ?? (await project.listVersions(slug)).at(-1)?.number;
+    if (number === undefined) throw new Error(`Reel "${slug}" has no versions yet.`);
+    const { issues } = await project.readVersion(slug, number);
+    if (issues.length === 0) {
+      console.log(`${slug} v${number}: no contract issues`);
+      return 0;
+    }
+    console.log(`${slug} v${number}: ${issues.length} contract ${issues.length === 1 ? 'issue' : 'issues'}`);
+    for (const issue of issues) console.log(`  ${issue.message} [${issue.code}]`);
+    return 1;
+  } catch (err) {
+    console.error((err as Error).message);
+    return 1;
+  }
+}
+
 export async function main(argv: string[]): Promise<void> {
+  if (argv[0] === 'check') {
+    process.exitCode = await check(argv.slice(1));
+    return;
+  }
   let options: CliOptions;
   try {
     options = parseArgs(argv);
