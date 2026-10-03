@@ -14,13 +14,38 @@
       }
     },
     {
-      "number": "02",
+      "number": "02a",
+      "clip": "02",
       "start": 7.75,
-      "title": "Folder → Claude Code → four builds → cost, time, tokens",
+      "title": "Folder → Claude Code",
       "description": "Engine clip 02 from the bundled example.",
       "type": "panel",
       "line": {
         "start": 6.75,
+        "end": 11.75
+      }
+    },
+    {
+      "number": "02b",
+      "clip": "02",
+      "start": 12.75,
+      "title": "Four builds",
+      "description": "Engine clip 02 from the bundled example.",
+      "type": "panel",
+      "line": {
+        "start": 11.75,
+        "end": 16.75
+      }
+    },
+    {
+      "number": "02c",
+      "clip": "02",
+      "start": 17.75,
+      "title": "Cost, time, tokens",
+      "description": "Engine clip 02 from the bundled example.",
+      "type": "panel",
+      "line": {
+        "start": 16.75,
         "end": 22.5
       }
     },

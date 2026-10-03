@@ -8,4 +8,5 @@ at test time by `buildBrollProject` (`tests/helpers/engine.ts`), not committed:
 
 `transcript.json` is synthetic: each clip's quoted line from `plan.json`, its words spread evenly over
 the clip's span. `shots.json` has one shot per clip, one second after its in-point: a clip opens on an empty canvas while
-its shape pops in, so a still at the in-point shows nothing.
+its shape pops in, so a still at the in-point shows nothing. Clip 02 is split into three states (`02a` to `02c`, each with
+`"clip": "02"`), as `shots.py` writes a clip with `stills`.

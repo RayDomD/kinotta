@@ -95,9 +95,9 @@ test.describe('the six-clip example in Kinotta', () => {
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Storyboard, v1');
     const shots = page.locator('.grid .shot');
-    await expect(shots).toHaveCount(6);
+    await expect(shots).toHaveCount(8);
     await expect(page.getByText(/contract issue/i)).toHaveCount(0);
-    for (const number of ['01', '02', '03', '04', '05', '06']) {
+    for (const number of ['01', '02a', '02b', '02c', '03', '04', '05', '06']) {
       const still = card(page, number).locator('.still');
       await still.scrollIntoViewIfNeeded();
       await expect(still).toHaveAttribute('data-state', 'ready');
@@ -106,9 +106,41 @@ test.describe('the six-clip example in Kinotta', () => {
     }
   });
 
+  test('a card that is one state of its clip says which part it is', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(card(page, '02b').locator('.part')).toHaveText('2 of 3');
+    await expect(card(page, '02b').locator('.part i.on')).toHaveCount(1);
+    await expect(card(page, '02b').locator('.part i').nth(1)).toHaveClass(/on/);
+    await expect(card(page, '01').locator('.part')).toHaveCount(0);
+  });
+
+  test("the enlarged state shows its clip's states under the frame, and clicking one opens it", async ({ page }) => {
+    await page.goto('/');
+    await card(page, '02b').getByRole('button').click();
+    const sheet = page.getByRole('dialog');
+    const states = sheet.getByRole('group', { name: 'States of clip 02' });
+
+    await expect(states.getByRole('button')).toHaveText(['02a Folder → Claude Code', '02b Four builds', '02c Cost, time, tokens']);
+    await expect(states.getByRole('button', { name: /^02b / })).toHaveAttribute('aria-current', 'true');
+    // Between the frame and the element chips.
+    const order = await sheet.evaluate((el) => [...el.querySelectorAll('.well, .states, .pinrow')].map((n) => n.className.split(' ')[0]));
+    expect(order).toEqual(['well', 'states', 'pinrow']);
+
+    await states.getByRole('button', { name: /^02c / }).click();
+    await expect(sheet.locator('.lbl .dot')).toHaveText('02c');
+    await expect(states.getByRole('button', { name: /^02c / })).toHaveAttribute('aria-current', 'true');
+
+    // Arrow keys still step through every shot, out of the clip too.
+    await sheet.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(sheet.locator('.lbl .dot')).toHaveText('03');
+    await expect(sheet.locator('.states')).toHaveCount(0);
+  });
+
   test('the panel still shows the footage around the clip', async ({ page }) => {
     await page.goto('/');
-    const still = card(page, '02').locator('.still');
+    const still = card(page, '02a').locator('.still');
     await still.scrollIntoViewIfNeeded();
     await expect(still).toHaveAttribute('data-state', 'ready');
     await expect(still.locator('video')).toHaveAttribute('data-footage', 'ready');

@@ -105,7 +105,12 @@ input { font: inherit; color: inherit; cursor: text; }
 .secs .n { font: 800 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--muted); padding-top: 3px; }
 .secs .nm { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .secs .sub { grid-column: 2; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.secs .pins-badge { margin-left: 0; }
+.secs /* a card that is one state of its clip (stills-per-clip mockup, grid B): which part of the clip it is */
+.part { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 12px; color: var(--muted); }
+.part i { width: 18px; height: 3px; background: var(--hairline); }
+.part i:last-of-type { margin-right: 5px; }
+.part i.on { background: var(--light); }
+.pins-badge { margin-left: 0; }
 .waiting { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); }
 .waiting svg { width: 10px; height: 10px; }
 .head .waiting { margin-left: 4px; }
@@ -293,6 +298,20 @@ input { font: inherit; color: inherit; cursor: text; }
 .draft-cancel { font-size: 13px; color: var(--muted); padding: 2px 4px; transition: color var(--t-color) var(--ease); }
 .draft-cancel:hover:not(:disabled) { color: var(--ink); }
 .draft-error { flex-basis: 100%; margin-top: 0; font-size: 13px; color: var(--ink-2); }
+/* the clip's states under the frame (stills-per-clip mockup, sheet Y): each a small still with its label, the label button stretched over both */
+.states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
+.states .label { align-self: center; margin-right: 4px; font-size: 13px; color: var(--muted); }
+.state { position: relative; width: 132px; }
+.state .still { border: 1.2px solid var(--hairline); opacity: .6; transition: opacity var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.state button { display: block; width: 100%; margin-top: 4px; text-align: left; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--t-color) var(--ease); }
+.state button::after { content: ""; position: absolute; inset: 0; }
+.state button:focus-visible { outline: none; }
+.state:has(button:focus-visible) { outline: 1.6px solid var(--ink); outline-offset: 3px; }
+.state .dot { font: 800 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--light); }
+.state:hover .still { opacity: 1; }
+.state:hover button { color: var(--ink); }
+.state.on .still { opacity: 1; border-color: var(--light); box-shadow: 0 0 0 1px var(--light); }
+.state.on button { color: var(--ink); }
 .pinrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
 .pinrow .label { margin-right: 4px; }
 .chip { font-size: 13px; padding: 2px 9px; color: var(--ink-2); border: 1.2px solid var(--hairline); transition: color var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }

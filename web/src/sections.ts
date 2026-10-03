@@ -24,6 +24,13 @@ export function pinCount(count: number): string {
   return `${count} ${count === 1 ? 'pin' : 'pins'}`;
 }
 
+/** The states of the shot's clip, in order, when its clip changes state; empty when the shot is the whole clip. */
+export function clipStates(shots: Shot[], shot: Shot): Shot[] {
+  if (shot.clip === undefined) return [];
+  const states = shots.filter((s) => s.clip === shot.clip);
+  return states.length > 1 ? states : [];
+}
+
 /** Pins per section, counted in one place: a pin belongs to the section of its shot. */
 export function pinCounts(comments: Comment[], shots: Shot[]): Map<string, number> {
   const sectionOfShot = new Map(shots.map((shot) => [shot.number, shot.section]));

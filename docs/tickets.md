@@ -419,3 +419,21 @@ Part of T16 (#18).
 **Blocked by:** #24 (T21), #27 (T24)
 
 **Model:** owner
+
+## T26. States per clip
+
+Decision K15. Mockup: `docs/mockups/2026-10-04-stills-per-clip.html` (grid B, sheet Y). No GitHub issue yet.
+
+**What to build:** A footage clip with `stills` in the plan gets one shot per state (`05a`, `05b`, …, each with `"clip": "05"`). The grid card shows which part of its clip a shot is ("2 of 3"); the enlarged shot shows a strip of the clip's states under the frame, and clicking one opens it. Arrow keys still step through every shot.
+
+**Acceptance criteria:**
+
+- [ ] `shots.py` writes one shot per state, with its still, spoken line and clip; a clip without `stills` is unchanged
+- [ ] Shots split this way pass `kinotta check`
+- [ ] The grid card shows "n of m" for a clip's states
+- [ ] The enlarged shot shows the clip's states and switches to the one clicked
+- [ ] Skill rules say when to split a clip and how a batch maps `05b` back to clip 05
+
+**Blocked by:** none
+
+**Model:** `mid`

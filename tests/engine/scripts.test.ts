@@ -97,6 +97,47 @@ describe('shots.py', () => {
     expect(shots.map((s) => s.number)).toEqual(['01', '03', '02']);
   });
 
+  it('writes one shot per state of a clip with stills, each with its clip, still and spoken span', () => {
+    const dir = temp();
+    const plan = {
+      duration: 30,
+      sections: [{ id: 'intro', name: 'Intro', start: 0, end: 30 }],
+      clips: [
+        { id: '01', title: 'One state', in: 0, out: 3, kind: 'panel', section: 'intro' },
+        {
+          id: '02', title: 'StudyBuddy', in: 10, out: 26, kind: 'full', section: 'intro', still: 1.5,
+          stills: [{ from: 0, title: 'StudyBuddy' }, { from: 8, title: 'Schema' }, { from: 15, title: 'Data integrity' }],
+        },
+      ],
+    };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    expect(run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json')]).status).toBe(0);
+    const { shots } = json(join(dir, 'shots.json')) as { shots: Array<Record<string, unknown>> };
+
+    expect(shots.map((s) => s.number)).toEqual(['01', '02a', '02b', '02c']);
+    expect(shots[0]).not.toHaveProperty('clip');
+    expect(shots[1]).toMatchObject({ clip: '02', title: 'StudyBuddy', start: 11.5, line: { start: 10, end: 18 } });
+    expect(shots[2]).toMatchObject({ clip: '02', title: 'Schema', start: 19, line: { start: 18, end: 25 }, type: 'cutaway', section: 'intro' });
+    // The last state runs one second to the clip's end, so its still sits half way.
+    expect(shots[3]).toMatchObject({ clip: '02', title: 'Data integrity', start: 25.5, line: { start: 25, end: 26 } });
+  });
+
+  it('stops on stills that do not start at 0 or are out of order', () => {
+    const dir = temp();
+    const plan = {
+      duration: 20,
+      sections: [{ id: 'a', name: 'A', start: 0, end: 20 }],
+      clips: [{ id: '01', title: 'x', in: 0, out: 10, kind: 'full', section: 'a', stills: [{ from: 2, title: 'late' }, { from: 1, title: 'early' }] }],
+    };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    const result = run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json')]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('clip 01: "stills" must start at 0');
+  });
+
   it('stops on a clip with no section', () => {
     const dir = temp();
     const plan = { duration: 5, sections: [{ id: 'a', name: 'A', start: 0, end: 5 }], clips: [{ id: '01', title: 'x', in: 0, out: 2, kind: 'full' }] };

@@ -234,13 +234,20 @@ built page and the shot list go in the version.
    what is illustrative. `still` (optional, seconds into the clip, default 1) is where the shot's
    still is drawn: a clip opens on an empty canvas while its shape pops in, so put it where the clip
    has settled.
+   `stills` (optional) gives a clip that changes state one shot per state, so the owner can see and pin
+   each: `"stills": [{ "from": 0, "title": "StudyBuddy" }, { "from": 8.0, "title": "Schema" }]`, where
+   `from` is the clip-local second the state begins (its morph), the first at 0. Give a state to each
+   settled change, at most one per ~4 s and at most 4 per clip; a short clip keeps one shot and no
+   `stills`. Each state's title says what it shows. Check each state's still (1 s into it) with
+   `engine/beats.js` too.
 8. **Build the clips** in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
    1920x1080 whatever the video's size, since Kinotta draws every page in that frame; map a speaker box
    from `video.json` to that frame before keeping a panel clear of it. Check stills on the key words
    with `engine/beats.js`, including each clip's `still` time, and fix what is cramped or off-word.
 9. **Compose v1**: `python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v1/index.html`.
 10. **Write the shot list last**: `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v1/shots.json`.
-    One shot per clip, with its section, type (`cutaway` or `panel`) and spoken line.
+    One shot per clip, or per state of a clip with `stills` (`05a`, `05b`, … with `"clip": "05"`),
+    with its section, type (`cutaway` or `panel`) and spoken line.
 11. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
     list again, and repeat until it is clean.
 12. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is
@@ -262,7 +269,8 @@ before, and moves unsent comments on unchanged sections forward by itself.
    with `reels/<slug>/v<n>/index.html`. If they differ, the sources changed since `v<n>`: stop and ask.
 3. **Answer each comment in the batch's section only.** Edit only the clips whose `section` is the
    batch's (their fragments in `motion/clips/` and their entries in `motion/plan.json`). The shot
-   number is the clip's `id`. By pin kind:
+   number is the clip's `id`; a state's number (`05b`) is its clip's `id` plus a letter, so the comment
+   is about clip 05 in that state (its `stills` entry gives the clip-local time). By pin kind:
    - **Element pin** (`element` set): change that element of that clip. The name is the element's `id`;
      keep it for the same thing.
    - **Position pin** (`element` null, `x` and `y` as fractions of the frame): on a panel shot the point

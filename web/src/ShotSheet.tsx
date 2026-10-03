@@ -2,7 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import type { Comment, NewComment, Shot, TranscriptWord } from './api/index.ts';
 import { ShotKind, ShotLine, WordRow, isWordComment, wordLabel } from './Transcript.tsx';
-import { PinFrame } from './stage/index.ts';
+import { PageStill, PinFrame } from './stage/index.ts';
+import { clipStates } from './sections.ts';
 import type { FrameElement, FramePick, FramePin } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 
@@ -189,6 +190,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   );
   const wordPins = pins.filter(isWordComment);
   const timecode = formatTimecode(shot.start);
+  const states = clipStates(shots, shot);
   const where = draft?.element ?? 'this position';
   const openDraft = readOnly ? null : draft;
   const openWordDraft = readOnly ? null : wordDraft;
@@ -240,6 +242,19 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
             pins={framePins}
           />
         </div>
+        {states.length > 0 && (
+          <div className="states" role="group" aria-label={`States of clip ${shot.clip}`}>
+            <span className="label">{`Clip ${shot.clip} · ${states[0]!.title}`}</span>
+            {states.map((s) => (
+              <div key={s.number} className={s === shot ? 'state on' : 'state'}>
+                <PageStill pageUrl={pageUrl} time={s.start} title={`Shot ${s.number} still`} footageUrl={s.type === 'panel' ? footage : undefined} unavailable={unavailable?.get(s.number)} />
+                <button type="button" aria-current={s === shot ? 'true' : undefined} onClick={() => onStep(shots.indexOf(s))}>
+                  <span className="dot">{s.number}</span> {s.title}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {readOnly ? (
           <p className="pinrow meta">{readOnlyNote}</p>
         ) : (

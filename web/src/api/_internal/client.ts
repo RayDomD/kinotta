@@ -26,6 +26,8 @@ export interface Shot {
   section?: string;
   type?: 'cutaway' | 'panel';
   line?: { start: number; end: number };
+  /** Set when the shot is one state of a clip that changes (05a, 05b, …): the clip's number. */
+  clip?: string;
   /** Footage reels with a transcript: the words spoken over the shot, and the same words joined. */
   words?: TranscriptWord[];
   spoken?: string;
