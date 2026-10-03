@@ -78,6 +78,25 @@ describe('shots.py', () => {
     expect(file.shots[1]).toMatchObject({ number: '02', start: 10.5, type: 'panel', description: 'A pill pops in.', section: 'intro' });
   });
 
+  it('lists shots in time order when a later-numbered clip comes earlier, as a batch adds them', () => {
+    const dir = temp();
+    const plan = {
+      duration: 30,
+      sections: [{ id: 'a', name: 'A', start: 0, end: 30 }],
+      clips: [
+        { id: '01', title: 'First', in: 0, out: 5, kind: 'full', section: 'a' },
+        { id: '02', title: 'Third', in: 20, out: 25, kind: 'full', section: 'a' },
+        { id: '03', title: 'Added between', in: 10, out: 15, kind: 'panel', section: 'a' },
+      ],
+    };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    expect(run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json')]).status).toBe(0);
+    const { shots } = json(join(dir, 'shots.json')) as { shots: Array<{ number: string }> };
+
+    expect(shots.map((s) => s.number)).toEqual(['01', '03', '02']);
+  });
+
   it('stops on a clip with no section', () => {
     const dir = temp();
     const plan = { duration: 5, sections: [{ id: 'a', name: 'A', start: 0, end: 5 }], clips: [{ id: '01', title: 'x', in: 0, out: 2, kind: 'full' }] };

@@ -15,7 +15,8 @@ def shots(plan):
         if key not in plan: sys.exit(f'plan.json has no "{key}"')
     ids = {s['id'] for s in plan['sections']}
     out = []
-    for c in plan['clips']:
+    # In time order, since Kinotta runs each shot to the next one's start; a batch's new clip can come earlier.
+    for c in sorted(plan['clips'], key=lambda c: c['in']):
         if c.get('section') not in ids: sys.exit(f'clip {c["id"]}: "section" must be one of {sorted(ids)}')
         if c['kind'] not in TYPES: sys.exit(f'clip {c["id"]}: kind must be full or panel')
         still = min(c.get('still', DEFAULT_STILL), (c['out'] - c['in']) / 2)
