@@ -28,6 +28,28 @@ your comments.
 This works because every version follows a **timing contract**: timed scenes, named elements, and a
 jump to any second. See [ADR 0001](docs/adr/0001-timing-contract.md).
 
+## Install
+
+Run these in this repo once (Node 20 or later):
+
+```
+npm install
+npm link
+npm run install-skill
+```
+
+`npm link` puts the `kinotta` command on your PATH. Open a new terminal afterwards so it is found.
+`npm run install-skill` links the skill in [`skill/kinotta/`](skill/kinotta/SKILL.md) into
+`~/.agents/skills/kinotta`, and that folder into `~/.claude/skills/kinotta` where Claude Code finds
+it. Both are Windows junctions (symlinks elsewhere), so editing the skill here updates it everywhere.
+
+Then, inside any project:
+
+- Ask Claude for a reel. The skill writes `reels/brand.md` on first use and stops for you to check it.
+- `kinotta` opens the editor on the project's `reels/` folder.
+- `kinotta check <reel> [version]` prints a version's contract issues and exits non-zero when there
+  are any. Claude runs it before saying a version is ready.
+
 ## Screens
 
 ### Pin the element, not just the pixel
