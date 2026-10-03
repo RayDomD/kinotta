@@ -2,7 +2,7 @@
 
 Every version is one HTML page the editor controls through time (ADR 0001 in the Kinotta repo).
 The editor loads `v<n>/index.html?render` in a 1920x1080 frame, calls `seek(t)` for each shot's
-start, waits two animation frames, and shows the result as that shot's still. A click on a still
+start, waits two animation frames (or 500ms, whichever comes first), and shows the result as that shot's still. A click on a still
 lands on the `data-el` element under it.
 
 ## Folder layout
@@ -34,7 +34,9 @@ reels/
   `data-el="<name>"`, unique within its scene. Every scene that covers a shot needs at least one.
 - **`window.seek(seconds)`.** A global function that shows the page exactly as it is at that
   second. It may return a promise. It must not throw for any time from 0 to the duration.
-- **`window.DURATION`.** The reel's length in seconds, equal to `duration` in `shots.json`.
+- **`window.DURATION`.** The reel's length in seconds, equal to `duration` in `shots.json`. The
+  editor doesn't read it yet (it takes the length from `shots.json`); set it anyway so the page
+  states its own length for the later render.
 - **Deterministic.** The same `t` gives the same frame on every call and every load: no
   `Math.random()` without a fixed seed, no `Date.now()`, no network requests. Fonts and images
   load from `assets/` with relative paths; wait for them (`document.fonts.ready`) inside `seek` if

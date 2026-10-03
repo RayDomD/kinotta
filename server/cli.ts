@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { openProject } from './core/index.ts';
 import { DEFAULT_PORT, startServer } from './main.ts';
 
-const CHECK_USAGE = 'Usage: kinotta check <reel> [version]';
+const CHECK_COMMAND = 'kinotta check <reel> [version]';
+const CHECK_USAGE = `Usage: ${CHECK_COMMAND}`;
 
 interface CliOptions {
   projectDir: string;
@@ -18,7 +19,7 @@ function parseArgs(argv: string[]): CliOptions {
     if (arg === '--no-open') options.open = false;
     else if (arg === '--project') options.projectDir = resolve(argv[++i] ?? '');
     else if (arg === '--port') options.port = Number(argv[++i]);
-    else throw new Error(`Unknown option ${arg}. Usage: kinotta [--project <dir>] [--port <n>] [--no-open], or kinotta check <reel> [version]`);
+    else throw new Error(`Unknown option ${arg}. Usage: kinotta [--project <dir>] [--port <n>] [--no-open], or ${CHECK_COMMAND}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535) {
     throw new Error('--port needs a number from 0 to 65535');

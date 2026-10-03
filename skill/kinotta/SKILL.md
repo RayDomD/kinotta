@@ -118,13 +118,19 @@ Saved as reels/brand-intro/v1/comments.json
 
 Notes
 - Shorter overall
+
+Contract issues
+- shot 04: starts at 9s but no scene covers that time
 ```
 
-1. **Read the batch file** named on the `Saved as` line. It holds each comment's shot, time,
-   element (or position as fractions of the frame), and the notes. On a reel with sections the file
+1. **Read the batch file** named on the `Saved as` line. It holds each comment's shot, time and
+   target, the notes, and, when the owner included them, the contract `issues`. A comment's target
+   is an `element` name, or a position (`x`, `y` as fractions of the frame) when `element` is null.
+   On a footage reel it can be a `word` of the transcript instead. On a reel with sections the file
    is `comments-<section>.json` and the batch covers that section only.
 2. **Confirm `v<n>` is the newest version.** If `v<n+1>` already exists, stop and ask.
-3. **Read the taste lists and the brand file** as in section 3 (brand file must be checked).
+3. **Check the brand file as in section 2.** If it says `checked: no`, ask instead of building.
+   Then read the taste lists and the brand sources as in section 3.
 4. **Copy** `reels/<slug>/v<n>/` to `reels/<slug>/v<n+1>/`, leaving out `shots.json`,
    `answers.md` and every `comments*.json`. Never write into `v<n>`.
 5. **Edit `v<n+1>`** to answer each comment and note. Keep `data-scene` and `data-el` names for
@@ -144,6 +150,7 @@ Notes
    ```
 
    Each entry starts with **Done**, **Partly done** or **Not done**, and the last two give the reason.
+   Fix every listed contract issue too, and add a line for each under `Contract issues`.
 7. **Write `v<n+1>/shots.json` last**, with the updated shots, and `changedSections` listing the ids
    of the sections you changed (a reel with no `sections` has one, id `reel`).
 8. **Check it**: `kinotta check <slug>`, fix, repeat until clean.
