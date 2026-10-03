@@ -295,11 +295,11 @@ Part of T11 (#13).
 
 **Acceptance criteria:**
 
-- [ ] The engine, scripts, reference, templates and examples are in the Kinotta skill, with the Geist fonts' OFL notice beside the fonts
-- [ ] The skill's description covers b-roll for review in Kinotta, and the skill points footage requests at the new material
-- [ ] ADR 0001 says the engine is part of Kinotta
-- [ ] The copied engine builds and renders an example clip from its new place
-- [ ] The standalone motion-broll skill is unchanged
+- [x] The engine, scripts, reference, templates and examples are in the Kinotta skill, with the Geist fonts' OFL notice beside the fonts
+- [x] The skill's description covers b-roll for review in Kinotta, and the skill points footage requests at the new material
+- [x] ADR 0001 says the engine is part of Kinotta
+- [x] The copied engine builds and renders an example clip from its new place
+- [x] The standalone motion-broll skill is unchanged
 
 **Blocked by:** none
 

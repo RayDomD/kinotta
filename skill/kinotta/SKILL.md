@@ -1,14 +1,14 @@
 ---
 name: kinotta
-description: Build reels for the Kinotta review editor inside a project, and build the next version from a pasted comment batch. Use when the user asks for a reel, brand intro, showreel or storyboard to review in Kinotta, or pastes text that starts with "Kinotta comments:".
+description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll over a video, and build the next version from a pasted comment batch. Use when the user asks for a reel, brand intro, showreel, storyboard or b-roll to review in Kinotta, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's.
 ---
 
 # Kinotta
 
 You build **reels** inside the user's project for Kinotta, a local review editor. The owner reviews
 each **version** in Kinotta, pins comments to its elements, and pastes the **comment batch** back to
-you. You build the next version from it. This skill covers code-only reels: every scene is an HTML
-page, with no footage.
+you. You build the next version from it. Sections 1 to 4 cover code-only reels: every scene is an
+HTML page, with no footage. Footage reels are section 5.
 
 The project folder is the one Claude is running in. Every path below is relative to it unless it
 says otherwise.
@@ -158,6 +158,22 @@ Contract issues
 
 Done when `v<n+1>` passes `kinotta check`, `answers.md` answers every comment and note, and `v<n>`
 is unchanged.
+
+## 5. Footage reels (b-roll over a video)
+
+A footage reel is motion-graphic b-roll over one of the project's videos; its `reel.json` names the
+footage. Its clips are built with the motion engine, which is part of this skill:
+
+- `reference/motion-broll.md`: how clips are planned and built (creative direction, content rules,
+  style defaults, gotchas). `$SKILL` there means this skill's folder.
+- `reference/engine-api.md`: how to write a clip. Read it before writing your first clip.
+- `engine/`, `scripts/`, `templates/`: the engine and its tools. The Geist fonts carry their licence
+  in `engine/fonts/OFL-Geist.txt`; keep it beside them.
+- `examples/opus-aoe2/`: six finished clips, the quality bar.
+
+The rules for turning clips into a Kinotta version (transcript, sections, shot list, one composed
+page) are not written yet. Until they are, tell the owner that footage reels can't be built for
+Kinotta yet, and don't build one.
 
 ## Examples of the format
 
