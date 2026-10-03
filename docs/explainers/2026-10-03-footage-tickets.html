@@ -70,8 +70,8 @@
 <main>
   <p class="meta">Kinotta · T11 (#13) and T16 (#18) · proposed, not published</p>
   <h1>Eight tickets to make talking-video reels work</h1>
-  <p class="lede">Kinotta can already show a talking video with animations over it, but nothing makes those reels for real yet. Four tickets teach motion-broll to build animations Kinotta can open. Four more teach Claude's skill to build a whole talking-video reel and revise it from your comments.</p>
-  <p>You can start two of them today. You need to make three decisions first, and each comes with my recommendation.</p>
+  <p class="lede">Kinotta can already show a talking video with animations over it, but nothing makes those reels for real yet. Four tickets bring a copy of motion-broll into the Kinotta skill and teach it to build animations Kinotta can open. Four more teach the skill to build a whole talking-video reel and revise it from your comments.</p>
+  <p>You can start two of them today. Your three decisions are made; they're recorded at the bottom.</p>
 
   <h2>The gap in one picture</h2>
   <p>motion-broll makes <strong>one web page per animation</strong>. A Kinotta version is <strong>one page for the whole video</strong>, with each animation as a timed scene. motion-broll's engine assumes one animation per page: it uses fixed element names and a single page-wide <code>seek</code>. So a reel page can't just be the clips pasted together.</p>
@@ -108,8 +108,8 @@
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="oklch(.640 .008 106)"/></marker>
       </defs>
       <g font-family="Outfit, Segoe UI, sans-serif" font-size="12">
-        <text x="10" y="18" fill="oklch(.640 .008 106)">motion-broll (T11)</text>
-        <text x="10" y="186" fill="oklch(.640 .008 106)">Claude's skill (T16)</text>
+        <text x="10" y="18" fill="oklch(.640 .008 106)">The animation engine (T11)</text>
+        <text x="10" y="186" fill="oklch(.640 .008 106)">Talking-video reels (T16)</text>
 
         <g fill="none" stroke="oklch(.640 .008 106)" stroke-width="1.3" marker-end="url(#ar)">
           <path d="M110 57 H133"/><path d="M235 57 H258"/><path d="M360 57 H383"/>
@@ -122,7 +122,7 @@
 
         <rect x="10" y="30" width="100" height="54" fill="oklch(.214 .005 90)" stroke="oklch(.84 .11 225)" stroke-width="1.4"/>
         <text x="20" y="50" fill="oklch(.84 .11 225)" font-family="Doto, monospace" font-weight="800">01</text>
-        <text x="20" y="70" fill="oklch(.945 .004 106)">Save its code</text>
+        <text x="20" y="70" fill="oklch(.945 .004 106)">Copy it in</text>
 
         <rect x="135" y="30" width="100" height="54" fill="oklch(.214 .005 90)"/>
         <text x="145" y="50" fill="oklch(.640 .008 106)" font-family="Doto, monospace" font-weight="800">02</text>
@@ -160,16 +160,16 @@
   </figure>
 
   <h2>The tickets</h2>
-  <p class="group">motion-broll learns the Kinotta format (T11)</p>
+  <p class="group">The animation engine joins Kinotta (T11)</p>
   <ol class="tickets">
     <li class="now"><div class="num">01</div><div class="body">
-      <h3>Save motion-broll's code history</h3>
-      <p>motion-broll lives in <code>~/.agents/skills/motion-broll</code>, which has no git history, so changes to it can't be saved or reviewed. This sets that up. It's the reason T11 was parked.</p>
-      <p class="tags"><span class="now-tag">Can start now</span> · Model <b>small</b> · Needs decision A</p>
+      <h3>Bring a copy of motion-broll into the Kinotta skill</h3>
+      <p>The engine, its scripts, reference and examples move into the <code>kinotta</code> skill in this repo, so Kinotta's git history covers them. The skill's description gains "b-roll for review in Kinotta" and stays clear of plain b-roll requests. ADR 0001 is updated: the engine is now part of Kinotta, not a separate tool sharing a format. The standalone motion-broll in <code>~/.agents/skills</code> is not touched.</p>
+      <p class="tags"><span class="now-tag">Can start now</span> · Model <b>small</b></p>
     </div></li>
     <li><div class="num">02</div><div class="body">
       <h3>One motion-broll animation opens in Kinotta</h3>
-      <p>The build step wraps a clip as a timed scene and names the parts a reviewer could point at (<code>data-el</code>). One example clip then opens in Kinotta, pins land on its named parts, and <code>kinotta check</code> passes. motion-broll's own video export keeps working.</p>
+      <p>The build step wraps a clip as a timed scene and names the parts a reviewer could point at (<code>data-el</code>). One example clip then opens in Kinotta, pins land on its named parts, and <code>kinotta check</code> passes. The engine's own video export keeps working, for the later Render phase.</p>
       <p class="tags">Waits on 01 · Model <b>mid</b></p>
     </div></li>
     <li><div class="num">03</div><div class="body">
@@ -184,7 +184,7 @@
     </div></li>
   </ol>
 
-  <p class="group">Claude's skill learns talking-video reels (T16)</p>
+  <p class="group">The skill learns talking-video reels (T16)</p>
   <ol class="tickets">
     <li class="now"><div class="num">05</div><div class="body">
       <h3>The checker covers talking-video reels</h3>
@@ -194,7 +194,7 @@
     <li><div class="num">06</div><div class="body">
       <h3>Build version 1 from a video</h3>
       <p>Claude transcribes the video (or uses your subtitle file), splits it into sections by topic, plans the animations with motion-broll's rules, builds them, and puts them together as v1.</p>
-      <p class="tags">Waits on 03 and 05 · Model <b>top</b> · Needs decisions B and C</p>
+      <p class="tags">Waits on 03 and 05 · Model <b>top</b> · Follows decisions B and C</p>
     </div></li>
     <li><div class="num">07</div><div class="body">
       <h3>Next version from your comments</h3>
@@ -208,14 +208,14 @@
     </div></li>
   </ol>
 
-  <h2>Three decisions for you</h2>
+  <h2>Your decisions</h2>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Decision</th><th>I recommend</th><th>The other way</th><th>Why</th></tr></thead>
+    <thead><tr><th>Decision</th><th>You chose</th><th>What it means</th></tr></thead>
     <tbody>
-      <tr><td>A. Where motion-broll's code history lives</td><td class="rec">Its own private GitHub repo, linked into the skills folder like Kinotta's skill</td><td>Saved history on this computer only</td><td>A backup off the machine, and changes can be reviewed the same way as Kinotta's</td></tr>
-      <tr><td>B. Real animations in version 1</td><td class="rec">Yes. Kinotta shows a still of each shot until the Review phase plays them</td><td>Placeholder still pictures first, as code-only reels do</td><td>A motion-broll clip is its motion; a still stand-in would be thrown away</td></tr>
-      <tr><td>C. Approving the plan in chat first</td><td class="rec">Skip it when the request comes through Kinotta</td><td>Keep motion-broll's chat approval step</td><td>You review v1 in Kinotta anyway, so a chat approval is a second review of the same thing</td></tr>
+      <tr><td>A. Where the animation engine lives</td><td class="rec">A copy inside the one <code>kinotta</code> skill</td><td>Changes are saved in Kinotta's history. The standalone motion-broll stays as it is, for b-roll outside Kinotta</td></tr>
+      <tr><td>B. Real animations in version 1</td><td class="rec">Yes</td><td>Kinotta shows a still of each shot until the Review phase can play them</td></tr>
+      <tr><td>C. Approving the plan in chat first</td><td class="rec">No</td><td>You review v1 in Kinotta instead</td></tr>
     </tbody>
   </table>
   </div>
@@ -226,7 +226,7 @@
   <p>The tickets go into <code>docs/tickets.md</code> and onto GitHub as sub-issues of T11 (#13) and T16 (#18), labelled <code>ready-for-agent</code>. Nothing is published until you say so.</p>
 
   <hr style="border:0;border-top:1px solid var(--rule);margin:40px 0">
-  <p class="fact">Checked in the files: motion-broll's engine runs one clip per page (fixed element ids, one page-wide <code>seek</code>, in <code>engine/motion.js</code>); its preview loop switches off when the page address contains <code>?render</code>, which Kinotta already adds; <code>~/.agents/skills/motion-broll</code> is not a git repository; Kinotta's footage tests already cover a panel over video, word pins and section batches, using a hand-made panel. Not yet known: how much engine rework ticket 3 takes, until it starts.</p>
+  <p class="fact">Checked in the files: the engine runs one clip per page (fixed element ids, one page-wide <code>seek</code>, in <code>engine/motion.js</code>); its preview loop switches off when the page address contains <code>?render</code>, which Kinotta already adds; <code>~/.agents/skills/motion-broll</code> is not a git repository; Kinotta's footage tests already cover a panel over video, word pins and section batches, using a hand-made panel. Not yet known: how much engine rework ticket 3 takes, until it starts.</p>
 </main>
 </body>
 </html>
