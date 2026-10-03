@@ -6,7 +6,8 @@ data-el="shape", the cursor data-el="cursor", and every element with an id gets 
 except the zero-size .L layer anchors (Kinotta can't outline an element with no box).
 With --plan, each clip is a scene at its in-point on the video's timeline, as long as its slot (in to out).
 Its CSS is nested under its scene and its script sees only its scene's elements, so clips sharing ids don't
-interfere. A clip's fragment is the plan clip's "clip" path, else clips/<id>-*.html or <id>-*.html beside the
+interfere. Both sit inside the scene, so Kinotta sees a clip whose motion alone changed as a changed section.
+A clip's fragment is the plan clip's "clip" path, else clips/<id>-*.html or <id>-*.html beside the
 plan. The page lasts the plan's "duration" (the video's length), else until the last clip's out-point."""
 import base64, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
@@ -33,8 +34,10 @@ def parts(src):
     return dict(name=pathlib.Path(src).stem, title=title, css=''.join(re.findall(r'<style>(.*?)</style>', frag, re.S)), js=js, T=clip_length(src, js),
                 stage=lambda scene='': f'<div id="wrap"><div id="stage"{scene}><div id="world">{slot("world")}<div id="shape" data-el="shape">{slot("shape")}</div>{slot("over")}</div>{CURSOR}</div></div>')
 base_css = lambda: open(E/'base.css').read().replace('__GEIST__', b64(E/'fonts/Geist-Variable.woff2')).replace('__GEISTMONO__', b64(E/'fonts/GeistMono-Medium.woff2'))
-page = lambda title, css, body, scripts: (f'<!doctype html><html><head><meta charset="utf-8"><title>{title}</title><style>{base_css()}{css}</style></head><body>\n{body}\n'
-                                          f'<script>{open(E/"motion.js").read()}</script>{scripts}</body></html>')
+engine = lambda: f'<script>{open(E/"motion.js").read()}</script>'
+page = lambda title, css, body, scripts, engine_first=False: (
+    f'<!doctype html><html><head><meta charset="utf-8"><title>{title}</title><style>{base_css()}{css}</style></head><body>\n'
+    f'{engine() + chr(10) if engine_first else ""}{body}\n{"" if engine_first else engine()}{scripts}</body></html>')
 def build(src, dst):
     p = parts(src)
     body = p['stage'](f' data-scene="{p["name"]}" data-start="0" data-duration="{p["T"]}"')
@@ -46,16 +49,17 @@ def clip_source(plan_dir, c):
     return found[0]
 def compose(plan_path, dst):
     plan_dir = pathlib.Path(plan_path).resolve().parent; P = json.load(open(plan_path, encoding='utf-8'))
-    css, body, scripts = [PAGE_CSS], [], []
+    # The engine loads before the scenes, so each clip's style and script can sit inside its own scene: Kinotta
+    # compares scene markup between versions, and a clip whose motion alone changed must count as changed.
+    body = []
     for c in P['clips']:
         p = parts(clip_source(plan_dir, c)); sel = f'[data-scene="{p["name"]}"]'
-        if p['css'].strip(): css.append(f'{sel}{{{p["css"]}}}')
-        body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}</section>')
-        scripts.append(f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>')
+        style = f'<style>{sel}{{{p["css"]}}}</style>' if p['css'].strip() else ''
+        script = f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>'
+        body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
     duration = P.get('duration', max(c['out'] for c in P['clips']))
-    scripts.append(f'<script>M.page({duration});</script>')
     pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
-    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), ''.join(css), '\n'.join(body), ''.join(scripts)))
+    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS, '\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
 if __name__ == '__main__':
     if sys.argv[1] == '--plan':
         compose(sys.argv[2], sys.argv[3]); print('built', sys.argv[3])

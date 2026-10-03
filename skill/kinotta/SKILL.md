@@ -8,7 +8,7 @@ description: Build reels for the Kinotta review editor inside a project, includi
 You build **reels** inside the user's project for Kinotta, a local review editor. The owner reviews
 each **version** in Kinotta, pins comments to its elements, and pastes the **comment batch** back to
 you. You build the next version from it. Sections 1 to 4 cover code-only reels: every scene is an
-HTML page, with no footage. Footage reels are section 5.
+HTML page, with no footage. Footage reels are sections 5 and 6.
 
 The project folder is the one Claude is running in. Every path below is relative to it unless it
 says otherwise.
@@ -124,6 +124,8 @@ Notes
 Contract issues
 - shot 04: starts at 9s but no scene covers that time
 ```
+
+On a footage reel (its `reel.json` names footage), follow **section 6** instead of the steps below.
 
 1. **Read the batch file** named on the `Saved as` line. It holds each comment's shot, time and
    target, the notes, and, when the owner included them, the contract `issues`. A comment's target
@@ -242,6 +244,44 @@ built page and the shot list go in the version.
     until the Review phase, and that nothing is rendered to video yet.
 
 Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.
+
+## 6. Next footage version from a section batch
+
+A footage reel's batch covers one section, from `comments-<section>.json`. You rebuild only that
+section's clips from the sources in `motion/` and carry every other section over unchanged. Kinotta
+works out which sections changed by comparing each section's scenes and shots with the version
+before, and moves unsent comments on unchanged sections forward by itself.
+
+1. **Read the batch file** and confirm `v<n>` is the newest version, as in section 4 steps 1 and 2.
+   The look follows section 5.
+2. **Confirm the sources build `v<n>`.** Compose `motion/plan.json` into a scratch file and compare it
+   with `reels/<slug>/v<n>/index.html`. If they differ, the sources changed since `v<n>`: stop and ask.
+3. **Answer each comment in the batch's section only.** Edit only the clips whose `section` is the
+   batch's (their fragments in `motion/clips/` and their entries in `motion/plan.json`). The shot
+   number is the clip's `id`. By pin kind:
+   - **Element pin** (`element` set): change that element of that clip. The name is the element's `id`;
+     keep it for the same thing.
+   - **Position pin** (`element` null, `x` and `y` as fractions of the frame): on a panel shot the point
+     is usually on the footage around the clip, so read it as placement (move or resize the panel to
+     clear that spot) or as a remark about the video itself. You can't change the video: answer Not
+     done and say so. On a cutaway the point is on the clip's own canvas: change what is drawn there.
+   - **Word pin** (`word` set, with its time): about that spoken moment. Move the clip's change onto
+     the word (clip-local time = word time − the clip's `in`), start or end the clip there, or show the
+     word's idea, whichever the comment asks.
+   Never change another section's clips, their `in` and `out`, or the section bounds. A new clip takes
+   the next unused number; never renumber existing clips.
+4. **Compose** `v<n+1>`: `python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v<n+1>/index.html`.
+   Nothing else is copied: the transcript belongs to the reel, and the page is self-contained.
+5. **Write `v<n+1>/answers.md`** as in section 4 step 6: every comment in the batch's numbering, then
+   the notes, each Done, Partly done or Not done with a reason.
+6. **Write the shot list last**, naming the batch's section as changed:
+   `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v<n+1>/shots.json <section>`.
+7. **Check it**: `kinotta check <slug>`; fix, compose and write the shot list again until clean.
+8. **Hand over**: repeat the answers in chat, and say Kinotta will show `v<n+1>` as ready with only
+   that section changed.
+
+Done when `v<n+1>` passes `kinotta check`, `answers.md` answers every comment and note, only the
+batch's section changed, and `v<n>` is unchanged.
 
 ## Examples of the format
 

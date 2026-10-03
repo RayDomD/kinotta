@@ -396,9 +396,9 @@ Part of T16 (#18).
 
 **Acceptance criteria:**
 
-- [ ] Skill rules cover section batches on footage reels and all three pin kinds
-- [ ] Sections outside the batch are unchanged in the new version
-- [ ] answers.md answers every comment and note in the batch
+- [x] Skill rules cover section batches on footage reels and all three pin kinds
+- [x] Sections outside the batch are unchanged in the new version
+- [x] answers.md answers every comment and note in the batch
 
 **Blocked by:** #26 (T23)
 

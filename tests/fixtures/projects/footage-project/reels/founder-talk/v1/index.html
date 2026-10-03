@@ -17,27 +17,7 @@ body.preview #wrap{position:fixed;left:50%;top:calc(50% - 10px)}
 .mono{font-family:'Geist Mono',ui-monospace,monospace}
 svg{display:block;overflow:visible}
 #cursor{position:absolute;left:0;top:0;height:auto;transform-origin:3px 3px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));z-index:10}
-html,body{background:transparent}[data-scene]{position:absolute;left:0;top:0;display:none}[data-scene].active{display:block}[data-scene="01-two-laptops"]{.lap{position:absolute;width:499px;height:333px;background:#2B3038;border-bottom:10px solid #9AA1AB;box-sizing:border-box}}[data-scene="02-conflict-counter"]{.pn{position:absolute;left:-384px;top:-335px;width:768px;height:670px;display:grid;place-items:center;text-align:center;color:#1D1A16;font-size:48px;font-weight:800;line-height:1.05;letter-spacing:-.02em}
-.pn small{display:block;margin-top:28px;font-size:26px;font-weight:600;letter-spacing:0;color:#6F675C}.pn b{color:#D24B1F}}[data-scene="03-last-write-wins"]{.pn{position:absolute;left:-384px;top:-335px;width:768px;height:670px;display:grid;place-items:center;text-align:center;color:#1D1A16;font-size:48px;font-weight:800;line-height:1.05;letter-spacing:-.02em}
-.pn small{display:block;margin-top:28px;font-size:26px;font-weight:600;letter-spacing:0}}[data-scene="04-merge-diagram"]{.ed{position:absolute;width:346px;height:346px;border:7px solid #D9DDE3;box-sizing:border-box}}</style></head><body>
-<section data-scene="01-two-laptops" data-start="0" data-duration="3.2"><div id="wrap"><div id="stage"><div id="world">
-  <div class="lap" id="laptop-left" data-el="laptop-left" style="left:-653px;top:-101px"></div>
-  <div class="lap" id="laptop-right" data-el="laptop-right" style="left:154px;top:-101px"></div>
-<div id="shape" data-el="shape">
-  <div class="L" id="Ldoc"><div class="a" id="document" data-el="document"></div></div>
-</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div></section>
-<section data-scene="02-conflict-counter" data-start="3.2" data-duration="3.0"><div id="wrap"><div id="stage"><div id="world"><div id="shape" data-el="shape">
-  <div class="L" id="Lcount"><div class="pn" id="conflict-panel" data-el="conflict-panel"><div><b id="count" data-el="count">12</b> conflicts<small>and counting</small></div></div></div>
-</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div></section>
-<section data-scene="03-last-write-wins" data-start="6.2" data-duration="3.2"><div id="wrap"><div id="stage"><div id="world"><div id="shape" data-el="shape">
-  <div class="L" id="Llww"><div class="pn" id="lww-panel" data-el="lww-panel"><div>Last write wins<small id="lost" data-el="lost">Ana’s paragraph: lost</small></div></div></div>
-</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div></section>
-<section data-scene="04-merge-diagram" data-start="9.4" data-duration="2.6"><div id="wrap"><div id="stage"><div id="world">
-  <div class="ed" id="edit-a" data-el="edit-a" style="left:-979px;top:-356px"></div>
-  <div class="ed" id="edit-b" data-el="edit-b" style="left:-979px;top:11px"></div>
-<div id="shape" data-el="shape">
-  <div class="L" id="Lmerged"><div class="a" id="merged" data-el="merged" style="border:7px solid #FF8A1F;box-sizing:border-box"></div></div>
-</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div></section>
+html,body{background:transparent}[data-scene]{position:absolute;left:0;top:0;display:none}[data-scene].active{display:block}</style></head><body>
 <script>/* motion-kit engine: one shape that never cuts.
    Every style is a pure function of time inside seek(t). No CSS transitions, no timers. */
 (function(){
@@ -211,7 +191,13 @@ M.page = (duration)=>{
   return seek;
 };
 })();
-</script><script>M.root=document.querySelector('[data-scene="01-two-laptops"]');(function(document){
+</script>
+<section data-scene="01-two-laptops" data-start="0" data-duration="3.2"><div id="wrap"><div id="stage"><div id="world">
+  <div class="lap" id="laptop-left" data-el="laptop-left" style="left:-653px;top:-101px"></div>
+  <div class="lap" id="laptop-right" data-el="laptop-right" style="left:154px;top:-101px"></div>
+<div id="shape" data-el="shape">
+  <div class="L" id="Ldoc"><div class="a" id="document" data-el="document"></div></div>
+</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div><style>[data-scene="01-two-laptops"]{.lap{position:absolute;width:499px;height:333px;background:#2B3038;border-bottom:10px solid #9AA1AB;box-sizing:border-box}}</style><script>M.root=document.querySelector('[data-scene="01-two-laptops"]');(function(document){
 const $=id=>document.getElementById(id);
 M.scene({
   W:1920,H:1080,bg:'#E9E4DA',T:3.2,center:[960,425],intro:null,
@@ -220,7 +206,11 @@ M.scene({
   layers:[{el:'Ldoc',tin:null,tout:null,update:(t,g)=>{const d=$('document').style;d.left=-g.w/2+'px';d.top=-g.h/2+'px';d.width=g.w+'px';d.height=g.h+'px';}}],
 });
 
-})(M.scope(M.root));M.root=null;</script><script>M.root=document.querySelector('[data-scene="02-conflict-counter"]');(function(document){
+})(M.scope(M.root));M.root=null;</script></section>
+<section data-scene="02-conflict-counter" data-start="3.2" data-duration="3.0"><div id="wrap"><div id="stage"><div id="world"><div id="shape" data-el="shape">
+  <div class="L" id="Lcount"><div class="pn" id="conflict-panel" data-el="conflict-panel"><div><b id="count" data-el="count">12</b> conflicts<small>and counting</small></div></div></div>
+</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div><style>[data-scene="02-conflict-counter"]{.pn{position:absolute;left:-384px;top:-335px;width:768px;height:670px;display:grid;place-items:center;text-align:center;color:#1D1A16;font-size:48px;font-weight:800;line-height:1.05;letter-spacing:-.02em}
+.pn small{display:block;margin-top:28px;font-size:26px;font-weight:600;letter-spacing:0;color:#6F675C}.pn b{color:#D24B1F}}</style><script>M.root=document.querySelector('[data-scene="02-conflict-counter"]');(function(document){
 const $=id=>document.getElementById(id);
 M.scene({
   W:1920,H:1080,bg:null,T:3.0,center:[1421,486],intro:null,
@@ -230,7 +220,11 @@ M.scene({
   layers:[{el:'Lcount',tin:null,tout:null,update:(t)=>M.setText($('count'),String(12+Math.floor(t/0.4)))}],
 });
 
-})(M.scope(M.root));M.root=null;</script><script>M.root=document.querySelector('[data-scene="03-last-write-wins"]');(function(document){
+})(M.scope(M.root));M.root=null;</script></section>
+<section data-scene="03-last-write-wins" data-start="6.2" data-duration="3.2"><div id="wrap"><div id="stage"><div id="world"><div id="shape" data-el="shape">
+  <div class="L" id="Llww"><div class="pn" id="lww-panel" data-el="lww-panel"><div>Last write wins<small id="lost" data-el="lost">Ana’s paragraph: lost</small></div></div></div>
+</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div><style>[data-scene="03-last-write-wins"]{.pn{position:absolute;left:-384px;top:-335px;width:768px;height:670px;display:grid;place-items:center;text-align:center;color:#1D1A16;font-size:48px;font-weight:800;line-height:1.05;letter-spacing:-.02em}
+.pn small{display:block;margin-top:28px;font-size:26px;font-weight:600;letter-spacing:0}}</style><script>M.root=document.querySelector('[data-scene="03-last-write-wins"]');(function(document){
 const $=id=>document.getElementById(id);
 const grey=M.ctrack('#6F675C',[[1.2,'#B9B2A7']]);
 M.scene({
@@ -241,7 +235,13 @@ M.scene({
   layers:[{el:'Llww',tin:null,tout:null,update:(t)=>{$('lost').style.color=grey(t);}}],
 });
 
-})(M.scope(M.root));M.root=null;</script><script>M.root=document.querySelector('[data-scene="04-merge-diagram"]');(function(document){
+})(M.scope(M.root));M.root=null;</script></section>
+<section data-scene="04-merge-diagram" data-start="9.4" data-duration="2.6"><div id="wrap"><div id="stage"><div id="world">
+  <div class="ed" id="edit-a" data-el="edit-a" style="left:-979px;top:-356px"></div>
+  <div class="ed" id="edit-b" data-el="edit-b" style="left:-979px;top:11px"></div>
+<div id="shape" data-el="shape">
+  <div class="L" id="Lmerged"><div class="a" id="merged" data-el="merged" style="border:7px solid #FF8A1F;box-sizing:border-box"></div></div>
+</div></div><svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></div></div><style>[data-scene="04-merge-diagram"]{.ed{position:absolute;width:346px;height:346px;border:7px solid #D9DDE3;box-sizing:border-box}}</style><script>M.root=document.querySelector('[data-scene="04-merge-diagram"]');(function(document){
 const $=id=>document.getElementById(id);
 M.scene({
   W:1920,H:1080,bg:'#1B1F26',T:2.6,center:[1363,594],intro:null,
@@ -250,4 +250,5 @@ M.scene({
   layers:[{el:'Lmerged',tin:null,tout:null,update:(t,g)=>{const d=$('merged').style;d.left=-g.w/2+'px';d.top=-g.h/2+'px';d.width=g.w+'px';d.height=g.h+'px';}}],
 });
 
-})(M.scope(M.root));M.root=null;</script><script>M.page(12);</script></body></html>
+})(M.scope(M.root));M.root=null;</script></section>
+<script>M.page(12);</script></body></html>
