@@ -17,7 +17,7 @@ Only the newest version of a reel takes comments; older versions can be viewed b
 _Avoid_: Draft, revision, iteration
 
 **Storyboard**:
-The first version of a reel: every scene built in its final look but not animated, plus a shot list.
+A version with every scene built in its final look but not animated, plus a shot list. A reel's first version is always a storyboard, and every version stays one until motion can be reviewed.
 _Avoid_: Mockup, sketch
 
 **Shot**:
@@ -78,7 +78,7 @@ Rules you apply to every reel, which Claude reads before each build. Claude may 
 _Avoid_: Style memory, preferences
 
 **Brand file**:
-The project's record of where its brand sources live, written by Claude on first use and checked by you.
+The project's record of where its brand sources live, written by Claude on first use and checked by you before any reel is built. It points at the project's design system rather than copying it, and holds your answers only where the project has no source.
 _Avoid_: Brand config, brand kit
 
 **Timing contract**:

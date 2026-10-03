@@ -61,6 +61,26 @@ Transcript are in `CONTEXT.md`, and the shared format is in ADR 0001.
 | F9 | Footage storyboards are in the Storyboard phase. Playback over footage stays in Review. |
 | F10 | Section list and transcript line, chosen in a `ui-preview` round (T10, #12): sections are a list in the left rail above Versions, one row per section with its number, name, time span, shot count, pin count and a Waiting mark. The heading over the grid names the current section. Each grid shot shows its spoken line in quotes between the title and the description. The enlarged shot has a word row under the frame with the shot's words at full ink and a few muted context words either side. Hovering a word outlines it and puts a tag below it with the word and its time, and a word pin is a numbered hex above the word. Mockup: [2026-09-30-sections-transcript.html](mockups/2026-09-30-sections-transcript.html), option A. |
 
+## Kinotta skill
+
+Decided in a fourth grilling round, 2026-10-03, on T9 (#11), the skill for code-only reels. Terms
+Brand file and Storyboard were sharpened in `CONTEXT.md`.
+
+| # | Decision |
+|---|---|
+| K1 | The skill's source lives in this repo at `skill/kinotta/` and is linked into `~/.agents/skills/kinotta`, so the skill and the contract checks change in one commit. |
+| K2 | The test sample reels are the skill's examples of the format only, labelled "contract, not look". The skill links to them in the repo and doesn't copy them. The look comes from the brand file and the taste lists. |
+| K3 | `reels/brand.md` carries `checked: no` or a date. On first use Claude writes it, summarises it in chat and stops without building. A run that finds `checked: no` asks instead of building. |
+| K4 | The brand file points at the project's sources and never copies their values. `DESIGN.md` is always the source for colour and type. The file holds the owner's answers only where the project has no source. |
+| K5 | A project with no `DESIGN.md`, or an empty one, stops before the brand file and suggests `/impeccable init` and `/impeccable document`. "Proceed without" puts the owner's answers into `brand.md`, marked as standing in for a missing `DESIGN.md`. |
+| K6 | Claude answers each comment of a batch in `v<n+1>/answers.md` (done, partly done or not done, with a reason) and repeats the list in chat. The editor ignores the file in this phase. |
+| K7 | A `kinotta check <reel> [version]` command prints the version's static contract issues and exits non-zero when there are any. Claude runs it before telling the owner a version is ready. Runtime problems still surface in the editor. |
+| K8 | Install: `npm link` puts `kinotta` on the PATH, and a junction links `skill/kinotta` into the skills folder, both documented in the README. A skill run that can't find `kinotta` stops and names the command to run. |
+| K9 | Every version stays an unanimated storyboard until the Review phase. A request to animate is met with a warning that Kinotta can't review motion yet. The version rail's v1 "storyboard" label stays until Review. |
+| K10 | The real run is a code-only brand intro of about 15 seconds and 5 to 7 shots in Aroma. |
+| K11 | `~/.kinotta/taste.md` starts with these rules, and grows by hand: never system-ui as the only typeface; no pure `#000` or `#fff` surfaces; tight leading (1.0 to 1.1) on display type; no em dashes in on-screen copy; no arbitrary purple-to-blue gradients; no neon glows as decoration; text contrast of at least 4.5:1; one idea per shot; hold text long enough to read before a cut. `reels/taste.md` stays optional per project. |
+| K12 | The owner runs `kinotta`; Claude never starts it. Claude builds `v<n+1>` as a copy of `v<n>`, writes `shots.json` last (the editor's new-version signal), and never edits `v<n>`. |
+
 ## Deferred
 
 Audio comments, trimming, the MP4 render and the element library format belong to the Review and

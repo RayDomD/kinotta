@@ -139,11 +139,16 @@ Parked for the unattended run: the last criterion needs a real run in a client p
 
 **What to build:** The global Kinotta skill gives Claude the rules to write storyboard v1 under the timing contract (timed scenes, stable element names, global `seek`, deterministic rendering) with a shot list; to discover brand sources on first use and write `reels/brand.md` for one check (S2, D14); to read the global taste list and `reels/taste.md` before each build (S3); and to consume a batch into a new frozen version folder, answering each comment. The test sample reels become the skill's reference examples.
 
+Grilled 2026-10-03 (K1 to K12 in the grilling log): the skill lives in `skill/kinotta/` and is linked into the skills folder; the brand file is checked before any build and points at `DESIGN.md`; answers go to `v<n+1>/answers.md`; a `kinotta check` command verifies the static contract; every version stays unanimated in this phase.
+
 **Acceptance criteria:**
 
 - [ ] Skill rules cover contract, folder layout, brand file, taste lists and batch consumption
-- [ ] Sample reels used in tests are the skill's examples
-- [ ] A real run in a client project: v1 opens in Kinotta, a batch produces v2, v1 stays unchanged
+- [ ] Sample reels used in tests are the skill's examples, labelled as format only (K2)
+- [ ] `kinotta check <reel> [version]` prints contract issues and exits non-zero on any, with a test (K7)
+- [ ] README documents the install: `npm link` and the skill junction (K8)
+- [ ] `~/.kinotta/taste.md` seeded with the K11 rules
+- [ ] A real run in Aroma: v1 opens in Kinotta, a batch produces v2 with `answers.md`, v1 stays unchanged (K10)
 
 **Blocked by:** #6
 
