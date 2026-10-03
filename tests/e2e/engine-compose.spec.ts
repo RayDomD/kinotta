@@ -112,6 +112,8 @@ test.describe('the six-clip example in Kinotta', () => {
     await expect(card(page, '02b').locator('.part')).toHaveText('2 of 3');
     await expect(card(page, '02b').locator('.part i.on')).toHaveCount(1);
     await expect(card(page, '02b').locator('.part i').nth(1)).toHaveClass(/on/);
+    // Drawn as dashes, not just present.
+    expect((await card(page, '02b').locator('.part i').first().boundingBox())?.width).toBeGreaterThan(10);
     await expect(card(page, '01').locator('.part')).toHaveCount(0);
   });
 
@@ -126,6 +128,8 @@ test.describe('the six-clip example in Kinotta', () => {
     // Between the frame and the element chips.
     const order = await sheet.evaluate((el) => [...el.querySelectorAll('.well, .states, .pinrow')].map((n) => n.className.split(' ')[0]));
     expect(order).toEqual(['well', 'states', 'pinrow']);
+    // Each state's still fills its slot in the strip.
+    expect((await states.locator('.still').first().boundingBox())?.width).toBeGreaterThan(120);
 
     await states.getByRole('button', { name: /^02c / }).click();
     await expect(sheet.locator('.lbl .dot')).toHaveText('02c');

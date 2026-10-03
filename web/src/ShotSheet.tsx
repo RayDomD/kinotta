@@ -246,9 +246,9 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
           <div className="states" role="group" aria-label={`States of clip ${shot.clip}`}>
             <span className="label">{`Clip ${shot.clip} · ${states[0]!.title}`}</span>
             {states.map((s) => (
-              <div key={s.number} className={s === shot ? 'state on' : 'state'}>
+              <div key={s.number} className={s === shot ? 'clip-state on' : 'clip-state'}>
                 <PageStill pageUrl={pageUrl} time={s.start} title={`Shot ${s.number} still`} footageUrl={s.type === 'panel' ? footage : undefined} unavailable={unavailable?.get(s.number)} />
-                <button type="button" aria-current={s === shot ? 'true' : undefined} onClick={() => onStep(shots.indexOf(s))}>
+                <button type="button" title={`${s.number} ${s.title}`} aria-current={s === shot ? 'true' : undefined} onClick={() => onStep(shots.indexOf(s))}>
                   <span className="dot">{s.number}</span> {s.title}
                 </button>
               </div>
