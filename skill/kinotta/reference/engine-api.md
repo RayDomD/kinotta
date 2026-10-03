@@ -41,6 +41,15 @@ Coordinates are **world pixels**. The shape is centred at world (0,0) unless `ge
 
 Layer content is positioned relative to its anchor, e.g. `left:-330px; top:40px` inside an `anchor:'t'` layer = 330px left of centre, 40px below the shape's top edge. Top-anchored content rides the top edge when the shape grows.
 
+## Names for review in Kinotta
+
+`build.py` makes each built page one Kinotta scene: `#stage` gets `data-scene` (the fragment's file name), `data-start="0"` and `data-duration` (the `T` in `M.scene`). It also names what a reviewer can click: the shape is `shape`, the cursor `cursor`, and every element with an `id` gets `data-el` set to that `id`. The `.L` layer anchors are skipped because they have no size.
+
+- **Give every part a reviewer could point at an `id`:** the pill, the badge, a card, a row, a button, an icon. The `id` is its name in comments, so make it readable (`badge`, `costBar`, not `b2`) and keep it for the same thing in every version.
+- **Put the `id` on the element that has the size**, not on a zero-size wrapper whose children are absolutely placed. A click inside a wrapper with no box goes to the nearest named element around it, usually `shape`.
+- **Ids are unique on the page**, so names never repeat. An element you give a `data-el` yourself keeps it.
+- Elements made at runtime (`innerHTML` in the script) are not named, because `build.py` only sees the fragment's markup. Write `data-el` into the generated markup when a reviewer should be able to pin one.
+
 ## Engine API (`window.M`)
 
 | Call | What it does |

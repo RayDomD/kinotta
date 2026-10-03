@@ -27,5 +27,7 @@ if (fixtureName === 'showreel-project') {
 if (process.env.KINOTTA_E2E_PROJECT_FILE) writeFileSync(process.env.KINOTTA_E2E_PROJECT_FILE, project);
 
 register();
+// The engine sample's pages are built by the engine at start, so they show what it builds today.
+if (fixtureName === 'engine-project') (await import('../helpers/engine.ts')).buildEngineProject(project);
 const { main } = await import('../../server/cli.ts');
 await main(['--project', project, '--port', process.env.KINOTTA_E2E_PORT ?? '4399', '--no-open']);

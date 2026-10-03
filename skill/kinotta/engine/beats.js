@@ -3,7 +3,7 @@ const {chromium}=require('playwright');const path=require('path');const {execSyn
 (async()=>{const [html,out,...ts]=process.argv.slice(2);
  const b=await chromium.launch();const p=await b.newPage({viewport:{width:1920,height:1080}});const errs=[];p.on('pageerror',e=>errs.push(e.message));
  await p.goto('file://'+path.resolve(html)+'?render');await p.evaluate(()=>document.fonts.ready);
- const dir=fs.mkdtempSync('/tmp/bt');const alpha=await p.evaluate(()=>{const a=document.documentElement.classList.contains('alpha');if(a){document.documentElement.style.background='#000';document.body.style.background='#000';}return a;});
+ const dir=fs.mkdtempSync(path.join(require('os').tmpdir(),'bt'));const alpha=await p.evaluate(()=>{const a=document.documentElement.classList.contains('alpha');if(a){document.documentElement.style.background='#000';document.body.style.background='#000';}return a;});
  for(let i=0;i<ts.length;i++){await p.evaluate(t=>seek(t),+ts[i]);await p.screenshot({path:`${dir}/${String(i).padStart(3,'0')}.png`});}
  await b.close();
  const cols=Math.min(4,ts.length),rows=Math.ceil(ts.length/cols);

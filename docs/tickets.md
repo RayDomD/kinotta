@@ -313,10 +313,10 @@ Part of T11 (#13).
 
 **Acceptance criteria:**
 
-- [ ] A built clip carries scene timing and stable element names
-- [ ] An example clip opens in Kinotta with no contract issues, and a click pins a named element
-- [ ] The engine's render and contact sheets still work on that clip
-- [ ] A test builds a clip and checks it
+- [x] A built clip carries scene timing and stable element names
+- [x] An example clip opens in Kinotta with no contract issues, and a click pins a named element
+- [x] The engine's render and contact sheets still work on that clip
+- [x] A test builds a clip and checks it
 
 **Blocked by:** #21 (T18)
 
