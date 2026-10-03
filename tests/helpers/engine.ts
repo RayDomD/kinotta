@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 const SKILL_DIR = resolve(import.meta.dirname, '../../skill/kinotta');
 const BUILD_SCRIPT = join(SKILL_DIR, 'engine', 'build.py');
@@ -16,6 +16,32 @@ export function buildClip(fragment: string, outFile: string): void {
   const run = spawnSync(PYTHON, [BUILD_SCRIPT, outDir, fragment], { encoding: 'utf8' });
   if (run.status !== 0) throw new Error(`build.py failed: ${run.stderr || run.error?.message}`);
   copyFileSync(join(outDir, basename(fragment)), outFile);
+}
+
+/** The six-clip example's b-roll plan. */
+export const EXAMPLE_PLAN = join(SKILL_DIR, 'examples', 'opus-aoe2', 'plan.json');
+
+/** Composes a b-roll plan into one version page with `build.py --plan`. */
+export function composePlan(plan: string, outFile: string): void {
+  const run = spawnSync(PYTHON, [BUILD_SCRIPT, '--plan', plan, outFile], { encoding: 'utf8' });
+  if (run.status !== 0) throw new Error(`build.py --plan failed: ${run.stderr || run.error?.message}`);
+}
+
+/** Seconds of the stand-in footage: the example plan's video length. */
+const BROLL_FOOTAGE_SECONDS = 54;
+
+/** Colour bars as stand-in footage, small and quick to decode. */
+export function makeFootage(outFile: string, seconds: number): void {
+  mkdirSync(dirname(outFile), { recursive: true });
+  const args = ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `smptehdbars=size=640x360:rate=10:duration=${seconds}`];
+  const run = spawnSync('ffmpeg', [...args, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '10', outFile], { encoding: 'utf8' });
+  if (run.status !== 0) throw new Error(`ffmpeg failed: ${run.stderr || run.error?.message}`);
+}
+
+/** Builds the broll-project sample: stand-in footage and the example plan composed into v1. */
+export function buildBrollProject(projectDir: string): void {
+  makeFootage(join(projectDir, 'media', 'source.mp4'), BROLL_FOOTAGE_SECONDS);
+  composePlan(EXAMPLE_PLAN, join(projectDir, 'reels', 'opus-aoe2', 'v1', 'index.html'));
 }
 
 /** The engine-project sample's reels and the example clip each one's v1 is built from. */

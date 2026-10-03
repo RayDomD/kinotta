@@ -9,7 +9,7 @@ body.preview #wrap{position:fixed;left:50%;top:calc(50% - 10px)}
 #stage{position:relative;overflow:hidden;font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#0B0B0B;font-feature-settings:"tnum" 1}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
 #shape{position:absolute;overflow:hidden;isolation:isolate;box-shadow:0 1px 2px rgba(20,18,14,.06),0 10px 30px -8px rgba(20,18,14,.16)}
-html.alpha #shape{box-shadow:none}
+.alpha #shape{box-shadow:none}
 .L{position:absolute;width:0;height:0;transform-origin:0 0}
 .a{position:absolute}
 .row{position:absolute;display:flex;align-items:center;white-space:nowrap}

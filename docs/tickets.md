@@ -330,10 +330,10 @@ Part of T11 (#13).
 
 **Acceptance criteria:**
 
-- [ ] Two clips on one page don't interfere: each draws correctly at its own time
-- [ ] A plan builds into one version page whose scenes match the plan's in and out points
-- [ ] The six-clip example opens as a footage reel with no contract issues, and panel stills show the footage around the clip
-- [ ] Single-clip build, render and contact sheets still work
+- [x] Two clips on one page don't interfere: each draws correctly at its own time
+- [x] A plan builds into one version page whose scenes match the plan's in and out points
+- [x] The six-clip example opens as a footage reel with no contract issues, and panel stills show the footage around the clip
+- [x] Single-clip build, render and contact sheets still work
 
 **Blocked by:** #22 (T19)
 

@@ -1,12 +1,19 @@
 """Assemble clip fragments + engine + fonts into self-contained HTML files.
 usage: python3 build.py <out_dir> clips/01-name.html [clips/02-name.html ...]
+       python3 build.py --plan plan.json <out.html>      (a whole b-roll plan as one Kinotta version page)
 Each page is one Kinotta scene (data-scene, data-start, data-duration) named after its file. The shape is
 data-el="shape", the cursor data-el="cursor", and every element with an id gets data-el set to that id,
-except the zero-size .L layer anchors (Kinotta can't outline an element with no box)."""
-import base64, re, sys, pathlib
+except the zero-size .L layer anchors (Kinotta can't outline an element with no box).
+With --plan, each clip is a scene at its in-point on the video's timeline, as long as its slot (in to out).
+Its CSS is nested under its scene and its script sees only its scene's elements, so clips sharing ids don't
+interfere. A clip's fragment is the plan clip's "clip" path, else clips/<id>-*.html or <id>-*.html beside the
+plan. The page lasts the plan's "duration" (the video's length), else until the last clip's out-point."""
+import base64, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
 b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
 CURSOR = '<svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>'
+# A composed page draws only the scenes running at t, over the footage: transparent wherever no clip paints.
+PAGE_CSS = 'html,body{background:transparent}[data-scene]{position:absolute;left:0;top:0;display:none}[data-scene].active{display:block}'
 ID_TAG = re.compile(r'<[a-zA-Z][^>]*?(?<![\w-])id="([^"]+)"[^>]*>')
 def name_parts(html):
     def add(m):
@@ -18,19 +25,41 @@ def clip_length(src, js):
     m = re.search(r'M\.scene\(\s*\{.*?\bT\s*:\s*([0-9]*\.?[0-9]+)', js, re.S)
     if not m: sys.exit(f'{src}: M.scene has no T (clip length in seconds)')
     return m.group(1)
-def build(src, dst):
+def parts(src):
     frag = open(src, encoding='utf-8').read()
     m = re.search(r'<title>(.*?)</title>', frag); title = m.group(1) if m else pathlib.Path(src).stem
-    css = ''.join(re.findall(r'<style>(.*?)</style>', frag, re.S))
     slot = lambda n: name_parts((re.search(rf'<div data-slot="{n}">(.*?)</div><!--/{n}-->', frag, re.S) or [None, ''])[1])
     js = ''.join(re.findall(r'<script>(.*?)</script>', frag, re.S))
-    scene = f'data-scene="{pathlib.Path(src).stem}" data-start="0" data-duration="{clip_length(src, js)}"'
-    base = open(E/'base.css').read().replace('__GEIST__', b64(E/'fonts/Geist-Variable.woff2')).replace('__GEISTMONO__', b64(E/'fonts/GeistMono-Medium.woff2'))
-    html = (f'<!doctype html><html><head><meta charset="utf-8"><title>{title}</title><style>{base}{css}</style></head><body>\n'
-            f'<div id="wrap"><div id="stage" {scene}><div id="world">{slot("world")}<div id="shape" data-el="shape">{slot("shape")}</div>{slot("over")}</div>{CURSOR}</div></div>\n'
-            f'<script>{open(E/"motion.js").read()}</script><script>{js}</script></body></html>')
-    open(dst, 'w', encoding='utf-8').write(html)
+    return dict(name=pathlib.Path(src).stem, title=title, css=''.join(re.findall(r'<style>(.*?)</style>', frag, re.S)), js=js, T=clip_length(src, js),
+                stage=lambda scene='': f'<div id="wrap"><div id="stage"{scene}><div id="world">{slot("world")}<div id="shape" data-el="shape">{slot("shape")}</div>{slot("over")}</div>{CURSOR}</div></div>')
+base_css = lambda: open(E/'base.css').read().replace('__GEIST__', b64(E/'fonts/Geist-Variable.woff2')).replace('__GEISTMONO__', b64(E/'fonts/GeistMono-Medium.woff2'))
+page = lambda title, css, body, scripts: (f'<!doctype html><html><head><meta charset="utf-8"><title>{title}</title><style>{base_css()}{css}</style></head><body>\n{body}\n'
+                                          f'<script>{open(E/"motion.js").read()}</script>{scripts}</body></html>')
+def build(src, dst):
+    p = parts(src)
+    body = p['stage'](f' data-scene="{p["name"]}" data-start="0" data-duration="{p["T"]}"')
+    open(dst, 'w', encoding='utf-8').write(page(p['title'], p['css'], body, f'<script>{p["js"]}</script>'))
+def clip_source(plan_dir, c):
+    if c.get('clip'): return plan_dir/c['clip']
+    found = sorted(plan_dir.glob(f'clips/{c["id"]}-*.html')) or sorted(plan_dir.glob(f'{c["id"]}-*.html'))
+    if not found: sys.exit(f'clip {c["id"]}: no "clip" path and no clips/{c["id"]}-*.html beside the plan')
+    return found[0]
+def compose(plan_path, dst):
+    plan_dir = pathlib.Path(plan_path).resolve().parent; P = json.load(open(plan_path, encoding='utf-8'))
+    css, body, scripts = [PAGE_CSS], [], []
+    for c in P['clips']:
+        p = parts(clip_source(plan_dir, c)); sel = f'[data-scene="{p["name"]}"]'
+        if p['css'].strip(): css.append(f'{sel}{{{p["css"]}}}')
+        body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}</section>')
+        scripts.append(f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>')
+    duration = P.get('duration', max(c['out'] for c in P['clips']))
+    scripts.append(f'<script>M.page({duration});</script>')
+    pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
+    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), ''.join(css), '\n'.join(body), ''.join(scripts)))
 if __name__ == '__main__':
-    out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
-    for s in sys.argv[2:]:
-        d = out/(pathlib.Path(s).stem + '.html'); build(s, d); print('built', d)
+    if sys.argv[1] == '--plan':
+        compose(sys.argv[2], sys.argv[3]); print('built', sys.argv[3])
+    else:
+        out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
+        for s in sys.argv[2:]:
+            d = out/(pathlib.Path(s).stem + '.html'); build(s, d); print('built', d)

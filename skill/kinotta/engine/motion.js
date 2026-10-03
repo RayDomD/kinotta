@@ -84,14 +84,18 @@ M.crossTimes = (f,t0,t1,ths)=>ths.map(th=>{for(let t=t0;t<=t1;t+=0.001) if(f(t)>
 /* scene runner
  cfg = { W,H, center:[x,y], bg:'#hex'|null(alpha), SH:{name:{w,h,r,bg,cam}}, start:'name', SEQ:[[t,'name'],...],
          layers:[{el,tin,tout,anchor:'c'|'t'|'l',o,update(t,g)}], cursor:{keys,clicks,drags,size}, shapePress:[t],
-         intro:t|null, geom(t,g) -> g, extra(t,g), T }                                                              */
+         intro:t|null, geom(t,g) -> g, extra(t,g), T }
+ On its own page a clip owns window.seek. On a composed page (build.py --plan) M.root is the clip's scene while its
+ script runs: the clip looks up only its own elements and registers its seek with M.page instead.            */
+M.clips=[];
 M.scene = (cfg)=>{
-  const $=id=>document.getElementById(id);
+  const root=M.root||document;
+  const $=id=>root.querySelector('#'+CSS.escape(id));
   const {W,H}=cfg; const [CX,CY]=cfg.center||[W/2,H/2];
   const stage=$('stage'), world=$('world'), shape=$('shape'), cur=$('cursor');
   stage.style.width=W+'px'; stage.style.height=H+'px'; $('wrap').style.width=W+'px'; $('wrap').style.height=H+'px';
   stage.style.background=cfg.bg||'transparent';
-  if(!cfg.bg) document.documentElement.classList.add('alpha');
+  if(!cfg.bg) (root===document?document.documentElement:root).classList.add('alpha');
   const P0=cfg.SH[cfg.start], SEQ=cfg.SEQ;
   const sp=cfg.spring||M.MORPH;
   const tr=k=>M.track(P0[k],SEQ.map(([t,n])=>[t,cfg.SH[n][k]]),sp);
@@ -129,6 +133,7 @@ M.scene = (cfg)=>{
       cur.style.transform=`translate(${(sx-3).toFixed(2)}px,${(sy-3).toFixed(2)}px) scale(${(1-0.13*cpress(t)).toFixed(4)})`;
     }
   };
+  if(root!==document){ seek(0); M.clips.push({root,seek,T:cfg.T}); return seek; }
   window.seek=seek; window.DURATION=cfg.T;
   // preview mode: loop in the browser, scaled to fit
   const RENDER=location.search.includes('render');
@@ -141,6 +146,28 @@ M.scene = (cfg)=>{
     const loop=()=>{seek(((performance.now()-t0)/1000)%(cfg.T+0.8));requestAnimationFrame(loop);};
     requestAnimationFrame(loop);
   }
+  return seek;
+};
+
+/* A clip script's document on a composed page: element lookups stay inside its scene, the rest is the page's. */
+M.scope = (root)=>new Proxy(document,{get(doc,k){
+  if(k==='getElementById') return id=>root.querySelector('#'+CSS.escape(id));
+  if(k==='querySelector'||k==='querySelectorAll'||k==='getElementsByClassName'||k==='getElementsByTagName') return root[k].bind(root);
+  const v=Reflect.get(doc,k); return typeof v==='function'?v.bind(doc):v;
+}});
+
+/* The composed page's seek: each scene shows while its slot runs, its clip at local time, holding its last frame. */
+M.page = (duration)=>{
+  const seek=(t)=>{
+    for(const c of M.clips){
+      const start=+c.root.dataset.start, on=t>=start&&t<start+(+c.root.dataset.duration);
+      c.root.classList.toggle('active',on);
+      if(on) c.seek(Math.min(t-start,c.T));
+    }
+  };
+  window.seek=seek; window.DURATION=duration;
+  document.body.classList.add('render');
+  seek(0);
   return seek;
 };
 })();

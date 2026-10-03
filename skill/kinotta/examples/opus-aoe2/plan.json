@@ -2,6 +2,7 @@
   "title": "Opus 5.5 · Age of Empires II",
   "video": "work/source.mp4",
   "fps": "30000/1001",
+  "duration": 54,
   "clips": [
     {"id":"01","title":"Opus 5.5 drop","line":"“Opus 5.5 just came out … a replica of Age of Empires II against every reasoning level.”","in":0.30,"out":6.75,"kind":"full","file":"out/01-opus-drop_0m00s30.mp4"},
     {"id":"02","title":"Folder → Claude Code → four builds → cost, time, tokens","line":"“I created a blank folder … opened up Claude Code, gave it this prompt, and set Opus 5.5 to low …”","in":6.75,"out":22.5,"kind":"panel","file":"out/02-pip-builds_0m06s75.mov"},

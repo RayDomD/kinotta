@@ -112,4 +112,16 @@ Map what the speaker says onto these:
 }
 ```
 
-Paths are relative to `plan.json`. `out` is when the clip leaves the timeline; if the clip is shorter, the composite holds its last frame.
+Paths are relative to `plan.json`. `out` is when the clip leaves the timeline; if the clip is shorter, the composite holds its last frame. `duration` (optional) is the video's length in seconds.
+
+## One Kinotta page from a plan
+
+```bash
+python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v<n>/index.html
+```
+
+Every clip becomes a scene on the video's timeline: `data-start` is its `in`, `data-duration` is `out − in`, and the page's `seek(t)` shows the scenes running at `t`, each at its own local time, holding its last frame if the slot outlasts it. The page is transparent wherever no clip paints, so panel clips (`bg:null`) sit over the footage, and full-frame clips cover it with their canvas. `window.DURATION` is the plan's `duration`, else the last `out`.
+
+- A clip's fragment is the plan clip's `clip` path, else `clips/<id>-*.html` or `<id>-*.html` beside the plan.
+- Clips may reuse ids and class names. Each clip's CSS is nested under its scene, and its script gets a `document` whose lookups (`getElementById`, `querySelector…`) only see its own scene. Don't reach the page another way (`window.document`, `document.body` lookups of other clips' elements).
+- The first moments of a clip are often an empty canvas while the shape pops in, so a shot's still belongs where its clip has settled, not on its in-point.
