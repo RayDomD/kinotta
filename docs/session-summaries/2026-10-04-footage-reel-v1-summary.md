@@ -36,3 +36,12 @@ Date: 2026-10-04. Branch: `feat/storyboard-phase` (local, not pushed). Plan:
 - In the dry run, estimated word times put a neighbour's word into two spoken lines ("plane and"). The
   skill now says to place in and out points in pauses between words.
 - The scripts were written before their tests in this run, not test first.
+
+## Changed after the run
+
+- `c1c067d` (first real talking video): `transcript.py --audio` decodes with ffmpeg and runs
+  faster-whisper on the CPU (its own decoder broke on PyAV 19; a GPU machine without CUDA libraries
+  failed mid-run); `inspect_video.py` labels a dip to black as a dark stretch instead of crashing;
+  section 5 makes an H.264 copy of HEVC or ProRes footage, which Chrome can't play.
+- Branch review (2026-10-04): `shots.py` lists shots in time order, so a clip a batch adds between
+  others no longer leaves the shot before it with no duration.
