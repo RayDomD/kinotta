@@ -347,9 +347,9 @@ Part of T11 (#13).
 
 **Acceptance criteria:**
 
-- [ ] The footage sample's panel is engine-built
-- [ ] The footage, word pin and section batch end-to-end tests pass against it
-- [ ] A click on the clip pins its element, and a click on the footage pins a position only
+- [x] The footage sample's panel is engine-built
+- [x] The footage, word pin and section batch end-to-end tests pass against it
+- [x] A click on the clip pins its element, and a click on the footage pins a position only
 
 **Blocked by:** #23 (T20)
 

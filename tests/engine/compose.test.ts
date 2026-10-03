@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
-import { buildBrollProject, EXAMPLE_PLAN } from '../helpers/engine.ts';
+import { buildBrollProject, composePlan, EXAMPLE_PLAN } from '../helpers/engine.ts';
 import { copyFixture } from '../helpers/project.ts';
 
 const LAUNCHER = resolve(import.meta.dirname, '../../bin/kinotta.mjs');
@@ -51,6 +52,16 @@ describe('engine plan build', () => {
       expect(names).toEqual(expect.arrayContaining(['shape', 'cursor']));
       expect(new Set(names).size).toBe(names.length);
     }
+  });
+
+  it('the footage sample\'s committed page is what the engine builds from its plan today', { timeout: BUILD_TIMEOUT_MS }, () => {
+    const sample = resolve(import.meta.dirname, '../fixtures/projects/footage-project');
+    const out = join(mkdtempSync(join(tmpdir(), 'kinotta-sample-')), 'index.html');
+
+    composePlan(join(sample, 'motion', 'plan.json'), out);
+
+    const lf = (file: string): string => readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+    expect(lf(out) === lf(join(sample, 'reels', 'founder-talk', 'v1', 'index.html')), 'rebuild it: build.py --plan motion/plan.json reels/founder-talk/v1/index.html').toBe(true);
   });
 
   it('opens as a footage reel with no contract issues and passes kinotta check', { timeout: BUILD_TIMEOUT_MS }, async () => {

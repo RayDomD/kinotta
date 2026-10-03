@@ -1,0 +1,17 @@
+<title>03 Last write wins</title>
+<style>.pn{position:absolute;left:-384px;top:-335px;width:768px;height:670px;display:grid;place-items:center;text-align:center;color:#1D1A16;font-size:48px;font-weight:800;line-height:1.05;letter-spacing:-.02em}
+.pn small{display:block;margin-top:28px;font-size:26px;font-weight:600;letter-spacing:0}</style>
+<div data-slot="shape">
+  <div class="L" id="Llww"><div class="pn" id="lww-panel"><div>Last write wins<small id="lost">Ana’s paragraph: lost</small></div></div></div>
+</div><!--/shape-->
+<script>
+const $=id=>document.getElementById(id);
+const grey=M.ctrack('#6F675C',[[1.2,'#B9B2A7']]);
+M.scene({
+  W:1920,H:1080,bg:null,T:3.2,center:[1421,486],intro:null,
+  SH:{panel:{w:768,h:670,r:24,bg:'#F2EDE4',cam:1}},
+  start:'panel', SEQ:[],
+  // The lost paragraph greys out once the other edit lands.
+  layers:[{el:'Llww',tin:null,tout:null,update:(t)=>{$('lost').style.color=grey(t);}}],
+});
+</script>

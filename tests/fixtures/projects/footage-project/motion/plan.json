@@ -1,0 +1,12 @@
+{
+  "title": "Founder talk v1",
+  "video": "../media/talk.mp4",
+  "fps": "10",
+  "duration": 12,
+  "clips": [
+    {"id":"01","title":"Two laptops, one doc","in":0,"out":3.2,"kind":"full"},
+    {"id":"02","title":"Conflict counter","in":3.2,"out":6.2,"kind":"panel"},
+    {"id":"03","title":"Last write wins","in":6.2,"out":9.4,"kind":"panel"},
+    {"id":"04","title":"Merge diagram","in":9.4,"out":12,"kind":"full"}
+  ]
+}
