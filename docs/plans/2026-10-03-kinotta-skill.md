@@ -1,7 +1,7 @@
 ---
 title: Kinotta skill for code-only reels
 date: 2026-10-03
-status: In Progress
+status: Done
 summary: T9 (#11). The global Kinotta skill, a `kinotta check` command and the install, so Claude can build code-only reels inside a project and consume comment batches.
 spec: docs/tickets.md T9 (#11); decisions K1 to K12 in docs/2026-09-30-grilling-decisions.md
 ---
@@ -77,3 +77,6 @@ rules, linking to the fixture reels as format examples. Install is a Node script
 
 ### 2026-10-03
 - Plan created from the handoff, approved by the owner as a goal run.
+- Steps 1 to 5 done (`ab64e0b`, `6f29f76`, `c82f721`, taste list seeded). Step 3 ran before step 2; the
+  install also links `~/.claude/skills/kinotta`. Typecheck clean, core 128/128, Playwright 71/71.
+  The Aroma run stays with the owner. Summary: `docs/session-summaries/2026-10-03-kinotta-skill-summary.md`.
