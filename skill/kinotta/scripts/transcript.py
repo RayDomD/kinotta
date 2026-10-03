@@ -23,9 +23,15 @@ def from_captions(path):
             c += len(w) + 1
     return words
 
+WHISPER_RATE = 16000
+
 def from_audio(video):
+    # ffmpeg decodes the audio (16 kHz mono floats, what the model takes); faster-whisper's own decoder breaks on newer PyAV.
+    import subprocess, numpy as np
     from faster_whisper import WhisperModel
-    segments, _ = WhisperModel('small').transcribe(video, word_timestamps=True)
+    raw = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', video, '-vn', '-ac', '1', '-ar', str(WHISPER_RATE), '-f', 'f32le', '-'], capture_output=True, check=True).stdout
+    # CPU: a machine with an NVIDIA card but no CUDA libraries otherwise fails mid-run.
+    segments, _ = WhisperModel('small', device='cpu', compute_type='int8').transcribe(np.frombuffer(raw, np.float32), word_timestamps=True)
     return [{'text': w.word.strip(), 'start': round(w.start, 3), 'end': round(w.end, 3)} for s in segments for w in s.words if w.word.strip()]
 
 if __name__ == '__main__':

@@ -197,7 +197,11 @@ built page and the shot list go in the version.
    engine's Node scripts with `NODE_PATH=./motion/node_modules`.
 3. **Reel folder.** Pick a slug as in section 3. Write `reels/<slug>/reel.json`:
    `{ "title": "<Reel title>", "footage": "<the video's path from the project root>" }`. Never copy
-   or move the video.
+   or move the video. One exception: Kinotta shows footage in Chrome, which can't play HEVC (H.265,
+   common from phones and cameras) or ProRes. Check the codec with `ffprobe`; if it is one of those,
+   make an H.264 copy beside it
+   (`ffmpeg -i <video> -c:v libx264 -crf 20 -r 30 -pix_fmt yuv420p -c:a aac -movflags +faststart <copy>.mp4`),
+   point `footage` at the copy, and say so in the hand-over. The original stays untouched.
 4. **Transcript.** With captions: `python3 $SKILL/scripts/transcript.py <captions.srt> reels/<slug>/transcript.json`.
    Without: `python3 $SKILL/scripts/transcript.py --audio <video> reels/<slug>/transcript.json`, which
    needs `pip install faster-whisper`; if it is missing, ask the owner to install it or give captions.

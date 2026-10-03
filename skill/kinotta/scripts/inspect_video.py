@@ -24,6 +24,8 @@ for s in sections:
         f=fr[i]; cols=np.where(f.max(0)>20)[0]; rows=np.where(f.max(1)>20)[0]
         if len(cols)==0: continue
         boxes.append((i/4,[int(cols.min()*W/96),int(rows.min()*H/54),int((cols.max()+1)*W/96),int((rows.max()+1)*H/54)]))
+    # nothing lit anywhere: a fade or a dark shot, not a picture-in-picture box
+    if not boxes: s['layout']='dark'; continue
     s['subject_box']=[min(b[1][0] for b in boxes),min(b[1][1] for b in boxes),max(b[1][2] for b in boxes),max(b[1][3] for b in boxes)]
     changes=[]; ref=boxes[0][1]
     for t,b in boxes:
