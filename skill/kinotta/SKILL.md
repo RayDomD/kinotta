@@ -205,7 +205,9 @@ built page and the shot list go in the version.
 4. **Transcript.** With captions: `python3 $SKILL/scripts/transcript.py <captions.srt> reels/<slug>/transcript.json`.
    Without: `python3 $SKILL/scripts/transcript.py --audio <video> reels/<slug>/transcript.json`, which
    needs `pip install faster-whisper`; if it is missing, ask the owner to install it or give captions.
-   Read the transcript before planning.
+   Read the transcript before planning, and fix misheard words in `transcript.json` itself (names and
+   products most of all, such as "Cloud" for "Claude"), keeping each word's times. The captions and the
+   spoken lines show these words. List the corrections in the hand-over.
 5. **Inspect the footage**: `python3 $SKILL/scripts/inspect_video.py <video> motion/work`. Look at
    `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
 6. **Sections.** Split the video by topic into sections of a few minutes each, contiguous from 0 to
@@ -217,6 +219,8 @@ built page and the shot list go in the version.
    {
      "title": "Founder talk",
      "duration": 312.4,
+     "transcript": "../reels/founder-talk/transcript.json",
+     "captions": true,
      "sections": [{ "id": "cold-open", "name": "Cold open", "start": 0, "end": 148.2 }],
      "clips": [
        { "id": "01", "title": "Two laptops, one doc", "line": "“picture two people editing …”",
@@ -241,6 +245,12 @@ built page and the shot list go in the version.
    `stills`. Each state's title says what it shows. Its still is 1 s into it; give a state its own
    `still` (seconds into the state) when it settles later. Check each state's still with
    `engine/beats.js` too.
+   `transcript` is the transcript's path from the plan. `captions` puts the transcript on the page as
+   captions, one scene per phrase with an element named `caption`; turn it on for every footage reel.
+   `true` is the default look, the phrase with the word being said lit in the engine's accent. To change
+   it, give `{ "look": "highlight" | "phrase" | "words", "color": "<hex>" }`: `phrase` is the phrase
+   alone, `words` shows each word as it is said; `color` is the lit word's colour (the brand file's
+   accent when there is one). Phrases break at pauses and clause ends by themselves.
 8. **Build the clips** in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
    1920x1080 whatever the video's size, since Kinotta draws every page in that frame; map a speaker box
    from `video.json` to that frame before keeping a panel clear of it. Check stills on the key words
@@ -252,7 +262,7 @@ built page and the shot list go in the version.
 11. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
     list again, and repeat until it is clean.
 12. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is
-    illustrative, and to run `kinotta` in this project. Say that Kinotta shows stills of the clips
+    illustrative, the words corrected in the transcript, and to run `kinotta` in this project. Say that Kinotta shows stills of the clips
     until the Review phase, and that nothing is rendered to video yet.
 
 Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.
@@ -278,6 +288,10 @@ before, and moves unsent comments on unchanged sections forward by itself.
      is usually on the footage around the clip, so read it as placement (move or resize the panel to
      clear that spot) or as a remark about the video itself. You can't change the video: answer Not
      done and say so. On a cutaway the point is on the clip's own canvas: change what is drawn there.
+   - **Caption pin** (`element` is `caption`): about the caption said at the shot's time. Fix a wrong
+     word in `transcript.json` (only words inside the batch's section). A phrase breaks at pauses and
+     clause ends, so a comma or full stop added to a word moves a break. A change of look or colour is
+     the plan's `captions` and changes every section, so do it only when the batch asks and say so.
    - **Word pin** (`word` set, with its time): about that spoken moment. Move the clip's change onto
      the word (clip-local time = word time − the clip's `in`), start or end the clip there, or show the
      word's idea, whichever the comment asks.

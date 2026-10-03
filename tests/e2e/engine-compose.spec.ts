@@ -45,6 +45,39 @@ test.describe('clips composed on one page', () => {
   });
 });
 
+test.describe('captions on a composed page', () => {
+  test.use({ viewport: VIEWPORT });
+
+  test('the phrase under way shows over the clips, with the word being said marked', async ({ page }) => {
+    const dir = mkdtempSync(join(tmpdir(), 'kinotta-captions-'));
+    const words = [['Hi,', 0, 0.4], ['my', 0.5, 0.7], ['name', 0.7, 0.9], ['is', 0.9, 1.0], ['Ryan.', 1.0, 1.4], ['Later', 3, 3.3], ['words', 3.3, 3.6]];
+    writeFileSync(join(dir, 'transcript.json'), JSON.stringify({ words: words.map(([text, start, end]) => ({ text, start, end })) }));
+    const plan = { duration: 5, transcript: 'transcript.json', captions: true, clips: [{ id: '06', in: 0, out: 1.5, kind: 'full', clip: exampleClip('06-chapter.html') }] };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+    composePlan(join(dir, 'plan.json'), join(dir, 'page.html'));
+    await page.goto(`${pathToFileURL(join(dir, 'page.html')).href}?render`);
+
+    const seek = (t: number) => page.evaluate((t) => (window as unknown as { seek(t: number): unknown }).seek(t), t);
+    const caption = page.locator('[data-caption].active [data-el="caption"]');
+
+    await seek(1.1);
+    await expect(caption).toHaveText('Hi, my name is Ryan.');
+    await expect(caption.locator('.now')).toHaveText('Ryan.');
+    await expect(page.locator('[data-scene="06-chapter"]')).toHaveClass(/active/);
+    // Over the clip, near the bottom of the frame.
+    const box = (await caption.boundingBox())!;
+    expect(box.y).toBeGreaterThan(VIEWPORT.height * 0.8);
+
+    await seek(2.2);
+    await expect(page.locator('[data-caption].active')).toHaveCount(0);
+
+    await seek(3.4);
+    await expect(caption).toHaveText('Later words');
+    await expect(caption.locator('.now')).toHaveText('words');
+    await expect(caption.locator('.said')).toHaveCount(2);
+  });
+});
+
 test.describe('the six-clip example in Kinotta', () => {
   test.use({ baseURL: BROLL_SERVER });
 

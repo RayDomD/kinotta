@@ -42,7 +42,11 @@ _Avoid_: Segment, track item
 
 **Transcript**:
 The timed words spoken in a reel's footage, saved with the reel. Claude plans b-roll against it, and each shot shows the line it covers.
-_Avoid_: Captions, subtitles, SRT
+_Avoid_: Subtitles, SRT
+
+**Captions**:
+The transcript shown on a footage reel's page, a phrase at a time, each phrase its own scene with an element named caption.
+_Avoid_: Subtitles, burn-ins
 
 **Overlay**:
 A clip layered above the main clips, such as b-roll or a lower third.

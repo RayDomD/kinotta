@@ -176,13 +176,26 @@ M.scope = (root)=>new Proxy(document,{get(doc,k){
   const v=Reflect.get(doc,k); return typeof v==='function'?v.bind(doc):v;
 }});
 
-/* The composed page's seek: each scene shows while its slot runs, its clip at local time, holding its last frame. */
+/* The composed page's seek: each scene shows while its slot runs, its clip at local time, holding its last frame.
+   A caption scene shows its phrase while it runs, each word marked said once started and the latest one now. */
+const NOW_HOLD = 0.25; // seconds the last word stays marked after it ends
 M.page = (duration)=>{
+  const caps=[...document.querySelectorAll('[data-caption]')].map(root=>({root,words:[...root.querySelectorAll('[data-t]')]}));
   const seek=(t)=>{
     for(const c of M.clips){
       const start=+c.root.dataset.start, on=t>=start&&t<start+(+c.root.dataset.duration);
       c.root.classList.toggle('active',on);
       if(on) c.seek(Math.min(t-start,c.T));
+    }
+    for(const {root,words} of caps){
+      const start=+root.dataset.start, on=t>=start&&t<start+(+root.dataset.duration);
+      root.classList.toggle('active',on);
+      if(!on) continue;
+      const said=words.filter(w=>t>=+w.dataset.t), now=said[said.length-1];
+      for(const w of words){
+        w.classList.toggle('said',said.includes(w));
+        w.classList.toggle('now',w===now&&t<+now.dataset.e+NOW_HOLD);
+      }
     }
   };
   window.seek=seek; window.DURATION=duration;

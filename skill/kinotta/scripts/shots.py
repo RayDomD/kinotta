@@ -7,7 +7,8 @@ slot), where the clip has settled, since a clip opens on an empty canvas. Its li
 "full" clips are cutaways, "panel" clips are panels. Changed sections (v2 on) follow the output path.
 A clip with "stills" ([{ "from", "title" }], "from" = clip-local seconds the state begins, the first at 0) gets
 one shot per state, numbered 05a, 05b, … with "clip": "05"; each state's line runs to the next state. A state's
-"still" is seconds into the state (the first state falls back to the clip's)."""
+"still" is seconds into the state (the first state falls back to the clip's).
+With "captions" on, one Captions overlay spans the transcript's words ("transcript" is its path from the plan)."""
 import json, sys, pathlib
 
 DEFAULT_STILL = 1.0
@@ -20,7 +21,7 @@ def shot(number, start, end, still):
     elif not 0 <= still < end - start: sys.exit(f'shot {number}: "still" must fall inside it (0 to {round(end - start, 3)} s)')
     return round(start + still, 3), {'start': start, 'end': end}
 
-def shots(plan):
+def shots(plan, plan_dir=pathlib.Path(".")):
     for key in ('duration', 'sections'):
         if key not in plan: sys.exit(f'plan.json has no "{key}"')
     ids = {s['id'] for s in plan['sections']}
@@ -44,10 +45,15 @@ def shots(plan):
             end = c['in'] + froms[i + 1] if i + 1 < len(froms) else c['out']
             still = s.get('still', c.get('still') if i == 0 else None)
             add(c['id'] + chr(ord('a') + i), s['title'], start, end, still, {'clip': c['id']})
-    return {'contract': 1, 'duration': plan['duration'], 'sections': plan['sections'], 'shots': out}
+    result = {'contract': 1, 'duration': plan['duration'], 'sections': plan['sections'], 'shots': out}
+    if plan.get('captions'):
+        if not plan.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
+        words = json.load(open(plan_dir / plan['transcript'], encoding='utf-8'))['words']
+        if words: result['overlays'] = [{'kind': 'CAPTIONS', 'name': 'Captions', 'start': words[0]['start'], 'end': words[-1]['end']}]
+    return result
 
 if __name__ == '__main__':
-    result = shots(json.load(open(sys.argv[1], encoding='utf-8')))
+    result = shots(json.load(open(sys.argv[1], encoding='utf-8')), pathlib.Path(sys.argv[1]).resolve().parent)
     if len(sys.argv) > 3: result['changedSections'] = sys.argv[3:]
     out = pathlib.Path(sys.argv[2]); out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
