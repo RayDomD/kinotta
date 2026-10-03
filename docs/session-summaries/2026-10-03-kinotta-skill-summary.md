@@ -48,7 +48,7 @@ owner does from the checklist in the plan. No subagents were used.
 
 ## The Aroma run (K10)
 
-Done by the owner on 2026-10-03; checked from the files in `C:\FIles\Projects\Brands\Aromaeels\`.
+Done by the owner on 2026-10-03; checked from the files in `C:\FIles\Projects\Brands\Aroma\reels\`.
 T9 is Done.
 
 - `brand.md` written, checked by the owner (`checked: 2026-10-03`).
