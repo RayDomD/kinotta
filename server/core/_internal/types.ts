@@ -209,6 +209,8 @@ export interface Project {
   redoEdit(slug: string): Promise<EditList>;
   /** Drops the edit list, with its undo and redo history. */
   discardEdits(slug: string): Promise<EditList>;
+  /** Ends the hand-off a copied batch started, so Save is allowed again. Does nothing when no batch is out. */
+  cancelHandoff(slug: string): Promise<EditList>;
   /**
    * Builds the next version from the edit list with no agent: writes the operations into the reel's plan and transcript,
    * builds `v<n+1>` (with its own plan and transcript, `edits.json`, `changedSections`, `builtBy: "you"`) and clears the
@@ -229,6 +231,13 @@ export interface EditList {
   canRedo: boolean;
   /** The list was made on a version that is no longer the newest; it cannot take edits or be saved. */
   stale?: true;
+  /** A comment batch is out for the newest version: Save is blocked with this reason until the next version or `cancelHandoff`. */
+  handedOff?: { version: number; copiedAt: string; reason: string };
+  /**
+   * Operations that no longer apply to the version they were replayed onto, by id, with the reason. They stay in the list so
+   * the owner can drop or redo them; they are left out of the preview, and Save is blocked while any remain.
+   */
+  flagged?: Record<string, string>;
 }
 
 export interface SavedVersion {

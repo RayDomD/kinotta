@@ -300,6 +300,10 @@ export interface EditList {
   canUndo: boolean;
   canRedo: boolean;
   stale?: true;
+  /** A comment batch is out: Save is blocked with this reason until the next version appears or the hand-off is cancelled. */
+  handedOff?: { version: number; copiedAt: string; reason: string };
+  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and block Save. */
+  flagged?: Record<string, string>;
 }
 
 const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
@@ -311,6 +315,8 @@ export const removeOperation = (slug: string, id: string): Promise<EditList> => 
 export const undoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/undo`, { method: 'POST' });
 export const redoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/redo`, { method: 'POST' });
 export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
+/** Ends the hand-off a copied batch started, so Save is allowed again. */
+export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/handoff`, { method: 'DELETE' });
 /** Builds the next version from the edits. Resolves with its number. */
 export const saveEdits = async (slug: string): Promise<number> =>
   (await requestJson<{ version: number }>(`/api/reels/${encodeURIComponent(slug)}/save`, { method: 'POST' })).version;

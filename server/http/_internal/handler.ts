@@ -13,6 +13,7 @@ const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
 const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
+const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -272,6 +273,7 @@ export function createHandler(project: Project, webRoot: string) {
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
       const editsRoute = EDITS_API.exec(pathname);
       const saveRoute = SAVE_API.exec(pathname);
+      const handoffRoute = HANDOFF_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -286,6 +288,10 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(saveRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.saveEdits(slug));
+      } else if (handoffRoute && req.method === 'DELETE') {
+        const slug = safeDecode(handoffRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.cancelHandoff(slug));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
         sendJson(res, 201, await project.startReel((await readJsonBody(req)) as NewReel));
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {

@@ -80,7 +80,9 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   // A reel built from code takes element moves only: its page is the version, with no footage, pieces or plan to edit.
   const codeOnly = version?.code !== undefined;
   const moveable = editable || (codeOnly && edits !== undefined && version?.isNewest === true && edits.list !== null && edits.list.stale !== true);
-  const operations = moveable ? edits!.list!.operations : NO_OPERATIONS;
+  // An edit flagged as no longer applying (its target is gone from the newest version) is not previewed.
+  const listed = moveable ? edits!.list! : null;
+  const operations = useMemo(() => (listed ? listed.operations.filter((op) => listed.flagged?.[op.id] === undefined) : NO_OPERATIONS), [listed]);
   // What the reel plays and shows is the version with the unsaved edits applied over it.
   const pieces = useMemo(() => (savedPieces ? (editedList(savedPieces, operations) as readonly Piece[]) : null), [savedPieces, operations]);
   const total = operations.length > 0 && pieces ? timelineLength(pieces) : savedTotal;

@@ -66,6 +66,13 @@ the new shot playing there; element and word pins keep their element or word. A 
 and gives it `state: 'moment-removed'`, pinned where the snip closed up, until it is deleted or re-pinned as a new comment. Sent
 comments never move. Comments say whether they were `sent` and which version they `carried` on to.
 
+- `cancelHandoff(slug)`: a copied batch marks the reel handed off in `reels/<reel>/handoff.json` (the version it was copied from). It ends when
+  a newer version appears or `cancelHandoff` is called. While it holds, `readEditList` carries `handedOff: { version, copiedAt, reason }`,
+  `saveEdits` throws `invalid` with that reason, and operations still collect. When a newer version appears (the watcher's `version-added`,
+  or the next `readEditList`) an unsaved edit list is replayed onto its sources instead of going `stale`: each operation is checked in order,
+  one whose target is gone (clip, word, piece index, element) stays in the list and is reported in `flagged` (id to reason), and the undo
+  history goes. `saveEdits` throws `invalid` while any edit is flagged; remove it (or redo it) first.
+
 - `readEditList(slug)`, `addOperation(slug, op)`, `removeOperation(slug, id)`, `undoEdit(slug)`, `redoEdit(slug)`, `discardEdits(slug)`,
   `saveEdits(slug)`: the reel's edit list and Save. The
   list is `{ base, operations, undo, redo }` (the last two are lists of whole lists, up to 100 back, shown to callers as `canUndo` and `canRedo`; any new change, an add or a removal, ends the redo history, and a removal can be undone) at `reels/<reel>/edit-list.json`, outside every version, rewritten atomically on every change;

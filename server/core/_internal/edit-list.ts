@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { applyOperations } from './edit-model.ts';
-import type { NewOperation, Operation, Plan } from './edit-model.ts';
+import { applyOperation, applyOperations } from './edit-model.ts';
+import type { NewOperation, Operation, Sources } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import type { EditList } from './types.ts';
 import { assertCodeOnlyOperations, codeSources, isCodeOnly } from './code-edits.ts';
+import { clearHandoff, handoffReason, readHandoff } from './handoff.ts';
+import type { Handoff } from './handoff.ts';
 import { readReelPlan, readReelWords } from './sources.ts';
 import { newestVersionNumber, requireReelDir } from './version.ts';
 
@@ -34,6 +36,8 @@ interface Stored {
   operations: Operation[];
   undo: Operation[][];
   redo: Operation[][];
+  /** Operations a replay onto a newer version found no longer apply, by id, with why. */
+  flagged: Record<string, string>;
 }
 
 /** The most lists Undo keeps. */
@@ -46,16 +50,28 @@ async function readStored(reelDir: string): Promise<Stored | null> {
   try {
     const parsed = JSON.parse(await readFile(join(reelDir, EDIT_LIST_FILE), 'utf8')) as Record<string, unknown>;
     if (!Number.isInteger(parsed.base) || !Array.isArray(parsed.operations)) return null;
-    return { base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo) };
+    const flagged = parsed.flagged && typeof parsed.flagged === 'object' ? (parsed.flagged as Record<string, string>) : {};
+    return { base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged };
   } catch {
     return null;
   }
 }
 
-/** The list as the API shows it: operations, and whether Undo and Redo have anything to step to. */
-function shown(stored: Stored, stale: boolean): EditList {
-  const list: EditList = { base: stored.base, operations: stored.operations, canUndo: stored.undo.length > 0, canRedo: stored.redo.length > 0 };
-  return stale ? { ...list, stale: true } : list;
+/** What the API says about a hand-off in force. */
+const handoffOf = (handoff: Handoff | null): Pick<EditList, 'handedOff'> => (handoff ? { handedOff: { ...handoff, reason: handoffReason(handoff.version) } } : {});
+
+/** The list as the API shows it: operations, whether Undo and Redo have anything to step to, and what holds Save back. */
+function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditList {
+  const flagged = Object.fromEntries(stored.operations.filter((op) => stored.flagged[op.id] !== undefined).map((op) => [op.id, stored.flagged[op.id]!]));
+  return {
+    base: stored.base,
+    operations: stored.operations,
+    canUndo: stored.undo.length > 0,
+    canRedo: stored.redo.length > 0,
+    ...(stale ? { stale: true as const } : {}),
+    ...handoffOf(handoff),
+    ...(Object.keys(flagged).length > 0 ? { flagged } : {}),
+  };
 }
 
 /** A list with nothing in it and no history to step back to is no list: the file goes. */
@@ -65,41 +81,90 @@ async function writeStored(reelDir: string, stored: Stored): Promise<void> {
   else await writeJsonAtomic(file, stored);
 }
 
-/** The reel's edit list. One kept for a version that is no longer the newest is `stale` and cannot be saved. */
-export async function readEditList(projectDir: string, slug: string): Promise<EditList> {
-  const reelDir = await requireReelDir(projectDir, slug);
-  const newest = await newestVersionNumber(reelDir);
-  const stored = await readStored(reelDir);
-  if (stored === null || (stored.operations.length === 0 && stored.undo.length === 0 && stored.redo.length === 0)) {
-    return { base: newest, operations: [], canUndo: false, canRedo: false };
+/** The reel's sources as the newest version has them: what an edit list applies to. */
+async function currentSources(projectDir: string, reelDir: string): Promise<Sources> {
+  if (await isCodeOnly(projectDir, reelDir)) return (await codeSources(join(reelDir, `v${await newestVersionNumber(reelDir)}`))).sources;
+  const { plan, transcriptFile } = await readReelPlan(projectDir, reelDir);
+  return { plan, words: await readReelWords(transcriptFile) };
+}
+
+/**
+ * Replays a list made on an older version onto the newest one's sources. Each operation is checked in order against what
+ * the ones before it left; one whose target is gone (a clip, a word, a piece, an element) stays in the list, flagged with
+ * why, and is left out of what the later ones are checked against. Undo and Redo history belongs to the old version and goes.
+ * A list that cannot be replayed at all (the sources are unreadable) is left as it was, stale.
+ */
+async function replayOntoNewest(projectDir: string, reelDir: string, stored: Stored, newest: number): Promise<Stored> {
+  let sources: Sources;
+  try {
+    sources = await currentSources(projectDir, reelDir);
+  } catch {
+    return stored;
   }
-  return shown(stored, stored.base !== newest);
-}
-
-/** The stored list for a change: refuses a stale one. */
-async function loadForChange(projectDir: string, reelDir: string, slug: string): Promise<Stored> {
-  const list = await readEditList(projectDir, slug);
-  if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Discard it to start again.`);
-  return (await readStored(reelDir)) ?? { base: list.base, operations: [], undo: [], redo: [] };
-}
-
-/** Writes `operations` as the new list, keeping what it replaced for Undo. A new change ends the redo history. */
-async function commit(reelDir: string, stored: Stored, operations: Operation[]): Promise<Stored> {
-  const next = { base: stored.base, operations, undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [] };
+  const flagged: Record<string, string> = {};
+  for (const op of stored.operations) {
+    try {
+      sources = applyOperation(sources, op);
+    } catch (err) {
+      flagged[op.id] = err instanceof Error ? err.message : 'It no longer applies.';
+    }
+  }
+  const next: Stored = { base: newest, operations: stored.operations, undo: [], redo: [], flagged };
   await writeStored(reelDir, next);
   return next;
 }
 
-/** Throws `invalid` when the operations do not apply, in order, to the reel's plan and transcript. */
-async function checkApplies(projectDir: string, reelDir: string, operations: readonly Operation[]): Promise<void> {
-  if (await isCodeOnly(projectDir, reelDir)) {
-    // A reel built from code takes only element moves, applied to the scenes of its newest version.
-    assertCodeOnlyOperations(operations);
-    applyOperations((await codeSources(join(reelDir, `v${await newestVersionNumber(reelDir)}`))).sources, operations);
-    return;
+/** The reel's edit list, without waiting for other changes to it. Replays a list made on an earlier version first. */
+export async function readEditListNow(projectDir: string, slug: string): Promise<EditList> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const newest = await newestVersionNumber(reelDir);
+  const handoff = await readHandoff(reelDir, newest);
+  let stored = await readStored(reelDir);
+  if (stored === null || (stored.operations.length === 0 && stored.undo.length === 0 && stored.redo.length === 0)) {
+    return { base: newest, operations: [], canUndo: false, canRedo: false, ...handoffOf(handoff) };
   }
-  const { plan, transcriptFile } = await readReelPlan(projectDir, reelDir);
-  applyOperations({ plan, words: await readReelWords(transcriptFile) }, operations);
+  if (stored.base < newest) stored = await replayOntoNewest(projectDir, reelDir, stored, newest);
+  return shown(stored, stored.base !== newest, handoff);
+}
+
+/**
+ * The reel's edit list. One made on an earlier version is replayed onto the newest first (the version an agent built, say),
+ * with the operations whose targets are gone flagged. One that cannot be replayed is `stale` and cannot be saved.
+ */
+export async function readEditList(projectDir: string, slug: string): Promise<EditList> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => readEditListNow(projectDir, slug));
+}
+
+/** Ends a hand-off: Save is allowed again. */
+export async function cancelHandoff(projectDir: string, slug: string): Promise<EditList> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, async () => {
+    await clearHandoff(reelDir);
+    return readEditListNow(projectDir, slug);
+  });
+}
+
+/** The stored list for a change: refuses a stale one. */
+async function loadForChange(projectDir: string, reelDir: string, slug: string): Promise<Stored> {
+  const list = await readEditListNow(projectDir, slug);
+  if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Discard it to start again.`);
+  return (await readStored(reelDir)) ?? { base: list.base, operations: [], undo: [], redo: [], flagged: {} };
+}
+
+/** Writes `operations` as the new list, keeping what it replaced for Undo. A new change ends the redo history. */
+async function commit(reelDir: string, stored: Stored, operations: Operation[]): Promise<Stored> {
+  const next = { base: stored.base, operations, undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [], flagged: stored.flagged };
+  await writeStored(reelDir, next);
+  return next;
+}
+
+/** Throws `invalid` when the operations do not apply, in order, to the reel's plan and transcript. Flagged ones are left out. */
+async function checkApplies(projectDir: string, reelDir: string, operations: readonly Operation[], flagged: Record<string, string>): Promise<void> {
+  const live = operations.filter((op) => flagged[op.id] === undefined);
+  // A reel built from code takes only element moves, applied to the scenes of its newest version.
+  if (await isCodeOnly(projectDir, reelDir)) assertCodeOnlyOperations(live);
+  applyOperations(await currentSources(projectDir, reelDir), live);
 }
 
 /** Adds an operation to the list, after checking it applies on top of the ones already there. */
@@ -110,8 +175,8 @@ export async function addOperation(projectDir: string, slug: string, input: NewO
     if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
     const operation = { ...input, id: randomUUID() } as Operation;
     const operations = [...stored.operations, operation];
-    await checkApplies(projectDir, reelDir, operations);
-    return shown(await commit(reelDir, stored, operations), false);
+    await checkApplies(projectDir, reelDir, operations, stored.flagged);
+    return shown(await commit(reelDir, stored, operations), false, await readHandoff(reelDir, stored.base));
   });
 }
 
@@ -125,8 +190,8 @@ export async function removeOperation(projectDir: string, slug: string, id: stri
     const stored = await loadForChange(projectDir, reelDir, slug);
     if (!stored.operations.some((op) => op.id === id)) throw new KinottaError('not-found', `There is no edit "${id}" in the list.`);
     const operations = stored.operations.filter((op) => op.id !== id);
-    await checkApplies(projectDir, reelDir, operations);
-    return shown(await commit(reelDir, stored, operations), false);
+    await checkApplies(projectDir, reelDir, operations, stored.flagged);
+    return shown(await commit(reelDir, stored, operations), false, await readHandoff(reelDir, stored.base));
   });
 }
 
@@ -152,7 +217,7 @@ async function step(projectDir: string, slug: string, direction: 'undo' | 'redo'
         ? { ...stored, operations: target, undo: rest, redo: [...stored.redo, stored.operations] }
         : { ...stored, operations: target, redo: rest, undo: [...stored.undo, stored.operations] };
     await writeStored(reelDir, next);
-    return shown(next, false);
+    return shown(next, false, await readHandoff(reelDir, next.base));
   });
 }
 
@@ -161,6 +226,6 @@ export async function discardEdits(projectDir: string, slug: string): Promise<Ed
   const reelDir = await requireReelDir(projectDir, slug);
   return withReelLock(reelDir, async () => {
     await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
-    return readEditList(projectDir, slug);
+    return readEditListNow(projectDir, slug);
   });
 }

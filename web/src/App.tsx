@@ -363,7 +363,7 @@ export function App() {
   const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
-  const edits = useEdits(reel?.slug, versionsTick);
+  const edits = useEdits(reel?.slug, versionsTick + commentsTick);
   const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
   const [reveal, setReveal] = useState<Reveal | null>(null);
   // The section on screen is kept per reel and version, so opening another one starts on its first section.

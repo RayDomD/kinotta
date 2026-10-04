@@ -1,6 +1,6 @@
 import { basename, join, resolve } from 'node:path';
 import { copyBatch } from './_internal/batch.ts';
-import { addOperation, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
+import { addOperation, cancelHandoff, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { saveEdits } from './_internal/save.ts';
 import { readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
@@ -79,14 +79,18 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     undoEdit: (slug) => undoEdit(dir, slug),
     redoEdit: (slug) => redoEdit(dir, slug),
     discardEdits: (slug) => discardEdits(dir, slug),
+    cancelHandoff: (slug) => cancelHandoff(dir, slug),
     saveEdits: (slug) => saveEdits(dir, slug),
   };
 }
 
-/** A new version hands over its predecessor's unsent comments before anyone hears that it exists. */
+/**
+ * A new version hands over its predecessor's unsent comments, and the reel's unsaved edits replay onto its sources (flagging
+ * the ones whose targets are gone), before anyone hears that it exists.
+ */
 function settling(dir: string, listener: (event: ProjectEvent) => void): (event: ProjectEvent) => void {
   return (event) => {
-    if (event.type === 'version-added') void settleNewest(dir, event.reel).then(() => listener(event));
+    if (event.type === 'version-added') void settleNewest(dir, event.reel).then(() => readEditList(dir, event.reel)).catch(() => undefined).then(() => listener(event));
     else listener(event);
   };
 }

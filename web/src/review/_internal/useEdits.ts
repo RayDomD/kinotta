@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addOperation, discardEdits, fetchEdits, redoEdit, removeOperation, saveEdits, undoEdit } from '../../api/index.ts';
+import { addOperation, cancelHandoff, discardEdits, fetchEdits, redoEdit, removeOperation, saveEdits, undoEdit } from '../../api/index.ts';
 import type { EditList } from '../../api/index.ts';
 import type { NewOperation } from '../../../../server/core/model.ts';
 
@@ -18,6 +18,8 @@ export interface EditsState {
   undo(): Promise<void>;
   redo(): Promise<void>;
   discard(): Promise<void>;
+  /** Ends the hand-off a copied batch started, so Save is allowed again. */
+  cancelHandoff(): Promise<void>;
   /** Builds the next version. Resolves with its number, or null when it failed (the list is kept; the reason is in `error`). */
   save(): Promise<number | null>;
 }
@@ -77,6 +79,7 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
     [run, slug],
   );
   const discard = useCallback(() => change(discardEdits), [change]);
+  const endHandoff = useCallback(() => change(cancelHandoff), [change]);
   const remove = useCallback((id: string) => change((reel) => removeOperation(reel, id)), [change]);
   const undo = useCallback(() => change(undoEdit), [change]);
   const redo = useCallback(() => change(redoEdit), [change]);
@@ -90,5 +93,5 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
     return version;
   }, [run, slug]);
 
-  return { list: loaded !== null && loaded.slug === slug ? loaded.list : null, busy, error, add, remove, undo, redo, discard, save };
+  return { list: loaded !== null && loaded.slug === slug ? loaded.list : null, busy, error, add, remove, undo, redo, discard, cancelHandoff: endHandoff, save };
 }

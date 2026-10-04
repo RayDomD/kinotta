@@ -51,6 +51,10 @@ const CLIPS_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-clips-project.txt');
 const CODE_ONLY_PORT = 4383;
 const CODE_ONLY_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-code-only-project.txt');
 
+/** A fourteenth for handoff.spec.ts: the footage sample as it is, whose agent-built reel has a batch copied and then Save tried. */
+const HANDOFF_PORT = 4382;
+const HANDOFF_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-handoff-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -164,6 +168,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${CODE_ONLY_PORT}`,
       env: { ...serverEnv(CODE_ONLY_PORT), KINOTTA_E2E_FIXTURE: 'showreel-project', KINOTTA_E2E_PROJECT_FILE: CODE_ONLY_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${HANDOFF_PORT}`,
+      env: { ...serverEnv(HANDOFF_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_PROJECT_FILE: HANDOFF_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },

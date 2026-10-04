@@ -54,6 +54,10 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
 function EditsTab({ edits, pieces, clips, editable, codeOnly = false, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
   const operations = edits?.list?.operations ?? [];
   const stale = edits?.list?.stale === true;
+  const flagged = edits?.list?.flagged ?? {};
+  const handedOff = edits?.list?.handedOff;
+  // Flagged edits are not part of the preview, so where an edit landed is worked out from the ones that apply.
+  const applied = operations.filter((op) => flagged[op.id] === undefined);
   const idle = edits !== undefined && !edits.busy;
 
   async function save(): Promise<void> {
@@ -65,6 +69,12 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, nextVersio
     <>
       <div className="rv-panelbody">
         {!editable && <p className="meta">{stale ? 'These edits were made on an older version. Discard them to start again.' : 'Open the newest version to edit it.'}</p>}
+        {handedOff && (
+          <div className="rv-handoff" role="status">
+            <p className="meta">{handedOff.reason}</p>
+            <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.cancelHandoff()}>Cancel hand-off</button>
+          </div>
+        )}
         {editable && operations.length === 0 && codeOnly && <p className="meta rv-hint">No edits yet. Click an element in the frame and drag it to move it, or drag its corner to scale it. This reel is built from code, so its timing is changed by your agent.</p>}
         {editable && operations.length === 0 && !codeOnly && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
@@ -82,14 +92,16 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, nextVersio
           <ol className="clist" aria-label="Edits">
             {operations.map((op, i) => {
               const { target, text } = describeOperation(op);
+              const gone = flagged[op.id];
               return (
-                <li key={op.id} className={op.kind === 'clip-slide' ? 'c flag' : 'c'}>
+                <li key={op.id} className={op.kind === 'clip-slide' || gone !== undefined ? 'c flag' : 'c'}>
                   <div className="where">
                     <span className="dot">{i + 1}</span>
-                    {`${codeOnly ? target.replace(/^Clip/, 'Scene') : target}${pieces ? ` · ${whereOn(pieces, operations, i, clips)}` : ''}`}
+                    {`${codeOnly ? target.replace(/^Clip/, 'Scene') : target}${pieces && gone === undefined ? ` · ${whereOn(pieces, applied, applied.indexOf(op), clips)}` : ''}`}
                   </div>
                   <p>{text}</p>
-                  {op.kind === 'clip-slide' && <div className="note">Off its words: its changes no longer land on the words they were placed on. Keep it, or ask your agent to re-sync.</div>}
+                  {gone !== undefined && <div className="note">{`No longer applies to v${edits?.list?.base ?? ''}: ${gone} Remove it, or make the edit again.`}</div>}
+                  {gone === undefined && op.kind === 'clip-slide' && <div className="note">Off its words: its changes no longer land on the words they were placed on. Keep it, or ask your agent to re-sync.</div>}
                   <button type="button" className="x" aria-label={`Remove edit ${i + 1}`} disabled={!idle || stale} onClick={() => void edits?.remove(op.id)}>
                     Remove
                   </button>

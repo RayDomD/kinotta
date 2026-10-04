@@ -122,6 +122,7 @@
 .rv-who { display: block; font-size: 11px; font-weight: 400; color: var(--muted); text-shadow: none; }
 
 /* undo and redo, and removing one edit */
+.rv-handoff { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .rv-undo { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
 .rv-undo button { color: var(--muted); transition: color var(--t-color) var(--ease); }
 .rv-undo button:hover:not(:disabled) { color: var(--ink); }

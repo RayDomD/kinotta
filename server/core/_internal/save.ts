@@ -2,7 +2,8 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { applyOperations, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
-import { EDIT_LIST_FILE, readEditList, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { handoffReason, readHandoff } from './handoff.ts';
 import { assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
 import { readReelPlan, readReelWords } from './sources.ts';
 import { KinottaError } from './errors.ts';
@@ -13,14 +14,6 @@ import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 
 const BUILT_BY_YOU = 'you';
 const SPAN_TOLERANCE = 1e-6;
-
-/**
- * Why Save must wait because a comment batch is with an agent, or null. A stub: the hand-off (T41) fills it in, and
- * every Save already asks it first.
- */
-async function batchOut(_reelDir: string): Promise<string | null> {
-  return null;
-}
 
 const sameSpan = (a: { start: number; end: number } | null, b: { start: number; end: number } | null): boolean =>
   a === null || b === null ? a === b : Math.abs(a.start - b.start) < SPAN_TOLERANCE && Math.abs(a.end - b.end) < SPAN_TOLERANCE;
@@ -106,11 +99,14 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
 export async function saveEdits(projectDir: string, slug: string): Promise<SavedVersion> {
   const reelDir = await requireReelDir(projectDir, slug);
   return withReelLock(reelDir, async () => {
-    const list = await readEditList(projectDir, slug);
+    const list = await readEditListNow(projectDir, slug);
     if (list.operations.length === 0) throw new KinottaError('invalid', 'There are no edits to save.');
     if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Discard it to start again.`);
-    const reason = await batchOut(reelDir);
-    if (reason !== null) throw new KinottaError('invalid', reason);
+    if ((await readHandoff(reelDir, await newestVersionNumber(reelDir))) !== null) throw new KinottaError('invalid', handoffReason(list.base));
+    const flagged = Object.keys(list.flagged ?? {}).length;
+    if (flagged > 0) {
+      throw new KinottaError('invalid', `${flagged === 1 ? 'One edit no longer applies' : `${flagged} edits no longer apply`} to v${list.base}. Remove ${flagged === 1 ? 'it' : 'them'} or redo ${flagged === 1 ? 'it' : 'them'}, then Save.`);
+    }
 
     if (await isCodeOnly(projectDir, reelDir)) {
       const saved = await saveCodeOnly(projectDir, slug, reelDir, list);
