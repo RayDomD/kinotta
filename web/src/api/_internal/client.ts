@@ -62,7 +62,7 @@ export interface Section {
   end: number;
   shots: number;
   implicit?: true;
-  /** Handed off to Claude, with no newer version having changed the section yet. */
+  /** Handed off to an agent, with no newer version having changed the section yet. */
   waiting?: true;
 }
 
@@ -163,7 +163,7 @@ export interface Comment {
   pin: FramePin | WordPin;
   text: string;
   createdAt: string;
-  /** Copied to Claude in its section's latest batch. */
+  /** Copied to an agent in its section's latest batch. */
   sent?: true;
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };
@@ -235,7 +235,7 @@ export const saveNote = async (slug: string, number: number, note: string): Prom
   (await requestJson<{ note: string }>(`${versionPath(slug, number)}/note`, jsonBody('PUT', { note }))).note;
 
 export interface CopiedBatch {
-  /** The pasteable text for Claude. */
+  /** The pasteable text for your agent. */
   text: string;
   /** Where the batch was saved, relative to the project root. */
   file: string;

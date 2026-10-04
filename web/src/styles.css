@@ -56,7 +56,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .modes :is(span, button) { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
 .modes :is(span, button)[aria-current] { color: var(--ink); border-color: var(--ink); }
 
-/* copy the comment batch for Claude */
+/* copy the comment batch for your agent */
 .copy { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .copy-error { max-width: 46ch; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
 .btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease); }

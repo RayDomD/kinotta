@@ -98,7 +98,7 @@ function TopBar(props: {
 interface VersionRailProps {
   entries: VersionEntry[];
   selected: number | undefined;
-  /** Versions Claude wrote since the reel was opened and the reviewer has not opened yet. */
+  /** Versions an agent wrote since the reel was opened and the reviewer has not opened yet. */
   ready: ReadonlySet<number>;
   /** Section ids in the order the open version lists them, on a reel with several; the rail numbers changed sections by it. */
   sectionIds: string[] | null;
@@ -262,10 +262,10 @@ function Main(props: MainProps) {
   const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription } = props;
   if (creating) return <NewReel project={project} onStarted={onStarted} />;
   if (listing.state === 'no-reels-folder') {
-    return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
+    return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
   }
   if (listing.state === 'no-reels' || !reel) {
-    return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask Claude for a storyboard to add one.`}</Empty></main>;
+    return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask your agent for a storyboard to add one.`}</Empty></main>;
   }
   if (phase === 'Review') {
     return (
@@ -305,7 +305,7 @@ function Main(props: MainProps) {
         <Empty>
           {transcription?.state === 'running'
             ? `${reel.title} is being transcribed. Its storyboard appears when v1 is built.`
-            : `${reel.title} has no versions yet. Ask Claude for a storyboard to add one.`}
+            : `${reel.title} has no versions yet. Ask your agent for a storyboard to add one.`}
         </Empty>
       )}
     </main>

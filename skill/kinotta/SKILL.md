@@ -10,7 +10,7 @@ each **version** in Kinotta, pins comments to its elements, and pastes the **com
 you. You build the next version from it. Sections 1 to 4 cover code-only reels: every scene is an
 HTML page, with no footage. Footage reels are sections 5 and 6.
 
-The project folder is the one Claude is running in. Every path below is relative to it unless it
+The project folder is the one you are running in. Every path below is relative to it unless it
 says otherwise.
 
 ## Hard rules
@@ -22,6 +22,9 @@ says otherwise.
   owner asks for motion, say that Kinotta can't review motion yet (it comes with the Review phase),
   describe the motion in the shot's description, and keep the page still. Footage reels are the
   exception: their clips carry the engine's real animation (section 5).
+- **The edit list and the hand-off are Kinotta's.** Never read, write or delete `reels/<slug>/edit-list.json`,
+  `reels/<slug>/handoff.json` or `reels/<slug>/.save/`. They hold the owner's unsaved edits and the state of a
+  batch; Kinotta carries the edits onto the version you write.
 - **The owner runs `kinotta`.** Never start it, and never start a server for it.
 - **`shots.json` is written last.** Its appearance is the editor's signal that a version is ready.
 - **The timing contract holds.** Read `reference/contract.md` before writing your first page in a
@@ -136,7 +139,10 @@ On a footage reel (its `reel.json` names footage), follow **section 6** instead 
 3. **Check the brand file as in section 2.** If it says `checked: no`, ask instead of building.
    Then read the taste lists and the brand sources as in section 3.
 4. **Copy** `reels/<slug>/v<n>/` to `reels/<slug>/v<n+1>/`, leaving out `shots.json`,
-   `answers.md` and every `comments*.json`. Never write into `v<n>`.
+   `answers.md`, `edits.json` and every `comments*.json`. Never write into `v<n>`. The copy keeps
+   `kinotta-edits.css` and the `<link>` to it in `index.html`: the owner's moved and scaled elements on a
+   code-only reel live there, so `v<n+1>` carries `v<n>`'s file (change a rule only when a comment asks for
+   that element to move). Never drop the link or the file.
 5. **Edit `v<n+1>`** to answer each comment and note. Keep `data-scene` and `data-el` names for
    anything that is still the same thing, so the editor can compare versions; give a new name only
    to something new. On a reel with sections, change only the section the batch covers.
@@ -155,8 +161,9 @@ On a footage reel (its `reel.json` names footage), follow **section 6** instead 
 
    Each entry starts with **Done**, **Partly done** or **Not done**, and the last two give the reason.
    Fix every listed contract issue too, and add a line for each under `Contract issues`.
-7. **Write `v<n+1>/shots.json` last**, with the updated shots, and `changedSections` listing the ids
-   of the sections you changed (a reel with no `sections` has one, id `reel`).
+7. **Write `v<n+1>/shots.json` last**, with the updated shots, `changedSections` listing the ids
+   of the sections you changed (a reel with no `sections` has one, id `reel`), and `builtBy` set to
+   your own agent name (see "Who built it" in section 6).
 8. **Check it**: `kinotta check <slug>`, fix, repeat until clean.
 9. **Hand over**: repeat the answers list in chat, and say Kinotta will show `v<n+1>` as ready.
 
@@ -209,7 +216,7 @@ built page and the shot list go in the version.
    hands you an SRT or VTT, use it instead: `python3 $SKILL/scripts/transcript.py <captions.srt> reels/<slug>/transcript.json`
    (its word times are estimates; the audio's are the model's own).
    Read the transcript before planning, and fix misheard words in `transcript.json` itself (names and
-   products most of all, such as "Cloud" for "Claude"), keeping each word's times. The captions and the
+   products most of all, such as "Cloud" for "Cloudinary"), keeping each word's times. The captions and the
    spoken lines show these words. List the corrections in the hand-over.
 5. **Inspect the footage**: `python3 $SKILL/scripts/inspect_video.py <video> motion/work`. Look at
    `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
@@ -259,12 +266,15 @@ built page and the shot list go in the version.
    from `video.json` to that frame before keeping a panel clear of it. Check stills on the key words
    with `engine/beats.js`, including each clip's `still` time, and fix what is cramped or off-word.
 9. **Compose v1**: `python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v1/index.html`.
-10. **Write the shot list last**: `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v1/shots.json`.
+10. **Keep what v1 was built from.** Copy the transcript and the plan into the version folder
+    (`reels/<slug>/v1/transcript.json` and `plan.json`), as in section 6 step 5.
+11. **Write the shot list last**: `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v1/shots.json`.
     One shot per clip, or per state of a clip with `stills` (`05a`, `05b`, … with `"clip": "05"`),
-    with its section, type (`cutaway` or `panel`) and spoken line.
-11. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
+    with its section, type (`cutaway` or `panel`) and spoken line. Add `builtBy` (your own agent name,
+    see "Who built it" in section 6) with `--built-by <name>` after the output path.
+12. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
     list again, and repeat until it is clean.
-12. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is
+13. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is
     illustrative, the words corrected in the transcript, and to run `kinotta` in this project. Say that Kinotta shows stills of the clips
     until the Review phase, and that nothing is rendered to video yet.
 
@@ -279,10 +289,10 @@ before, and moves every unsent comment forward by itself, to the same moment of 
 
 1. **Read the batch file** and confirm `v<n>` is the newest version, as in section 4 steps 1 and 2.
    The look follows section 5.
-2. **Confirm the sources build `v<n>`.** Compose `motion/plan.json` into a scratch file and compare it
+2. **Confirm the sources build `v<n>`.** Compose the plan (see "The plan" below) into a scratch file and compare it
    with `reels/<slug>/v<n>/index.html`. If they differ, the sources changed since `v<n>`: stop and ask.
 3. **Answer each comment in the batch's section only.** Edit only the clips whose `section` is the
-   batch's (their fragments in `motion/clips/` and their entries in `motion/plan.json`). The shot
+   batch's (their fragments in `motion/clips/` and their entries in the plan). The shot
    number is the clip's `id`; a state's number (`05b`) is its clip's `id` plus a letter, so the comment
    is about clip 05 in that state (its `stills` entry gives the clip-local time). By pin kind:
    - **Element pin** (`element` set): change that element of that clip. The name is the element's `id`;
@@ -300,15 +310,53 @@ before, and moves every unsent comment forward by itself, to the same moment of 
      word's idea, whichever the comment asks.
    Never change another section's clips, their `in` and `out`, or the section bounds. A new clip takes
    the next unused number; never renumber existing clips.
-4. **Compose** `v<n+1>`: `python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v<n+1>/index.html`.
-   Nothing else is copied: the transcript belongs to the reel, and the page is self-contained.
-5. **Write `v<n+1>/answers.md`** as in section 4 step 6: every comment in the batch's numbering, then
+4. **Compose** `v<n+1>`: `python3 $SKILL/engine/build.py --plan <plan> reels/<slug>/v<n+1>/index.html`.
+   The page is self-contained, but the version also keeps what it was built from (step 5).
+5. **Keep what `v<n+1>` was built from** (every version has its own copy, so the owner can open any
+   version and see what it was made of):
+   - `v<n+1>/transcript.json`: a copy of the transcript the plan names, with your word fixes in it.
+   - `v<n+1>/plan.json`: a copy of the plan you composed from, with `transcript` set to `"transcript.json"`
+     and the other relative paths (`video` and each clip's `clip` fragment) rewritten so they reach the same
+     files from the version folder. Nothing else about the plan changes: `pieces`, offsets, caption positions
+     and `slid` stay as they are.
+6. **Write `v<n+1>/answers.md`** as in section 4 step 6: every comment in the batch's numbering, then
    the notes, each Done, Partly done or Not done with a reason.
-6. **Write the shot list last**, naming the batch's section as changed:
-   `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v<n+1>/shots.json <section>`.
-7. **Check it**: `kinotta check <slug>`; fix, compose and write the shot list again until clean.
-8. **Hand over**: repeat the answers in chat, and say Kinotta will show `v<n+1>` as ready with only
+7. **Write the shot list last**, naming the batch's section as changed:
+   `python3 $SKILL/scripts/shots.py <plan> reels/<slug>/v<n+1>/shots.json --built-by <name> <section>`.
+8. **Check it**: `kinotta check <slug>`; fix, compose and write the shot list again until clean.
+9. **Hand over**: repeat the answers in chat, and say Kinotta will show `v<n+1>` as ready with only
    that section changed.
+
+### The plan
+
+Kinotta Save writes the owner's edits into the plan, so the plan can hold fields you didn't write. Find it
+in `reels/<slug>/plan.json` when that file exists (a reel started from a video in Kinotta), else
+`motion/plan.json`. Edit that one file and compose from it. Keep these fields exactly as you find them when
+you rebuild; losing one undoes an edit the owner made:
+
+- `pieces`: `[{ "in", "out" }, …]`, the stretches of the video the reel is made of, in reel order. The
+  plan's times (clip `in` and `out`, words, sections) stay in **source** time; `build.py` and `shots.py`
+  put them on the reel's timeline themselves. Don't move a clip or a word across a snip by hand.
+- `offsets` on a clip: `{ "<element>": { "x", "y", "scale" } }`, the owner's moves and scales of an element,
+  with `@clip` standing for the clip's root. Keep the entry for any element you keep; if you rename or
+  remove the element, drop its entry and say so in `answers.md`. Never bake an offset into the clip's code
+  and leave the entry behind: it would apply twice.
+- `captions.position` (`{ "x", "y" }`) and `captions.phrases` (`[{ "at", "x", "y" }]`, `at` the first word's
+  source start): where the owner moved the captions. Keep both, and keep `look` and `color` beside them.
+  Don't change a phrase's first word's time unless a comment asks; the position follows the word.
+- `slid: true` on a clip: the owner slid it off its words. When you re-sync that clip to its words (a word
+  pin or a comment asks, or you move its `in` and `out` back onto the words it was written for), delete
+  `slid` from the clip. Leave `slid` alone on every clip you don't re-sync.
+- Trimmed clips (`in` and `out` the owner set) and a clip's `stills` states stay unless a comment asks to
+  change them.
+
+Don't write these fields yourself unless a comment asks for the change they hold.
+
+### Who built it
+
+`shots.json` carries `builtBy`: your own agent's name, lowercase, one word (`claude`, `codex`, …); Kinotta
+shows it as "Built by <name>" in the version list. `shots.py` writes it from `--built-by <name>`, before
+the section ids. Kinotta's own saves write `you`; never use that.
 
 Done when `v<n+1>` passes `kinotta check`, `answers.md` answers every comment and note, only the
 batch's section changed, and `v<n>` is unchanged.

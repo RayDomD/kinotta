@@ -89,6 +89,16 @@ describe('shots.py', () => {
     expect(file.shots[1]).toMatchObject({ number: '02', start: 10.5, type: 'panel', description: 'A pill pops in.', section: 'intro' });
   });
 
+  it('writes the agent name as builtBy before the changed sections', () => {
+    const dir = temp();
+    const plan = { duration: 20, sections: [{ id: 'intro', name: 'Intro', start: 0, end: 20 }], clips: [{ id: '01', title: 'A', in: 2, out: 8, kind: 'full', section: 'intro' }] };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    expect(run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json'), '--built-by', 'claude', 'intro']).status).toBe(0);
+
+    expect(json(join(dir, 'shots.json'))).toMatchObject({ builtBy: 'claude', changedSections: ['intro'] });
+  });
+
   it('lists shots in time order when a later-numbered clip comes earlier, as a batch adds them', () => {
     const dir = temp();
     const plan = {

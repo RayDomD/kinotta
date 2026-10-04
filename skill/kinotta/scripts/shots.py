@@ -1,6 +1,7 @@
 """A footage version's shots.json from its b-roll plan: one shot per clip. Run it last; shots.json appearing is
 the editor's signal that the version is ready.
-usage: python3 shots.py plan.json reels/<slug>/v<n>/shots.json [changedSection ...]
+usage: python3 shots.py plan.json reels/<slug>/v<n>/shots.json [--built-by <agent name>] [changedSection ...]
+--built-by writes "builtBy" into the shot list: the name of the agent that built the version.
 The plan needs "duration" and "sections" ([{ "id", "name", "start", "end" }]), and each clip a "section". A shot
 starts "still" seconds into its clip (default 1, at most half the slot; a set "still" must fall inside the
 slot), where the clip has settled, since a clip opens on an empty canvas. Its line is the clip's span, so its spoken line is the words said under it.
@@ -60,7 +61,11 @@ def shots(plan, plan_dir=pathlib.Path(".")):
 
 if __name__ == '__main__':
     result = shots(json.load(open(sys.argv[1], encoding='utf-8')), pathlib.Path(sys.argv[1]).resolve().parent)
-    if len(sys.argv) > 3: result['changedSections'] = sys.argv[3:]
+    rest = sys.argv[3:]
+    if rest[:1] == ['--built-by']:
+        if len(rest) < 2: sys.exit('--built-by needs an agent name')
+        result['builtBy'] = rest[1]; rest = rest[2:]
+    if rest: result['changedSections'] = rest
     out = pathlib.Path(sys.argv[2]); out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f'{len(result["shots"])} shots -> {out}')

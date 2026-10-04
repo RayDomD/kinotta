@@ -1,4 +1,4 @@
-/** A section that was copied to Claude and has not changed in a newer version: an outlined hex and the word, never colour alone. */
+/** A section that was copied to an agent and has not changed in a newer version: an outlined hex and the word, never colour alone. */
 export function WaitingMark() {
   return (
     <span className="waiting">

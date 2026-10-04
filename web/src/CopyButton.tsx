@@ -11,7 +11,7 @@ type Outcome =
   | { status: 'copied'; count: number }
   | { status: 'failed'; message: string };
 
-/** Top bar button (disabled on a version that is read-only): saves the version's comment batch for Claude and puts the pasteable text on the clipboard. */
+/** Top bar button (disabled on a version that is read-only): saves the version's comment batch for your agent and puts the pasteable text on the clipboard. */
 export function CopyButton(props: {
   slug: string;
   version: number;
@@ -79,7 +79,7 @@ export function CopyButton(props: {
     try {
       await navigator.clipboard.writeText(saved.text);
     } catch {
-      setOutcome({ status: 'failed', message: `Saved to ${saved.file}, but the clipboard is not available. Ask Claude to read that file.` });
+      setOutcome({ status: 'failed', message: `Saved to ${saved.file}, but the clipboard is not available. Ask your agent to read that file.` });
       return;
     }
     setSent({ key: batchKey, count: saved.count, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) });
@@ -132,7 +132,7 @@ export function CopyButton(props: {
         )}
       </button>
       <span className="sr-only" role="status">
-        {copied ? `Copied ${outcome.count} ${outcome.count === 1 ? 'comment' : 'comments'} for Claude` : ''}
+        {copied ? `Copied ${outcome.count} ${outcome.count === 1 ? 'comment' : 'comments'} for your agent` : ''}
       </span>
     </div>
   );

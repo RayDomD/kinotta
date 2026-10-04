@@ -62,7 +62,7 @@ export interface Section {
   shots: number;
   /** Set on the one section a reel gets when shots.json declares none. */
   implicit?: true;
-  /** Handed off to Claude on this version, or on an earlier one that no version since has changed this section in. */
+  /** Handed off to an agent on this version, or on an earlier one that no version since has changed this section in. */
   waiting?: true;
 }
 
@@ -189,7 +189,7 @@ export interface Project {
   /**
    * Writes the version's comment batch to `reels/<slug>/v<n>/comments.json` (replacing any earlier copy) and
    * returns the pasteable text. A reel with several sections needs `sectionId`: the batch is then that section's
-   * (`comments-<sectionId>.json`) and the section counts as waiting on Claude. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
+   * (`comments-<sectionId>.json`) and the section counts as waiting on an agent. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
    * for a version that is not the newest.
    */
   copyBatch(slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch>;
@@ -275,7 +275,7 @@ export interface BatchOptions {
 }
 
 export interface CopiedBatch {
-  /** What to paste to Claude: reel, version, each comment as shot, time, element: text, notes, saved path. */
+  /** What to paste to an agent: reel, version, each comment as shot, time, element: text, notes, saved path. */
   text: string;
   /** Where the batch was saved, relative to the project root with forward slashes. */
   file: string;
@@ -340,7 +340,7 @@ export interface Comment {
   text: string;
   /** ISO 8601. */
   createdAt: string;
-  /** Copied to Claude in its section's latest batch. */
+  /** Copied to an agent in its section's latest batch. */
   sent?: true;
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };

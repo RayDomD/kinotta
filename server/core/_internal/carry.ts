@@ -68,7 +68,7 @@ function carriedComment(comment: StoredComment, from: Version, to: Version): Sto
 
 /**
  * Hands the unsent comments of version n-1 over to version n, once (F4, E15), whoever built n: each follows its moment
- * through source time. Comments already sent to Claude stay where they are, frozen with their batch. Both sides record
+ * through source time. Comments already sent to an agent stay where they are, frozen with their batch. Both sides record
  * the outcome, and settling twice does nothing. Comments only ever move from the version right before.
  */
 async function settle(projectDir: string, slug: string, n: number): Promise<void> {
@@ -123,7 +123,7 @@ export async function settleNewest(projectDir: string, slug: string): Promise<vo
   }
 }
 
-/** A version as the app sees it: its files, its changed sections, and the sections still waiting on Claude. */
+/** A version as the app sees it: its files, its changed sections, and the sections still waiting on an agent. */
 export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
   await settleNewest(projectDir, slug);
   const version = await readVersionFiles(projectDir, slug, number);

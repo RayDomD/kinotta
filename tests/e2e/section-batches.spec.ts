@@ -43,7 +43,7 @@ async function pin(page: Page, number: string, section: number, at: { x: number;
   await expect(dialog(page)).toHaveCount(0);
 }
 
-/** Claude writes v2: the page first, shots.json last, and the folder appears in one step. */
+/** An agent writes v2: the page first, shots.json last, and the folder appears in one step. */
 function writeVersionTwo(): void {
   const reel = join(projectDir(), 'reels', REEL);
   const building = join(reel, 'building-v2');
@@ -119,7 +119,7 @@ test('v1 stays as it was: sent and frozen, and the unsent ones say they moved', 
 
   await expect(cards(page)).toHaveCount(2);
   await expect(cards(page).nth(0)).toContainText('Slide the laptops in faster.');
-  await expect(cards(page).nth(0).locator('.carry-state')).toHaveText('Sent to Claude');
+  await expect(cards(page).nth(0).locator('.carry-state')).toHaveText('Sent to your agent');
   await expect(cards(page).nth(1)).toContainText('Unsent in section one.');
   await expect(cards(page).nth(1).locator('.carry-state')).toHaveText('Moved to v2');
   await expect(cards(page).nth(1).getByRole('button', { name: /^Edit/ })).toHaveCount(0);

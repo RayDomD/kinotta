@@ -11,7 +11,7 @@ const NOTE_MAX_LENGTH = 4000;
 /** How far a word pin's time may be from the transcript word's start, in seconds. */
 const WORD_TIME_TOLERANCE = 0.01;
 
-/** What became of a comment: whether it went to Claude in a batch, and which newer version it moved on to. */
+/** What became of a comment: whether it went to an agent in a batch, and which newer version it moved on to. */
 function statusOf(id: string, state: StateFile): Pick<Comment, 'sent' | 'carried'> {
   const { carriedTo } = state;
   return {

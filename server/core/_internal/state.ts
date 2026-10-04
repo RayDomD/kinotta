@@ -22,7 +22,7 @@ export interface StoredComment {
   state?: typeof MOMENT_REMOVED;
 }
 
-/** What one copy handed to Claude for a section: the comments it held. A later copy of the section replaces it. */
+/** What one copy handed to an agent for a section: the comments it held. A later copy of the section replaces it. */
 export interface HandOff {
   copiedAt: string;
   commentIds: string[];
@@ -34,7 +34,7 @@ export interface StateFile {
   note: string;
   /** Section id to its latest hand-off. */
   handedOff?: Record<string, HandOff>;
-  /** Sections still waiting on Claude when this version appeared: handed off on the version before and unchanged since. */
+  /** Sections still waiting on an agent when this version appeared: handed off on the version before and unchanged since. */
   waiting?: string[];
   /** Set once this version has taken the carried comments of the one before it (settling is done). `ids` are the new comment ids. */
   carriedFrom?: { version: number; ids: string[] };

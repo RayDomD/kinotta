@@ -276,7 +276,7 @@ lanes still show, with word pins. A reel opens in the tab last used for it.
 - [ ] A reel with no clips shows the empty state, its lanes, and accepts word pins
 - [ ] A reel reopens in its last-used tab
 
-## T46 (#48). Skill learns the new plan fields
+## T46 (#48). Skill learns the new plan fields — Done
 
 **What to build:** The Kinotta skill keeps pieces, offsets and caption positions when it rebuilds, clears `slid` when
 it re-syncs a clip to its words, writes `builtBy` with the agent's name, and copies the transcript and plan into each
@@ -286,8 +286,8 @@ version. App wording and the skill's user-facing text name no particular agent (
 
 **Model:** small
 
-- [ ] Skill rules cover pieces, offsets, caption positions, `slid`, `builtBy` and per-version transcript and plan
-- [ ] App strings name no particular agent
+- [x] Skill rules cover pieces, offsets, caption positions, `slid`, `builtBy` and per-version transcript and plan
+- [x] App strings name no particular agent
 
 ## T47 (#49). Finish pass on Review and Edit
 

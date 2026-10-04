@@ -27,7 +27,7 @@ interface Edits {
   html?(page: string): string;
 }
 
-/** A new version the way Claude writes one: a copy of `from`, changed as asked. */
+/** A new version the way an agent writes one: a copy of `from`, changed as asked. */
 function addVersion(dir: string, from: number, to: number, edits: Edits = {}): void {
   const source = join(dir, 'reels', REEL, `v${from}`);
   const target = join(dir, 'reels', REEL, `v${to}`);
