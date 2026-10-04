@@ -116,7 +116,7 @@ marked on the timeline. Sections stay contiguous after a reorder.
 - [x] Every section is one contiguous stretch after a reorder
 - [x] Cuts and snips are marked on the footage lane
 
-## T35 (#37). Comments carry forward by remapping
+## T35 (#37). Comments carry forward by remapping — Done
 
 **What to build:** Unsent comments move to the next version on Save and on an agent's build, their times mapped
 from the old timeline to source time and onto the new one. An element pin follows its element. A pin inside a
@@ -127,10 +127,10 @@ or deleted. This replaces "unchanged sections only" as the carry rule.
 
 **Model:** top
 
-- [ ] After a snip and Save, unsent comments sit at remapped times in the new version
-- [ ] A comment in a snipped stretch is kept and marked "moment removed"
-- [ ] An agent-built version carries comments by the same rule
-- [ ] Existing carry-forward tests are updated to the new rule
+- [x] After a snip and Save, unsent comments sit at remapped times in the new version
+- [x] A comment in a snipped stretch is kept and marked "moment removed"
+- [x] An agent-built version carries comments by the same rule
+- [x] Existing carry-forward tests are updated to the new rule
 
 ## T36 (#38). Fix and re-time words
 
