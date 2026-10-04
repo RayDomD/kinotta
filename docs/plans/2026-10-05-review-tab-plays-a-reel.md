@@ -1,7 +1,7 @@
 ---
 title: Review tab plays a reel (T31)
 date: 2026-10-05
-status: In Progress
+status: Done
 summary: T31. The Review tab plays a reel in the Gate well: footage, clips and captions together, following pieces and skipping snips, with lanes on a zoomable axis under an overview.
 spec: docs/tickets-review-edit.md T31 (#33); docs/specs/2026-10-05-review-edit-phase.md
 ---
@@ -46,3 +46,4 @@ T31's five criteria met.
 
 ### 2026-10-05
 - Plan created.
+- Done. Core fix landed with the read; the player, lanes and three e2e specs follow the plan. See the session summary.

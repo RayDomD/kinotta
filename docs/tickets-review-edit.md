@@ -47,7 +47,7 @@ transcriber; tests pass a fake with fixed words. Once words are in, Kinotta writ
 - [x] The reel opens in the Review tab
 - [x] Python is called only through the runner module
 
-## T31 (#33). Review tab plays a reel
+## T31 (#33). Review tab plays a reel — Done
 
 **What to build:** The Review tab, per the mockup: rail (reels, sections, versions), player in the Gate well, and
 lanes (overview, Footage pieces, Clips, Captions, Words, Pins, axis) on one zoomable time axis with an overview of the
@@ -59,11 +59,11 @@ timecode reads in Doto numerals with the reel's total length. A reel with no ver
 
 **Model:** top
 
-- [ ] A footage reel plays footage, clips and captions together in the Gate well
-- [ ] Playback follows pieces and skips snips
-- [ ] Keyboard play, pause and frame step; drag scrubs; timecode shows current and total in Doto
-- [ ] The zoomed timeline and its overview stay in step with the playhead
-- [ ] Playwright: pick a video and play it
+- [x] A footage reel plays footage, clips and captions together in the Gate well
+- [x] Playback follows pieces and skips snips
+- [x] Keyboard play, pause and frame step; drag scrubs; timecode shows current and total in Doto
+- [x] The zoomed timeline and its overview stay in step with the playhead
+- [x] Playwright: pick a video and play it
 
 ## T32 (#34). Snip and Save
 
