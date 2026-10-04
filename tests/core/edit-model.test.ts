@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOperation, describeOperation, editedPieces, snipPieces } from '../../server/core/model.ts';
+import { applyOperation, operationTouches, describeOperation, editedPieces, snipPieces } from '../../server/core/model.ts';
 
 describe('snipPieces', () => {
   it('splits a piece around the stretch, trims one it crosses and drops one it covers', () => {
@@ -76,5 +76,35 @@ describe('cut and move-piece', () => {
   it('describes both in plain words', () => {
     expect(describeOperation(cut(43.2))).toEqual({ target: 'Footage', text: 'Cut into two pieces at 00:43.20' });
     expect(describeOperation(move(1, 0)).text).toBe('Moved piece B to place 1');
+  });
+});
+
+describe('word-text and word-timing', () => {
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const sources = { plan: {}, words };
+  const text = (at: number, value: string) => ({ id: 'a', kind: 'word-text' as const, at, text: value });
+  const timing = (at: number, start: number, end: number) => ({ id: 'b', kind: 'word-timing' as const, at, start, end });
+
+  it('changes the word that starts at the time, and leaves the rest', () => {
+    expect(applyOperation(sources, text(1, ' where ')).words).toEqual([words[0], { text: 'where', start: 1, end: 1.4 }]);
+    expect(applyOperation(sources, timing(1, 1.1, 1.6)).words[1]).toEqual({ text: 'there', start: 1.1, end: 1.6 });
+    expect(words[1]!.text).toBe('there');
+  });
+
+  it('refuses a missing word, an empty one, a backwards re-time and one over its neighbour', () => {
+    expect(() => applyOperation(sources, text(3, 'x'))).toThrow(/no word/);
+    expect(() => applyOperation(sources, text(1, ''))).toThrow(/empty/);
+    expect(() => applyOperation(sources, timing(1, 1.4, 1.2))).toThrow(/start before its end/);
+    expect(() => applyOperation(sources, timing(1, 0.8, 1.4))).toThrow(/next to it/);
+  });
+
+  it('says what it did, and touches the section the word is in', () => {
+    expect(describeOperation({ ...text(1, 'where'), was: 'there' })).toEqual({ target: 'Word', text: 'Changed “there” to “where”' });
+    expect(describeOperation(timing(1, 1.1, 1.6)).text).toBe('Re-timed to 00:01.10 to 00:01.60');
+    expect(operationTouches(text(1, 'x'), { start: 0, end: 2 })).toBe(true);
+    expect(operationTouches(text(5, 'x'), { start: 0, end: 2 })).toBe(false);
   });
 });

@@ -29,9 +29,9 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   const at =
     op.kind === 'snip'
       ? toTimelineSpan(before, op.from, op.to)?.start
-      : op.kind === 'cut'
-        ? toTimeline(before, op.at)
-        : before.pieces[op.from]?.at;
+      : op.kind === 'move-piece'
+        ? before.pieces[op.from]?.at
+        : toTimeline(before, op.at);
   return formatTransport(at ?? 0);
 }
 

@@ -6,8 +6,9 @@ import { Empty } from '../../Empty.tsx';
 import type { CaptionPhrase } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
+import type { WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
-import { pieceMap, toSource } from '../../../../server/core/model.ts';
+import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
 import { editedList, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
@@ -81,7 +82,28 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
 
   const clips = useMemo(() => remapped(clipSpans(version?.shots ?? []), moved), [version, moved]);
   const overview = useMemo(() => (clips.length > 0 ? clips : (pieces ?? []).map((p) => ({ start: p.at, end: p.at + p.out - p.in }))), [clips, pieces]);
-  const words = useMemo(() => (version?.transcript ? remapped(version.transcript, moved) : null), [version, moved]);
+  // Words: the saved version's, taken back to source time, with the unsaved word edits applied, then placed on the edited timeline.
+  const shownWords = useMemo(() => {
+    if (!version?.transcript) return null;
+    const was = pieceMap(savedPieces ?? [], 0);
+    const now = pieceMap(pieces ?? [], 0);
+    const source = version.transcript.flatMap((w) => {
+      const start = toSource(was, w.start);
+      return start === null ? [] : [{ text: w.text, start, end: start + (w.end - w.start) }];
+    });
+    let edited = source;
+    try {
+      edited = applyOperations({ plan: {}, words: source }, operations.filter((op) => op.kind === 'word-text' || op.kind === 'word-timing')).words;
+    } catch {
+      // The list no longer applies to these words; the saved words show.
+    }
+    return edited.flatMap((w, i) => {
+      const span = toTimelineSpan(now, w.start, w.end);
+      const before = source[i]!;
+      return span ? [{ text: w.text, ...span, fixed: w.text !== before.text, retimed: w.start !== before.start || w.end !== before.end, source: w }] : [];
+    });
+  }, [version, savedPieces, pieces, operations]);
+  const words: WordCell[] | null = shownWords;
   const shownPhrases = useMemo(() => remapped(phrases, moved), [phrases, moved]);
   const shownComments = useMemo(
     () =>
@@ -117,6 +139,8 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   const tool = useRef(toolName);
   tool.current = toolName;
   const afterSnip = useRef<number | null>(null);
+  const shownWordsRef = useRef(shownWords);
+  shownWordsRef.current = shownWords;
 
   // The playhead goes to where a snip was, or stays put, once the edited reel is what plays.
   const operationCount = operations.length;
@@ -151,6 +175,18 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     const { editable: allowed, edits: changes } = live.current;
     if (!allowed || !changes || changes.busy) return;
     void changes.add({ kind: 'move-piece', from, to });
+  };
+  const fixWord = (index: number, text: string): void => {
+    const { editable: allowed, edits: changes } = live.current;
+    const word = shownWordsRef.current?.[index];
+    if (!allowed || !changes || changes.busy || !word) return;
+    void changes.add({ kind: 'word-text', at: word.source.start, text, was: word.text });
+  };
+  const retimeWord = (index: number, startBy: number, endBy: number): void => {
+    const { editable: allowed, edits: changes } = live.current;
+    const word = shownWordsRef.current?.[index];
+    if (!allowed || !changes || changes.busy || !word) return;
+    void changes.add({ kind: 'word-timing', at: word.source.start, start: word.source.start + startBy, end: word.source.end + endBy });
   };
   const snipRef = useRef(snip);
   snipRef.current = snip;
@@ -256,6 +292,8 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
           currentPhrase={indexAt(shownPhrases, time)}
           words={words}
           currentWord={words ? indexAt(words, time) : -1}
+          onFixWord={editable && words ? fixWord : undefined}
+          onRetimeWord={editable && words ? retimeWord : undefined}
           comments={shownComments}
           overview={overview}
           onWindow={setRaw}

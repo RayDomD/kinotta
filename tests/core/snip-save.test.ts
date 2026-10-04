@@ -342,3 +342,42 @@ describe('cut and move-piece on Save', () => {
     expect((await project.readEditList(SLUG)).operations).toHaveLength(2);
   });
 });
+
+describe('word-text and word-timing on Save', () => {
+  it('writes a fixed word and a re-timed word into v<n+1> and leaves v<n> with its own transcript (E14)', { timeout: SLOW_MS }, async () => {
+    const { reelDir, slug, project } = await startedReel();
+    await project.addOperation(slug, { kind: 'word-text', at: 1, text: 'where', was: 'there' });
+    // The re-time names the word by where it starts now: after the fix its start is unchanged, then it moves.
+    await project.addOperation(slug, { kind: 'word-timing', at: 1.5, start: 1.55, end: 2.1 });
+    await project.addOperation(slug, { kind: 'word-text', at: 1.55, text: 'folks.' });
+
+    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+
+    const v2 = await project.readVersion(slug, 2);
+    expect(v2.transcript?.map((w) => [w.text, w.start, w.end])).toEqual([
+      ['hello', 0.5, 0.9],
+      ['where', 1, 1.4],
+      ['folks.', 1.55, 2.1],
+      ['later', 8.2, 8.6],
+    ]);
+    expect(v2.shots[0]?.spoken).toBe('hello where folks.');
+    expect(v2.changedSections).toEqual(['all']);
+    // v1 keeps what it was built with, and so do the words of its spoken line.
+    expect(readJson(join(reelDir, 'v1', 'transcript.json')).words).toEqual(WORDS);
+    expect((await project.readVersion(slug, 1)).transcript?.map((w) => w.text)).toEqual(['hello', 'there', 'friends.', 'later']);
+    expect(readJson(join(reelDir, 'transcript.json')).words[2]).toMatchObject({ text: 'folks.', start: 1.55, end: 2.1 });
+    expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain('folks.');
+  });
+
+  it('refuses a word that is not there, an empty word, and a re-time over the next word; removing the fix a re-time depends on is refused', { timeout: SLOW_MS }, async () => {
+    const { slug, project } = await startedReel();
+    await expect(project.addOperation(slug, { kind: 'word-text', at: 4, text: 'x' })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(project.addOperation(slug, { kind: 'word-text', at: 1, text: '  ' })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(project.addOperation(slug, { kind: 'word-timing', at: 1, start: 1, end: 1.7 })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(project.addOperation(slug, { kind: 'word-timing', at: 1, start: 1.2, end: 1.1 })).rejects.toMatchObject({ code: 'invalid' });
+    const moved = await project.addOperation(slug, { kind: 'word-timing', at: 1, start: 1.02, end: 1.4 });
+    await project.addOperation(slug, { kind: 'word-text', at: 1.02, text: 'where' });
+    await expect(project.removeOperation(slug, moved.operations[0]!.id)).rejects.toMatchObject({ code: 'invalid' });
+    expect((await project.readEditList(slug)).operations).toHaveLength(2);
+  });
+});

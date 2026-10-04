@@ -24,7 +24,7 @@
 /* lanes: an overview of the whole reel, then the zoomed lanes with one playhead */
 .rv-lanes { margin-top: 0; --rv-label: 86px; }
 .rv-lanes .lane { overflow: hidden; }
-.rv-lanes :is(.rv-pins, .axis) { overflow: visible; }
+.rv-lanes :is(.rv-pins, .axis, .rv-words) { overflow: visible; }
 .rv-lanes .lpin { transform: translate(-50%, -50%); }
 .rv-zoomed { grid-column: 1 / -1; position: relative; display: grid; grid-template-columns: 72px 1fr; gap: 6px 14px; align-items: center; touch-action: none; cursor: col-resize; }
 .rv-plane { position: absolute; left: var(--rv-label); right: 0; top: 0; bottom: 0; pointer-events: none; }

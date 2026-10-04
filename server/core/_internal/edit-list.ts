@@ -5,12 +5,12 @@ import { applyOperations } from './edit-model.ts';
 import type { NewOperation, Operation, Plan } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import type { EditList } from './types.ts';
-import { readReelPlan } from './sources.ts';
+import { readReelPlan, readReelWords } from './sources.ts';
 import { newestVersionNumber, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['snip', 'cut', 'move-piece']);
+const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['snip', 'cut', 'move-piece', 'word-text', 'word-timing']);
 
 const queues = new Map<string, Promise<unknown>>();
 
@@ -89,6 +89,12 @@ async function commit(reelDir: string, stored: Stored, operations: Operation[]):
   return next;
 }
 
+/** Throws `invalid` when the operations do not apply, in order, to the reel's plan and transcript. */
+async function checkApplies(projectDir: string, reelDir: string, operations: readonly Operation[]): Promise<void> {
+  const { plan, transcriptFile } = await readReelPlan(projectDir, reelDir);
+  applyOperations({ plan, words: await readReelWords(transcriptFile) }, operations);
+}
+
 /** Adds an operation to the list, after checking it applies on top of the ones already there. */
 export async function addOperation(projectDir: string, slug: string, input: NewOperation): Promise<EditList> {
   const reelDir = await requireReelDir(projectDir, slug);
@@ -97,7 +103,7 @@ export async function addOperation(projectDir: string, slug: string, input: NewO
     if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
     const operation = { ...input, id: randomUUID() } as Operation;
     const operations = [...stored.operations, operation];
-    applyOperations({ plan: (await readReelPlan(projectDir, reelDir)).plan, words: [] }, operations);
+    await checkApplies(projectDir, reelDir, operations);
     return shown(await commit(reelDir, stored, operations), false);
   });
 }
@@ -112,7 +118,7 @@ export async function removeOperation(projectDir: string, slug: string, id: stri
     const stored = await loadForChange(projectDir, reelDir, slug);
     if (!stored.operations.some((op) => op.id === id)) throw new KinottaError('not-found', `There is no edit "${id}" in the list.`);
     const operations = stored.operations.filter((op) => op.id !== id);
-    applyOperations({ plan: (await readReelPlan(projectDir, reelDir)).plan, words: [] }, operations);
+    await checkApplies(projectDir, reelDir, operations);
     return shown(await commit(reelDir, stored, operations), false);
   });
 }

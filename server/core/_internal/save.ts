@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { applyOperations, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditList, withReelLock, writeJsonAtomic } from './edit-list.ts';
-import { readReelPlan } from './sources.ts';
+import { readReelPlan, readReelWords } from './sources.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
 import type { SavedVersion, TranscriptWord } from './types.ts';
@@ -19,16 +19,6 @@ const SPAN_TOLERANCE = 1e-6;
  */
 async function batchOut(_reelDir: string): Promise<string | null> {
   return null;
-}
-
-/** The reel's transcript words, or none when the reel has no transcript. */
-async function readWords(file: string | null): Promise<TranscriptWord[]> {
-  if (file === null) return [];
-  try {
-    return (JSON.parse(await readFile(file, 'utf8')) as { words: TranscriptWord[] }).words;
-  } catch {
-    throw new KinottaError('invalid', `The reel's transcript (${file}) could not be read.`);
-  }
 }
 
 const sameSpan = (a: { start: number; end: number } | null, b: { start: number; end: number } | null): boolean =>
@@ -76,7 +66,7 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
     if (reason !== null) throw new KinottaError('invalid', reason);
 
     const { plan, planFile, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
-    const words = await readWords(transcriptFile);
+    const words = await readReelWords(transcriptFile);
     const edited: Sources = applyOperations({ plan, words }, list.operations);
     const number = (await newestVersionNumber(reelDir)) + 1;
 

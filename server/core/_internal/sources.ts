@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type { Plan } from './edit-model.ts';
+import type { TranscriptWord } from './types.ts';
 import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
 
@@ -50,4 +51,14 @@ export async function readReelPlan(projectDir: string, reelDir: string): Promise
   const fallback = join(reelDir, TRANSCRIPT_FILE);
   const transcriptFile = named ?? ((await exists(fallback)) ? fallback : null);
   return { plan, planFile, planDir, transcriptFile };
+}
+
+/** The reel's transcript words (source seconds), or none when the reel has no transcript. */
+export async function readReelWords(transcriptFile: string | null): Promise<TranscriptWord[]> {
+  if (transcriptFile === null) return [];
+  try {
+    return ((await readJson(transcriptFile)) as { words: TranscriptWord[] }).words;
+  } catch {
+    throw new KinottaError('invalid', `The reel's transcript (${transcriptFile}) could not be read.`);
+  }
 }

@@ -143,15 +143,149 @@ const CaptionsLane = memo(function CaptionsLane({ win, phrases, current }: { win
   );
 });
 
-const WordsLane = memo(function WordsLane({ win, words, lit }: { win: TimeWindow; words: readonly TranscriptWord[]; lit: number }) {
+/** A word on the Words lane: where it plays on the timeline, and whether unsaved edits changed its text or its timing. */
+export interface WordCell extends TranscriptWord {
+  fixed: boolean;
+  retimed: boolean;
+}
+
+/** A word is never dragged shorter than this (seconds). */
+const MIN_WORD = 0.05;
+
+/** What the Words lane shows of an edge being dragged: which word and edge, and how far (pixels). */
+interface EdgeDrag {
+  index: number;
+  edge: 'start' | 'end';
+  dx: number;
+}
+
+const WordsLane = memo(function WordsLane({
+  win,
+  words,
+  lit,
+  onFix,
+  onRetime,
+}: {
+  win: TimeWindow;
+  words: readonly WordCell[];
+  lit: number;
+  /** Present when words can be edited: Enter, or a double-click, opens the word's text; Enter saves it. */
+  onFix: ((index: number, text: string) => void) | undefined;
+  /** Moves a word's start and end by these many seconds. */
+  onRetime: ((index: number, startBy: number, endBy: number) => void) | undefined;
+}) {
+  const lane = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [drag, setDrag] = useState<EdgeDrag | null>(null);
+  const start = useRef<{ x: number; pointer: number } | null>(null);
+  const perPixel = (): number => {
+    const width = lane.current?.getBoundingClientRect().width ?? 0;
+    return width > 0 ? win.length / width : 0;
+  };
+  /** The seconds an edge may move by: not past the neighbouring word, and not leaving the word shorter than MIN_WORD. */
+  const limit = (index: number, edge: 'start' | 'end', seconds: number): number => {
+    const word = words[index]!;
+    if (edge === 'start') {
+      const floor = Math.max(words[index - 1]?.end ?? 0, 0);
+      return Math.min(Math.max(seconds, floor - word.start), word.end - MIN_WORD - word.start);
+    }
+    const ceiling = words[index + 1]?.start ?? Number.POSITIVE_INFINITY;
+    return Math.max(Math.min(seconds, ceiling - word.end), word.start + MIN_WORD - word.end);
+  };
+  const open = (index: number): void => {
+    if (onFix) setEditing(index);
+  };
+  const editingWord = editing !== null ? words[editing] : undefined;
   return (
-    <div className="lane rv-words">
-      {words.map((word, i) =>
-        inWindow(win, word.start, word.end) ? (
-          <span key={i} className={i === lit ? 'rv-w lit' : 'rv-w'} style={place(win, word.start, word.end)}>
+    <div ref={lane} className="lane rv-words">
+      {words.map((word, i) => {
+        if (!inWindow(win, word.start, word.end)) return null;
+        const moved = drag?.index === i ? limit(i, drag.edge, drag.dx * perPixel()) : 0;
+        const shownStart = word.start + (drag?.index === i && drag.edge === 'start' ? moved : 0);
+        const shownEnd = word.end + (drag?.index === i && drag.edge === 'end' ? moved : 0);
+        const classes = ['rv-w', i === lit ? 'lit' : '', word.fixed ? 'fixed' : '', word.retimed ? 'retimed' : ''].filter(Boolean).join(' ');
+        const grip = (edge: 'start' | 'end') => (
+          <i
+            className={`rv-grip ${edge === 'start' ? 'l' : 'r'}`}
+            data-edge={edge}
+            aria-hidden="true"
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.stopPropagation();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              start.current = { x: e.clientX, pointer: e.pointerId };
+              setDrag({ index: i, edge, dx: 0 });
+            }}
+            onPointerMove={(e) => {
+              e.stopPropagation();
+              if (start.current) setDrag({ index: i, edge, dx: e.clientX - start.current.x });
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+              const began = start.current;
+              start.current = null;
+              setDrag(null);
+              if (!began || !onRetime) return;
+              const by = limit(i, edge, (e.clientX - began.x) * perPixel());
+              if (Math.abs(by) >= SNIP_MIN) onRetime(i, edge === 'start' ? by : 0, edge === 'end' ? by : 0);
+            }}
+            onPointerCancel={() => {
+              start.current = null;
+              setDrag(null);
+            }}
+          />
+        );
+        return (
+          <span
+            key={i}
+            className={classes}
+            style={place(win, shownStart, shownEnd)}
+            data-word={i}
+            tabIndex={onFix ? 0 : undefined}
+            aria-label={onFix ? `Word “${word.text}”. Enter edits it.` : undefined}
+            onDoubleClick={() => open(i)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && onFix && e.target === e.currentTarget) {
+                e.preventDefault();
+                open(i);
+              }
+            }}
+          >
+            {onRetime && grip('start')}
             {word.text}
+            {onRetime && grip('end')}
           </span>
-        ) : null,
+        );
+      })}
+      {editing !== null && editingWord && onFix && (
+        <form
+          className="rv-w-edit"
+          style={{ left: `calc(${percentIn(win, editingWord.start)}% - 6px)` }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const text = new FormData(e.currentTarget).get('text');
+            setEditing(null);
+            if (typeof text === 'string' && text.trim() !== '' && text.trim() !== editingWord.text) onFix(editing, text.trim());
+          }}
+        >
+          <input
+            name="text"
+            aria-label="Word text"
+            defaultValue={editingWord.text}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setEditing(null);
+              }
+            }}
+          />
+          <small>{formatTimecode(editingWord.start)}</small>
+          <span className="meta">Enter saves · drag edges to re-time</span>
+        </form>
       )}
     </div>
   );
@@ -248,8 +382,11 @@ export interface LanesProps {
   phrases: readonly CaptionPhrase[];
   currentPhrase: number;
   /** Footage reels with a transcript only. */
-  words: readonly TranscriptWord[] | null;
+  words: readonly WordCell[] | null;
   currentWord: number;
+  /** Present when words can be edited. */
+  onFixWord?(index: number, text: string): void;
+  onRetimeWord?(index: number, startBy: number, endBy: number): void;
   comments: readonly Comment[];
   /** What the overview draws: the clips, or the pieces when there are none. */
   overview: readonly Span[];
@@ -270,7 +407,7 @@ export interface LanesProps {
 
 /** The overview of the reel and the zoomed lanes under it, on one time axis with one playhead. */
 export function Lanes(props: LanesProps) {
-  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece } = props;
+  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord } = props;
   const plane = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
   const selecting = useRef<{ anchor: number; band: Span | null } | null>(null);
@@ -375,7 +512,7 @@ export function Lanes(props: LanesProps) {
         {words !== null && (
           <>
             <span>Words</span>
-            <WordsLane win={win} words={words} lit={currentWord} />
+            <WordsLane win={win} words={words} lit={currentWord} onFix={onFixWord} onRetime={onRetimeWord} />
           </>
         )}
         <span>Pins</span>

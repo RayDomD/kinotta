@@ -47,8 +47,26 @@ export interface MovePieceOperation {
   to: number;
 }
 
+/** Changes the text of the word that starts at a source time. `was` is what it read, kept only to word the edit in the panel. */
+export interface WordTextOperation {
+  id: string;
+  kind: 'word-text';
+  at: number;
+  text: string;
+  was?: string;
+}
+
+/** Re-times the word that starts at a source time: its new start and end, in source seconds. Phrase breaks stay automatic. */
+export interface WordTimingOperation {
+  id: string;
+  kind: 'word-timing';
+  at: number;
+  start: number;
+  end: number;
+}
+
 /** Everything the edit list can hold. */
-export type Operation = SnipOperation | CutOperation | MovePieceOperation;
+export type Operation = SnipOperation | CutOperation | MovePieceOperation | WordTextOperation | WordTimingOperation;
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 /** An operation as the caller sends it: the core gives it an id. */
@@ -139,6 +157,38 @@ function applyMovePiece(sources: Sources, op: MovePieceOperation): Sources {
   return { ...sources, plan: { ...sources.plan, pieces: next } };
 }
 
+/** Index of the word that starts at a source time (within a hair of it), or throws `invalid`. */
+export function wordIndexAt(words: readonly TranscriptWord[], at: number): number {
+  if (!Number.isFinite(at)) throw new KinottaError('invalid', 'A word edit needs the time the word starts at, in seconds.');
+  let best = -1;
+  words.forEach((w, i) => {
+    if (Math.abs(w.start - at) <= MIN_SNIP && (best < 0 || Math.abs(w.start - at) < Math.abs(words[best]!.start - at))) best = i;
+  });
+  if (best < 0) throw new KinottaError('invalid', 'There is no word that starts there. An earlier edit may have moved it.');
+  return best;
+}
+
+function applyWordText(sources: Sources, op: WordTextOperation): Sources {
+  const text = typeof op.text === 'string' ? op.text.trim() : '';
+  if (text === '') throw new KinottaError('invalid', 'A word cannot be empty.');
+  const index = wordIndexAt(sources.words, op.at);
+  const words = sources.words.map((w, i) => (i === index ? { ...w, text } : w));
+  return { ...sources, words };
+}
+
+function applyWordTiming(sources: Sources, op: WordTimingOperation): Sources {
+  if (!Number.isFinite(op.start) || !Number.isFinite(op.end) || op.start < 0 || op.end - op.start <= MIN_SNIP) {
+    throw new KinottaError('invalid', 'A word needs a start before its end, in seconds.');
+  }
+  const index = wordIndexAt(sources.words, op.at);
+  const start = round(op.start);
+  const end = round(op.end);
+  if (sources.words.some((w, i) => i !== index && w.start < end - MIN_SNIP && w.end > start + MIN_SNIP)) {
+    throw new KinottaError('invalid', 'That would run the word over the one next to it.');
+  }
+  return { ...sources, words: sources.words.map((w, i) => (i === index ? { ...w, start, end } : w)) };
+}
+
 /** The sources with one operation written into them. Throws `invalid` for an operation that cannot apply. */
 export function applyOperation(sources: Sources, op: Operation): Sources {
   switch (op.kind) {
@@ -148,6 +198,10 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyCut(sources, op);
     case 'move-piece':
       return applyMovePiece(sources, op);
+    case 'word-text':
+      return applyWordText(sources, op);
+    case 'word-timing':
+      return applyWordTiming(sources, op);
   }
 }
 
@@ -166,6 +220,11 @@ export function operationTouches(op: Operation, section: { start: number; end: n
     // Which sections a move changes depends on the pieces; Save compares each section's order on the timeline instead.
     case 'move-piece':
       return false;
+    // A word edit changes the captions and spoken line of the section the word is in (before or after a re-time).
+    case 'word-text':
+      return op.at >= section.start && op.at < section.end;
+    case 'word-timing':
+      return (op.at >= section.start && op.at < section.end) || (op.start < section.end && op.end > section.start);
   }
 }
 
@@ -192,6 +251,10 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: 'Footage', text: `Cut into two pieces at ${clock(op.at)}` };
     case 'move-piece':
       return { target: 'Footage', text: `Moved piece ${pieceLetter(op.from)} to place ${op.to + 1}` };
+    case 'word-text':
+      return { target: 'Word', text: op.was ? `Changed “${op.was}” to “${op.text}”` : `Changed the word to “${op.text}”` };
+    case 'word-timing':
+      return { target: 'Word', text: `Re-timed to ${clock(op.start)} to ${clock(op.end)}` };
   }
 }
 
