@@ -2,8 +2,8 @@
 title: Review and Edit phase (direct edits)
 date: 2026-10-04
 status: Approved
-summary: Kinotta becomes an AI-agnostic editor. Drop a video, cut, fix and re-time words, move captions and elements, and Save a new version with no agent; an agent stays optional for building motion graphics. Intent grilled (E1 to E20); next is /to-spec.
-spec:
+summary: Kinotta becomes an AI-agnostic editor. Drop a video, cut, fix and re-time words, move captions and elements, and Save a new version with no agent; an agent stays optional for building motion graphics. Intent grilled (E1 to E20); spec published as #30.
+spec: docs/specs/2026-10-05-review-edit-phase.md (https://github.com/RayDomD/kinotta/issues/30)
 ---
 
 ## Intent
@@ -29,7 +29,7 @@ spec:
 - Open questions: none. Resolved in a grilling round on 2026-10-05, decisions E1 to E20 in
   `docs/2026-09-30-grilling-decisions.md`. Look: `docs/mockups/2026-10-05-review-edit.html`.
 
-Next: `/to-spec` for the phase (it spans several sessions), then Goal and Approach here.
+Spec: `docs/specs/2026-10-05-review-edit-phase.md`, issue #30. Next: Goal and Approach here, then `/to-tickets`.
 
 ## Goal
 
@@ -49,3 +49,5 @@ Next: `/to-spec` for the phase (it spans several sessions), then Goal and Approa
 ### 2026-10-05
 - Grilled: Kinotta becomes an AI-agnostic editor and this work becomes the Review phase (Review and Edit).
   Decisions E1 to E20; look chosen in a `ui-preview` round. Intent rewritten and approved; status Approved.
+- Spec written from the grilling and published as issue #30 (`ready-for-agent`). Test seams confirmed: the core
+  `Project`, the engine scripts, and a few browser flows, with an injectable transcriber.
