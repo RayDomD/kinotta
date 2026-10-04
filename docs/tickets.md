@@ -133,7 +133,7 @@ Status keys: **Done**, **Parked (owner)** (needs the owner, not built in the una
 
 **Model:** `mid`
 
-## T9 (#11). Kinotta skill for code-only reels — Parked (owner)
+## T9 (#11). Kinotta skill for code-only reels — Done
 
 Parked for the unattended run: the last criterion needs a real run in a client project with the owner. Everything else
 shipped on 2026-10-03 (plan `docs/plans/2026-10-03-kinotta-skill.md`, owner checklist inside).
@@ -149,7 +149,7 @@ Grilled 2026-10-03 (K1 to K12 in the grilling log): the skill lives in `skill/ki
 - [x] `kinotta check <reel> [version]` prints contract issues and exits non-zero on any, with a test (K7)
 - [x] README documents the install: `npm link` and the skill junction (K8)
 - [x] `~/.kinotta/taste.md` seeded with the K11 rules
-- [ ] A real run in Aroma: v1 opens in Kinotta, a batch produces v2 with `answers.md`, v1 stays unchanged (K10)
+- [x] A real run in Aroma: v1 opens in Kinotta, a batch produces v2 with `answers.md`, v1 stays unchanged (K10)
 
 **Blocked by:** #6
 
@@ -277,5 +277,205 @@ Parked for the unattended run: the last criterion needs a real run on a talking 
 - [x] Full keyboard-only pass completes the pin and copy path
 
 **Blocked by:** #8, #9, #10, #14, #15, #16
+
+**Model:** `mid`
+
+## Footage reels: T11 and T16 split (2026-10-03)
+
+T11 (#13) and T16 (#18) split into tracer-bullet tickets. The Kinotta skill takes its own copy of
+motion-broll's engine; the standalone motion-broll skill is not changed. Footage versions carry real
+animations (an exception to K9 for footage reels), and v1 is reviewed in Kinotta with no plan approval
+in chat. Explainer: `docs/explainers/2026-10-03-footage-tickets.html`.
+
+## T18 (#21). Bring a copy of motion-broll into the Kinotta skill
+
+Part of T11 (#13).
+
+**What to build:** The Kinotta skill gains its own copy of motion-broll's engine, scripts, reference, templates and examples, so footage-reel work lives in this repo's history. The skill's description adds b-roll for review in Kinotta, worded so a plain b-roll request with no Kinotta involved still reaches the standalone motion-broll. ADR 0001 records that the engine is now part of Kinotta rather than a separate tool sharing the format. The standalone motion-broll skill is not changed.
+
+**Acceptance criteria:**
+
+- [x] The engine, scripts, reference, templates and examples are in the Kinotta skill, with the Geist fonts' OFL notice beside the fonts
+- [x] The skill's description covers b-roll for review in Kinotta, and the skill points footage requests at the new material
+- [x] ADR 0001 says the engine is part of Kinotta
+- [x] The copied engine builds and renders an example clip from its new place
+- [x] The standalone motion-broll skill is unchanged
+
+**Blocked by:** none
+
+**Model:** `small`
+
+## T19 (#22). One engine clip opens in Kinotta
+
+Part of T11 (#13).
+
+**What to build:** The engine's build step wraps a clip as one timed scene and gives the shape, and each part a reviewer could point at, a stable element name. The authoring reference gains the naming rule. An example clip opens in Kinotta as a one-clip reel: stills draw at shot times, a click pins a named element, and `kinotta check` passes. The engine's own render and contact sheets still work.
+
+**Acceptance criteria:**
+
+- [x] A built clip carries scene timing and stable element names
+- [x] An example clip opens in Kinotta with no contract issues, and a click pins a named element
+- [x] The engine's render and contact sheets still work on that clip
+- [x] A test builds a clip and checks it
+
+**Blocked by:** #21 (T18)
+
+**Model:** `mid`
+
+## T20 (#23). Many engine clips on one reel page
+
+Part of T11 (#13).
+
+**What to build:** The engine runs several clips on one page, each scoped to its own scene instead of page-wide element ids and one global `seek`. The build step composes a whole b-roll plan into one version page: each clip is a scene at its in-point on the video's timeline, a page `seek` hands each clip its local time, and panel clips stay transparent over the footage. The bundled six-clip example opens in Kinotta as a footage reel.
+
+**Acceptance criteria:**
+
+- [x] Two clips on one page don't interfere: each draws correctly at its own time
+- [x] A plan builds into one version page whose scenes match the plan's in and out points
+- [x] The six-clip example opens as a footage reel with no contract issues, and panel stills show the footage around the clip
+- [x] Single-clip build, render and contact sheets still work
+
+**Blocked by:** #22 (T19)
+
+**Model:** `top`
+
+## T21 (#24). A real engine clip in the footage tests
+
+Part of T11 (#13).
+
+**What to build:** The footage sample's hand-written panel is replaced by a panel built and composed by the engine, so the end-to-end footage tests run against real engine output.
+
+**Acceptance criteria:**
+
+- [x] The footage sample's panel is engine-built
+- [x] The footage, word pin and section batch end-to-end tests pass against it
+- [x] A click on the clip pins its element, and a click on the footage pins a position only
+
+**Blocked by:** #23 (T20)
+
+**Model:** `mid`
+
+## T22 (#25). kinotta check covers footage reels
+
+Part of T16 (#18).
+
+**What to build:** On a reel whose reel.json names footage, `kinotta check` also reports a missing footage file, a missing or unreadable transcript, and shots with no type or no spoken line, alongside the timing contract issues, and exits non-zero on any. Claude runs it before saying a footage version is ready.
+
+**Acceptance criteria:**
+
+- [x] Each footage problem prints on its own line with its code, with a test for each
+- [x] The footage sample passes
+- [x] Code-only reels are checked as before
+
+**Blocked by:** none
+
+**Model:** `mid`
+
+## T23 (#26). Footage reel v1 from a video
+
+Part of T16 (#18).
+
+**What to build:** Asked for a b-roll reel on a video in the project, the skill takes the owner's SRT or transcribes locally and saves the transcript with the reel, points reel.json at the footage where it already sits, splits the reel into sections of a few minutes by topic, plans clips with the engine's rules (density; cutaway, panel or nothing; changes on words), builds the clips, composes v1, writes the shot list with each shot's section, type and spoken line, and runs `kinotta check`. There is no plan approval in chat: v1 is the plan the owner reviews. Footage versions carry the real animations, an exception to K9 for footage reels; Kinotta shows stills until the Review phase.
+
+**Acceptance criteria:**
+
+- [x] Skill rules cover the transcript, the footage reference, sections, planning, building and composing v1
+- [x] No plan approval step in chat when building for Kinotta
+- [x] The K9 exception for footage reels is recorded in the grilling log and the skill
+- [x] A v1 built from the footage sample passes `kinotta check` and opens with panel stills over the footage
+
+**Blocked by:** #23 (T20), #25 (T22)
+
+**Model:** `top`
+
+## T24 (#27). Next footage version from a section's comments
+
+Part of T16 (#18).
+
+**What to build:** Given a section batch, the skill rebuilds only that section's clips, carries the other sections over unchanged, handles element pins, footage position pins and word pins, writes answers.md and changedSections, and runs `kinotta check`.
+
+**Acceptance criteria:**
+
+- [x] Skill rules cover section batches on footage reels and all three pin kinds
+- [x] Sections outside the batch are unchanged in the new version
+- [x] answers.md answers every comment and note in the batch
+
+**Blocked by:** #26 (T23)
+
+**Model:** `mid`
+
+## T25 (#28). Real run on a talking video — Closed (owner)
+
+Part of T16 (#18).
+
+Closed without a run on 2026-10-04: the owner was satisfied by the sample-project loop
+(`kinotta-test`, reel `sample-broll`, v1 to v2 from a section batch) and has no talking video to run on.
+The criteria below stay unticked because they were not run on a real talking video.
+
+**What to build:** On one of the owner's talking videos: v1 opens in Kinotta, the owner reviews one section and hands it off, and v2 changes only that section and carries the unsent comments on the other sections forward. Done with the owner.
+
+**Acceptance criteria:**
+
+- [ ] v1 of a real talking video opens in Kinotta with panel stills over the footage
+- [ ] A section batch produces v2 with answers.md, changing only that section
+- [ ] Unsent comments on the other sections move forward to v2, and v1 stays unchanged
+
+**Blocked by:** #24 (T21), #27 (T24)
+
+**Model:** owner
+
+## T26. States per clip
+
+Decision K15. Mockup: `docs/mockups/2026-10-04-stills-per-clip.html` (grid B, sheet Y). No GitHub issue yet.
+
+**What to build:** A footage clip with `stills` in the plan gets one shot per state (`05a`, `05b`, …, each with `"clip": "05"`). The grid card shows which part of its clip a shot is ("2 of 3"); the enlarged shot shows a strip of the clip's states under the frame, and clicking one opens it. Arrow keys still step through every shot.
+
+**Acceptance criteria:**
+
+- [x] `shots.py` writes one shot per state, with its still, spoken line and clip; a clip without `stills` is unchanged
+- [x] Shots split this way pass `kinotta check`
+- [x] The grid card shows "n of m" for a clip's states
+- [x] The enlarged shot shows the clip's states and switches to the one clicked
+- [x] Skill rules say when to split a clip and how a batch maps `05b` back to clip 05
+
+**Blocked by:** none
+
+**Model:** `mid`
+
+## T27. Captions on footage reels
+
+Decisions C1 to C6; look picked in the sample pass (B, active word lit). No GitHub issue yet.
+
+**What to build:** A footage reel's plan turns captions on (`"captions": true`, or a look and colour). `build.py --plan` writes each caption phrase from the transcript as its own scene with a pinnable `caption` element; the page shows the phrase under way and marks the spoken word. The shot list adds one Captions overlay. The skill turns captions on by default and fixes misheard words in the transcript.
+
+**Acceptance criteria:**
+
+- [x] Each phrase is a scene `cap-001`… with a `caption` element, in the plan's look and colour
+- [x] The page shows the phrase under way at any second and marks the word being said
+- [x] A plan without captions builds the same page as before
+- [x] The shot list has one Captions overlay
+- [x] Skill rules cover turning captions on, the look, and fixing misheard words
+- [x] The sample reel passes `kinotta check` with captions
+
+**Blocked by:** none
+
+**Model:** `mid`
+
+## T28. Each version keeps the transcript it was built with
+
+Found checking the sample's v2 (2026-10-04). No GitHub issue yet.
+
+Absorbed into the Review and Edit phase on 2026-10-05 (decision E14: every version keeps the transcript and
+plan it was built from). Its criteria move to that phase's tickets.
+
+**What to build:** The transcript belongs to the reel, so a word fixed for `v2` ("Vidal" to "Dela") also changes `v1`'s spoken lines and word row in the editor, while `v1`'s page still shows the old word. A version should show the transcript it was built with.
+
+**Acceptance criteria:**
+
+- [ ] A version folder may hold its own `transcript.json`, which Kinotta reads before the reel's
+- [ ] The skill copies the transcript into the version when it corrects a word, leaving older versions as they were
+- [ ] `v1` keeps its spoken lines after `v2` corrects a word
+
+**Blocked by:** none
 
 **Model:** `mid`

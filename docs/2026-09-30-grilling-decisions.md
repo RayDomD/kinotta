@@ -80,6 +80,39 @@ Brand file and Storyboard were sharpened in `CONTEXT.md`.
 | K10 | The real run is a code-only brand intro of about 15 seconds and 5 to 7 shots in Aroma. |
 | K11 | `~/.kinotta/taste.md` starts with these rules, and grows by hand: never system-ui as the only typeface; no pure `#000` or `#fff` surfaces; tight leading (1.0 to 1.1) on display type; no em dashes in on-screen copy; no arbitrary purple-to-blue gradients; no neon glows as decoration; text contrast of at least 4.5:1; one idea per shot; hold text long enough to read before a cut. `reels/taste.md` stays optional per project. |
 | K12 | The owner runs `kinotta`; Claude never starts it. Claude builds `v<n+1>` as a copy of `v<n>`, writes `shots.json` last (the editor's new-version signal), and never edits `v<n>`. |
+| K13 | Exception to K9 for footage reels (decided 2026-10-03, recorded with T23): footage versions carry the motion engine's real animation. Kinotta shows their stills until the Review phase plays them. |
+| K14 | No plan approval in chat when building a footage reel for Kinotta (decided 2026-10-03, recorded with T23): v1 is the plan, and the owner answers it with comments in Kinotta. |
+| K15 | A clip that changes state gets one storyboard shot per state (`05a`, `05b`, …), more for longer clips; short clips keep one. The enlarged shot shows a strip of the clip's states under the frame, and clicking one opens it. Chosen in a `ui-preview` round on 2026-10-04 (B, then Y over states above the frame). Mockup: [2026-10-04-stills-per-clip.html](mockups/2026-10-04-stills-per-clip.html). Not built yet. |
+
+## Review and Edit (2026-10-05)
+
+Grilled from the direct-edits Intent (`docs/plans/2026-10-04-direct-edits.md`). Kinotta becomes an editor
+that works without AI; an agent is optional. These change K12 (an agent is no longer the only author of a
+version), product principle 5, and the Review phase's scope. Mockup:
+[2026-10-05-review-edit.html](mockups/2026-10-05-review-edit.html).
+
+| # | Decision |
+|---|---|
+| E1 | Kinotta is a standalone editor. An agent is optional, needed only for new motion graphics. |
+| E2 | Save writes the edits into the sources (`motion/plan.json`, `transcript.json`), then runs the build, exactly as an agent does. |
+| E3 | Kinotta runs the repo's Python scripts (`skill/kinotta/`). Python 3, ffmpeg and faster-whisper are checked at startup. |
+| E4 | Edits collect in an edit list on disk, with undo and redo. An explicit Save builds `v<n+1>`; Discard drops the list. |
+| E5 | A sent batch blocks Save. The edit list is stored as operations on named targets and replays onto the agent's version when it lands; an edit whose target is gone is flagged. |
+| E6 | Words: fix the text and re-time it. Phrase breaks stay automatic. |
+| E7 | Captions: a drag moves every caption (a `position` in the plan's `captions`); Alt-drag moves one phrase, anchored to its first word's time. |
+| E8 | Cut and snip: the reel is an ordered list of pieces of the source video, which is never touched. Clips, words and sections are anchored to source time and mapped to the timeline through the pieces. |
+| E9 | B-roll clips can be trimmed and slid. A slid clip is marked "off its words"; an agent can re-sync it from a batch. A trim that removes a state drops its shot. |
+| E10 | An element move is an offset (position and scale) per clip and element in the plan, applied with CSS `translate` and `scale`. Clip code is never edited. A panel moves as a whole the same way. |
+| E11 | Drop copies the video into `<project>/footage/`; a picker lists the project's videos, which are not copied. HEVC and ProRes get an H.264 copy. ADR 0002 records the copy. |
+| E12 | Sections split by themselves every ~3 minutes at a pause (one section under ~3 minutes); you drag and rename them. An agent can rename them by topic when asked. Supersedes "Section boundaries: Claude picks them" for reels made in Kinotta. |
+| E13 | This work is the Review phase, now Review and Edit. Color grading and the footage track of takes split off. First slice: drop, play, snip, Save. |
+| E14 | Every version keeps the transcript and plan it was built from. Absorbs T28. |
+| E15 | Unsent comments move forward on Save, their times remapped through source time. A comment whose moment was snipped is kept and marked "moment removed". |
+| E16 | Code-only reels get element moves and scale only, through a `kinotta-edits.css` in the version, which the agent's next copy carries. |
+| E17 | A saved version holds `edits.json`, the operations it applied. `changedSections` is computed from it, and the rail says who made each version. |
+| E18 | Storyboard shows what is built and hands comments to an agent; Review plays and edits. Both open the same versions. A reel with no clips gets a Storyboard empty state with a copyable request, and its lanes still show. |
+| E19 | One "New reel" choice. From a video: built in place, opens in Review. From a brief: Kinotta copies a request for an agent, and the reel waits for its `shots.json`, then opens in Storyboard. A reel opens in the tab you last used for it. |
+| E20 | AI-agnostic: formats and app wording name no agent, and `shots.json` gains `builtBy` (`you`, `claude`, …). Claude is the one tested agent; other agents are a later ticket. |
 
 ## Deferred
 

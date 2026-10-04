@@ -1,0 +1,18 @@
+<title>04 Merge diagram</title>
+<style>.ed{position:absolute;width:346px;height:346px;border:7px solid #D9DDE3;box-sizing:border-box}</style>
+<div data-slot="world">
+  <div class="ed" id="edit-a" style="left:-979px;top:-356px"></div>
+  <div class="ed" id="edit-b" style="left:-979px;top:11px"></div>
+</div><!--/world-->
+<div data-slot="shape">
+  <div class="L" id="Lmerged"><div class="a" id="merged" style="border:7px solid #FF8A1F;box-sizing:border-box"></div></div>
+</div><!--/shape-->
+<script>
+const $=id=>document.getElementById(id);
+M.scene({
+  W:1920,H:1080,bg:'#1B1F26',T:2.6,center:[1363,594],intro:null,
+  SH:{box:{w:346,h:346,r:0,bg:'#493424',cam:1}, kept:{w:380,h:380,r:0,bg:'#5A3E26',cam:1}},
+  start:'box', SEQ:[[1.3,'kept']],
+  layers:[{el:'Lmerged',tin:null,tout:null,update:(t,g)=>{const d=$('merged').style;d.left=-g.w/2+'px';d.top=-g.h/2+'px';d.width=g.w+'px';d.height=g.h+'px';}}],
+});
+</script>

@@ -19,7 +19,8 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
 - `PinFrame({ pageUrl, time, title, footageUrl?, onPick, onElements, draft, draftContent, pins })`, the enlarged frame. Same
   loading and seeking as a still. A transparent layer over the frame takes the pointer (the frame itself keeps
   `pointer-events: none`). For the pointer position, the stage maps it into page coordinates, calls
-  `elementFromPoint` in the page and takes the closest `[data-el]`. The page is only read, never changed: the
+  `elementFromPoint` in the page and takes the closest `[data-el]` that has a box (a named wrapper with no size of
+  its own hands the hit to its nearest named ancestor). The page is only read, never changed: the
   ice-blue outline and the name tag are drawn in the parent. The tag goes above, below, right or left of the
   element, at the first spot that stays inside the frame and off the element, every other named element, every
   visible leaf element and every line of text (ancestors of the hovered element excepted); if none is clean it

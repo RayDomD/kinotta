@@ -159,6 +159,11 @@ input { font: inherit; color: inherit; cursor: text; }
 .lbl .dot { color: var(--light); font-size: 14px; margin-right: 8px; }
 .lbl .t { font-family: Doto, monospace; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 .desc { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 3px; }
+/* a card that is one state of its clip (stills-per-clip mockup, grid B): which part of the clip it is */
+.part { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 12px; color: var(--muted); }
+.part i { width: 18px; height: 3px; background: var(--hairline); }
+.part i:last-of-type { margin-right: 5px; }
+.part i.on { background: var(--light); }
 .pins-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--light); font-size: 12px; margin-left: 8px; }
 
 /* footage reels: type tag and the spoken line (sections-transcript mockup, option A) */
@@ -293,6 +298,22 @@ input { font: inherit; color: inherit; cursor: text; }
 .draft-cancel { font-size: 13px; color: var(--muted); padding: 2px 4px; transition: color var(--t-color) var(--ease); }
 .draft-cancel:hover:not(:disabled) { color: var(--ink); }
 .draft-error { flex-basis: 100%; margin-top: 0; font-size: 13px; color: var(--ink-2); }
+/* the clip's states under the frame (stills-per-clip mockup, sheet Y): each a small still with its label, the label button stretched over both */
+/* the strip adds a row under the frame, so the frame gives up that height to keep the sheet on a laptop screen */
+.sheet:has(.states) { width: min(1040px, 78vw, max(480px, calc((100vh - 52px - 370px) * 16 / 9 + 64px))); }
+.states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-top: 12px; }
+.states .label { align-self: center; margin-right: 4px; font-size: 13px; color: var(--muted); }
+.clip-state { position: relative; width: 132px; }
+.clip-state .still { border: 1.2px solid var(--hairline); opacity: .6; transition: opacity var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.clip-state button { display: block; width: 100%; margin-top: 4px; text-align: left; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--t-color) var(--ease); }
+.clip-state button::after { content: ""; position: absolute; inset: 0; }
+.clip-state button:focus-visible { outline: none; }
+.clip-state:has(button:focus-visible) { outline: 1.6px solid var(--ink); outline-offset: 3px; }
+.clip-state .dot { font: 800 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--light); }
+.clip-state:hover .still { opacity: 1; }
+.clip-state:hover button { color: var(--ink); }
+.clip-state.on .still { opacity: 1; border-color: var(--light); box-shadow: 0 0 0 1px var(--light); }
+.clip-state.on button { color: var(--ink); }
 .pinrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
 .pinrow .label { margin-right: 4px; }
 .chip { font-size: 13px; padding: 2px 9px; color: var(--ink-2); border: 1.2px solid var(--hairline); transition: color var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }

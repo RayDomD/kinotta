@@ -21,12 +21,17 @@ function boxOf(el: Element): Rect | null {
   return r.width > 0 && r.height > 0 ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
 }
 
-/** The named element at a page position, or null over empty frame. Reads the page, never changes it. */
+/**
+ * The named element at a page position, or null over empty frame. Reads the page, never changes it.
+ * A named wrapper with no box of its own (its children absolutely placed) hands the hit to the nearest named ancestor that has one.
+ */
 export function hitTest(doc: Document, x: number, y: number): Hit | null {
-  const named = doc.elementFromPoint(x, y)?.closest(NAMED) ?? null;
-  const name = named?.getAttribute('data-el');
-  const rect = named ? boxOf(named) : null;
-  return named && name && rect ? { name, element: named, rect } : null;
+  for (let named = doc.elementFromPoint(x, y)?.closest(NAMED) ?? null; named; named = named.parentElement?.closest(NAMED) ?? null) {
+    const name = named.getAttribute('data-el');
+    const rect = boxOf(named);
+    if (name && rect) return { name, element: named, rect };
+  }
+  return null;
 }
 
 /** Visible named elements (those in the active scene), first of each name, in document order. */

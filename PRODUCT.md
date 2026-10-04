@@ -16,7 +16,7 @@ One person for now: the owner, who makes motion graphics and footage edits with 
 
 ## Product Purpose
 
-Kinotta is a review editor for AI-made motion graphics and footage edits. Claude builds a reel inside a project. The owner comments on it in context, pinned to a moment, a spot on the frame and the element under it, and Claude builds the next version from that comment batch. It succeeds when feedback can be given as precisely as "change the color of this", at this second, without being described in prose, and each round lands in a new frozen version.
+Kinotta is an editor for motion graphics and footage edits that works with or without AI (E1, E20). The owner can drop in a video, cut it, fix its words and move its captions and elements, then save a new version with no agent involved. When they want motion graphics, an agent such as Claude builds a reel inside a project. The owner comments on it in context, pinned to a moment, a spot on the frame and the element under it, and Claude builds the next version from that comment batch. It succeeds when feedback can be given as precisely as "change the color of this", at this second, without being described in prose, and each round lands in a new frozen version.
 
 ## Positioning
 
@@ -39,7 +39,7 @@ A comment is pinned to a named element inside the reel, not just to a timestamp 
 - Taste list: global, plus an optional per-project `reels/taste.md`. The editor suggests rules and only the owner adds them (D12).
 - Brand file: `reels/brand.md`, written by Claude on first use and checked once by the owner (D14).
 - The editor never holds client assets or reels. The editor's own chrome must not compete with the reel being judged, since each reel carries its own client's brand.
-- Deferred: audio comments, trimming, MP4 render, element library format.
+- Deferred: audio comments, MP4 render, element library format. Trimming and cutting moved into the Review and Edit phase (E8, E9).
 ## Brand Commitments
 
 The editor uses the owner's Rubric brand structure (`C:\FIles\projects\Brands\Rubric\DESIGN.md`, `design-elements.html`), with an ice-blue light instead of chrome metal, as decided in `docs/2026-09-30-grilling-decisions.md` (D15 to D22). Motion keeps Rubric's speeds by the owner's choice (D19).
@@ -55,7 +55,7 @@ The editor uses the owner's Rubric brand structure (`C:\FIles\projects\Brands\Ru
 2. **Pin, don't describe.** Every feedback affordance should land on a moment and an element, so comments stay short and unambiguous.
 3. **Versions are history, not drafts.** Nothing edits a version in place. The UI makes it obvious which frozen version is on screen.
 4. **One hand-off, no friction.** Getting a comment batch from the editor to Claude and the next version back is a single, predictable step.
-5. **Claude builds and the owner decides.** Claude suggests taste rules and brand sources, and only the owner confirms them.
+5. **The owner decides; an agent is optional.** The owner can make any mechanical change directly. An agent builds what needs judgement or new motion, suggests taste rules and brand sources, and only the owner confirms them.
 
 ## Accessibility & Inclusion
 

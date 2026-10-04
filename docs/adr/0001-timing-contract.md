@@ -11,11 +11,13 @@ The storyboard is the same contract applied early: scenes built unanimated plus 
 stills drawn live by jumping the page to each shot's time rather than from screenshots, so pins on
 a still resolve to elements too.
 
-The contract is shared with the motion-broll skill, which plans and builds b-roll for footage reels.
-The jump function is motion-broll's own global `seek(seconds)`, and motion-broll's engine adds
-Kinotta's element names and scene timing, so every clip it builds opens in Kinotta as-is. We chose
-one shared format over a converter because a conversion step between two tools is a place for them
-to drift apart.
+The b-roll for footage reels is built by a motion engine that is part of Kinotta: a copy of the
+motion-broll skill's engine lives in the Kinotta skill and is developed in this repo. The jump
+function is the engine's own `seek(seconds)`, and the engine adds Kinotta's element names and scene
+timing, so every clip it builds opens in Kinotta as-is. We chose to bring the engine in over keeping
+it a separate tool that shares the format, and one format over a converter, because each tool
+boundary is a place for the two to drift apart. The standalone motion-broll skill carries on
+unchanged for b-roll that isn't reviewed in Kinotta.
 
 ## Considered Options
 

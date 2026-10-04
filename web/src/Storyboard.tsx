@@ -7,7 +7,7 @@ import { Lanes } from './Lanes.tsx';
 import { HexPin, PinsBadge, tagStacks } from './Pins.tsx';
 import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
-import { hasSections, pinCounts, sectionNumber, sectionSpan, shotCount, pinCount } from './sections.ts';
+import { clipStates, hasSections, pinCounts, sectionNumber, sectionSpan, shotCount, pinCount } from './sections.ts';
 import { readOnlyNote } from './readOnly.ts';
 import { WaitingMark } from './Waiting.tsx';
 import { PageStill } from './stage/index.ts';
@@ -19,6 +19,8 @@ interface ShotCardProps {
   /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
   footage: string | undefined;
   pins: Comment[];
+  /** The states of the shot's clip when it is one of several (empty otherwise). */
+  states: Shot[];
   /** Why this shot cannot render, when it cannot. */
   unavailable: string | undefined;
   open(): void;
@@ -26,10 +28,12 @@ interface ShotCardProps {
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, footage, pins, unavailable, open, buttonRef }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, footage, pins, states, unavailable, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
   const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
   const stacks = tagStacks(framePins);
+  const part = states.indexOf(shot) + 1;
+  const partOf = part > 0 ? `${part} of ${states.length}` : null;
   return (
     <div className="shot">
       <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
@@ -44,9 +48,15 @@ function ShotCard({ shot, pageUrl, footage, pins, unavailable, open, buttonRef }
         </span>
         <span className="t">{timecode}</span>
       </div>
+      {partOf && (
+        <div className="part">
+          {states.map((s) => <i key={s.number} className={s === shot ? 'on' : undefined} />)}
+          {partOf}
+        </div>
+      )}
       <ShotLine text={shot.spoken} />
       <div className="desc">{shot.description}</div>
-      <button ref={buttonRef} type="button" className="open" aria-label={`Shot ${shot.number}, ${shot.title}, ${timecode}`} onClick={open} />
+      <button ref={buttonRef} type="button" className="open" aria-label={`Shot ${shot.number}, ${shot.title}, ${partOf ? `state ${partOf} of clip ${shot.clip}, ` : ''}${timecode}`} onClick={open} />
     </div>
   );
 }
@@ -149,6 +159,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
             pageUrl={pageUrl}
             footage={footage}
             pins={comments.filter((c) => c.pin.shot === shot.number)}
+            states={clipStates(version.shots, shot)}
             unavailable={issues.unavailable.get(shot.number)}
             open={() => {
               laneOpener.current = null;

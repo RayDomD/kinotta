@@ -27,6 +27,11 @@ const CONTRACT_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-contract-project.txt')
 const SECTION_BATCHES_PORT = 4392;
 const SECTION_BATCHES_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-section-batches-project.txt');
 
+/** A seventh for engine.spec.ts: the engine-project sample, its clips built by the motion engine at start. */
+const ENGINE_PORT = 4391;
+/** An eighth for engine-compose.spec.ts: the broll-project sample, the six-clip example composed over stand-in footage. */
+const BROLL_PORT = 4390;
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -91,6 +96,20 @@ export default defineConfig({
         KINOTTA_E2E_FIXTURE: 'footage-project',
         KINOTTA_E2E_PROJECT_FILE: SECTION_BATCHES_PROJECT_FILE,
       },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${ENGINE_PORT}`,
+      env: { ...serverEnv(ENGINE_PORT), KINOTTA_E2E_FIXTURE: 'engine-project' },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${BROLL_PORT}`,
+      env: { ...serverEnv(BROLL_PORT), KINOTTA_E2E_FIXTURE: 'broll-project' },
       timeout: 120_000,
       reuseExistingServer: false,
     },

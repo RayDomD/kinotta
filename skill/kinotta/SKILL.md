@@ -1,14 +1,14 @@
 ---
 name: kinotta
-description: Build reels for the Kinotta review editor inside a project, and build the next version from a pasted comment batch. Use when the user asks for a reel, brand intro, showreel or storyboard to review in Kinotta, or pastes text that starts with "Kinotta comments:".
+description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll over a video, and build the next version from a pasted comment batch. Use when the user asks for a reel, brand intro, showreel, storyboard or b-roll to review in Kinotta, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's.
 ---
 
 # Kinotta
 
 You build **reels** inside the user's project for Kinotta, a local review editor. The owner reviews
 each **version** in Kinotta, pins comments to its elements, and pastes the **comment batch** back to
-you. You build the next version from it. This skill covers code-only reels: every scene is an HTML
-page, with no footage.
+you. You build the next version from it. Sections 1 to 4 cover code-only reels: every scene is an
+HTML page, with no footage. Footage reels are sections 5 and 6.
 
 The project folder is the one Claude is running in. Every path below is relative to it unless it
 says otherwise.
@@ -20,7 +20,8 @@ says otherwise.
 - **Every version is an unanimated storyboard.** Each scene is built in its final look, but nothing
   moves: no CSS animations or transitions, no `requestAnimationFrame` loops, no timers. When the
   owner asks for motion, say that Kinotta can't review motion yet (it comes with the Review phase),
-  describe the motion in the shot's description, and keep the page still.
+  describe the motion in the shot's description, and keep the page still. Footage reels are the
+  exception: their clips carry the engine's real animation (section 5).
 - **The owner runs `kinotta`.** Never start it, and never start a server for it.
 - **`shots.json` is written last.** Its appearance is the editor's signal that a version is ready.
 - **The timing contract holds.** Read `reference/contract.md` before writing your first page in a
@@ -31,8 +32,9 @@ says otherwise.
 1. Run `kinotta check` with no arguments. Installed, it prints `Usage: kinotta check <reel>
    [version]`. If the shell says the command is not found, stop and tell the owner: "Run
    `npm link` in the Kinotta repo, then open a new terminal." Do nothing else.
-2. Pick the branch: a pasted `Kinotta comments:` batch is **section 4**. A request for a new reel
-   is **section 2**, then **section 3**.
+2. Pick the branch: a pasted `Kinotta comments:` batch is **section 4**. A request for b-roll over a
+   video in the project is **section 5**. Any other request for a new reel is **section 2**, then
+   **section 3**.
 
 ## 2. Brand file (before any build)
 
@@ -123,6 +125,8 @@ Contract issues
 - shot 04: starts at 9s but no scene covers that time
 ```
 
+On a footage reel (its `reel.json` names footage), follow **section 6** instead of the steps below.
+
 1. **Read the batch file** named on the `Saved as` line. It holds each comment's shot, time and
    target, the notes, and, when the owner included them, the contract `issues`. A comment's target
    is an `element` name, or a position (`x`, `y` as fractions of the frame) when `element` is null.
@@ -158,6 +162,156 @@ Contract issues
 
 Done when `v<n+1>` passes `kinotta check`, `answers.md` answers every comment and note, and `v<n>`
 is unchanged.
+
+## 5. Footage reels (b-roll over a video)
+
+A **footage reel** is motion-graphic b-roll over one of the project's videos. Its `reel.json` names the
+footage, which stays where it is; its transcript is saved with the reel; long reels split into
+**sections**. Each clip is built with the motion engine, which is part of this skill:
+
+- `reference/motion-broll.md`: how clips are planned and built (treatment, content rules, style
+  defaults, gotchas). `$SKILL` there means this skill's folder. Where it and this section disagree,
+  this section wins: no plan table or approval, no MP4 render, no composite or viewer pages.
+- `reference/engine-api.md`: how to write a clip, the names a reviewer pins, and composing a plan into
+  one page. Read it before writing your first clip.
+- `engine/`, `scripts/`, `templates/`: the engine and its tools. The Geist fonts carry their licence
+  in `engine/fonts/OFL-Geist.txt`; keep it beside them.
+- `examples/opus-aoe2/`: six finished clips, the quality bar.
+
+Rules that differ from code-only reels:
+
+- **v1 is the plan.** Don't show a plan or wait for approval in chat. The owner reviews the plan as v1
+  in Kinotta and answers with comments.
+- **Clips are animated.** Build each clip with its real motion. Kinotta shows stills of it until the
+  Review phase; the animation is there for then.
+- **The look:** a `reels/brand.md` with `checked:` set to a date decides colour and type (read its
+  sources). Without one, use the engine's style defaults and say so in the hand-over. Don't stop to
+  write a brand file for a footage reel.
+
+Below, `$SKILL` is this skill's folder. Sources live in a `motion/` folder in the project; only the
+built page and the shot list go in the version.
+
+1. **Ask only what the request leaves open**, in one round: which video and the density (light,
+   medium or heavy, default medium; see `reference/motion-broll.md`). Don't ask for captions: the
+   transcript comes from the audio (step 4).
+2. **Set up** (first footage reel in the project): `bash $SKILL/scripts/setup.sh ./motion`. Run the
+   engine's Node scripts with `NODE_PATH=./motion/node_modules`.
+3. **Reel folder.** Pick a slug as in section 3. Write `reels/<slug>/reel.json`:
+   `{ "title": "<Reel title>", "footage": "<the video's path from the project root>" }`. Never copy
+   or move the video. One exception: Kinotta shows footage in Chrome, which can't play HEVC (H.265,
+   common from phones and cameras) or ProRes. Check the codec with `ffprobe`; if it is one of those,
+   make an H.264 copy beside it
+   (`ffmpeg -i <video> -c:v libx264 -crf 20 -r 30 -pix_fmt yuv420p -c:a aac -movflags +faststart <copy>.mp4`),
+   point `footage` at the copy, and say so in the hand-over. The original stays untouched.
+4. **Transcript.** By default, from the audio with faster-whisper:
+   `python3 $SKILL/scripts/transcript.py --audio <video> reels/<slug>/transcript.json`. It needs
+   `pip install faster-whisper`; if it is missing, ask the owner to install it. Only when the owner
+   hands you an SRT or VTT, use it instead: `python3 $SKILL/scripts/transcript.py <captions.srt> reels/<slug>/transcript.json`
+   (its word times are estimates; the audio's are the model's own).
+   Read the transcript before planning, and fix misheard words in `transcript.json` itself (names and
+   products most of all, such as "Cloud" for "Claude"), keeping each word's times. The captions and the
+   spoken lines show these words. List the corrections in the hand-over.
+5. **Inspect the footage**: `python3 $SKILL/scripts/inspect_video.py <video> motion/work`. Look at
+   `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
+6. **Sections.** Split the video by topic into sections of a few minutes each, contiguous from 0 to
+   the video's length. A video under about three minutes is one section. Ids are short kebab-case.
+7. **Plan the clips** with `reference/motion-broll.md` section 4 (density, cutaway or panel or
+   nothing, one change per spoken beat, never invented numbers). Write `motion/plan.json` directly:
+
+   ```json
+   {
+     "title": "Founder talk",
+     "duration": 312.4,
+     "transcript": "../reels/founder-talk/transcript.json",
+     "captions": true,
+     "sections": [{ "id": "cold-open", "name": "Cold open", "start": 0, "end": 148.2 }],
+     "clips": [
+       { "id": "01", "title": "Two laptops, one doc", "line": "“picture two people editing …”",
+         "in": 0.4, "out": 4.1, "kind": "full", "section": "cold-open",
+         "description": "Two laptops slide in; the shared doc pops between them on “doc”." }
+     ]
+   }
+   ```
+
+   `duration` is the video's length. Clip ids are two-digit, in time order, unique across the reel.
+   Put each `in` and `out` in a pause between words, not on one: a shot's spoken line is the words
+   that start between them, and caption word times are only estimates, so a boundary on a word can
+   take a neighbour's word.
+   `kind` is `full` (a cutaway) or `panel`. `description` says what the shape does on which words, and
+   what is illustrative. `still` (optional, seconds into the clip, default 1) is where the shot's
+   still is drawn: a clip opens on an empty canvas while its shape pops in, so put it where the clip
+   has settled.
+   `stills` (optional) gives a clip that changes state one shot per state, so the owner can see and pin
+   each: `"stills": [{ "from": 0, "title": "StudyBuddy" }, { "from": 8.0, "title": "Schema" }]`, where
+   `from` is the clip-local second the state begins (its morph), the first at 0. Give a state to each
+   settled change, at most one per ~4 s and at most 4 per clip; a short clip keeps one shot and no
+   `stills`. Each state's title says what it shows. Its still is 1 s into it; give a state its own
+   `still` (seconds into the state) when it settles later. Check each state's still with
+   `engine/beats.js` too.
+   `transcript` is the transcript's path from the plan. `captions` puts the transcript on the page as
+   captions, one scene per phrase with an element named `caption`; turn it on for every footage reel.
+   `true` is the default look, the phrase with the word being said lit in the engine's accent. To change
+   it, give `{ "look": "highlight" | "phrase" | "words", "color": "<hex>" }`: `phrase` is the phrase
+   alone, `words` shows each word as it is said; `color` is the lit word's colour (the brand file's
+   accent when there is one). Phrases break at pauses and clause ends by themselves.
+8. **Build the clips** in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
+   1920x1080 whatever the video's size, since Kinotta draws every page in that frame; map a speaker box
+   from `video.json` to that frame before keeping a panel clear of it. Check stills on the key words
+   with `engine/beats.js`, including each clip's `still` time, and fix what is cramped or off-word.
+9. **Compose v1**: `python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v1/index.html`.
+10. **Write the shot list last**: `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v1/shots.json`.
+    One shot per clip, or per state of a clip with `stills` (`05a`, `05b`, … with `"clip": "05"`),
+    with its section, type (`cutaway` or `panel`) and spoken line.
+11. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
+    list again, and repeat until it is clean.
+12. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is
+    illustrative, the words corrected in the transcript, and to run `kinotta` in this project. Say that Kinotta shows stills of the clips
+    until the Review phase, and that nothing is rendered to video yet.
+
+Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.
+
+## 6. Next footage version from a section batch
+
+A footage reel's batch covers one section, from `comments-<section>.json`. You rebuild only that
+section's clips from the sources in `motion/` and carry every other section over unchanged. Kinotta
+works out which sections changed by comparing each section's scenes and shots with the version
+before, and moves unsent comments on unchanged sections forward by itself.
+
+1. **Read the batch file** and confirm `v<n>` is the newest version, as in section 4 steps 1 and 2.
+   The look follows section 5.
+2. **Confirm the sources build `v<n>`.** Compose `motion/plan.json` into a scratch file and compare it
+   with `reels/<slug>/v<n>/index.html`. If they differ, the sources changed since `v<n>`: stop and ask.
+3. **Answer each comment in the batch's section only.** Edit only the clips whose `section` is the
+   batch's (their fragments in `motion/clips/` and their entries in `motion/plan.json`). The shot
+   number is the clip's `id`; a state's number (`05b`) is its clip's `id` plus a letter, so the comment
+   is about clip 05 in that state (its `stills` entry gives the clip-local time). By pin kind:
+   - **Element pin** (`element` set): change that element of that clip. The name is the element's `id`;
+     keep it for the same thing.
+   - **Position pin** (`element` null, `x` and `y` as fractions of the frame): on a panel shot the point
+     is usually on the footage around the clip, so read it as placement (move or resize the panel to
+     clear that spot) or as a remark about the video itself. You can't change the video: answer Not
+     done and say so. On a cutaway the point is on the clip's own canvas: change what is drawn there.
+   - **Caption pin** (`element` is `caption`): about the caption said at the shot's time. Fix a wrong
+     word in `transcript.json` (only words inside the batch's section). A phrase breaks at pauses and
+     clause ends, so a comma or full stop added to a word moves a break. A change of look or colour is
+     the plan's `captions` and changes every section, so do it only when the batch asks and say so.
+   - **Word pin** (`word` set, with its time): about that spoken moment. Move the clip's change onto
+     the word (clip-local time = word time − the clip's `in`), start or end the clip there, or show the
+     word's idea, whichever the comment asks.
+   Never change another section's clips, their `in` and `out`, or the section bounds. A new clip takes
+   the next unused number; never renumber existing clips.
+4. **Compose** `v<n+1>`: `python3 $SKILL/engine/build.py --plan motion/plan.json reels/<slug>/v<n+1>/index.html`.
+   Nothing else is copied: the transcript belongs to the reel, and the page is self-contained.
+5. **Write `v<n+1>/answers.md`** as in section 4 step 6: every comment in the batch's numbering, then
+   the notes, each Done, Partly done or Not done with a reason.
+6. **Write the shot list last**, naming the batch's section as changed:
+   `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v<n+1>/shots.json <section>`.
+7. **Check it**: `kinotta check <slug>`; fix, compose and write the shot list again until clean.
+8. **Hand over**: repeat the answers in chat, and say Kinotta will show `v<n+1>` as ready with only
+   that section changed.
+
+Done when `v<n+1>` passes `kinotta check`, `answers.md` answers every comment and note, only the
+batch's section changed, and `v<n>` is unchanged.
 
 ## Examples of the format
 

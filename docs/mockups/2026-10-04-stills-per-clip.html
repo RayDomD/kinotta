@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stills per clip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@800&display=swap" rel="stylesheet">
+<style>
+:root{--ground:oklch(.184 .004 106);--deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--raised:oklch(.246 .005 90);--ink:oklch(.945 .004 106);--ink2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);--rule:oklch(.945 .004 106/.14);--hair:oklch(.945 .004 106/.24);--light:oklch(.84 .11 225);--wash:oklch(.84 .11 225/.07);--still:oklch(.13 .006 50)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,Segoe UI,sans-serif;padding:0 0 80px}
+.num{font-family:Doto,monospace;font-weight:800;font-feature-settings:"tnum";font-size:12px}
+.q{max-width:1240px;margin:0 auto;padding:28px 22px 6px}
+.q h2{font-size:22px;font-weight:500;letter-spacing:-.4px}
+.q p{color:var(--muted);font-size:14px;margin-top:4px;max-width:80ch}
+.choice{max-width:1240px;margin:18px auto 0;padding:0 22px}
+.opt{border:1px solid var(--rule);cursor:pointer;position:relative}
+.opt.selected{border-color:var(--light);box-shadow:0 0 0 1px var(--light)}
+.opt>.tagline{display:flex;gap:12px;align-items:baseline;padding:12px 16px;border-bottom:1px solid var(--rule);background:var(--deep)}
+.opt>.tagline b{font-weight:600}.opt>.tagline span{color:var(--muted);font-size:13px}
+/* app chrome */
+.bar{display:flex;gap:28px;align-items:center;height:48px;padding:0 22px;border-bottom:1px solid var(--rule);font-size:14px}
+.bar .brand{font-weight:600;letter-spacing:.08em}.bar .t{color:var(--muted)}
+.bar .tab{color:var(--muted)}.bar .tab.on{color:var(--ink);box-shadow:inset 0 -2px var(--ink);padding:13px 0}
+.board{padding:22px}
+.board h3{font-size:22px;font-weight:500;letter-spacing:-.4px;display:flex;gap:12px;align-items:baseline}
+.board h3 small{font-size:13px;color:var(--muted);font-weight:400;letter-spacing:0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px 22px;margin-top:18px}
+.shot .still{aspect-ratio:16/9;background:var(--still) center/cover;border:1px solid var(--hair)}
+.lbl{display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:500}
+.lbl .n{color:var(--light)}.lbl .t2{margin-left:auto;color:var(--muted)}
+.chip{border:1px solid var(--hair);font-size:11px;padding:0 6px;color:var(--ink2);font-weight:400}
+.part{font-size:12px;color:var(--muted);margin-top:2px}
+.part i{font-style:normal;display:inline-block;width:18px;height:3px;background:var(--hair);margin-right:3px;vertical-align:middle}
+.part i.on{background:var(--light)}
+.line{color:var(--ink2);font-size:14px;margin-top:6px}
+/* enlarged sheet */
+.sheet{background:var(--ground);padding:14px 18px 22px}
+.sh-head{display:flex;gap:10px;align-items:center;font-weight:500;margin-bottom:10px}
+.sh-head .n{color:var(--light)}.sh-head .t2{color:var(--muted)}.sh-head .close{margin-left:auto;color:var(--muted);font-size:13px}
+.frame{background:var(--still);padding:12px}.frame div{aspect-ratio:16/9;background:center/cover}
+.states{display:flex;gap:10px;align-items:center;padding:12px 0}
+.states .lab{color:var(--muted);font-size:13px;margin-right:4px}
+.st{width:132px;font-size:12px;color:var(--muted);text-align:left}
+.st div{aspect-ratio:16/9;background:center/cover;border:1px solid var(--hair);opacity:.6;margin-bottom:4px}
+.st.on{color:var(--ink)}.st.on div{opacity:1;border-color:var(--light);box-shadow:0 0 0 1px var(--light)}
+.st .num{color:var(--light)}
+.pinrow{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);padding:10px 0;border-bottom:1px solid var(--rule)}
+.pinrow span.c{border:1px solid var(--hair);color:var(--ink2);padding:2px 8px}
+.spoken{font-size:13px;color:var(--muted);margin-top:12px}
+.words{font-size:22px;line-height:1.9;margin-top:6px;font-weight:500}
+.words .ctx{color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr;gap:22px}
+</style></head><body>
+
+<div class="q"><h2>Chosen: a card per state, more cards for longer clips (B)</h2>
+<p>Your sample reel. Database and analysis (12 s) and StudyBuddy (16 s) each get three cards; short clips keep one. The bar under a number shows which part of its clip a card is.</p></div>
+
+<div class="choice"><div class="opt" data-choice="grid-b">
+  <div class="tagline"><b>The grid</b><span>9 cards for clips 01 to 05</span></div>
+  <div class="bar"><span class="brand">KINOTTA</span><span>Sample video b-roll <span class="t num">120.0s</span></span><span class="tab on">Storyboard</span><span class="tab">Review</span><span class="tab">Picker</span></div>
+  <div class="board"><h3>Storyboard, v1 <small>Click a shot to enlarge it and pin comments</small></h3>
+  <div class="grid">
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h01.jpg)"></div><div class="lbl"><span class="n num">01</span>Name card<span class="chip">Panel</span><span class="t2 num">01.60</span></div><div class="line">“my name is Ryan Dominic Vidal Cruz, a 4th year computer science student at Central Philippine University.”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h02a.jpg)"></div><div class="lbl"><span class="n num">02a</span>Database and analysis<span class="chip">Cutaway</span><span class="t2 num">07.00</span></div><div class="part"><i class="on"></i><i></i><i></i> 1 of 3</div><div class="line">“My work focuses on database management as well as data analysis.”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h02b.jpg)"></div><div class="lbl"><span class="n num">02b</span>The table builds<span class="chip">Cutaway</span><span class="t2 num">12.00</span></div><div class="part"><i></i><i class="on"></i><i></i> 2 of 3</div><div class="line">“That means I build and maintain database systems as well as”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h02c.jpg)"></div><div class="lbl"><span class="n num">02c</span>Analysis chart<span class="chip">Cutaway</span><span class="t2 num">15.20</span></div><div class="part"><i></i><i></i><i class="on"></i> 3 of 3</div><div class="line">“analyzing data in order to support and strengthen better decisions.”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h03.jpg)"></div><div class="lbl"><span class="n num">03</span>Trace it back<span class="chip">Cutaway</span><span class="t2 num">22.60</span></div><div class="line">“Applying this mindset to a business setting means that I can trace the data back to their underlying problems…”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h04.jpg)"></div><div class="lbl"><span class="n num">04</span>Optimize<span class="chip">Panel</span><span class="t2 num">29.40</span></div><div class="line">“I also enjoy optimization. Once a system is working, I continue to optimize it over time…”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h05a.jpg)"></div><div class="lbl"><span class="n num">05a</span>StudyBuddy<span class="chip">Panel</span><span class="t2 num">40.70</span></div><div class="part"><i class="on"></i><i></i><i></i> 1 of 3</div><div class="line">“we built StudyBuddy, a tutoring platform. As a person in charge of the database…”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h05b.jpg)"></div><div class="lbl"><span class="n num">05b</span>Schema<span class="chip">Panel</span><span class="t2 num">51.50</span></div><div class="part"><i></i><i class="on"></i><i></i> 2 of 3</div><div class="line">“database design, its schema, its operations scales in proportion to its users”</div></div>
+    <div class="shot"><div class="still" style="background-image:url(2026-10-04-stills-per-clip/h05c.jpg)"></div><div class="lbl"><span class="n num">05c</span>Data integrity<span class="chip">Panel</span><span class="t2 num">55.50</span></div><div class="part"><i></i><i></i><i class="on"></i> 3 of 3</div><div class="line">“as well as maintaining data integrity.”</div></div>
+  </div></div>
+</div></div>
+
+<div class="q"><h2>Clicking 05b: the clip's states sit under the frame (chosen: Y)</h2><p>Clicking a state switches to that card; arrow keys still step through every shot. Decided 2026-10-04 over states above the frame (X).</p></div>
+
+<div class="choice two">
+  <div class="opt" data-choice="y-states-under">
+    <div class="tagline"><b>Y. States under the frame</b><span>the frame stays at the top, where it is today</span></div>
+    <div class="sheet">
+      <div class="sh-head"><span class="n num">05b</span>Schema<span class="chip">Panel</span><span class="t2 num">51.50</span><span class="close">Close Esc</span></div>
+      <div class="frame"><div style="background-image:url(2026-10-04-stills-per-clip/h05b.jpg)"></div></div>
+      <div class="states"><span class="lab">Clip 05 · StudyBuddy</span>
+        <div class="st"><div style="background-image:url(2026-10-04-stills-per-clip/h05a.jpg)"></div><span class="num">05a</span> StudyBuddy</div>
+        <div class="st on"><div style="background-image:url(2026-10-04-stills-per-clip/h05b.jpg)"></div><span class="num">05b</span> Schema</div>
+        <div class="st"><div style="background-image:url(2026-10-04-stills-per-clip/h05c.jpg)"></div><span class="num">05c</span> Data integrity</div>
+      </div>
+      <div class="pinrow">Pin an element <span class="c">shape</span><span class="c">table1</span><span class="c">table2</span><span class="c">users</span><span class="c">Frame centre (position only)</span></div>
+      <div class="spoken">Spoken · <span class="num">48.32–53.26</span></div>
+      <div class="words"><span class="ctx">…I had to make sure that its</span> database design, its schema, its operations scales in proportion to its users <span class="ctx">as well as…</span></div>
+    </div>
+  </div>
+</div>
+</body></html>

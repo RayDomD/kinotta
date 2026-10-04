@@ -138,3 +138,16 @@ The owner answered the open design questions in a `ui-preview` round (D23 to D26
 - Per ticket: `npm run typecheck`, core tests, full Playwright suite, and the Impeccable detector
   on changed UI files, on the integrated branch before each commit.
 - End of run: typecheck clean; core 123/123; Playwright 70/70 twice.
+
+## Phase closed (2026-10-04)
+
+- The parked tickets were split and shipped: T9 (skill for code-only reels), T18 to T24 (motion-broll
+  engine copied into the Kinotta skill, footage reels v1 and section batches), plus T26 (states per
+  clip) and T27 (captions). Each has its own plan and summary in `docs/plans/` and here.
+- T25, the real run on a talking video, was closed by the owner without a run; the sample-project loop
+  (`sample-broll`, v1 to v2 from a section batch) stands in for it. Its criteria stay unticked.
+- Deviation from the plan's checks: no real run of a footage reel in a client project.
+- T28 (each version keeps its transcript) stays open and moves to the direct-edits work.
+- The skill now transcribes footage with faster-whisper by default and asks for captions no more.
+- Checks at the last code commit (`34db652`): typecheck clean, `npm test` 159/159,
+  `npm run test:e2e` 80/80. Commits since are docs and skill text only.

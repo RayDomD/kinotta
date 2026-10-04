@@ -4,9 +4,10 @@ A review editor for AI-made motion graphics and footage edits. Claude builds a r
 project, you pin comments to the exact element in a frame, and Claude builds the next version from
 your comments.
 
-> **Status: Storyboard phase built.** The editor and the Claude skill for code-only reels work
-> end to end in tests; the first real run in a client project is next. The skill for footage reels
-> and motion-broll's adoption of the timing contract are still to come. The phase is specified in
+> **Status: Storyboard phase built.** Kinotta reviews storyboards: still frames of every shot,
+> pinned comments, and new versions from your batches. It can't play a reel yet, so motion isn't
+> reviewable until the Review phase. The loop works end to end in tests; the first real run in a
+> client project is next. See [What's missing](#whats-missing). The phase is specified in
 > [issue #1](https://github.com/RayDomD/kinotta/issues/1). The screenshots below are from the
 > approved mockup the editor was built to, and the demo reel in them is synthetic.
 
@@ -119,7 +120,19 @@ wrap it later.
 | [Tickets](docs/tickets.md) | The phase's tickets and what is done or parked |
 | [Plans](docs/plans/) | Plans with status. Open `index.html` for the dashboard |
 
-## Roadmap
+## What's missing
 
-Storyboard (built), then Review (animated playback, scrubbing, footage and overlays), then Picker. The MP4
-render, audio comments and trimming come with the later phases.
+The phases come in order: Storyboard (built), then Review, then Picker.
+
+| Missing | Where it belongs |
+|---|---|
+| Animated playback and scrubbing, the footage track of takes, pins on playing footage | Review phase |
+| Colour grading (the video-use skill is the candidate) | Review phase |
+| Audio comments and trimming | Review phase |
+| Approving a version as final, and the MP4 render (with a render queue for long reels) | After Review |
+| The Picker phase and its element library format, not yet defined further | Picker phase |
+| Taste rules suggested from repeated comments; the taste list is hand-edited for now | Later |
+| The editor showing Claude's `answers.md` for a version | Later |
+| The Claude skill for footage reels: transcription, sections, b-roll planning | Ticket T16 |
+| motion-broll clips opening in Kinotta as they are | Ticket T11 |
+| Multiple users, sharing, a light theme, an Electron app | Not planned yet |
