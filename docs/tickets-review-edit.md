@@ -203,7 +203,7 @@ editable.
 - [x] The moved element shows at its offset in the new version
 - [x] Timing tools are unavailable on code-only reels
 
-## T41 (#43). A hand-off blocks Save
+## T41 (#43). A hand-off blocks Save — Done
 
 **What to build:** Copying a batch marks the reel as handed off until the next version appears or the hand-off is
 cancelled. While handed off, Save is blocked with the reason shown and edits still collect. When the agent's
@@ -213,10 +213,10 @@ version lands, the edit list replays onto its sources; an operation whose target
 
 **Model:** top
 
-- [ ] Save returns and shows a reason while a batch is out
-- [ ] Cancelling the hand-off unblocks Save
-- [ ] The edit list replays onto the agent's version; gone targets are flagged
-- [ ] Playwright: Save blocked while a batch is out
+- [x] Save returns and shows a reason while a batch is out
+- [x] Cancelling the hand-off unblocks Save
+- [x] The edit list replays onto the agent's version; gone targets are flagged
+- [x] Playwright: Save blocked while a batch is out
 
 ## T42 (#44). Start from a dropped video
 
