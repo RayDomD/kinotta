@@ -128,7 +128,7 @@
   <span class="count"><span class="dot" style="background:var(--blocked)"></span>0 Blocked</span>
   <span class="count"><span class="dot" style="background:var(--approved)"></span>0 Approved</span>
   <span class="count"><span class="dot" style="background:var(--draft)"></span>0 Draft</span>
-  <span class="count"><span class="dot" style="background:var(--done)"></span>17 Done</span>
+  <span class="count"><span class="dot" style="background:var(--done)"></span>18 Done</span>
 </div>
 
 <div class="group">
@@ -143,17 +143,17 @@
 </div>
 
 <details class="group">
-  <summary>Done (17)</summary>
+  <summary>Done (18)</summary>
   <div class="cards">
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-fix-and-retime-words.md">Fix and re-time words (T36)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T36. word-text and word-timing operations; the Words lane edits a word in place and re-times it by its edges; Save writes them into the reel's transcript so captions and spoken lines follow.</div>
+    </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-pieces-in-the-engine.md">Pieces in the engine (T29)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T29. A footage plan may list pieces of the source video; build.py and shots.py put everything on the reel's timeline, and one core module maps source time to timeline time and back.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-comments-carry-by-remapping.md">Comments carry forward by remapping (T35)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T35. Unsent comments follow their moment to the next version through source time, for Saves and agent builds alike; a comment whose moment was snipped keeps its text and shows &quot;moment removed&quot;.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-blade-and-reorder.md">Blade and reorder pieces (T34)</a>
@@ -161,9 +161,14 @@
       <div class="summary">T34. The Blade (B) cuts the footage into two pieces, a piece is dragged to a new place in the Footage lane, cuts and snips are marked, and a move that would split a section is refused.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-tab-plays-a-reel.md">Review tab plays a reel (T31)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-comments-carry-by-remapping.md">Comments carry forward by remapping (T35)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T31. The Review tab plays a reel in the Gate well: footage, clips and captions together, following pieces and skipping snips, with lanes on a zoomable axis under an overview.</div>
+      <div class="summary">T35. Unsent comments follow their moment to the next version through source time, for Saves and agent builds alike; a comment whose moment was snipped keeps its text and shows &quot;moment removed&quot;.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-start-a-reel-from-a-video.md">Start a reel from a picked video (T30)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T30. A New reel choice lists the project's videos; picking one writes the reel, transcribes it, builds v1 with builtBy you through one Python runner module, and opens it in Review.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
@@ -171,9 +176,9 @@
       <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-start-a-reel-from-a-video.md">Start a reel from a picked video (T30)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-tab-plays-a-reel.md">Review tab plays a reel (T31)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T30. A New reel choice lists the project's videos; picking one writes the reel, transcribes it, builds v1 with builtBy you through one Python runner module, and opens it in Review.</div>
+      <div class="summary">T31. The Review tab plays a reel in the Gate well: footage, clips and captions together, following pieces and skipping snips, with lanes on a zoomable axis under an overview.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-snip-and-save.md">Snip and Save (T32)</a>
@@ -186,9 +191,9 @@
       <div class="summary">T26. A clip that changes state gets one storyboard shot per state (05a, 05b, …); the grid shows &quot;2 of 3&quot; and the enlarged shot a strip of the clip's states.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-04-footage-section-batch.md">Next footage version from a section's comments (T24)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-04-engine-footage-sample.md">A real engine clip in the footage tests (T21)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-04</span></div>
-      <div class="summary">T24 (#27). The skill rebuilds only a batch's section of a footage reel, handles all three pin kinds, and Kinotta sees only that section change.</div>
+      <div class="summary">T21 (#24). The footage sample's page is now composed by the engine from four clips, so the footage e2e tests run against engine output.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-04-engine-clip-in-kinotta.md">One engine clip opens in Kinotta (T19)</a>
@@ -201,9 +206,9 @@
       <div class="summary">T27. A footage reel's page carries captions from its transcript, one scene per phrase, in a look the plan names (highlight by default).</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-04-engine-footage-sample.md">A real engine clip in the footage tests (T21)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-04-footage-section-batch.md">Next footage version from a section's comments (T24)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-04</span></div>
-      <div class="summary">T21 (#24). The footage sample's page is now composed by the engine from four clips, so the footage e2e tests run against engine output.</div>
+      <div class="summary">T24 (#27). The skill rebuilds only a batch's section of a footage reel, handles all three pin kinds, and Kinotta sees only that section change.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-04-footage-reel-v1.md">Footage reel v1 from a video (T23)</a>

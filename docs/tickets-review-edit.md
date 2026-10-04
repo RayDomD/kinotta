@@ -132,7 +132,7 @@ or deleted. This replaces "unchanged sections only" as the carry rule.
 - [x] An agent-built version carries comments by the same rule
 - [x] Existing carry-forward tests are updated to the new rule
 
-## T36 (#38). Fix and re-time words
+## T36 (#38). Fix and re-time words — Done
 
 **What to build:** In the Words lane, editing a word fixes its text and dragging its edges re-times it. Captions and
 spoken lines follow. Phrase breaks stay automatic. Operations target a word by its source time.
@@ -141,9 +141,9 @@ spoken lines follow. Phrase breaks stay automatic. Operations target a word by i
 
 **Model:** mid
 
-- [ ] A word text edit shows in captions and spoken lines after Save
-- [ ] A re-timed word lights at its new time in the saved version
-- [ ] Playwright: edit a word
+- [x] A word text edit shows in captions and spoken lines after Save
+- [x] A re-timed word lights at its new time in the saved version
+- [x] Playwright: edit a word (spec written, run pending)
 
 ## T37 (#39). Move captions
 
