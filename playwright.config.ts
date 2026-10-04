@@ -35,7 +35,10 @@ const BROLL_PORT = 4390;
 /** A ninth for new-reel.spec.ts: the footage sample with a fake transcriber, since a reel is started in it. */
 const NEW_REEL_PORT = 4389;
 
-const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
+/** A tenth for drop-video.spec.ts: the footage sample with a fake transcriber; a dropped video is copied into its footage/ folder. */
+const DROP_VIDEO_PORT = 4388;
+
+const serverEnv =(port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -120,6 +123,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${NEW_REEL_PORT}`,
       env: { ...serverEnv(NEW_REEL_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1' },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${DROP_VIDEO_PORT}`,
+      env: { ...serverEnv(DROP_VIDEO_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1' },
       timeout: 120_000,
       reuseExistingServer: false,
     },

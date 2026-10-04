@@ -172,6 +172,22 @@ export interface Project {
    * and `not-found` for a missing file; a transcription or build failure throws its reason and leaves the reel without a version.
    */
   startReel(input: NewReel): Promise<StartedReel>;
+  /**
+   * Brings a dropped video into `<project>/footage/`, streaming `body` to disk. A file already there with the same
+   * content is reused (`copied: false`). An HEVC or ProRes video also gets an H.264 playback copy, which
+   * `footageFile` serves; the original is never altered. Throws `KinottaError` `invalid` for a name that is not a
+   * video extension or a file that is not a readable video.
+   */
+  importVideo(name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedVideo>;
+}
+
+export interface ImportedVideo {
+  /** Relative to the project folder, with forward slashes: where the video is, whether just copied or already there. */
+  path: string;
+  /** False when an identical file was already in footage/ and the dropped one was discarded. */
+  copied: boolean;
+  /** True when this video has an H.264 copy for playback (HEVC or ProRes). */
+  playbackCopy: boolean;
 }
 
 /** What a batch covers, and what the editor adds to it beyond the comments. */

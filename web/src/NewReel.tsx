@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listVideos, startReel } from './api/index.ts';
 import type { VideoEntry } from './api/index.ts';
+import { DropZone } from './DropZone.tsx';
 import { Empty } from './Empty.tsx';
 import { formatClock } from './timecode.ts';
 
@@ -63,7 +64,8 @@ export function NewReel({ project, onStarted }: NewReelProps) {
     <main className="main" aria-label="New reel">
       <section className="rv-pick">
         <h2>New reel</h2>
-        <p className="rv-lede">Pick a video in {project}. It stays where it is.</p>
+        <DropZone onStarted={onStarted} />
+        <p className="rv-lede">Or pick a video already in {project}. It stays where it is.</p>
         {load.status === 'loading' && <div className="state">Loading…</div>}
         {load.status === 'error' && <Empty>{`Could not list the videos. ${load.message}`}</Empty>}
         {load.status === 'ready' && load.videos.length === 0 && (

@@ -278,5 +278,9 @@ export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ vi
  * Starts a reel from a video in the project. Resolves with the new reel's slug once its first version is built,
  * which takes as long as the transcription does.
  */
-export const startReel = (input: { video: string; title: string }): Promise<{ slug: string }> =>
+export const startReel = (input: { video: string; title?: string }): Promise<{ slug: string }> =>
   requestJson('/api/reels', jsonBody('POST', input));
+
+/** Sends a dropped video into the project's footage/ folder. */
+export const importVideo = (file: File): Promise<{ path: string; copied: boolean }> =>
+  requestJson(`/api/footage?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file });

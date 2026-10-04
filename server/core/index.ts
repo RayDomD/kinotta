@@ -3,6 +3,7 @@ import { copyBatch } from './_internal/batch.ts';
 import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
+import { importVideo } from './_internal/import.ts';
 import { listReels } from './_internal/reels.ts';
 import { startReel, transcribeWithWhisper } from './_internal/start.ts';
 import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
@@ -22,6 +23,7 @@ export type {
   CommentList,
   CopiedBatch,
   FramePin,
+  ImportedVideo,
   NewComment,
   NewFramePin,
   NewReel,
@@ -69,6 +71,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
     carryNotice: (slug, number) => carryNotice(dir, slug, number),
     listVideos: () => listVideos(dir),
+    importVideo: (name, body) => importVideo(dir, name, body),
     startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
   };
 }

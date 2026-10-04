@@ -21,3 +21,4 @@ export type {
   VideoEntry,
   WordPin,
 } from './_internal/client.ts';
+export { importVideo } from './_internal/client.ts';
