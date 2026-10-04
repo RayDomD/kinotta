@@ -9,6 +9,8 @@ import { listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
 
 export { KinottaError } from './_internal/errors.ts';
+export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
+export type { Piece, PieceMap } from './_internal/pieces.ts';
 export type {
   AddedComment,
   BatchOptions,

@@ -8,8 +8,12 @@ slot), where the clip has settled, since a clip opens on an empty canvas. Its li
 A clip with "stills" ([{ "from", "title" }], "from" = clip-local seconds the state begins, the first at 0) gets
 one shot per state, numbered 05a, 05b, … with "clip": "05"; each state's line runs to the next state. A state's
 "still" is seconds into the state (the first state falls back to the clip's).
-With "captions" on, one Captions overlay spans the transcript's words ("transcript" is its path from the plan)."""
+With "captions" on, one Captions overlay spans the transcript's words ("transcript" is its path from the plan).
+With "pieces" (see engine/pieces.py) every time in the list is on the reel's timeline: dropped clips have no shot,
+trimmed clips are cut to their edge, and words in a snip are not in the Captions span."""
 import json, sys, pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'engine'))
+from pieces import timeline_plan, timeline_words
 
 DEFAULT_STILL = 1.0
 TYPES = {'full': 'cutaway', 'panel': 'panel'}
@@ -22,6 +26,7 @@ def shot(number, start, end, still):
     return round(start + still, 3), {'start': start, 'end': end}
 
 def shots(plan, plan_dir=pathlib.Path(".")):
+    pieces = plan.get('pieces'); plan = timeline_plan(plan)
     for key in ('duration', 'sections'):
         if key not in plan: sys.exit(f'plan.json has no "{key}"')
     ids = {s['id'] for s in plan['sections']}
@@ -49,6 +54,7 @@ def shots(plan, plan_dir=pathlib.Path(".")):
     if plan.get('captions'):
         if not plan.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
         words = json.load(open(plan_dir / plan['transcript'], encoding='utf-8'))['words']
+        if pieces: words = timeline_words(words, pieces)
         if words: result['overlays'] = [{'kind': 'CAPTIONS', 'name': 'Captions', 'start': words[0]['start'], 'end': words[-1]['end']}]
     return result
 

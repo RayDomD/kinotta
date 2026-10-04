@@ -10,9 +10,13 @@ interfere. Both sit inside the scene, so Kinotta sees a clip whose motion alone 
 A clip's fragment is the plan clip's "clip" path, else clips/<id>-*.html or <id>-*.html beside the
 plan. The page lasts the plan's "duration" (the video's length), else until the last clip's out-point.
 With "captions" (true, or { "look": "highlight" | "phrase" | "words", "color" }) and "transcript" (its path from
-the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word."""
+the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word.
+With "pieces" ([{ "in", "out" }], see pieces.py) the plan's source times are mapped to the reel's timeline: a clip in a
+snipped stretch is dropped, one straddling a snip is trimmed to its edge, and words in a snip get no caption."""
 import base64, html, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(E))
+from pieces import timeline_plan, timeline_words
 b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
 CURSOR = '<svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>'
 # A composed page draws only the scenes running at t, over the footage: transparent wherever no clip paints.
@@ -78,15 +82,16 @@ def phrases(words):
         nxt = words[i + 1] if i + 1 < len(words) else None
         reach = any(ends(x) for x in words[i + 1:i + 1 + CAPTION_WORDS + 2 - len(cur)])
         full = len(cur) >= CAPTION_WORDS and (not reach or len(cur) >= CAPTION_WORDS + 2)
-        if not nxt or full or nxt['start'] - w['end'] > CAPTION_PAUSE or (ends(w) and len(cur) >= 3):
+        if not nxt or full or nxt.get('piece') != w.get('piece') or nxt['start'] - w['end'] > CAPTION_PAUSE or (ends(w) and len(cur) >= 3):
             out.append({'start': cur[0]['start'], 'end': cur[-1]['end'], 'words': cur}); cur = []
     for a, b in zip(out, out[1:]):
         if b['start'] - a['end'] < CAPTION_HOLD: a['end'] = b['start']
     return out
-def caption_scenes(plan_dir, P):
+def caption_scenes(plan_dir, P, pieces=None):
     if not P.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
     look, color = caption_style(P['captions'])
     words = json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']
+    if pieces: words = timeline_words(words, pieces)
     scenes = []
     for n, ph in enumerate(phrases(words), 1):
         spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}">{html.escape(w["text"])}</span>' for w in ph['words'])
@@ -94,7 +99,7 @@ def caption_scenes(plan_dir, P):
                       f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}"><span class="ph">{spans}</span></div></section>')
     return scenes
 def compose(plan_path, dst):
-    plan_dir = pathlib.Path(plan_path).resolve().parent; P = json.load(open(plan_path, encoding='utf-8'))
+    plan_dir = pathlib.Path(plan_path).resolve().parent; source = json.load(open(plan_path, encoding='utf-8')); P = timeline_plan(source)
     # The engine loads before the scenes, so each clip's style and script can sit inside its own scene: Kinotta
     # compares scene markup between versions, and a clip whose motion alone changed must count as changed.
     body = []
@@ -104,7 +109,7 @@ def compose(plan_path, dst):
         script = f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>'
         body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
     captions = P.get('captions')
-    if captions: body += caption_scenes(plan_dir, P)
+    if captions: body += caption_scenes(plan_dir, P, source.get('pieces'))
     duration = P.get('duration', max(c['out'] for c in P['clips']))
     pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
     open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else ''),'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))

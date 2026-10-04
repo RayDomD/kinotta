@@ -10,7 +10,7 @@ from a picked video, play it, snip a stretch, Save to a new version.
 
 Status keys: **Done**, **Parked (owner)**, or open.
 
-## T29 (#31). Pieces in the engine
+## T29 (#31). Pieces in the engine — Done
 
 **What to build:** A footage reel's plan may hold an ordered list of pieces (source in, source out). `build.py --plan`
 and `shots.py` map clip in and out, word times, phrase anchors and section bounds from source time to timeline time
@@ -22,11 +22,11 @@ back, for the editor, carry-forward and Save to share. A plan without pieces is 
 
 **Model:** top
 
-- [ ] A plan with pieces builds a page whose scenes, captions and shots sit at timeline times
-- [ ] A clip inside a snip is dropped; a clip straddling a snip is trimmed to its edge
-- [ ] Words and caption phrases inside a snip are absent from the page and the shot list
-- [ ] A plan without `pieces` builds the same page and shot list as before (drift test unchanged)
-- [ ] The core mapping module converts source to timeline time and back, with tests over reordered pieces
+- [x] A plan with pieces builds a page whose scenes, captions and shots sit at timeline times
+- [x] A clip inside a snip is dropped; a clip straddling a snip is trimmed to its edge
+- [x] Words and caption phrases inside a snip are absent from the page and the shot list
+- [x] A plan without `pieces` builds the same page and shot list as before (drift test unchanged)
+- [x] The core mapping module converts source to timeline time and back, with tests over reordered pieces
 
 ## T30 (#32). Start a reel from a picked video
 
