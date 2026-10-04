@@ -83,6 +83,6 @@ export async function startReel(projectDir: string, transcriber: Transcriber, in
   await writeJson(planFile, plan);
   const words = await transcriber(file);
   await writeJson(join(reelDir, 'transcript.json'), { words });
-  await publishVersion(reelDir, await stageVersion(reelDir, { plan, words, builtBy: BUILT_BY_YOU }), 1);
+  await publishVersion(reelDir, await stageVersion(reelDir, { plan, planDir: reelDir, words, builtBy: BUILT_BY_YOU }), 1);
   return { slug };
 }

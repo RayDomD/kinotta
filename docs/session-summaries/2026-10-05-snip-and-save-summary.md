@@ -31,8 +31,7 @@ Ticket: T32 in `docs/tickets-review-edit.md`.
 
 ## Decisions and deviations
 
-- Only reels with a `plan.json` in the reel folder (started in Kinotta) can be edited. Agent-built reels keep their plan in
-  `motion/` and get a clear `invalid` from the edit calls; supporting them is later work.
+- Superseded by the follow-up below: agent-built footage reels are editable too.
 - Tools: Select and Snip only; Blade comes with T34. Undo, redo and removing one card are T33, so cards have no undo yet.
 - Discard has no confirmation (the mockup shows a plain link).
 - The page frame is the saved version's, seeked to the matching saved time, so a clip straddling an unsaved snip is not trimmed
@@ -51,3 +50,15 @@ Ticket: T32 in `docs/tickets-review-edit.md`.
 - `rtk proxy npm test`: 26 files, 221 tests passed.
 - `rtk proxy npm run test:e2e`: 86 passed. The first full run had one failure in `review.spec.ts` (the timecode read 0.23 s while the
   video was past 0.6 s, a timing assertion under 11 servers); it passed alone and in the second full run.
+
+## Follow-up (2026-10-05): agent-built footage reels
+
+- Fixed: T32 gave agent-built reels (plan in `motion/plan.json`) an `invalid` error. `server/core/_internal/sources.ts` is now the one
+  resolver for a reel's plan, used by the edit list and Save: reel-folder `plan.json` first (Kinotta-started reels), else the
+  project's `motion/plan.json` for a footage reel, else `invalid` ("built from code"; code-only edits are T40). I kept two locations
+  rather than unifying because Kinotta-started reels each need their own plan; `motion/plan.json` is the agent's single shared one.
+- The version's plan copy is rebased from the plan's folder to the version folder, so the footage and `motion/clips` fragments are
+  found. Save writes the edit into the resolved plan (`motion/plan.json`), so an agent's next build keeps it, and builds v2 with
+  `builtBy` you, `edits.json`, its own plan and transcript. The transcript is the plan's `transcript`, else the reel's `transcript.json`.
+- Tests: `tests/core/snip-save.test.ts` +2 (Save on a copied footage-project, 4 clips; code-only reel refused with a clear reason),
+  `tests/e2e/snip-save.spec.ts` +1 (snip and Save founder-talk). Checks are in the final report of this follow-up.

@@ -1,8 +1,9 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { applyOperations, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, Sources } from './edit-model.ts';
-import { EDIT_LIST_FILE, PLAN_FILE, readEditList, readReelPlan, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { EDIT_LIST_FILE, readEditList, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { readReelPlan } from './sources.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
 import type { SavedVersion, TranscriptWord } from './types.ts';
@@ -20,14 +21,13 @@ async function batchOut(_reelDir: string): Promise<string | null> {
   return null;
 }
 
-/** The reel's transcript as the plan names it (relative to the plan), or null when the plan names none. */
-async function readWords(reelDir: string, plan: Plan): Promise<{ file: string; words: TranscriptWord[] } | null> {
-  if (typeof plan.transcript !== 'string') return null;
-  const file = resolve(reelDir, plan.transcript);
+/** The reel's transcript words, or none when the reel has no transcript. */
+async function readWords(file: string | null): Promise<TranscriptWord[]> {
+  if (file === null) return [];
   try {
-    return { file, words: (JSON.parse(await readFile(file, 'utf8')) as { words: TranscriptWord[] }).words };
+    return (JSON.parse(await readFile(file, 'utf8')) as { words: TranscriptWord[] }).words;
   } catch {
-    throw new KinottaError('invalid', `The reel's transcript (${plan.transcript}) could not be read.`);
+    throw new KinottaError('invalid', `The reel's transcript (${file}) could not be read.`);
   }
 }
 
@@ -61,29 +61,29 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
     const reason = await batchOut(reelDir);
     if (reason !== null) throw new KinottaError('invalid', reason);
 
-    const plan = await readReelPlan(reelDir);
-    const transcript = await readWords(reelDir, plan);
-    const edited: Sources = applyOperations({ plan, words: transcript?.words ?? [] }, list.operations);
+    const { plan, planFile, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
+    const words = await readWords(transcriptFile);
+    const edited: Sources = applyOperations({ plan, words }, list.operations);
     const number = (await newestVersionNumber(reelDir)) + 1;
 
     const staged = await stageVersion(reelDir, {
       plan: edited.plan,
+      planDir,
       words: edited.words,
       builtBy: BUILT_BY_YOU,
       changedSections: changedSectionsOf(plan, edited.plan, list.operations),
       operations: { base: list.base, list: list.operations },
     });
 
-    const planFile = join(reelDir, PLAN_FILE);
     const oldPlan = await readFile(planFile, 'utf8');
-    const oldTranscript = transcript ? await readFile(transcript.file, 'utf8') : null;
+    const oldTranscript = transcriptFile ? await readFile(transcriptFile, 'utf8') : null;
     try {
       await writeJsonAtomic(planFile, edited.plan);
-      if (transcript && JSON.stringify(edited.words) !== JSON.stringify(transcript.words)) await writeJsonAtomic(transcript.file, { words: edited.words });
+      if (transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { words: edited.words });
       await publishVersion(reelDir, staged, number);
     } catch (err) {
       await writeFile(planFile, oldPlan, 'utf8');
-      if (transcript && oldTranscript !== null) await writeFile(transcript.file, oldTranscript, 'utf8');
+      if (transcriptFile && oldTranscript !== null) await writeFile(transcriptFile, oldTranscript, 'utf8');
       await rm(staged.dir, { recursive: true, force: true });
       throw err;
     }

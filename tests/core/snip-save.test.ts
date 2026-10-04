@@ -136,3 +136,50 @@ describe('Save', () => {
     expect(await spoken(3)).toBe('howdy there friends.');
   });
 });
+
+describe('an agent-built footage reel', () => {
+  const SLUG = 'founder-talk';
+
+  it('is edited and saved through the project\'s motion/plan.json, so an agent\'s next build keeps the edit', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    const reelDir = join(dir, 'reels', SLUG);
+    const transcriptBefore = readFileSync(join(reelDir, 'transcript.json'), 'utf8');
+    await project.addOperation(SLUG, { kind: 'snip', from: 3.5, to: 5 });
+
+    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+
+    const v2 = join(reelDir, 'v2');
+    expect(readdirSync(v2).sort()).toEqual(['edits.json', 'index.html', 'plan.json', 'shots.json', 'transcript.json']);
+    expect(readJson(join(v2, 'edits.json'))).toMatchObject({ base: 1, operations: [{ kind: 'snip', from: 3.5, to: 5 }] });
+    expect(readJson(join(v2, 'shots.json'))).toMatchObject({ builtBy: 'you', changedSections: ['cold-open', 'sync-problem'] });
+    // The sources an agent builds from hold the edit; the reel folder gained no plan of its own.
+    expect(readJson(join(dir, 'motion/plan.json')).pieces).toEqual([{ in: 0, out: 3.5 }, { in: 5, out: 12 }]);
+    expect(readJson(join(dir, 'motion/plan.json')).clips).toHaveLength(4);
+    expect(existsSync(join(reelDir, 'plan.json'))).toBe(false);
+    expect(readFileSync(join(reelDir, 'transcript.json'), 'utf8')).toBe(transcriptBefore);
+    // The version's own plan finds the footage and the clip fragments from the version folder.
+    const own = readJson(join(v2, 'plan.json'));
+    expect(own.video).toBe('../../../media/talk.mp4');
+    expect(own.clips.map((c: any) => c.clip)).toEqual(['../../../motion/clips/01-two-laptops.html', '../../../motion/clips/02-conflict-counter.html', '../../../motion/clips/03-last-write-wins.html', '../../../motion/clips/04-merge-diagram.html']);
+    expect(readJson(join(v2, 'transcript.json')).words).toEqual(readJson(join(reelDir, 'transcript.json')).words);
+
+    const version = await project.readVersion(SLUG, 2);
+    expect(version.builtBy).toBe('you');
+    expect(version.duration).toBeCloseTo(10.5, 1);
+    expect(version.issues).toEqual([]);
+    expect(version.claimMismatch).toEqual([]);
+    expect(version.shots).toHaveLength(4);
+    expect(version.pieces?.map((p) => [p.in, p.at])).toEqual([[0, 0], [5, 3.5]]);
+    expect((await project.listVersions(SLUG)).map((v) => [v.number, v.builtBy])).toEqual([[1, undefined], [2, 'you']]);
+    expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
+  });
+
+  it('refuses edits on a code-only reel with a clear reason', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    const slug = readdirSync(join(dir, 'reels'))[0]!;
+
+    await expect(project.addOperation(slug, { kind: 'snip', from: 1, to: 2 })).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('built from code') });
+  });
+});

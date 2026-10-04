@@ -1,5 +1,5 @@
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, posix } from 'node:path';
+import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import type { Operation, Plan } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { buildPage, buildShots } from './runner.ts';
@@ -17,12 +17,12 @@ interface ClipRef {
   clip?: string;
 }
 
-/** The file a clip's fragment is in, relative to the reel's plan: its "clip" path, else the engine's `clips/<id>-*.html` or `<id>-*.html`. */
-async function clipPath(reelDir: string, clip: ClipRef): Promise<string | undefined> {
+/** The file a clip's fragment is in, relative to the plan: its "clip" path, else the engine's `clips/<id>-*.html` or `<id>-*.html`. */
+async function clipPath(planDir: string, clip: ClipRef): Promise<string | undefined> {
   if (clip.clip) return clip.clip;
   for (const folder of ['clips', '']) {
     try {
-      const found = (await readdir(join(reelDir, folder))).filter((f) => f.startsWith(`${clip.id}-`) && f.endsWith('.html')).sort()[0];
+      const found = (await readdir(join(planDir, folder))).filter((f) => f.startsWith(`${clip.id}-`) && f.endsWith('.html')).sort()[0];
       if (found) return posix.join(folder, found);
     } catch {
       // no such folder
@@ -31,21 +31,21 @@ async function clipPath(reelDir: string, clip: ClipRef): Promise<string | undefi
   return undefined;
 }
 
-const up = (path: string): string => (isAbsolute(path) ? path : posix.join('..', path));
-
 /**
- * The plan as a version folder keeps it. The folder sits one level below the reel's, so paths the plan holds relative
- * to itself (the video and each clip's fragment) go up one level; the transcript is the version's own copy.
+ * The plan as a version folder keeps it. The plan sits in `planDir` (the reel's folder, or the project's `motion/`) and
+ * the version one level below the reel's, so the paths the plan holds relative to itself (the video and each clip's
+ * fragment) are rewritten to point at the same files from the version folder; the transcript is the version's own copy.
  */
-async function versionPlan(reelDir: string, plan: Plan): Promise<Plan> {
+async function versionPlan(planDir: string, versionDir: string, plan: Plan): Promise<Plan> {
+  const rebase = (path: string): string => (isAbsolute(path) ? path : relative(versionDir, resolve(planDir, path)).split(sep).join('/'));
   const copy: Plan = { ...plan };
-  if (typeof copy.video === 'string') copy.video = up(copy.video);
+  if (typeof copy.video === 'string') copy.video = rebase(copy.video);
   if (copy.transcript !== undefined) copy.transcript = PUBLISHED_TRANSCRIPT;
   if (Array.isArray(copy.clips)) {
     copy.clips = await Promise.all(
       (copy.clips as ClipRef[]).map(async (clip) => {
-        const path = await clipPath(reelDir, clip);
-        return path === undefined ? clip : { ...clip, clip: up(path) };
+        const path = await clipPath(planDir, clip);
+        return path === undefined ? clip : { ...clip, clip: rebase(path) };
       }),
     );
   }
@@ -58,6 +58,8 @@ export interface StagedVersion {
 }
 
 export interface VersionInput {
+  /** The folder the plan sits in: its relative paths are relative to it. */
+  planDir: string;
   /** The reel's plan with every edit already in it. */
   plan: Plan;
   /** The reel's transcript words with every edit already in them. */
@@ -81,7 +83,7 @@ export async function stageVersion(reelDir: string, input: VersionInput): Promis
   await mkdir(dir);
   try {
     const planFile = join(dir, 'plan.json');
-    await writeJson(planFile, await versionPlan(reelDir, input.plan));
+    await writeJson(planFile, await versionPlan(input.planDir, dir, input.plan));
     await writeJson(join(dir, PUBLISHED_TRANSCRIPT), { words: input.words });
     await buildPage(planFile, join(dir, 'index.html'));
     await buildShots(planFile, join(dir, SHOTS_STAGE));

@@ -98,3 +98,21 @@ test('Discard drops the edit list and the reel plays whole again', async ({ page
   expect(existsSync(join(project, 'reels', 'discard-talk', 'edit-list.json'))).toBe(false);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveCount(0);
 });
+
+test('an agent-built footage reel can be snipped and saved too', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/, { timeout: BUILD_WAIT_MS });
+  await expect(review(page).getByRole('toolbar', { name: 'Edit tools' })).toBeVisible();
+
+  await selectStretch(page);
+  await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
+  await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
+  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+
+  const project = readFileSync(PROJECT_FILE, 'utf8');
+  expect(JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')).pieces).toHaveLength(2);
+  expect(existsSync(join(project, 'reels', 'founder-talk', 'plan.json'))).toBe(false);
+});

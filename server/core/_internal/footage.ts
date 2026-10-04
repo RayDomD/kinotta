@@ -22,7 +22,7 @@ interface FootageRef {
   file: string | null;
 }
 
-async function readReelFootage(projectDir: string, reelDir: string): Promise<FootageRef | null> {
+export async function readReelFootage(projectDir: string, reelDir: string): Promise<FootageRef | null> {
   let footage: unknown;
   try {
     footage = (JSON.parse(await readFile(join(reelDir, REEL_FILE), 'utf8')) as { footage?: unknown }).footage;

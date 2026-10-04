@@ -5,11 +5,11 @@ import { applyOperations } from './edit-model.ts';
 import type { NewOperation, Operation, Plan } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import type { EditList } from './types.ts';
+import { readReelPlan } from './sources.ts';
 import { newestVersionNumber, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-export const PLAN_FILE = 'plan.json';
 const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['snip']);
 
 const queues = new Map<string, Promise<unknown>>();
@@ -25,15 +25,6 @@ export async function writeJsonAtomic(file: string, value: unknown): Promise<voi
   const staged = `${file}.tmp`;
   await writeFile(staged, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
   await rename(staged, file);
-}
-
-/** The reel's plan, as written in its folder. Throws `invalid` for a reel with none Kinotta can edit. */
-export async function readReelPlan(reelDir: string): Promise<Plan> {
-  try {
-    return JSON.parse(await readFile(join(reelDir, PLAN_FILE), 'utf8')) as Plan;
-  } catch {
-    throw new KinottaError('invalid', 'This reel has no plan.json that Kinotta can edit. Only reels started in Kinotta can be edited so far.');
-  }
 }
 
 async function readStored(reelDir: string): Promise<{ base: number; operations: Operation[] } | null> {
@@ -63,7 +54,7 @@ export async function addOperation(projectDir: string, slug: string, input: NewO
     if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Discard it to start again.`);
     if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
     const operation = { ...input, id: randomUUID() } as Operation;
-    applyOperations({ plan: await readReelPlan(reelDir), words: [] }, [...list.operations, operation]);
+    applyOperations({ plan: (await readReelPlan(projectDir, reelDir)).plan, words: [] }, [...list.operations, operation]);
     const next = { base: list.base, operations: [...list.operations, operation] };
     await writeJsonAtomic(join(reelDir, EDIT_LIST_FILE), next);
     return next;

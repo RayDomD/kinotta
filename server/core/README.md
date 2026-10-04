@@ -71,7 +71,7 @@ sent comments never move. Comments say whether they were `sent` and whether they
   when an operation changes words), builds `v<n+1>` in `reels/<reel>/.save/` (its own `plan.json` and `transcript.json`,
   `index.html`, `edits.json`, then `shots.json` last with `builtBy: "you"` and `changedSections`), renames it into place and
   clears the list. Any failure (a build error, an empty list, a batch that is out) leaves no new version, the sources as they were
-  and the list in place. Only reels with a `plan.json` in the reel folder (those started in Kinotta) can be edited so far. A
+  and the list in place. `_internal/sources.ts` is the one resolver for the plan: the reel folder's `plan.json` (started in Kinotta), else the project's `motion/plan.json` for an agent-built footage reel, whose edits Save writes there; a code-only reel is `invalid` (T40). A
   new kind of edit is one member of the `Operation` union and one apply function in `_internal/edit-model.ts`.
 - `server/core/model.ts` re-exports the pure parts (pieces mapping, the operation model) with no file access, for the web editor.
 - A version may hold its own `transcript.json` and `plan.json`; `readVersion` reads them before the reel's (E14), and

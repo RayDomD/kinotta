@@ -40,6 +40,17 @@ T32's seven criteria met, with an edit list that later operation kinds extend by
 - A plan's clip paths are relative to the plan; the version copy rewrites them one level up.
 - `changedSections` must agree with the content comparison or `claimMismatch` appears; it is computed from the sections' timeline spans before and after.
 
+## Follow-up: agent-built footage reels
+
+Problem: T32 only edited reels with a `plan.json` in the reel folder. An agent builds a footage reel from the project's
+`motion/plan.json` (`build.py --plan motion/plan.json reels/<slug>/v<n>/index.html`), so those reels got `invalid`.
+Decision: `_internal/sources.ts` `readReelPlan` is the one resolver, used by the edit list and Save. A reel-folder `plan.json` wins
+(Kinotta-started reels each own a plan, so one shared plan would collide); otherwise a footage reel (reel.json `footage`) uses
+`motion/plan.json`; otherwise `invalid` with "built from code" (code-only edits are T40). The plan's folder is its base for relative
+paths, so the version's plan copy is rebased from there to the version folder (video, clip fragments in `motion/clips`). Save writes
+the edit into whichever plan was resolved, so an agent's next compose keeps it. The transcript is the plan's `transcript`, else the
+reel's `transcript.json`.
+
 ## Checks to run
 
 `npm run typecheck`, `rtk proxy npm test`, `rtk proxy npm run test:e2e`.
@@ -49,3 +60,4 @@ T32's seven criteria met, with an edit list that later operation kinds extend by
 ### 2026-10-05
 - Plan created.
 - Done. See the session summary.
+- Follow-up: agent-built footage reels (see the section above).
