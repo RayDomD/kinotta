@@ -15,3 +15,5 @@ different logos. The taste list is global, with an optional per-project addition
 
 - The editor code never holds client assets or reels.
 - The Claude-side rules live in the skill, not in each project, so updating the skill updates every project.
+- Amended 2026-10-05 (E11): a video dropped into Kinotta is copied into `<project>/footage/`, so the
+  project, not the editor, owns it. A video picked from the project is not copied.

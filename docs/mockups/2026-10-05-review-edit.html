@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review and Edit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens and components copied from web/src/styles.css; new pieces are prefixed rv- */
+:root {
+  color-scheme: dark;
+  --ground: oklch(.184 .004 106); --ground-deep: oklch(.150 .003 106);
+  --card: oklch(.214 .005 90); --card-raised: oklch(.246 .005 90);
+  --ink: oklch(.945 .004 106); --ink-2: oklch(.820 .007 106); --muted: oklch(.640 .008 106);
+  --rule: oklch(.945 .004 106 / .14); --hairline: oklch(.945 .004 106 / .24);
+  --light: oklch(.84 .11 225); --light-glow: oklch(.84 .11 225 / .5); --light-wash: oklch(.84 .11 225 / .07);
+  --still-ground: oklch(.13 .006 50);
+  --ease: cubic-bezier(.2, .8, .2, 1); --t-press: 120ms; --t-shadow: 180ms; --t-color: 250ms; --t-lift: 380ms;
+  --sheet-rest: 5px 5px 0 -1.6px var(--ground), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px var(--ground), 10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --sheet-press: 2px 2px 0 -1.6px var(--ground), 2px 2px 0 0 oklch(.945 .004 106 / .42), 4px 4px 0 -1.6px var(--ground), 4px 4px 0 0 oklch(.945 .004 106 / .18);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.5 Outfit, "Segoe UI", sans-serif; min-width: 1280px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.dot { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; }
+.meta, .label { font-size: 13px; color: var(--muted); }
+
+/* mockup-only state switch, outside the app chrome */
+.mk { display: flex; align-items: center; gap: 4px; padding: 8px 20px; background: var(--ground-deep); border-bottom: 1px dashed var(--hairline); font-size: 13px; color: var(--muted); }
+.mk span { margin-right: 10px; }
+.mk button { padding: 3px 10px; border: 1.2px solid var(--hairline); color: var(--ink-2); }
+.mk button[aria-pressed="true"] { border-color: var(--light); color: var(--light); }
+
+.app { height: calc(100vh - 37px); min-height: 760px; display: grid; grid-template-rows: 52px 1fr; }
+.top { display: flex; align-items: center; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: .06em; font-size: 14px; }
+.reelname { font-weight: 500; }
+.reelname span { color: var(--muted); font-weight: 400; margin-left: 8px; }
+.modes { display: flex; gap: 2px; margin-left: 8px; }
+.modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
+.modes span[aria-current] { color: var(--ink); border-color: var(--ink); }
+.copy { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease); }
+.btn:hover { transform: translate(-2px, -2px); box-shadow: var(--sheet-rest); }
+.btn .count { font-family: Doto, monospace; font-weight: 800; margin-left: 6px; }
+.btn.quiet { background: none; color: var(--ink-2); border: 1.4px solid var(--hairline); box-shadow: none; font-weight: 500; }
+.btn.quiet:hover { color: var(--ink); border-color: var(--ink); transform: none; }
+
+.body { display: grid; grid-template-columns: 220px 1fr 320px; min-height: 0; }
+.rail { border-right: 1px solid var(--rule); padding: 18px 16px; display: flex; flex-direction: column; gap: 22px; overflow: auto; }
+.reels, .versions, .secs { display: flex; flex-direction: column; margin-top: 6px; gap: 2px; }
+.reels button, .versions button { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: calc(100% + 10px); margin-left: -10px; padding: 6px 10px; text-align: left; font-size: 14px; color: var(--ink-2); border-left: 1.6px solid transparent; }
+.reels button[aria-current] { color: var(--ink); font-weight: 500; border-color: var(--ink); }
+.versions button { color: var(--muted); }
+.versions button[aria-current] { color: var(--light); font-weight: 500; border-color: var(--light); text-shadow: 0 0 10px var(--light-glow); }
+.versions small { font-size: 12px; font-weight: 400; text-shadow: none; color: var(--muted); }
+.versions button[aria-current] small { color: var(--light); }
+.rv-who { display: block; font-size: 12px; color: var(--muted); font-weight: 400; text-shadow: none; }
+.secs button { display: grid; grid-template-columns: 24px 1fr; column-gap: 6px; width: calc(100% + 10px); margin-left: -10px; padding: 7px 10px; text-align: left; border-left: 1.6px solid var(--light); }
+.secs .n { font: 800 12px Doto, monospace; color: var(--light); text-shadow: 0 0 10px var(--light-glow); padding-top: 3px; }
+.secs .nm { font-size: 14px; color: var(--ink); font-weight: 500; }
+.secs .sub { grid-column: 2; font-size: 12px; color: var(--muted); }
+.rv-add { font-size: 13px; color: var(--muted); padding: 4px 0; text-align: left; }
+.rv-add:hover { color: var(--ink); }
+
+.main { overflow: auto; padding: 18px 24px 28px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.head { display: flex; align-items: baseline; gap: 14px; }
+.head h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+
+/* player: the Gate well around a 16:9 frame */
+.well { background: var(--ground-deep); padding: 12px; }
+.rv-frame { position: relative; aspect-ratio: 16 / 9; max-height: 46vh; margin: 0 auto; overflow: hidden; background: var(--still-ground); }
+.rv-frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* clip 05, a panel on the right third (engine look) */
+.rv-panel { position: absolute; left: 61%; top: 14%; width: 33%; height: 62%; background: #F2F0EB; color: #121212; padding: 4.2% 4%; display: flex; flex-direction: column; gap: 6%; }
+.rv-panel .t { font: 600 clamp(14px, 2vw, 30px)/1.05 Outfit, sans-serif; letter-spacing: -.02em; }
+.rv-panel .s { font-size: clamp(10px, .95vw, 15px); color: #6E6B66; }
+.rv-panel .rows { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.rv-panel .rows div { height: 10px; background: #DCD9D2; }
+.rv-panel .rows div:nth-child(2) { width: 70%; } .rv-panel .rows div:nth-child(3) { width: 45%; }
+.rv-badge { position: absolute; left: 8%; top: 46%; background: #FF5A1F; color: #fff; font: 600 clamp(9px, .9vw, 14px) Outfit, sans-serif; padding: 3px 10px; border-radius: 999px; }
+.rv-badge.moved { top: calc(46% + 20px); transform: scale(1.1); transform-origin: left top; }
+.rv-badge.sel { outline: 1.5px solid var(--light); outline-offset: 3px; box-shadow: 0 0 12px var(--light-glow); }
+.rv-ghost { position: absolute; left: 8%; top: 46%; width: 76px; height: 22px; border: 1.2px dashed var(--muted); border-radius: 999px; }
+/* the editor's own marks over the reel: outline, name tag, handles */
+.hot { position: absolute; outline: 1.5px solid var(--light); outline-offset: 3px; box-shadow: 0 0 12px var(--light-glow); pointer-events: none; }
+.rv-handle { position: absolute; width: 7px; height: 7px; background: var(--light); }
+.tag { position: absolute; background: var(--light); color: var(--ground); font: 600 12px Outfit, sans-serif; padding: 2px 7px; white-space: nowrap; z-index: 5; }
+.tag b { font: 800 12px Doto, monospace; margin-left: 6px; }
+.rv-cap { position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); font: 600 clamp(14px, 1.9vw, 30px) Outfit, sans-serif; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.55); white-space: nowrap; }
+.rv-cap mark { background: none; color: #FFB86B; }
+.rv-cap-hint { position: absolute; left: 50%; bottom: calc(9% + 3.2em); transform: translateX(-50%); font-size: 12px; color: var(--ink); background: oklch(.12 .003 106 / .8); border: 1px solid var(--hairline); padding: 2px 8px; white-space: nowrap; opacity: 0; transition: opacity var(--t-color) var(--ease); }
+.rv-cap:hover + .rv-cap-hint, .rv-cap-hint:hover { opacity: 1; }
+.rv-cap { cursor: grab; }
+
+/* transport */
+.rv-transport { display: flex; align-items: center; gap: 18px; padding: 10px 2px 0; }
+.rv-play { width: 34px; height: 34px; display: grid; place-items: center; }
+.rv-tc { font: 700 15px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ink); }
+.rv-tc span { color: var(--muted); }
+.rv-tools { display: flex; gap: 2px; margin-left: 8px; }
+.rv-tool { display: flex; align-items: center; gap: 7px; padding: 5px 10px; font-size: 13px; color: var(--ink-2); border: 1.4px solid transparent; }
+.rv-tool kbd { font: 700 11px Doto, monospace; color: var(--muted); border: 1px solid var(--hairline); padding: 0 4px; }
+.rv-tool:hover { color: var(--ink); border-color: var(--hairline); }
+.rv-tool[aria-pressed="true"] { color: var(--light); border-color: var(--light); }
+.rv-zoom { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.rv-zoom b { font: 700 12px Doto, monospace; color: var(--ink-2); }
+
+/* time lanes, reused from the storyboard, plus an overview and edit lanes */
+.lanes { padding-top: 12px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 72px 1fr; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.lane { position: relative; min-width: 0; }
+.rv-over { height: 20px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
+.rv-over i { position: absolute; top: 6px; height: 8px; background: var(--hairline); }
+.rv-win { position: absolute; top: 0; bottom: 0; border: 1.4px solid var(--ink-2); background: oklch(.945 .004 106 / .06); }
+.rv-win.snip-mark { border: 0; width: 2px; background: var(--light); }
+.rv-zone { position: relative; }
+.rv-ph { position: absolute; top: -4px; bottom: -4px; width: 1.6px; background: var(--light); box-shadow: 0 0 8px var(--light-glow); z-index: 4; pointer-events: none; }
+.rv-ph::before { content: ""; position: absolute; top: -6px; left: -5px; width: 12px; height: 8px; background: var(--light); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+/* footage pieces */
+.rv-foot { height: 38px; margin-top: 14px; }
+.rv-piece { position: absolute; top: 0; bottom: 0; background: var(--card); border: 1.4px solid var(--hairline); padding: 4px 8px; font-size: 12px; color: var(--ink-2); overflow: hidden; white-space: nowrap; }
+.rv-piece b { font: 800 11px Doto, monospace; color: var(--muted); margin-right: 6px; }
+.rv-piece::after { content: ""; position: absolute; left: 0; right: 0; bottom: 4px; height: 10px; background: repeating-linear-gradient(90deg, oklch(.945 .004 106 / .22) 0 1.4px, transparent 1.4px 4px); -webkit-mask: linear-gradient(90deg, #000 0 100%); opacity: .7; }
+.rv-joint { position: absolute; top: -10px; bottom: -4px; width: 0; z-index: 3; }
+.rv-joint::before { content: ""; position: absolute; top: 10px; bottom: 0; left: -1px; width: 2px; background: var(--light); }
+.rv-joint span { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font: 800 10px Doto, monospace; color: var(--light); background: var(--ground); padding: 0 4px; border: 1.2px solid var(--light); white-space: nowrap; }
+.rv-joint.cut::before { background: var(--ink-2); width: 1.4px; }
+.rv-joint.cut span { color: var(--ink-2); border-color: var(--hairline); }
+/* b-roll clips */
+.ov-lane { height: 32px; }
+.ov { position: absolute; top: 3px; bottom: 3px; background: var(--card); border: 1.4px solid var(--hairline); padding: 0 9px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
+.ov b { font: 700 11px Doto, monospace; color: var(--muted); }
+.ov:hover { border-color: var(--ink); }
+.ov.sel { border: 1.6px solid var(--light); box-shadow: 0 0 10px var(--light-glow); color: var(--ink); overflow: visible; }
+.ov.sel b { color: var(--light); }
+.ov .grip { position: absolute; top: -1px; bottom: -1px; width: 6px; background: var(--light); }
+.ov .grip.l { left: -4px; } .ov .grip.r { right: -4px; }
+.rv-off { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink); border: 1px dashed var(--ink-2); padding: 0 5px; }
+/* captions */
+.rv-caps { height: 24px; }
+.rv-phrase { position: absolute; top: 2px; bottom: 2px; border: 1.2px solid var(--hairline); border-right-width: 0; padding: 0 6px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; }
+.rv-phrase.cur { background: var(--light-wash); color: var(--ink); border-color: var(--light); border-right-width: 1.2px; }
+.rv-phrase.own::before { content: "◇ "; color: var(--light); }
+/* words */
+.rv-words { height: 30px; border-top: 1.4px solid var(--hairline); border-bottom: 1.4px solid var(--hairline); }
+.rv-w { position: absolute; top: 0; bottom: 0; padding: 5px 3px 0; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; border-left: 1px solid var(--rule); }
+.rv-w:hover { color: var(--ink); outline: 1.4px solid var(--light); outline-offset: -1px; z-index: 2; }
+.rv-w.lit { color: var(--light); text-shadow: 0 0 8px var(--light-glow); }
+.rv-w.fixed { color: var(--ink); }
+.rv-w.fixed::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: 3px; height: 1.4px; background: var(--light); }
+.rv-w.retimed { border-left: 1.6px solid var(--light); }
+.rv-w-edit { position: absolute; top: 34px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 5px; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); }
+.rv-w-edit input { width: 120px; background: var(--ground-deep); border: 1.4px solid var(--light); color: var(--ink); font: 14px Outfit, sans-serif; padding: 3px 7px; }
+.rv-w-edit small { font: 700 11px Doto, monospace; color: var(--muted); }
+/* pins and axis, as in the storyboard */
+.pins-lane { height: 24px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
+.lpin { position: absolute; top: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); display: grid; place-items: center; filter: drop-shadow(0 0 4px var(--light-glow)); }
+.lpin svg { position: absolute; inset: 0; }
+.lpin b { position: relative; font: 800 10px Doto, monospace; color: var(--ground); }
+.axis { height: 18px; font: 700 12px Doto, monospace; color: var(--muted); }
+.axis span { position: absolute; top: 2px; transform: translateX(-50%); }
+.axis span::before { content: ""; position: absolute; left: 50%; top: -6px; width: 1px; height: 4px; background: var(--hairline); }
+
+/* right column: Edits and Comments */
+.side { border-left: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; }
+.rv-tabs { display: flex; gap: 2px; padding: 14px 18px 0; border-bottom: 1px solid var(--rule); }
+.rv-tabs button { padding: 6px 10px 8px; font-size: 14px; color: var(--muted); border-bottom: 1.6px solid transparent; }
+.rv-tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; border-color: var(--ink); }
+.rv-tabs .dot { font-size: 12px; margin-left: 6px; color: var(--light); }
+.rv-panelbody { flex: 1; overflow: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.rv-undo { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.rv-undo button:hover { color: var(--ink); }
+.clist { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.c { position: relative; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 9px 12px; margin: 0 10px 6px 0; }
+.c:hover { background: var(--card-raised); }
+.c .where { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.c .where .dot { color: var(--light); font-size: 13px; }
+.c .el { color: var(--light); }
+.c p { font-size: 14px; margin-top: 3px; color: var(--ink); }
+.c p s { color: var(--muted); }
+.c .x { position: absolute; right: 10px; top: 8px; font-size: 12px; color: var(--muted); opacity: 0; }
+.c:hover .x { opacity: 1; }
+.c.flag { border-style: dashed; }
+.c.flag .note { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.rv-save { border-top: 1px solid var(--rule); padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 10px; }
+.rv-save .row { display: flex; align-items: center; gap: 14px; }
+.rv-save .quiet-link { font-size: 14px; color: var(--muted); }
+.rv-save .quiet-link:hover { color: var(--ink); }
+.rv-save .hint { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+/* drop and transcribing states */
+.rv-drop { flex: 1; display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-content: start; }
+.rv-dropzone { position: relative; min-height: 380px; border: 1.6px dashed var(--hairline); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 28px; overflow: hidden; transition: border-color var(--t-color) var(--ease), background var(--t-color) var(--ease); }
+.rv-dropzone:hover { border-color: var(--light); background: var(--light-wash); }
+.rv-dropzone h2 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+.rv-dropzone p { color: var(--ink-2); max-width: 44ch; font-size: 14px; }
+.terrain { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: radial-gradient(circle, oklch(.945 .004 106 / .22) 1px, transparent 1.4px) 0 0 / 10px 10px; -webkit-mask: linear-gradient(transparent, #000); mask: linear-gradient(transparent, #000); }
+.rv-pick h3 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.rv-pick ul { list-style: none; display: flex; flex-direction: column; margin-top: 8px; }
+.rv-pick li button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 12px; text-align: left; border-left: 1.6px solid transparent; }
+.rv-pick li button:hover { background: var(--card); border-color: var(--ink); }
+.rv-pick .p { font-size: 14px; color: var(--ink); }
+.rv-pick .d { font: 700 12px Doto, monospace; color: var(--muted); }
+.rv-pick .m { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.rv-needs { margin-top: 22px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.rv-needs b { color: var(--ink-2); font-weight: 500; }
+.rv-progress { height: 30px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border: 1.4px dashed var(--hairline); font-size: 13px; color: var(--ink-2); position: relative; overflow: hidden; }
+.rv-progress .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 42%; background: var(--light-wash); border-right: 1.6px solid var(--light); }
+.rv-progress span { position: relative; }
+.rv-progress .dot { color: var(--light); }
+
+[data-state="drop"] :is(.s-edit, .s-trans):not(.s-drop),
+[data-state="trans"] :is(.s-edit, .s-drop):not(.s-trans),
+[data-state="edit"] :is(.s-drop, .s-trans):not(.s-edit) { display: none !important; }
+</style>
+</head>
+<body data-state="edit">
+
+<div class="mk" role="group" aria-label="Mockup states">
+  <span>Mockup state</span>
+  <button data-go="drop">1 Drop a video</button>
+  <button data-go="trans">2 Transcribing</button>
+  <button data-go="edit" aria-pressed="true">3 Editing</button>
+</div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="18" height="18" viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>
+      KINOTTA
+    </div>
+    <div class="reelname">Sample b-roll <span class="s-edit s-trans">v3 · unsaved edits</span><span class="s-drop">New reel</span></div>
+    <nav class="modes"><span>Storyboard</span><span aria-current="page">Review</span><span title="Not built yet">Picker</span></nav>
+    <div class="copy s-edit"><button class="btn quiet">Copy comments <span class="count">2</span></button></div>
+  </header>
+
+  <div class="body">
+    <!-- rail: reels, sections, versions (reused) -->
+    <aside class="rail">
+      <div><div class="label">Reels</div>
+        <div class="reels">
+          <button aria-current="true">Sample b-roll</button>
+          <button>Brand intro</button>
+          <button class="s-drop" style="color:var(--light)">+ New from video</button>
+        </div>
+      </div>
+      <div class="s-edit s-trans"><div class="label">Sections</div>
+        <div class="secs">
+          <button aria-current="true"><span class="n">01</span><span class="nm">Part 1</span><span class="sub">00:00 to 01:58 · 9 clips</span></button>
+        </div>
+        <button class="rv-add">+ Split a section at the playhead</button>
+      </div>
+      <div class="s-edit"><div class="label">Versions</div>
+        <div class="versions">
+          <button aria-current="true">v3 <small>editing</small></button>
+          <button><span>v2<span class="rv-who">Saved by you</span></span><small>2 comments</small></button>
+          <button><span>v1<span class="rv-who">Built by Claude</span></span><small></small></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- main -->
+    <main class="main">
+
+      <!-- 1 drop -->
+      <div class="head s-drop"><h1>Start a reel from a video</h1></div>
+      <section class="rv-drop s-drop">
+        <div class="rv-dropzone">
+          <svg width="44" height="44" viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="var(--light)" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 9v9M10 14l4 4 4-4" fill="none" stroke="var(--ink)" stroke-width="1.6"/></svg>
+          <h2>Drop a video here</h2>
+          <p>It is copied into this project's <b>footage/</b> folder and transcribed on this machine. You can cut while the words come in.</p>
+          <button class="btn quiet" style="margin-top:8px">Choose a file…</button>
+          <div class="terrain"></div>
+        </div>
+        <div class="rv-pick">
+          <h3>Or use a video already in this project</h3>
+          <div class="meta">Not copied: the reel points at it where it is.</div>
+          <ul>
+            <li><button><span class="p">media/sample-vid.mp4</span><span class="d">02:00</span><span class="m">H.264 · 1920×1080 · 49 MB</span></button></li>
+            <li><button><span class="p">footage/founder-talk.mov</span><span class="d">09:48</span><span class="m">HEVC · an H.264 copy is made for playback</span></button></li>
+            <li><button><span class="p">media/talk.mp4</span><span class="d">00:12</span><span class="m">H.264 · 1280×720</span></button></li>
+          </ul>
+          <div class="rv-needs">Needs on this machine: <b>Python 3</b>, <b>ffmpeg</b>, <b>faster-whisper</b>. All found.</div>
+        </div>
+      </section>
+
+      <!-- 2 + 3 player -->
+      <div class="head s-edit s-trans"><h1>Part 1</h1><span class="meta">Review · play, cut and fix</span></div>
+      <div class="well s-edit s-trans">
+        <div class="rv-frame">
+          <img alt="" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAPTGF2YzYzLjEuMTAwAP/bAEMACAoKCwoLDQ0NDQ0NEA8QEBAQEBAQEBAQEBISEhUVFRISEhAQEhIUFBUVFxcXFRUVFRcXGRkZHh4cHCMjJCsrM//EAH8AAQEBAQEBAQEAAAAAAAAAAAABAgMEBQYHAQEBAQEBAAAAAAAAAAAAAAAAAQIDBBABAAICAAQDBwMEAgMBAAAAAAECEQMxIQQSQVFxMmGBBSITkaGxQiMUM9HBUmKCQ3IRAQEBAAMAAwEBAQAAAAAAAAABEQISIQNBMWEiUf/AABEIAhwDwAMBIgACEQADEQD/2gAMAwEAAhEDEQA/APzaKMoiKIMigIKigAigAAAIKAgCgigIAggqKIKAgKgiKAiNIACACgIiiiI0IMo0gAAIjSAgqAkxlynVWfDDsA8k6Z8J/LlNLxxjPo+gij5mIZ7PJ9OYiXKdVZ9wPndsph751T4T+XOddvIHjHeaMdqo5DeJQGQACZwMx9U5/CKsR4qADUMw71hRa1mZw+hWIrGIc6V7Y98u6KzLLcsIMigjlNIlznV5S9CA8c0mPBzw97M0iVHgwzh7J1+TnNZjwUcoh7ddMc54lNeOcu6KiqqKiiiAoCKKIiiioKCooCAAgCgigNAAyqgAoAgqAKICgAACgoIgqA9AAiCooAICKKMioigAAAAAIKgAACKigAgIoogqAgogiKAgoCCoAACAKCKIDLQDIqAgoCI0AyKgCKAyKgMzGXOddZ9zsA8k6Z8Jy5TSfJ7hR87thntl9KYifBznXX0B8/EsvdOqfCXKddo8FHmR1mE7UFrD2a6eM/Bz1Uz6Q9oDSNI0xZlqzIiIoIiKCoy2gIsKeIN4VoFZFBEUBVAEABVAEBQVFAQAAGkBGkUAABQEAARQAAAABQAAAAUHYBUAAQAAAUAQAAQUBkVAAAQVAAFABAABAAQUBEUBBQEFQEFAQUBAAQVAAAZGkBAAQUBBUBBUBEaQEFQBlpQYGgWMYifBn7VZ8HVqAxmK45NQ1gwKiqoOduLDdmRGRUERFBUBREVAWOwQoqCoACgACAACoCKANAACoA0MtAAAoAyCgIKgAoCKAAAAKAAAADsKgACgAiCKCoKgAAAAACiIqIAAIKKIKgAACKiAAoIKggKCAAgoCCoAioAACCgCKAyKAyNJgEFQEFAZFAQUBlVAZGgGW4RqBppGgEUAcrcWHS3FgZRloBgaQEFARRY4g6KAoigqACKgACIIoiCtKwoNDII0IA0qArQKAqKH6AoiCoAAAAAoAAAAAAA7gKIKAgqAAAAICKKIAAAAioCAqCKoDIAIAoIoCCoACAoAACCCgMigICgiKAgKCAAAAgoCIoAy0AyKgIKAgoAAKNRxZaFbFAQUBxtxZbtxYGURpAQVAZGmQFjijUcRXZFQERpkAQEERBVGUEaTLIDRlkVG8qwINjKittObQNqwoutqyoiqgCoqAKigAAAAAACgIoA7AKAAAAIKgAAACAiiiAIAAAACKAyACCooAIACiCoAACoACKIIKgAAIKAgqAAAAAAAgoCIoCCoCYUATCgNCKAKKI0KCgAOVuLDduLAygAIKAyACNQixxgV1QlAGRBBkZBUEEAAAAAAAFFEVAbYAdVc2hW2mFBsRQUABUUAAFABFAAAAAHYBQAAEAAAAQBUVAAAQFABAAAABkAAAEAUAAAAEVAFQQAAAAAAQAAAAEAFQAUBBUAABBQGRQAEFUABUaBoFFRQBytxYbvxYGURQEABEVAEjiixxB2QZFGJaYEEAQABBQABRBRBBUUFRQAAG2FBtphoVtWFQbEUFEUFEUFAAAAABUVAdhAFQFAAAAEBUEUAAFEFRBUAAABJVAQAAEAABQAQVFAAEFEEAAAAAARQBFAQVABUABQQAEAAESZgFHmjdHOc8HG3VUjjMQD3ZTMPiW66M8uTlPXUrxnMqr9Dky/LX+aT/CPiuv5laZ+r9A1+pXL5evq6X4S9tbxPig9YxEw2KNIoON+Lm6X4uYyIoCIqAiKgMkcUWOIOrKsgkosoIAAgAAAAqAAAIoCCiiKioACjSsgOisQ2grTCitKgDQig0IoAAAAKADoKAgCgAAAgigoAAAIIoKIAgAAIqSCAAAKACAAAiooAAAICKgKAAigIKgAAAAAAAAIIxa2Aac52Vh87f1NdcZy+R/fxnl+FH6Ceor4S+Vv6zt/L4m3qbWnlyeSZtPGQe2/VXt4zh5rbrW5OMpkF+5LGcpmGcg21FsOOSMyD0ReY8W67714Wt+ZefEsA/Q6fmW2vKcS+90/WRt5ZjL8HGXp1brVnKLH9JiWn53pfmGqYiLZif0ffrsrbhIM34uTrfiwIyNMgjLSAiADKeIeIOiKgMgCAAAAIKgCgAACCgIAoAAAAAA00w2CqiorUKy0DQigqooAAAoACA7AAAKAAAAIAAAAACKIgqAAAAhKgyAAAAAAAAiooAAAAAIAAAAAACKAgACoAAkgkvk9RtiInExE+rfUbddM9z85tv9y3KsRH7qrjtvNpnx9Hlxji73+mHCK55zOBGs1jgxOZc5tHgzNgatOHHMy6dszxlBHMySii5dIlzaQSZZ5tZhqZzCjGZSBuIB1rfD169+zXOaWmHjh3ivJFfoun6+1uVrc/fD7VLd0Pw8T2y+z0vV2ryt9UA/So502ReOTogMqgMgAwscUWAaAERQBkVAAAAAAAAAEUBAABUUAABVAaRpAaRoUaRQGkUBQAVFAAARQHUAEFQFBFFBAAAAAAAEBBUVAAFBJVEEAAAAAAAAABFAEAABAUAAAAAAAAAAAEebbtrWOLraMvi9ZvrpjHGZ8FHy+p3RNufHwh4u7trnzcu6ZmZluazMd1vhHlAPPa0y5TPxame6cVSfpBmzlledpa7cAszy5MOns+DEiMLAAiNIoQqKCOkM8DKK6w9FZeasu0IPRFe/hxKWnXbm4RNs5ji7zPeo/UdLtreIxxfTflOi2XrfGMx+z9TAKiogyioCEBAjQAAAIjSAiigyACiKCAKACAACCoAoANCgNDUQKqigKACgACgAAAAAA6oAAAAAAAACgAAAgAAgAAICsgAAAAAAAAAAAIAAAAAAAAAAAAAACgAjx9Raa1nD8ZszfZPjz8X6nrbTFJxiH5S049ZUSIibeVY/Vx2WtunEcognM8v0LTOFRiZrr5Rz85/wBOftulK1iM2jM+Czbs9UVyiMe5qOXPizmdkunD4A5Tx5st4zzAYXtmVxkwDE1nyYw6zMwzkGFZaiJVFngy6WSIRSsPRGXOIdYmUHWObrx9XOMHco70tal4mOU/u/XaNn3KRbk/F5mZjnh+s6Kc68zNZn3cs+oPeiogiKgjJCpHEG0UBAAAARQBkaZAAAAAAAAAAUFGgFFQaaFFFAFFAQUAAFAEQABQRR0AAAAAAAAQAURVABARUAABkAAAAAAAEVABUAUEAAAAARUAVFAAAAAAAAASVZtwB+W+Yb47+2PDjP8Aw+HFsznze7q6z96+ec54vFjtUbtisZ8ZebnM5l37c85kjAMYw8/bMvVxljxBiK4Yl14RmXKsd05UbiMQ52d5eeeKK3DcT2+ET6pCSIxfnPqzh2iMwxMCuGHWq9vJcYDGbFVwsIY6Q3gq3gGoZmmeC4Mg5ZmH6f5X3TS0zjHh5vyefqfr/ln+KeH5VH2GWmUBlpBESOKkcQUVAAAQAAAEFARFUEQUEFQAAAFBWkaAaRoVWkaBFAaUAQRUEFRRQBEAFBQFbAVAAAAAAEFAQAAAAAAEQQBQAQAAAQABQURAAAAAQAAFBUEFAAAAAAAARUB+Q6+O3fL5mMzl9P5lSY2zL5NbK02mMtMzIJPKMQxywkkRiBHK60biuVwhhLlh1iG8KY4NYbmF7ci4YIrl6OyWopwTVx5+xmaPodh9tFx83smG8RL2zRxmppjyzEw61t5rmI4szEeCo1MudpXDjIjnEZl+z+W07dOfN+T1Vm9oiOL9z01JpqrEqlelFREQAESOKkcQUUEZABAAAAAAGVAQAAAAABpFBpplRWoaZbBVRQABoUBlFAUAAVAFAAABsBUAAAAEUBAAAAAEAQUEBAAARUUAVBAAAUAAEAABAAAVFAAFAAABAAAABBUB8H5pWe2MQ/K8Jfvep1xs1y/Ebq9t5grUYzlvDhD2UjPJFce1uKZfRjTGEpTia31eGaYZmmIfX+zmXPZq4QadXg16ps6/afSpqxDU62da6vk/abjW+j9p0jUadXiinJrs4Pd9snWmtY83aTR6u1a1yiY8FqPNar6mymHjvVqMV8vZV5307Vy8OzXMNMsdznPNlqVc3fpq52Q/dU5Vj0fjuip37IftY4KVBplERFQVCOKkcQaRpkERUEAAEAAAEUARGmQAAAAVUVRWmVQaaYbgVpploAVBVAEBFFABRQAAAABsBWQQBRAAAAAABBEVAAAAAAAEVFAVAAVAAAABAAEVAUBQAAAAAQAAAAAQFQASYzD8b12rs2zGH7J8f5hq7qZiMyLH5LD19PTuu5THN9bo6cspXST17u3k50pFZ5u1rRXi+bs3TM8mHV9atYWdcS+H/dWqR11/JcOz9DFYZmsPmU6i9oeimy0zzZxuevV2w12wzlrKKxMMud7vFs3WrwXEe7MMfcrV8a27bPm5Y2282sc7X2Nm+vm89rRL5/ZaPNM2hpze3i52plnXbL1Ij4O2vbZji+h1VMYl5K68tM4+x8srm79Q/O/LKT3TPk/RCclAGURUBFjiEcRWpZbZBGWkERFAQAAABFQAAEAUAEBplpRVRUFbhlqBWlRQUAVRARQBQAVQAAAAAbEFZAAAAAAQAEAQAFABAAUAEAQUUQBQAARBUBQAQAAAQFEFFEAUBBAAAAAAAAR8zrbWrjE8X03k6jV9yvoldPjsnL1+a36sfVEPodFXGr4ymyudU58Jerpq41wz9O9n+nj20vstiI5LXpYji+jbk8G3ZZNMX7GmvhDHZqjhEPmbI6iazfMxz4R+7jpnbs2ViJt4Z8fVrP6zv8fbrFfDDvERl4bUtrni9Gu0yzW49uGLTh2q5bWWnjtLnPbHFibc3LbEzakRGYnnLTDX9zornjOOOK8CvV6bcIt+Hm39JW1s6+UT4Tyw9GnTTVXnzt7m2PWZ6nV7/wAH9O3DEud9UT4M11YEx6IrDozWuHWYRMeTqYzR49XF9O8ZrMPmaY+uFZfquk1xr1x525vYzWMViPdDaudQAQRUAWOIRxFbRpAYZblkGRUEQVAAAGWgGRUAAAAAABtUUGmmWhWlRoAAAFGgAQVFAAEAAABWhEVGhlQUZAaRUBAAAVBAFAAABAABAABRRBRARUUAEAAAABAAAAAUFQQVAAAAAARQBAUfO6jXyt7+a9PH9OHs2VzDhpjEYcq9PC7EtDx2o+rNcvPajLo+f9pO2dfsxWPg9uMOVoyumPBaJvPPm9WvXFYda63XtLVxauG3L1xDG2vJIr4do5u1ZavHNmGnJ2xk7HWsO0QmtPN9tY1Q93axMYDHknXEOM8nrtLy2ac65S8sUis5h6nDPNXN+ljhHorGuc0rPuh0ackAAAFRqOKHiDoKIMMtsyowioIIAAAAAMgAAKACA0y0CtI0A0kNCqqKCqAAAoAKKgCgACAKIoACsqIAoICiAAAACAAAAAAoCKggCioCCiAAgooCAAAgAAAAAAAigAIAoAIAAAACAvF5vZvL0wxtjExLHJ3+P8bgmGKy6MO7y2q5dr3YcpqK5xAZapGUHWtV21+l0qmy0Yw1Ga+HsrzeXhL6F4iZebZr5NMPTrjk7xD5/T3mJ7ZfWiGa3Bxs7vPcHls81nos87TjyYeetZm3xerGX1NOimvnxnzaY3Hale2tY8obBXIAAAAWOKLHEV0RWUBmVZUZZaZEAAAFBFZQAAAAAFBoVBWmWxVUaAVGgRQFAAQAVQBFQBQAQUAwVBUAAAEABQAQAFABAAAABAFAAAEBRBAAAVFBAAAAAAEUAQAUQBUUBAAAAAAEVAHK+fg6pIstjnV2hxq6ONeyOjlZvLEjTjjKztrrjnyeisPB1WvM+4G6dTW3CWdm7L58RFOTMzEtYqW6iK25u1tkWrmHzbcrO1Zyrm9GivfOY832eEPJ08dtXpmWarM2cLS1Lz2kK5Wlxblybca7aozeH2nzOmrm2fJ9RqOPJkBWQQQVEAUjijPiDuzlMoKJkQQQAAABlQVEAAABFAAUbBUFahlsVWkUFVAFAARQVAUUAEABQFAAAAVkAAAQAAAAAAAAAAAFBFQAAEAAFEEAAVAAABFQFAARUAAAABUAAAAABFQABQQBHKeUmWrRyefLlyj08Lsd8mXJx2X7Iyy7Pf31h4d/UR4PkW6mZlJtNm8c+3/Hbu7pZrrtMzhqmImJe2u2K55K1JXyLU7ZzLtrvERGYdNk905eS0QrNlj6leoiHX70S/PWthY2SmM9q+93Zc7S8Wq1pemZ5JjW65WliGZlm14pEyrlX3unr268+bvl+Wp832U+m9a2j8S+pq+Y6NuMz2T7+H5bcq+qjMTExmJyCKiAKjIguRAGxlQVAAABAAEAABQAAAAABsZaBpqGGkHRWIloVsZaFABAAaAAAAAAFQBQBABUAAAAAAAAAEAAAAABVQAQAAAAAQEAAAAAEAAAAAAAUAEAAAQBRAFQAQAAeTZ1WvX490+Uf7fOv1m2/D6I93H8qj7F9lKR9Voh86N9Nt7RXw/V8yZmec8597x9869kWjzhK6cfK/TRLjvpN68pZiXSJcXp/XyI6W3jLr9qavqxC9rXZZJHzK67TwdZ0384eieyrnN482tdd4uE6Zxzs8ltcPfOyHKZhWeVj5v2sy9FdUPV25MYTXBaUiqXsZea1kSmXj6m30x6u02eLfP0xHvVzrxbIzGfJwi0w9LzWjDo5voaOr2ap+m0x7vB+k6fr6beVvpn9JfiYl7teUH7sfE6XqpjFL/CX2MiNCII0IiDawy0CgCgAMgAAAAKAAAICiACoA1lrLmqDplcuZkHbLWXDK5VXccctZQdWnLLWRWxlRVEUABEFQVFAAAAEFFEEFEUBABRAFBAURVEAAAAAQBBQAQAAAAAQAAAAAAAAAABAAAAAATLzbeppr/8p8ofI29RfZxnEeUKr6W3rKU5V+qf0fL2b9mzjPLyjg4ICgBg+f1PKH0Hyertm9aiv09edY9Dvw5dNsjZrifz6t3pPGHF6Pp66W7noxl8jXt7Z5vqU2RKNSltMWee3S5fRix3LrT539qn2Ih75u4WsI881iHms9N7YfO2bGnO1zvbDxWuza+ZZiGnN0q+fsv3Xn3cno3bO2uI4y8MLGa3LnZtnAw4PoaJy4dmXXXHZKj6UQ+r027l2Wn0fMpzh0wLj72U7o84fF77ecs9wmPu90ecGYfC7zvnzEfoFfAjbeOFpeqnV2j2oz+4PrK8lep128cer0xaJ4TAKAgAACKoCKgAKAAIKgAAAAAAACCrlkBvLeXFpR2y3lwbiUV1ViJaF1oRRABBQAQBQAAAUAAAEAAABQAAAQAFBFQAAAEBRFAEEFQAAAAABAFQAVAAESZiOM4BpHlv1OuvDm+Vt332ePLygV9XZ1Ounjmfc+bs6q9+UfTHueNFUQAFBABQR8DfOdsvvW4Pz9vbt6qlfR6PqPs2xb2Z4+73v00YmH4rD6XS9ZOr6b86/rDPLjvrrw5fT7G3VPGv4cKbZpxfQpet4i1ZzDF9Vb8XPXXG6b8u/wBx8m3T3r7MsZ6iP45a8Nr607Iee+14f68/xZ+1utxmIPImrs3e982+ybTyfR/s/O2V/tqwuxjLXzIhqeT3/ZiHHZWsQmpj4983tlYrL04hG3Nww3FXTDvSqjNaLNHqiCYEctT1w8nCXqrOQJhzw7MzAOQqIiqiihFphoUdtW+1Jzzn3ZfVptreOU/B8KYSJmBH6QfO6ffNvpt8H0BGkQBREQaAUFQAAAAAAAFEEAUAEAAGmmGgbiXTLk3ArorKg0ACgIICNCgAAAAgKIAoAAAAAAAAgAKgAIAAAAAAgAgAAAAAgCiMXvFIzMg24X366cZ/D5m3qLX4coePKrj6F+stPsxh4rXtbjMy5oKuUBBAAAUAAEaMNg5X4S/P/wArer79+Evg4xM+qpW3KXZJhWTXuvqnNZmP2fa1fMqzy2Vx744PgYRLJW5zsfsqbtez2bRLs/D5d69Rurw2Wj4ufR0nya/Yo/K/33Uf9/0hJ67fP8/0hejXeP1EvNs266e1aIfmbdRutxvafi4TMk4M3m+xu6+OFIz75eCt77b5tOcPG9+ivKZbzHPddJMN4y711g5Vo9MRh0xgAGLXisZl8+/VzPKkfEHuluj5tK7Nk85l9KsYgR1RYUVzYl0ZRMZaZahUUBFGVAK27bRL71ZzES/PvuavYr6KzXcQRAAVVQUUQQUAAAABRUAQEBVAQAQFVCAdGmIaB0bcobFdBloBUEEAUAAAFABAAAABRBRUAFQAAEAEAABFAAHg2dbr1zMTE8pxM8sKPePi2+aa48vzl57fN6+H7f7lFx+hH5W3zefDu/SHmt802zwz+Rer9mxN6x4x+X4W3zDdPl+v+3Ges3T/ADx6RCnV+8nfrj+UOU9TrjxfgZ6jbP8AO35c5vaf5TPxDH7y3Xao8f1j/bzW+aao8a/n/UPxGUyGR+yr8zjZbtp+0l9trzmZfG6GmK2t58ofRBZRQAAEUEEFATDEcp9zoCi4VYEFAHC/B8Wfat6vuW4S+Hb27eqxKNIKwkxlymMO6TGRXnRZjDKiCogAAPr0pyiHztNe+8Q+7FcFajlWuHaEaRRmWkBmK5jm4z09M5iHphQeeI7W4luXGPaB6IVIARFURyRqWRG1IAQAHOX3tfsV9H5+eL9FWMRHoI2AIACioqACAKICqigAKCKgACAoAgADTKg3DTENA225twK2rLQKACCCiiKgCCiiCCiACoAoICgKAIAAAAAgAoggPxfX25z/APuX7R+F6+efxkWPl9zEzKIrouVywKmrkZEY1RFU1FEEfpOmjGmj0eLz9P8A4aejv4o20qKgAKiCoADfgisgoiqKCCgOc+L4d/8AJZ9yXxt0f1ZWJWBRplAXAMzGXGa4ehJjIPKjv2r2IPMuHq7IMQD09Hr52tL6Llor20j383VGoy0KKiKAqgg52nEOev6ubG6c4rHGXopGIUbRpzQVplQZliXRiVTFhpmGgiMS3VmwOEvqdL1Gfot8JfJl01/TMCP0oxSc1iWxAABUVAABFQBRAFEAUQBQBAAUAEAUVW2GwabYbBpphqEVoQBAGgAQAAAFAQQFQBQABFUAAAAEVAAQAACX4Lrp5x8X7y3sz6PwHWca/EWPmoqDSAKwAAKigjURmcI9XTRndT1Rp93XXspWvlDapIqqigKioACoKioGGgAUAVFQVmXxd3+WfSH27cHxd/8Ak+CxmuapBhpgJUFZGgEwqogJEZmIV301zf0B9GOURCNMstigooCAkziGnk6i/Ltjjbko5a/6l5v4cIe+HLXTtrEOoJLCykA0qKgIqAwSrEqy6RwYs3whwtIrK5Yy592ZEfo+m2RfXHnHJ6nwNOyddon8vvROYyIoCAAAogKgoiACgAAAKAAqAKgAAA025OgNNMqK225w2DQyIADQAAAACAKIIKAAAoAAAAogAAggCgIAlvZn0l/P+r41+L+gzzh+A62MWj3ZgWPmoCrUVAZAABTAI+h0dJnb3f8AWHjiszwiZfZ6Wk0pMzGJnzGse3JLnnm6eCK0IqA0xlcg0qACooNoqiIqKKAoMS+R1MfXHo+xL5HWTjtWJXmhXLubacxswIoKyooKgj39PHKZeJ9PXGKwLHRAZaFABQBJeLX/AFLzfw4Q67rTiKxxtyddde2sQo6QkqxKDErAsKNKioIy2xKjnLlE5s1aWNftDL0WeW0u15eS05Fc5s766+MpTX4y9Ag+v0uzur2z4Pju2q/ZaJB+gGYnMZaRAAAAAAAAQBBVEAVUAUQBQABAFWEUG2mVFdIaYaBQEVQFZEUVUAAAAAQAFAUARUBQARUUBFQAABFBUfi+q19/d6y/aPyl/an1kWPzUxhl7+prWs8o4vDlUQAB9LoukjqrWibdvbETwy+Y/RfJ/a2+kfuI91flXTxxm9vjh669F01OGqvx5/u9iomucUrXhWI9IiHyt8915fU2W7KzL408RqMYXwFGljg0xDYMKMoO0CQoAqA6QrMNAA0IgqAzL5HW+zHq+xPB8vrP8fxUr5VYemHKODrDTnGkVlFMkMtwooAN1jutEPrPn9PGb58n0ErcQFZEVQESZxDTzbZzikcZ/ZRnXHfebzw4Q9bNaxERHk2gxLk3LAI6Qw3CjSoqCOdnR5dtsQo4Ws66Y5ZeDOZfRj6axAjF5cojm3POW4gRsVJBlUAfZ6W/dXHk9j4fT37Lw+4IoggoAAAAACKAgICqyAoAKICKICqIA6NObYOjUMQ0K2IqCoDQAACAKIAoAAggoiqAAAAAAAAAIAIoD8pf2p9Zfq35S/tT6ix8nq/B819Lq/4vmqlABB+j+T8dvpH/AC/OP0nyf/6/+v8AyD9GAiPF1NuEPnPX1E5u8o3GUiWkRpqGmGgGGmQbhtiHQAAFh0c4dAAAVFAZl8/qYzrs+i8e6M0t6SqV8WvB1hxrwdctOayyKKNMtAqNMg+h08cpl63DTGKw7M1uAAKIqCTOIy4a4zm8+PD0XZ9UxTz4+jsoJMjEoMyiqoNwioiggrMvnbrPdaXyt081StaYzL6EvFojk9gkZw2yk2BtiZc+4Bri34EQtgZiX3tF++ke58CHu6a/bfHmD7KoIgAACggAKIAIAAICqyoKIIAgCqgDTcMNKNw25w0K225tQgrIKLkQUAEBcoKKIICoKKrKoKAoAACIDQyAuUAFQAH5W/tT6y/VPyl+M+six8vq+NXzn0+otqvjnMY4vFmkeGRccGsS69/lER8Ge6ZDF+3PjiH0ui6iOm7+dfqxx9z5OZRUfor/ADLytPwh5J6695xGZ9Zy+Q9vSU7r93hX9xcfb8IyjOUQXIwCujTmqDSZBRqJdHCHaAaVFQG4YWAdFQBUAB5dnsy9TzbBH53udYlyn2rR75bq25uqgK0qKAsc5R01+1APpVjENpCstioqKJPJXDbPCseKi6+ebT4/s6JHKEkQZABVUAUAZlXOZBxtL5O2c3fTvL5M89gy+jq5Q7ZeatnXiLFmWcTLcVdMAx2jRUR1jg52dnCecikOlJxMOaZEfpY5w08vTX79fo9SIgAKIAoAAAiACiCAqKiBkRAUQBRAG4ltybB0bcm4kV0bhyaBoQVFQBVQFAAAAAARRAVQQFEAAAUQAAAAAfkt047vi/WS/JbuFviLHwJZWUGlQFTQAQfc0U7Nce/m+PrjuvWPOX6DCKyNJgGFMNQKKgDcICCeLrDjPNYzCj0K5xLWQaWGVB1VmGkBFQBw2cHdx2cAfnZ/yWaNnLbKNuVdYViJbFVpFQR6tEc3le7p45ZFj2AMtiooiTOHlpM3vNvDhC779tcRxnlDdI7axCjaCAKAKqCCoM5UVytKzLlaQcLy+b/J7rzyeGntjL2Uq9sVw4UmHo7hYqTLGTmKRzd6wlauokYs88zhu9nm5yC5y7RDNauoj09Nfst6vtPzcS+1o312Rj+UA9YCIgAKIAogCoAICAICAioogCAqANLllQbbhyayK7K5w6A2AoCAKICgICgCAAgqCqogKoAAAAICiAKgAj8lv9m3xfrn5Hf7N/iD4CKirUUQQAEe3pK922J8n23y+h43+D6g0hhRBkWUFZllZZB1hWYUGZFlAaypBANxLeWFQdKzDs88RDtACLIDLF+DoxYHwOo5bIn3OL1dVxr8Xlbc66VdHKHZBQRRH1NMYrD5b69PZhFjqEKy2JKuG+ZrrtjyB5K/1d0z4Ve15elj+nnzetRABBVQBFZBMueWmAHGzcuVhHnvLx09p6Njz6/aVl9DXD09suet64RpiKOnbEKzMit8oee9yZeeRDEy61qlXWAVmyudgTKUme+JSW6wqP0tJ7qxLbnr9ivpDbKAAAAIACgAMtIDIIgqAAgAAAoADTLUCtQ7RLi3Ar//2Q==">
+          <div class="s-edit">
+            <div class="rv-panel">
+              <div class="t">StudyBuddy</div>
+              <div class="s">Capstone · a tutoring platform</div>
+              <div class="rv-ghost"></div>
+              <div class="rv-badge moved sel">Database lead</div>
+              <div class="tag" style="left:8%;top:calc(46% + 58px)">05 · badge<b>+0, +40 · 110%</b></div>
+              <div class="rows"><div></div><div></div><div></div></div>
+            </div>
+            <div class="rv-cap">we built <mark>StudyBuddy,</mark></div>
+            <div class="rv-cap-hint">Drag moves every caption · Alt-drag moves this phrase</div>
+          </div>
+          <div class="s-trans rv-cap" style="color:var(--ink-2);font-size:16px;font-weight:500;text-shadow:none">Captions appear when the words are in</div>
+        </div>
+        <div class="rv-transport">
+          <button class="rv-play" aria-label="Play"><svg width="30" height="30" viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--ink)"/><path d="M11.5 9.8l6 4.2-6 4.2z" fill="var(--ground)"/></svg></button>
+          <div class="rv-tc">00:38.90 <span>/ 01:58.50</span></div>
+          <div class="rv-tools">
+            <button class="rv-tool" aria-pressed="true">Select <kbd>V</kbd></button>
+            <button class="rv-tool">Blade <kbd>B</kbd></button>
+            <button class="rv-tool">Snip <kbd>S</kbd></button>
+          </div>
+          <div class="rv-zoom">Showing <b>00:34 to 00:46</b> <button class="rv-tool">− +</button></div>
+        </div>
+      </div>
+
+      <!-- lanes -->
+      <div class="lanes s-edit s-trans">
+        <span>Reel</span>
+        <div class="lane rv-over">
+          <i style="left:.5%;width:4.2%"></i><i style="left:5%;width:10.3%"></i><i style="left:18.2%;width:5.6%"></i><i style="left:24%;width:7.1%"></i><i style="left:32.2%;width:13.6%"></i><i style="left:48.6%;width:10.4%"></i><i style="left:59.1%;width:4.3%"></i><i style="left:63.5%;width:8.3%"></i><i style="left:74%;width:13.9%"></i>
+          <div class="rv-win" style="left:28.7%;width:10.1%"></div>
+          <div class="rv-win snip-mark" style="left:31.1%"></div>
+        </div>
+
+        <span>Footage</span>
+        <div class="lane rv-zone rv-foot">
+          <div class="rv-piece" style="left:0;width:24.2%"><b>A</b>00:00 to 00:36.9</div>
+          <div class="rv-piece" style="left:24.2%;width:40%"><b>B</b>00:38.4 to 00:43.2</div>
+          <div class="rv-piece" style="left:64.2%;width:35.8%"><b>C</b>00:43.2 to 02:00</div>
+          <div class="rv-joint" style="left:24.2%"><span>SNIP −1.5s</span></div>
+          <div class="rv-joint cut" style="left:64.2%"><span>CUT</span></div>
+          <div class="rv-ph" style="left:40.8%"></div>
+        </div>
+
+        <span class="s-edit">Clips</span>
+        <div class="lane ov-lane s-edit">
+          <div class="ov" style="left:0;width:24.2%"><b>04</b>Optimize <span class="meta" style="font-size:11px">trimmed by the snip</span></div>
+          <div class="ov sel" style="left:38.3%;width:61.7%"><span class="grip l"></span><b>05</b>StudyBuddy <span class="rv-off">off its words · slid +0.4s</span><span class="grip r" style="display:none"></span></div>
+        </div>
+
+        <span class="s-edit">Captions</span>
+        <div class="lane rv-caps s-edit">
+          <div class="rv-phrase" style="left:0;width:18.3%">so that it runs efficiently and reliably</div>
+          <div class="rv-phrase" style="left:18.3%;width:5.9%">as much as possible.</div>
+          <div class="rv-phrase" style="left:24.2%;width:13.3%">For our capstone project,</div>
+          <div class="rv-phrase cur" style="left:37.5%;width:13.3%">we built StudyBuddy,</div>
+          <div class="rv-phrase own" style="left:50.8%;width:14.2%">a tutoring platform.</div>
+          <div class="rv-phrase" style="left:65%;width:20%">As a person in charge of the database,</div>
+          <div class="rv-phrase" style="left:85%;width:15%;border-right-width:1.2px">I had to make sure</div>
+        </div>
+
+        <span>Words</span>
+        <div class="lane rv-words s-edit">
+          <span class="rv-w" style="left:0;width:3.3%">so</span><span class="rv-w" style="left:3.3%;width:.9%">that</span><span class="rv-w" style="left:4.2%;width:.8%">it</span><span class="rv-w" style="left:5%;width:2.5%">runs</span><span class="rv-w" style="left:7.5%;width:4.2%">efficiently</span><span class="rv-w" style="left:11.7%;width:4.1%">and</span><span class="rv-w" style="left:15.8%;width:2.5%">reliably</span><span class="rv-w" style="left:18.3%;width:2.5%">as</span><span class="rv-w" style="left:20.8%;width:1.7%">much</span><span class="rv-w" style="left:22.5%;width:.8%">as</span><span class="rv-w" style="left:23.3%;width:.9%">possible.</span>
+          <span class="rv-w" style="left:24.2%;width:3.3%">For</span><span class="rv-w" style="left:27.5%;width:1.7%">our</span><span class="rv-w" style="left:29.2%;width:2.5%">capstone</span><span class="rv-w" style="left:31.7%;width:5.8%">project,</span><span class="rv-w" style="left:37.5%;width:.8%">we</span><span class="rv-w" style="left:38.3%;width:2.5%">built</span><span class="rv-w lit fixed" style="left:40.8%;width:10%">StudyBuddy,</span><span class="rv-w" style="left:50.8%;width:1.7%">a</span><span class="rv-w" style="left:52.5%;width:2.7%">tutoring</span><span class="rv-w retimed" style="left:55.2%;width:9.8%">platform.</span><span class="rv-w" style="left:65%;width:1.7%">As</span><span class="rv-w" style="left:66.7%;width:.8%">a</span><span class="rv-w" style="left:67.5%;width:2.5%">person</span><span class="rv-w" style="left:70%;width:5%">in</span><span class="rv-w" style="left:75%;width:.8%">charge</span><span class="rv-w" style="left:75.8%;width:.9%">of</span><span class="rv-w" style="left:76.7%;width:.8%">the</span><span class="rv-w" style="left:77.5%;width:7.5%">database,</span><span class="rv-w" style="left:85%;width:2.5%">I</span><span class="rv-w" style="left:87.5%;width:2.5%">had</span><span class="rv-w" style="left:90%;width:1.7%">to</span><span class="rv-w" style="left:91.7%;width:.8%">make</span><span class="rv-w" style="left:92.5%;width:1.7%">sure</span><span class="rv-w" style="left:94.2%;width:3.3%">that</span><span class="rv-w" style="left:97.5%;width:2.5%">its</span>
+          <div class="rv-w-edit" style="left:calc(40.8% - 6px)"><input value="StudyBuddy,"><small>40.40s</small><span class="meta">Enter saves · drag edges to re-time</span></div>
+        </div>
+        <div class="lane rv-progress s-trans"><div class="fill"></div><span class="dot">42%</span><span>Transcribing with faster-whisper · about 1 min left · you can cut and snip now</span></div>
+
+        <span class="s-edit">Pins</span>
+        <div class="lane pins-lane s-edit">
+          <div class="lpin" style="left:29.2%"><svg viewBox="0 0 28 28"><path d="M14 2l10.4 6v12L14 26 3.6 20V8z" fill="var(--light)" stroke="var(--ground)" stroke-width="2"/></svg><b>1</b></div>
+          <div class="lpin" style="left:75%"><svg viewBox="0 0 28 28"><path d="M14 2l10.4 6v12L14 26 3.6 20V8z" fill="var(--light)" stroke="var(--ground)" stroke-width="2"/></svg><b>2</b></div>
+        </div>
+
+        <span></span>
+        <div class="lane axis"><span style="left:0;transform:none">00:34</span><span style="left:25%">00:37</span><span style="left:50%">00:40</span><span style="left:75%">00:43</span><span style="left:100%;transform:translateX(-100%)">00:46</span></div>
+      </div>
+    </main>
+
+    <!-- right: edits and comments -->
+    <aside class="side">
+      <div class="rv-tabs s-edit" role="tablist">
+        <button role="tab" aria-selected="true">Edits<span class="dot">7</span></button>
+        <button role="tab" aria-selected="false">Comments<span class="dot">2</span></button>
+      </div>
+      <div class="rv-panelbody s-edit">
+        <div class="rv-undo"><button>Undo <span class="dot" style="font-size:11px">⌃Z</span></button><button>Redo</button><span style="margin-left:auto">since v2</span></div>
+        <ol class="clist">
+          <li class="c"><div class="where"><span class="dot">1</span>Footage · 00:36.90</div><p>Snipped 1.5s (00:36.9 to 00:38.4)</p><button class="x">Undo</button></li>
+          <li class="c"><div class="where"><span class="dot">2</span>Footage · 00:43.20</div><p>Cut into B and C</p><button class="x">Undo</button></li>
+          <li class="c"><div class="where"><span class="dot">3</span>Word · 00:40.40</div><p><s>Study Buddy,</s> StudyBuddy,</p><button class="x">Undo</button></li>
+          <li class="c"><div class="where"><span class="dot">4</span>Word · 00:42.00</div><p>“platform.” starts 0.12s later</p><button class="x">Undo</button></li>
+          <li class="c flag"><div class="where"><span class="dot">5</span>Clip 05</div><p>Slid +0.4s</p><div class="note">Off its words: its changes no longer land on “StudyBuddy”. Keep it, or ask Claude to re-sync.</div><button class="x">Undo</button></li>
+          <li class="c"><div class="where"><span class="dot">6</span>Clip 05 · <span class="el">badge</span></div><p>Moved +0, +40 · scaled to 110%</p><button class="x">Undo</button></li>
+          <li class="c"><div class="where"><span class="dot">7</span>Captions · <span class="el">a tutoring platform.</span></div><p>This phrase moved up 60px</p><button class="x">Undo</button></li>
+        </ol>
+      </div>
+      <div class="rv-save s-edit">
+        <div class="row"><button class="btn">Save as v3 <span class="count">7</span></button><button class="quiet-link">Discard</button></div>
+        <div class="hint">Writes the edits to <b>motion/</b> and builds v3, about a second. Your 2 unsent comments move to v3.</div>
+      </div>
+
+      <div class="rv-panelbody s-trans">
+        <div class="label">Edits</div>
+        <div class="meta" style="line-height:1.5">Words, captions and sections arrive when transcription finishes. Cuts and snips work now and land in the edit list.</div>
+      </div>
+      <div class="rv-panelbody s-drop">
+        <div class="label">What happens next</div>
+        <ol class="meta" style="padding-left:18px;line-height:1.7">
+          <li>The video plays here at once.</li>
+          <li>Words arrive in a minute or two, then captions.</li>
+          <li>Videos over 3 minutes split into parts at pauses. Rename or move them any time.</li>
+          <li>Save makes v1. Ask Claude for b-roll whenever you like.</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.mk button').forEach(b => b.addEventListener('click', () => {
+  document.body.dataset.state = b.dataset.go;
+  document.querySelectorAll('.mk button').forEach(x => x.setAttribute('aria-pressed', x === b));
+}));
+document.querySelectorAll('.rv-tool').forEach(b => b.addEventListener('click', () => {
+  if (!b.closest('.rv-tools')) return;
+  b.parentElement.querySelectorAll('.rv-tool').forEach(x => x.setAttribute('aria-pressed', x === b));
+}));
+</script>
+</body>
+</html>

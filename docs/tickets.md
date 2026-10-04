@@ -465,6 +465,9 @@ Decisions C1 to C6; look picked in the sample pass (B, active word lit). No GitH
 
 Found checking the sample's v2 (2026-10-04). No GitHub issue yet.
 
+Absorbed into the Review and Edit phase on 2026-10-05 (decision E14: every version keeps the transcript and
+plan it was built from). Its criteria move to that phase's tickets.
+
 **What to build:** The transcript belongs to the reel, so a word fixed for `v2` ("Vidal" to "Dela") also changes `v1`'s spoken lines and word row in the editor, while `v1`'s page still shows the old word. A version should show the transcript it was built with.
 
 **Acceptance criteria:**

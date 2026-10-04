@@ -1,36 +1,35 @@
 ---
-title: Direct edits in Kinotta
+title: Review and Edit phase (direct edits)
 date: 2026-10-04
-status: Draft
-summary: Let the owner make mechanical fixes (caption words, clip in/out, element position) directly in Kinotta, applied by a script into the next version. Intent only; to be grilled after T25.
+status: Approved
+summary: Kinotta becomes an AI-agnostic editor. Drop a video, cut, fix and re-time words, move captions and elements, and Save a new version with no agent; an agent stays optional for building motion graphics. Intent grilled (E1 to E20); next is /to-spec.
 spec:
 ---
 
 ## Intent
 
-- Problem: Every change goes through a comment and a Claude round, even a mechanical one the owner could do
-  faster: a misheard caption word, a clip that should start half a second later, a badge that should sit 40 px
-  lower. Kinotta is a reviewer by design (product principle 5, K12); no planned phase lets the owner move
-  elements, edit captions or move timing. The Review phase only plans playback, scrubbing and "trimming".
-- Why: The owner asked for it on 2026-10-04 after the sample loop. Mechanical fixes are where a round with
-  Claude costs most for the least judgement.
-- Proposed outcome: The owner makes mechanical changes in Kinotta, they land in a new frozen version without a
-  Claude round, and comments stay for anything that needs judgement.
-- Affected: the editor (new edit affordances), core (an edit list saved like a batch), the skill's scripts
-  (applying edits to `plan.json`, `transcript.json`, clip positions), the timing contract and versioning rules.
-- Constraints: Versions stay frozen; an edit makes the next version, never changes the current one. The sources
-  in `motion/` stay the single truth: an edit must write back to them, or the next Claude build loses it.
-  Mechanical only: no free-form design tools.
-- Out of scope: a general-purpose video editor; colour grading; MP4 render.
-- Open questions:
-  - Which edits: caption text, caption breaks, clip in/out, element position, element size, text in a clip?
-  - Who applies them: a script run by Kinotta, or a script Claude runs on the next batch?
-  - Element positions live in each clip's code. Do clips expose positions as data, and how?
-  - Does an edit version need a hand-over, answers or changed-section marks like a batch version?
-  - Where does this sit: its own phase, or part of Review?
+- Problem: Every change goes through a comment and an agent round, even one the owner could do in seconds:
+  a misheard caption word, a stumble to cut, a clip that should start half a second later, a badge 40 px
+  lower. Kinotta can't start a reel either: an agent has to create every one. Kinotta is a reviewer by design
+  (product principle 5, K12), and the planned Review phase only adds playback and scrubbing.
+- Why: The owner asked for it on 2026-10-04 after the sample loop. The aim is no AI in the loop for changes:
+  Kinotta is usable for plain editing on its own, with an agent as an option for building.
+- Proposed outcome: The owner drops a video into Kinotta, cuts it, fixes and re-times the words, moves
+  captions and elements, and saves a new frozen version, with no agent. When they want motion graphics, an
+  agent builds them from the same sources, and the comment loop works as today.
+- Affected: the editor (a Review and Edit surface: player, timeline, edit list, new-reel flow), core (edit
+  list, pieces and source-time mapping, Save, carry-forward remapping, per-version transcript and plan), the
+  skill's scripts (run by Kinotta to build; plan fields for pieces, offsets and caption position), the timing
+  contract, CONTEXT.md, PRODUCT.md, ADR 0002.
+- Constraints: Versions stay frozen; a Save makes the next version. The sources in `motion/` stay the single
+  truth: Save writes to them and rebuilds, so an agent's next build keeps every edit. The project's video is
+  never altered. Kinotta calls no AI service; transcription is local. Formats and wording name no agent.
+- Out of scope: colour grading and the footage track of takes (split off from Review), MP4 render, editing
+  scene timing on code-only reels, packaging and testing agents other than Claude, re-breaking caption phrases.
+- Open questions: none. Resolved in a grilling round on 2026-10-05, decisions E1 to E20 in
+  `docs/2026-09-30-grilling-decisions.md`. Look: `docs/mockups/2026-10-05-review-edit.html`.
 
-Recommended start: `/grill-with-docs` on this Intent once T25 is done (a founding decision changes, so settle it
-before building).
+Next: `/to-spec` for the phase (it spans several sessions), then Goal and Approach here.
 
 ## Goal
 
@@ -46,3 +45,7 @@ before building).
 
 ### 2026-10-04
 - Intent recorded at the owner's request; T25 goes first.
+
+### 2026-10-05
+- Grilled: Kinotta becomes an AI-agnostic editor and this work becomes the Review phase (Review and Edit).
+  Decisions E1 to E20; look chosen in a `ui-preview` round. Intent rewritten and approved; status Approved.

@@ -1,7 +1,8 @@
 # Kinotta
 
-A review editor for AI-made motion graphics and footage edits: Claude builds a reel inside a project,
-you comment on it in context, and Claude builds the next version from your comments.
+An editor for motion graphics and footage edits that works with or without AI. You cut and fix a reel
+yourself, or an agent builds it inside a project, you comment on it in context, and the agent builds the next
+version from your comments.
 
 ## Language
 
@@ -12,7 +13,7 @@ One video deliverable inside a project, such as a product showreel or a b-roll e
 _Avoid_: Video, project, clip
 
 **Version**:
-A frozen build of a reel, produced by Claude from one comment batch. It never changes after it exists.
+A frozen build of a reel, made by your Save or by an agent from one comment batch. It never changes after it exists, and it keeps the transcript and plan it was built from.
 Only the newest version of a reel takes comments; older versions can be viewed but not commented on.
 _Avoid_: Draft, revision, iteration
 
@@ -41,7 +42,7 @@ One item on the timeline's video track: either a footage take or a scene.
 _Avoid_: Segment, track item
 
 **Transcript**:
-The timed words spoken in a reel's footage, saved with the reel. Claude plans b-roll against it, and each shot shows the line it covers.
+The timed words spoken in a reel's footage, saved with the reel and copied into each version. An agent plans b-roll against it, and each shot shows the line it covers.
 _Avoid_: Subtitles, SRT
 
 **Captions**:
@@ -51,6 +52,36 @@ _Avoid_: Subtitles, burn-ins
 **Overlay**:
 A clip layered above the main clips, such as b-roll or a lower third.
 _Avoid_: B-roll track, layer
+
+### Editing
+
+**Agent**:
+An AI coding tool that builds versions from the reel's sources, such as Claude. Optional: Kinotta works without one.
+_Avoid_: AI, bot, assistant
+
+**Edit list**:
+Your unsaved changes to the newest version, kept on disk as operations until you Save or Discard them.
+_Avoid_: Draft, changes, pending
+
+**Save**:
+Writing the edit list into the reel's sources and building the next version from them.
+_Avoid_: Commit, export, publish
+
+**Piece**:
+A stretch of the source video on the reel's timeline. A footage reel is an ordered list of pieces.
+_Avoid_: Clip, segment, take
+
+**Cut**:
+A split of one piece into two at a moment, which removes nothing.
+_Avoid_: Split, blade, splice
+
+**Snip**:
+Removing a stretch of footage so the timeline closes over it.
+_Avoid_: Delete, trim, ripple
+
+**Offset**:
+A move and scale applied to an element on top of its own animation.
+_Avoid_: Nudge, transform, override
 
 ### Feedback
 
@@ -67,7 +98,7 @@ Feedback on a whole reel that belongs to no single moment.
 _Avoid_: General comment
 
 **Comment batch**:
-The comments on one section of a version (or on the whole reel, when it has one section), handed to Claude together to produce the next version.
+The comments on one section of a version (or on the whole reel, when it has one section), handed to an agent together to produce the next version.
 It can be copied again, with changes, until the next version exists. Only a handed-off batch freezes; unsent comments on sections the next version left unchanged move forward to it.
 _Avoid_: Feedback round, export
 
