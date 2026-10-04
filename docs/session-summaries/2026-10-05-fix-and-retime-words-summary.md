@@ -21,3 +21,10 @@ Date: 2026-10-05. Branch: `feat/review-edit-phase` (local, not pushed). Plan: `d
 - `rtk proxy npm test`: 26 files, 248 tests passed.
 - `rtk proxy npm run test:e2e`: not run. e2e written, not run (ports 4398/4399 held by orphaned servers). The new spec typechecks.
 - The committed footage sample needed no rebuild (engine unchanged).
+
+## Follow-up 2026-10-05: e2e run and defect
+
+- Root cause: `Lanes.tsx` captured the pointer on the zoomed container for every pointer-down, so the browser delivered the click to the container and a word's double-click never fired. Fixed in the app: a press on a word (not while snipping) seeks without capture. Enter already worked.
+- `review.css` had no rules for the word hover, fixed and re-timed marks, the grips or the editor form; added from the mockup (grips were zero-size, so the re-time drag could not start).
+- Spec fix: the fake transcriber supplies two words, so the test now re-times the second word (`Re-timed to 00:01.00 to 00:0[12].dd`).
+- Checks: scoped scratch config (ports 4385 and 4386 only, no reuse), `snip-save.spec.ts` and `review.spec.ts`: 10 passed. `npm run typecheck` clean; `rtk proxy npm test` passed. The full `test:e2e` was not run.

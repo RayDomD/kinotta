@@ -471,6 +471,11 @@ export function Lanes(props: LanesProps) {
             if (rect && rect.width > 0) onCut(timeAt(win, rect, e.clientX));
             return;
           }
+          // A word is pressed to seek only: capturing the pointer here would retarget its click to this container, and the word would never see its double-click.
+          if (!snipping && (e.target as Element).closest('.rv-w') !== null) {
+            scrub(e);
+            return;
+          }
           e.currentTarget.setPointerCapture(e.pointerId);
           const piece = onMovePiece && !snipping ? (e.target as Element).closest('.rv-piece') : null;
           if (piece) {

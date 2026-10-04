@@ -262,15 +262,15 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await expect(word(1)).toHaveClass(/fixed/);
 
   // Dragging a word's right edge later re-times it.
-  const grip = (await word(2).locator('.rv-grip.r').boundingBox())!;
+  const grip = (await word(1).locator('.rv-grip.r').boundingBox())!;
   const y = grip.y + grip.height / 2;
   await page.mouse.move(grip.x + grip.width / 2, y);
   await page.mouse.down();
   await page.mouse.move(grip.x + grip.width / 2 + 30, y, { steps: 5 });
   await page.mouse.up();
   await expect(cards).toHaveCount(2);
-  await expect(cards.last()).toContainText(/Re-timed to 00:01\.50 to 00:02\.\d\d/);
-  await expect(word(2)).toHaveClass(/retimed/);
+  await expect(cards.last()).toContainText(/Re-timed to 00:01\.00 to 00:0[12]\.\d\d/);
+  await expect(word(1)).toHaveClass(/retimed/);
 
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
@@ -278,7 +278,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   const words = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v2', 'transcript.json'), 'utf8')).words;
   const first = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v1', 'transcript.json'), 'utf8')).words;
   expect(words[1].text).toBe('where');
-  expect(words[2].end).toBeGreaterThan(2.1);
+  expect(words[1].end).toBeGreaterThan(1.5);
   expect(first[1].text).toBe('there');
   await expect(word(1)).toHaveText('where');
   await expect(word(1)).not.toHaveClass(/fixed/);

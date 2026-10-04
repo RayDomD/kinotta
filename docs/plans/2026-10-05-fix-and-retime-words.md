@@ -47,3 +47,7 @@ spec: docs/tickets-review-edit.md T36 (#38); docs/specs/2026-10-05-review-edit-p
 ### 2026-10-05
 - Plan created.
 - Done. See the session summary.
+
+## Follow-up 2026-10-05: e2e defect
+
+The T36 test in `snip-save.spec.ts` timed out waiting for the "Word text" input. Cause: the zoomed lanes captured the pointer on every pointer-down, which retargets the click to the container, so a word never received its double-click (a real user could not open the editor with the mouse either). Fix: a press on a word (outside Snip) only seeks and does not capture. The word, grip and editor styles were also missing from `review.css` and were added from the mockup. The spec assumed a third word; the fake transcriber has two, so it now re-times the second word.

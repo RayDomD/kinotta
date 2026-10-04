@@ -60,7 +60,18 @@
 /* words */
 .rv-words { height: 30px; border-top: 1.4px solid var(--hairline); border-bottom: 1.4px solid var(--hairline); }
 .rv-w { position: absolute; top: 0; bottom: 0; padding: 5px 3px 0; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; border-left: 1px solid var(--rule); }
+.rv-w:hover { color: var(--ink); outline: 1.4px solid var(--light); outline-offset: -1px; z-index: 2; }
 .rv-w.lit { color: var(--light); text-shadow: 0 0 8px var(--light-glow); }
+.rv-w.fixed { color: var(--ink); }
+.rv-w.fixed::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: 3px; height: 1.4px; background: var(--light); }
+.rv-w.retimed { border-left: 1.6px solid var(--light); }
+.rv-grip { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; touch-action: none; }
+.rv-grip.l { left: 0; }
+.rv-grip.r { right: 0; }
+.rv-w:hover .rv-grip { background: var(--light); }
+.rv-w-edit { position: absolute; top: 34px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 5px; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); }
+.rv-w-edit input { width: 120px; background: var(--ground-deep); border: 1.4px solid var(--light); color: var(--ink); font: 14px Outfit, sans-serif; padding: 3px 7px; }
+.rv-w-edit small { font: 700 11px Doto, monospace; color: var(--muted); }
 
 /* tools: Select, Snip, and the button that removes the selected stretch */
 .rv-tools { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
