@@ -159,7 +159,7 @@ re-timed. `build.py` applies both.
 - [x] Alt-drag moves one phrase; it keeps its place after nearby words are re-timed (spec written, run pending)
 - [x] A plan without caption positions builds as before
 
-## T38 (#40). Trim and slide clips
+## T38 (#40). Trim and slide clips — Done
 
 **What to build:** Dragging a clip's edges trims it; dragging the whole clip slides it. A slid clip gets the plan's
 `slid` flag and shows "off its words". A trim that removes one of a clip's states drops that state's shot.
@@ -168,9 +168,9 @@ re-timed. `build.py` applies both.
 
 **Model:** top
 
-- [ ] Clip trim and slide operations apply in the editor and on Save
-- [ ] A slid clip is marked "off its words" and `slid` in the plan
-- [ ] A trim that removes a state drops its shot from the shot list
+- [x] Clip trim and slide operations apply in the editor and on Save (spec run: clips.spec.ts)
+- [x] A slid clip is marked "off its words" and `slid` in the plan
+- [x] A trim that removes a state drops its shot from the shot list
 
 ## T39 (#41). Move and scale elements on footage reels
 
