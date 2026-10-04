@@ -1,4 +1,4 @@
-import type { CaptionsPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
+import type { CaptionsPlan, ElementOffset, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
 
 export interface ReelSummary {
   slug: string;
@@ -97,6 +97,8 @@ export interface Version {
   /** Footage reels only: the plan's clips in source seconds, with their `slid` flag. */
   clips?: PlanClip[];
   builtBy?: string;
+  /** Code-only reels only: the page's scene names and the element offsets its `kinotta-edits.css` holds, by scene then element. */
+  code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
 }
 
 /** One row of a reel's version rail. */

@@ -5,6 +5,7 @@ import { applyOperations } from './edit-model.ts';
 import type { NewOperation, Operation, Plan } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import type { EditList } from './types.ts';
+import { assertCodeOnlyOperations, codeSources, isCodeOnly } from './code-edits.ts';
 import { readReelPlan, readReelWords } from './sources.ts';
 import { newestVersionNumber, requireReelDir } from './version.ts';
 
@@ -91,6 +92,12 @@ async function commit(reelDir: string, stored: Stored, operations: Operation[]):
 
 /** Throws `invalid` when the operations do not apply, in order, to the reel's plan and transcript. */
 async function checkApplies(projectDir: string, reelDir: string, operations: readonly Operation[]): Promise<void> {
+  if (await isCodeOnly(projectDir, reelDir)) {
+    // A reel built from code takes only element moves, applied to the scenes of its newest version.
+    assertCodeOnlyOperations(operations);
+    applyOperations((await codeSources(join(reelDir, `v${await newestVersionNumber(reelDir)}`))).sources, operations);
+    return;
+  }
   const { plan, transcriptFile } = await readReelPlan(projectDir, reelDir);
   applyOperations({ plan, words: await readReelWords(transcriptFile) }, operations);
 }

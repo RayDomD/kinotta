@@ -3,12 +3,13 @@ import { join } from 'node:path';
 import { applyOperations, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditList, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
 import { readReelPlan, readReelWords } from './sources.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
 import type { SavedVersion, TranscriptWord } from './types.ts';
-import { publishVersion, stageVersion } from './version-build.ts';
-import { newestVersionNumber, requireReelDir } from './version.ts';
+import { STAGE_DIR, publishVersion, stageVersion } from './version-build.ts';
+import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 
 const BUILT_BY_YOU = 'you';
 const SPAN_TOLERANCE = 1e-6;
@@ -63,6 +64,41 @@ export function changedSectionsOf(before: Plan, after: Plan, operations: readonl
 }
 
 /**
+ * Save for a reel built from code: the next version is a copy of the newest plus `kinotta-edits.css`, which holds the
+ * element offsets (the ones the newest version already had, with the list applied over them) and is linked from the copied
+ * page. Built in the stage folder, `edits.json` then `shots.json` last, and renamed to `v<n+1>` in one step.
+ */
+async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, list: { base: number; operations: readonly Operation[] }): Promise<SavedVersion> {
+  assertCodeOnlyOperations(list.operations);
+  const newest = await newestVersionNumber(reelDir);
+  const from = join(reelDir, `v${newest}`);
+  const { sources, scenes } = await codeSources(from);
+  const edited = applyOperations(sources, list.operations);
+  const stage = join(reelDir, STAGE_DIR);
+  await rm(stage, { recursive: true, force: true });
+  try {
+    await copyVersion(from, stage);
+    await writeEdits(stage, offsetsOf(edited));
+    await writeFile(join(stage, 'edits.json'), `${JSON.stringify({ base: list.base, operations: list.operations }, null, 2)}
+`, 'utf8');
+    const shots = JSON.parse(await readFile(join(from, 'shots.json'), 'utf8')) as Record<string, unknown>;
+    const sections = (await readVersion(projectDir, slug, newest)).sections;
+    // A section changed when a scene whose offsets differ plays inside it: what comparing the pages finds too.
+    const moved = new Set(changedScenes(offsetsOf(sources), offsetsOf(edited)));
+    const spans = scenes.filter((s) => moved.has(s.name));
+    const changedSections = sections.filter((sec) => spans.some((s) => s.start < sec.end && s.start + s.duration > sec.start)).map((sec) => sec.id);
+    await writeFile(join(stage, 'shots.json'), `${JSON.stringify({ ...shots, changedSections, builtBy: BUILT_BY_YOU }, null, 2)}
+`, 'utf8');
+  } catch (err) {
+    await rm(stage, { recursive: true, force: true });
+    throw err;
+  }
+  const number = newest + 1;
+  await publishVersion(reelDir, { dir: stage }, number);
+  return { version: number };
+}
+
+/**
  * Save: writes the edit list into the reel's sources and builds the next version from them, with no agent. The version is
  * built in a stage folder and renamed to `v<n+1>` last, so any failure leaves no new version, the sources as they were,
  * and the edit list in place. On success the list is cleared.
@@ -76,6 +112,11 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
     const reason = await batchOut(reelDir);
     if (reason !== null) throw new KinottaError('invalid', reason);
 
+    if (await isCodeOnly(projectDir, reelDir)) {
+      const saved = await saveCodeOnly(projectDir, slug, reelDir, list);
+      await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
+      return saved;
+    }
     const { plan, planFile, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
     const words = await readReelWords(transcriptFile);
     const edited: Sources = applyOperations({ plan, words }, list.operations);

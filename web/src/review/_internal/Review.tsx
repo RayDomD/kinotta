@@ -9,7 +9,7 @@ import { Lanes } from './Lanes.tsx';
 import type { PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
-import { captionShifts, clipIdForScene, clipOffsets, editedClips, editedList, remap, sourceStretches } from './edited.ts';
+import { captionShifts, clipIdForScene, codeClips, clipOffsets, editedClips, editedList, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
 import type { Span } from './model.ts';
@@ -30,6 +30,9 @@ const ZOOM_OUT = 2;
 const SAME_SECOND = 1e-6;
 const NO_PHRASES: CaptionPhrase[] = [];
 const NO_OPERATIONS: readonly Operation[] = [];
+/** One list for "no pieces", so a reel without footage maps its timeline to itself (two empty lists would be mapped as pieces of no length). */
+const NO_PIECES: readonly Piece[] = [];
+const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
   reel: ReelSummary;
@@ -74,16 +77,19 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   const savedPieces: readonly Piece[] | null = useMemo(() => version?.pieces ?? (withFootage && savedTotal > 0 ? wholeVideo(savedTotal) : null), [version, withFootage, savedTotal]);
   // The reel can be edited when this is the newest version of a footage reel and its edit list is for it.
   const editable = edits !== undefined && version?.isNewest === true && version.pieces !== undefined && edits.list !== null && edits.list.stale !== true;
-  const operations = editable ? edits.list!.operations : NO_OPERATIONS;
+  // A reel built from code takes element moves only: its page is the version, with no footage, pieces or plan to edit.
+  const codeOnly = version?.code !== undefined;
+  const moveable = editable || (codeOnly && edits !== undefined && version?.isNewest === true && edits.list !== null && edits.list.stale !== true);
+  const operations = moveable ? edits!.list!.operations : NO_OPERATIONS;
   // What the reel plays and shows is the version with the unsaved edits applied over it.
   const pieces = useMemo(() => (savedPieces ? (editedList(savedPieces, operations) as readonly Piece[]) : null), [savedPieces, operations]);
   const total = operations.length > 0 && pieces ? timelineLength(pieces) : savedTotal;
   const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo);
   const { time } = playback;
-  const moved = useMemo(() => remap(savedPieces ?? [], pieces ?? []), [savedPieces, pieces]);
+  const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
   // Clips: the plan's, in source time, with the unsaved trims and slides applied, placed on the edited timeline. A version without a plan shows its shots' clips.
-  const planClips = version?.clips;
+  const planClips = useMemo(() => (version?.code ? codeClips(version.code) : version?.clips), [version]);
   const clips = useMemo(
     () => (planClips && pieces ? editedClips(planClips, operations, pieces) : remapped(clipSpans(version?.shots ?? []), moved)),
     [version, planClips, pieces, operations, moved],
@@ -151,8 +157,8 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
 
   const [toolName, setTool] = useState<Tool>('select');
   const [selection, setSelection] = useState<Span | null>(null);
-  const live = useRef({ playback, win, total, time, selection, pieces, editable, edits, clips });
-  live.current = { playback, win, total, time, selection, pieces, editable, edits, clips };
+  const live = useRef({ playback, win, total, time, selection, pieces, editable, moveable, edits, clips });
+  live.current = { playback, win, total, time, selection, pieces, editable, moveable, edits, clips };
   const tool = useRef(toolName);
   tool.current = toolName;
   const afterSnip = useRef<number | null>(null);
@@ -236,7 +242,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     await changes.add({ kind: 'caption-phrase-position', at: placed.key, x: placed.x - placed.wide.x + dx, y: placed.y - placed.wide.y + dy });
   };
   const changeElement = async ({ clip, element, x, y, scale }: ElementChange): Promise<void> => {
-    const { editable: allowed, edits: changes } = live.current;
+    const { moveable: allowed, edits: changes } = live.current;
     if (!allowed || !changes || changes.busy) return;
     await changes.add({ kind: 'element-offset', clip, element, x, y, scale });
   };
@@ -244,7 +250,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   changeElementRef.current = changeElement;
   // Element offsets: the plan's, with the unsaved moves over them, shown on the page. Dragging is on with the Select tool.
   const offsets = useMemo(() => (planClips ? clipOffsets(planClips, operations) : null), [planClips, operations]);
-  const dragElements = editable && toolName === 'select';
+  const dragElements = moveable && toolName === 'select';
   const elements = useMemo<ElementEditing | undefined>(
     () => (planClips && offsets ? { offsets, clipOf: (scene) => clipIdForScene(scene, planClips), onChange: dragElements ? (change) => changeElementRef.current(change) : undefined } : undefined),
     [planClips, offsets, dragElements],
@@ -264,7 +270,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
       // Ctrl or Cmd with Z (Shift for redo) or Y steps the edit list, unless a field has its own undo.
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
         const field = e.target instanceof HTMLElement && (TYPING.has(e.target.tagName) || e.target.isContentEditable);
-        const { editable: allowed, edits: changes } = live.current;
+        const { moveable: allowed, edits: changes } = live.current;
         if (field || !allowed || !changes || changes.busy) return;
         e.preventDefault();
         void (e.key.toLowerCase() === 'y' || e.shiftKey ? changes.redo() : changes.undo());
@@ -322,8 +328,9 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
         playing={playback.playing}
         win={win}
         tools={
-          editable ? (
+          editable || codeOnly ? (
             <Tools
+              unavailable={codeOnly ? CODE_ONLY_REASON : undefined}
               tool={toolName}
               onTool={(next) => {
                 setTool(next);

@@ -161,6 +161,11 @@ export function clipOffsets(clips: readonly PlanClip[], operations: readonly Ope
   return found;
 }
 
+/** A code-only version's scenes as the clips the element operations are made against (a scene stands in for a clip; the offsets are what the version's stylesheet holds). */
+export function codeClips(code: NonNullable<Version['code']>): PlanClip[] {
+  return code.scenes.map((scene) => ({ id: scene, in: 0, out: 0, ...(code.offsets[scene] ? { offsets: code.offsets[scene] } : {}) }));
+}
+
 const stemOf = (path: string): string => (path.split('/').pop() ?? path).replace(/\.html$/, '');
 
 /** The plan clip a scene of the page is, as `build.py` names it: the fragment's file name, else `<id>-<name>`. */

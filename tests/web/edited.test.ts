@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
-import { captionShifts, clipIdForScene, clipOffsets, editedClips, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
+import { captionShifts, clipIdForScene, clipOffsets, codeClips, editedClips, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
 /** Seconds 3 to 5 snipped. */
@@ -162,5 +162,20 @@ describe('clipIdForScene', () => {
     expect(clipIdForScene('10-outro', clips)).toBe('10');
     expect(clipIdForScene('conflict', clips)).toBe('02');
     expect(clipIdForScene('cap-001', clips)).toBeUndefined();
+  });
+});
+
+describe('codeClips', () => {
+  const clips = codeClips({ scenes: ['cube-lands', 'cta'], offsets: { cta: { '@clip': { x: 0, y: 12, scale: 1 } } } });
+
+  it('stands each scene of a code-only page in as a clip, carrying the offsets its stylesheet holds', () => {
+    expect(clips.map((c) => c.id)).toEqual(['cube-lands', 'cta']);
+    expect(clips[1]!.offsets).toEqual({ '@clip': { x: 0, y: 12, scale: 1 } });
+    expect(clipIdForScene('cta', clips)).toBe('cta');
+  });
+
+  it('lets the unsaved moves apply over the saved offsets', () => {
+    const move = { id: 'a', kind: 'element-offset' as const, clip: 'cube-lands', element: 'cube', x: 5, y: 6, scale: 1 };
+    expect(clipOffsets(clips, [move])).toEqual({ 'cube-lands': { cube: { x: 5, y: 6, scale: 1 } }, cta: { '@clip': { x: 0, y: 12, scale: 1 } } });
   });
 });

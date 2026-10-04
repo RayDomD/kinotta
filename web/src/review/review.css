@@ -91,6 +91,7 @@
 .rv-tools .rv-tool { gap: 7px; font-size: 13px; padding: 5px 10px; }
 .rv-tool kbd { font: 700 11px Doto, monospace; color: var(--muted); border: 1px solid var(--hairline); padding: 0 4px; }
 .rv-tool[aria-pressed="true"] { color: var(--light); border-color: var(--light); }
+.rv-tools-note { margin-left: 10px; font-size: 13px; color: var(--ink-2); max-width: 46ch; }
 .rv-snip-go { margin-left: 10px; padding: 4px 12px; font: 600 13px Outfit, sans-serif; background: var(--light); color: var(--ground); border: 1.4px solid var(--light); transition: transform var(--t-press) var(--ease); }
 .rv-snip-go:active:not(:disabled) { transform: scale(.97); }
 .rv-snip-go:disabled { opacity: .5; }

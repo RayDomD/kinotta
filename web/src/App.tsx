@@ -543,7 +543,8 @@ export function App() {
             edits={edits}
             pieces={openVersion?.pieces}
             clips={openVersion?.clips}
-            editable={openVersion?.isNewest === true && openVersion.pieces !== undefined && edits.list?.stale !== true}
+            editable={openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined) && edits.list?.stale !== true}
+            codeOnly={openVersion?.code !== undefined}
             nextVersion={(newest ?? 0) + 1}
             commentCount={comments.comments.length}
             onSaved={openVersionNumber}

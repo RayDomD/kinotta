@@ -1,4 +1,4 @@
-import type { CaptionsPlan, NewOperation, Operation, PlanClip } from './edit-model.ts';
+import type { CaptionsPlan, ElementOffset, NewOperation, Operation, PlanClip } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
 
 export interface ReelSummary {
@@ -109,6 +109,11 @@ export interface Version {
   clips?: PlanClip[];
   /** Who made the version: `you` for one Kinotta built, else an agent's name. Absent on versions that do not say. */
   builtBy?: string;
+  /**
+   * Code-only reels only (no footage, no plan): the names of the page's scenes, and the element offsets its `kinotta-edits.css`
+   * holds, by scene then element (`@clip` is the scene itself). Only these can be edited.
+   */
+  code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
 }
 
 /** One row of a reel's version rail. */

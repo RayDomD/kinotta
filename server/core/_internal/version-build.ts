@@ -6,7 +6,7 @@ import { buildPage, buildShots } from './runner.ts';
 import type { TranscriptWord } from './types.ts';
 
 /** Where a version is built before it exists: not a `v<n>` folder, and hidden from the watcher. */
-const STAGE_DIR = '.save';
+export const STAGE_DIR = '.save';
 const SHOTS_STAGE = 'shots.stage.json';
 const PUBLISHED_TRANSCRIPT = 'transcript.json';
 

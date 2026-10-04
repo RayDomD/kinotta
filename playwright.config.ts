@@ -47,6 +47,10 @@ const SNIP_SAVE_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-snip-save-project.txt
 const CLIPS_PORT = 4384;
 const CLIPS_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-clips-project.txt');
 
+/** A thirteenth for code-only.spec.ts: the showreel sample (code-only reels), whose newest version gets element moves saved. */
+const CODE_ONLY_PORT = 4383;
+const CODE_ONLY_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-code-only-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -153,6 +157,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${CLIPS_PORT}`,
       env: { ...serverEnv(CLIPS_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_PROJECT_FILE: CLIPS_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${CODE_ONLY_PORT}`,
+      env: { ...serverEnv(CODE_ONLY_PORT), KINOTTA_E2E_FIXTURE: 'showreel-project', KINOTTA_E2E_PROJECT_FILE: CODE_ONLY_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },
