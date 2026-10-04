@@ -143,7 +143,7 @@ spoken lines follow. Phrase breaks stay automatic. Operations target a word by i
 
 - [x] A word text edit shows in captions and spoken lines after Save
 - [x] A re-timed word lights at its new time in the saved version
-- [x] Playwright: edit a word (spec written, run pending)
+- [x] Playwright: edit a word (spec run in scoped config: snip-save.spec.ts)
 
 ## T37 (#39). Move captions — Done
 
@@ -155,8 +155,8 @@ re-timed. `build.py` applies both.
 
 **Model:** mid
 
-- [x] Dragging moves all captions in the saved version (spec written, run pending)
-- [x] Alt-drag moves one phrase; it keeps its place after nearby words are re-timed (spec written, run pending)
+- [x] Dragging moves all captions in the saved version (spec run in scoped config: snip-save.spec.ts)
+- [x] Alt-drag moves one phrase; it keeps its place after nearby words are re-timed (spec run in scoped config: snip-save.spec.ts)
 - [x] A plan without caption positions builds as before
 
 ## T38 (#40). Trim and slide clips — Done
@@ -218,7 +218,8 @@ version lands, the edit list replays onto its sources; an operation whose target
 - [x] The edit list replays onto the agent's version; gone targets are flagged
 - [x] Playwright: Save blocked while a batch is out
 
-## T42 (#44). Start from a dropped video — Parked (owner)
+## T42 (#44). Start from a dropped video
+ — Parked (owner)
 
 Built and committed on branch `worktree-agent-a9ba721915c80f62f` (`aaead62`), checks green there; merging into this branch was not permitted in the unattended run, so it waits for the owner's merge.
 
@@ -251,7 +252,8 @@ runs real faster-whisper on the 12-second sample.
 - [x] Long videos get automatic sections at pauses; short ones get one section
 - [x] The opt-in faster-whisper test passes on the sample
 
-## T44 (#46). Startup check for Python, ffmpeg and faster-whisper — Parked (owner)
+## T44 (#46). Startup check for Python, ffmpeg and faster-whisper
+ — Parked (owner)
 
 Built and committed on branch `worktree-agent-adfb0c28f2649be21` (`1ca4280`), checks green there; merging into this branch was not permitted in the unattended run, so it waits for the owner's merge.
 
@@ -265,7 +267,8 @@ with how to install it, so a start from video never fails halfway.
 - [ ] A missing tool is named with an install hint at startup and in the New reel screen
 - [ ] All present: no message
 
-## T45 (#47). New reel from a brief, empty Storyboard and last-used tab — Parked (owner)
+## T45 (#47). New reel from a brief, empty Storyboard and last-used tab
+ — Parked (owner)
 
 Built and committed on branch `worktree-agent-a164f2735842a217f` (`129ea98`), checks green there; merging into this branch was not permitted in the unattended run, so it waits for the owner's merge.
 
