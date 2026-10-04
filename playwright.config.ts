@@ -32,6 +32,9 @@ const ENGINE_PORT = 4391;
 /** An eighth for engine-compose.spec.ts: the broll-project sample, the six-clip example composed over stand-in footage. */
 const BROLL_PORT = 4390;
 
+/** A ninth for new-reel.spec.ts: the footage sample with a fake transcriber, since a reel is started in it. */
+const NEW_REEL_PORT = 4389;
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -110,6 +113,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${BROLL_PORT}`,
       env: { ...serverEnv(BROLL_PORT), KINOTTA_E2E_FIXTURE: 'broll-project' },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${NEW_REEL_PORT}`,
+      env: { ...serverEnv(NEW_REEL_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1' },
       timeout: 120_000,
       reuseExistingServer: false,
     },

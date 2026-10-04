@@ -110,7 +110,7 @@ def compose(plan_path, dst):
         body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
     captions = P.get('captions')
     if captions: body += caption_scenes(plan_dir, P, source.get('pieces'))
-    duration = P.get('duration', max(c['out'] for c in P['clips']))
+    duration = P['duration'] if 'duration' in P else max(c['out'] for c in P['clips'])
     pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
     open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else ''),'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
 if __name__ == '__main__':

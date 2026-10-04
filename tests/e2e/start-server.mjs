@@ -30,5 +30,16 @@ register();
 // The engine sample's pages are built by the engine at start, so they show what it builds today.
 if (fixtureName === 'engine-project') (await import('../helpers/engine.ts')).buildEngineProject(project);
 if (fixtureName === 'broll-project') (await import('../helpers/engine.ts')).buildBrollProject(project);
-const { main } = await import('../../server/cli.ts');
-await main(['--project', project, '--port', process.env.KINOTTA_E2E_PORT ?? '4399', '--no-open']);
+if (process.env.KINOTTA_E2E_FAKE_TRANSCRIBER) {
+  // The server that starts reels gets fixed words instead of running the audio transcription.
+  const { startServer } = await import('../../server/main.ts');
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const { url } = await startServer({ projectDir: project, port: Number(process.env.KINOTTA_E2E_PORT), transcriber: async () => words });
+  console.log(`Kinotta: ${url}`);
+} else {
+  const { main } = await import('../../server/cli.ts');
+  await main(['--project', project, '--port', process.env.KINOTTA_E2E_PORT ?? '4399', '--no-open']);
+}

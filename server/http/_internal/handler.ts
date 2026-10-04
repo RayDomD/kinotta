@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { KinottaError } from '../../core/index.ts';
-import type { BatchOptions, NewComment, Project } from '../../core/index.ts';
+import type { BatchOptions, NewComment, NewReel, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -258,12 +258,16 @@ export function createHandler(project: Project, webRoot: string) {
         await handleNote(req, res, project, noteRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
+      } else if (pathname === '/api/reels' && req.method === 'POST') {
+        sendJson(res, 201, await project.startReel((await readJsonBody(req)) as NewReel));
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });
+      } else if (pathname === '/api/videos') {
+        sendJson(res, 200, { videos: await project.listVideos() });
       } else if (pathname === '/api/reels') {
         sendJson(res, 200, await project.listReels());
       } else if (pathname === '/api/events') {

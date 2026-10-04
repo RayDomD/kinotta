@@ -28,7 +28,7 @@ back, for the editor, carry-forward and Save to share. A plan without pieces is 
 - [x] A plan without `pieces` builds the same page and shot list as before (drift test unchanged)
 - [x] The core mapping module converts source to timeline time and back, with tests over reordered pieces
 
-## T30 (#32). Start a reel from a picked video
+## T30 (#32). Start a reel from a picked video — Done
 
 **What to build:** The rail gains one "New reel" choice. Its screen lists the videos already in the project with
 length, codec and size. Picking one (left where it is) with a name taken from its file name, editable, writes
@@ -41,11 +41,11 @@ transcriber; tests pass a fake with fixed words. Once words are in, Kinotta writ
 
 **Model:** mid
 
-- [ ] The New reel screen lists the project's videos with length, codec and size
-- [ ] Picking a video creates the reel without copying or altering the video
-- [ ] With a fake transcriber, the reel gets `transcript.json` and a `v1` that passes `kinotta check`, with `builtBy: "you"`
-- [ ] The reel opens in the Review tab
-- [ ] Python is called only through the runner module
+- [x] The New reel screen lists the project's videos with length, codec and size
+- [x] Picking a video creates the reel without copying or altering the video
+- [x] With a fake transcriber, the reel gets `transcript.json` and a `v1` that passes `kinotta check`, with `builtBy: "you"`
+- [x] The reel opens in the Review tab
+- [x] Python is called only through the runner module
 
 ## T31 (#33). Review tab plays a reel
 

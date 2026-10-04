@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
-import { openProject } from './core/index.ts';
+import { openProject, type Transcriber } from './core/index.ts';
 import { createHandler } from './http/index.ts';
 
 export const DEFAULT_PORT = 4317;
@@ -9,6 +9,8 @@ const WEB_ROOT = resolve(import.meta.dirname, '../dist/web');
 export interface StartOptions {
   projectDir: string;
   port?: number;
+  /** Replaces the audio transcription when a reel starts; the e2e server passes a fake. */
+  transcriber?: Transcriber;
 }
 
 export interface RunningServer {
@@ -28,8 +30,8 @@ function listen(server: ReturnType<typeof createServer>, port: number): Promise<
 }
 
 /** Serves the project's reels. Falls back to a free port when the requested one is taken. */
-export async function startServer({ projectDir, port = DEFAULT_PORT }: StartOptions): Promise<RunningServer> {
-  const server = createServer(createHandler(openProject(projectDir), WEB_ROOT));
+export async function startServer({ projectDir, port = DEFAULT_PORT, transcriber }: StartOptions): Promise<RunningServer> {
+  const server = createServer(createHandler(openProject(projectDir, { transcriber }), WEB_ROOT));
   try {
     await listen(server, port);
   } catch (err) {

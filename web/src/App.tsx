@@ -4,6 +4,8 @@ import type { Comment, ProjectEvent, ReelListing, ReelSummary, Version, VersionE
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
+import { NewReel } from './NewReel.tsx';
+import { Review } from './Review.tsx';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
 import { useVersionIssues } from './issues.ts';
@@ -29,6 +31,7 @@ type VersionLoad =
   | { status: 'ready'; slug: string; version: Version };
 
 const PHASES = ['Storyboard', 'Review', 'Picker'] as const;
+type Phase = 'Storyboard' | 'Review';
 
 function HexMark() {
   return (
@@ -51,8 +54,11 @@ function TopBar(props: {
   onCopied?(): void;
   /** The version's contract issues, which the batch can include. */
   issues?: VersionIssues;
+  /** The phase on screen; null while the New reel screen is open. */
+  phase?: Phase | null;
+  onPhase?(phase: Phase): void;
 }) {
-  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues } = props;
+  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -61,11 +67,13 @@ function TopBar(props: {
         {version && <span className="num">{formatDuration(version.duration)}</span>}
       </div>
       <nav className="modes" aria-label="Phase">
-        {PHASES.map((phase) =>
-          phase === 'Storyboard' ? (
-            <span key={phase} aria-current="page">{phase}</span>
+        {PHASES.map((name) =>
+          name === 'Storyboard' || name === 'Review' ? (
+            <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} onClick={() => onPhase?.(name)}>
+              {name}
+            </button>
           ) : (
-            <span key={phase} aria-disabled="true" title="Not built yet">{phase}</span>
+            <span key={name} aria-disabled="true" title="Not built yet">{name}</span>
           ),
         )}
       </nav>
@@ -166,10 +174,13 @@ interface RailProps {
   sections: SectionRailProps | null;
   versions: Omit<VersionRailProps, 'onOpen'> & { onOpenVersion(number: number): void };
   onOpen(slug: string): void;
+  /** The New reel screen is open. */
+  creating: boolean;
+  onNewReel(): void;
 }
 
 function Rail(props: RailProps) {
-  const { project, listing, current, sections, versions, onOpen } = props;
+  const { project, listing, current, sections, versions, onOpen, creating, onNewReel } = props;
   return (
     <aside className="rail" aria-label="Project">
       <div>
@@ -177,7 +188,7 @@ function Rail(props: RailProps) {
         {listing.reels.length > 0 ? (
           <nav className="reels" aria-label="Reels">
             {listing.reels.map((reel) => (
-              <button key={reel.slug} type="button" aria-current={reel.slug === current ? 'true' : undefined} onClick={() => onOpen(reel.slug)}>
+              <button key={reel.slug} type="button" aria-current={reel.slug === current && !creating ? 'true' : undefined} onClick={() => onOpen(reel.slug)}>
                 {reel.title}
               </button>
             ))}
@@ -185,6 +196,9 @@ function Rail(props: RailProps) {
         ) : (
           <div className="meta rail-none">None</div>
         )}
+        <nav className="reels" aria-label="New reel">
+          <button type="button" aria-current={creating ? 'true' : undefined} onClick={onNewReel}>New reel</button>
+        </nav>
       </div>
       {sections !== null && <SectionRail {...sections} />}
       {current !== undefined && versions.entries.length > 0 && (
@@ -226,16 +240,21 @@ interface MainProps {
   sectionId: string;
   onSection(id: string): void;
   issues: VersionIssues;
+  phase: Phase;
+  creating: boolean;
+  onStarted(slug: string): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted } = props;
+  if (creating) return <NewReel project={project} onStarted={onStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
   if (listing.state === 'no-reels' || !reel) {
     return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask Claude for a storyboard to add one.`}</Empty></main>;
   }
+  if (phase === 'Review') return <Review reel={reel} version={version.status === 'ready' ? version.version : undefined} />;
   return (
     <main className="main">
       <ReadyNotice version={readyVersion} onOpen={onOpenVersion} />
@@ -337,7 +356,11 @@ export function App() {
   const issues = useVersionIssues(openVersion, openVersion && reel ? versionPageUrl(reel.slug, openVersion.number) : '');
   const multiSection = openVersion !== undefined && hasSections(openVersion.sections);
 
+  const [phase, setPhase] = useState<Phase>('Storyboard');
+  const [creating, setCreating] = useState(false);
+
   const openReel = useCallback((slug: string) => {
+    setCreating(false);
     setSelected(slug);
     setChosen(undefined);
     setReady(new Set());
@@ -357,6 +380,19 @@ export function App() {
       })
       .catch((err: unknown) => setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Could not reach the server' }));
   }, [openReel]);
+
+  // A reel Kinotta just started: it joins the list, then opens in Review.
+  const reelStarted = useCallback(
+    (slug: string) => {
+      fetchReels().then(
+        (listing) => setLoad((prev) => (prev.status === 'ready' ? { ...prev, listing } : prev)),
+        () => undefined,
+      );
+      openReel(slug);
+      setPhase('Review');
+    },
+    [openReel],
+  );
 
   // Opening a reel selects its newest version, once. Later changes to the list never move the selection.
   useEffect(() => {
@@ -416,6 +452,11 @@ export function App() {
         frozen={frozen}
         issues={issues}
         onCopied={() => setVersionTick((n) => n + 1)}
+        phase={creating ? undefined : phase}
+        onPhase={(next) => {
+          setCreating(false);
+          setPhase(next);
+        }}
         section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
       />
       <div className="body">
@@ -432,6 +473,8 @@ export function App() {
             onOpenVersion: openVersionNumber,
           }}
           onOpen={openReel}
+          creating={creating}
+          onNewReel={() => setCreating(true)}
         />
         <Main
           project={load.project}
@@ -446,6 +489,9 @@ export function App() {
           sectionId={sectionId}
           onSection={pickSection}
           issues={issues}
+          phase={phase}
+          creating={creating}
+          onStarted={reelStarted}
         />
         <CommentsPanel
           version={openVersion?.number}

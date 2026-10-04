@@ -1,4 +1,4 @@
-export { addComment, copyBatch, deleteComment, editComment, fetchComments, fetchNote, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, saveNote, subscribe, versionPageUrl } from './_internal/client.ts';
+export { addComment, copyBatch, deleteComment, editComment, fetchComments, fetchNote, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, listVideos, saveNote, startReel, subscribe, versionPageUrl } from './_internal/client.ts';
 export type {
   BatchOptions,
   CarryNotice,
@@ -18,5 +18,6 @@ export type {
   TranscriptWord,
   Version,
   VersionEntry,
+  VideoEntry,
   WordPin,
 } from './_internal/client.ts';

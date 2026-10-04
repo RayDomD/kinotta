@@ -4,7 +4,9 @@ import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
 import { listReels } from './_internal/reels.ts';
-import type { Project, ProjectEvent } from './_internal/types.ts';
+import { startReel, transcribeWithWhisper } from './_internal/start.ts';
+import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
+import { listVideos } from './_internal/videos.ts';
 import { listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
 
@@ -22,6 +24,7 @@ export type {
   FramePin,
   NewComment,
   NewFramePin,
+  NewReel,
   NewWordPin,
   NoteSaved,
   Overlay,
@@ -32,13 +35,21 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  StartedReel,
   TranscriptWord,
+  Transcriber,
   Version,
+  VideoEntry,
   VersionEntry,
   WordPin,
 } from './_internal/types.ts';
 
-export function openProject(projectDir: string): Project {
+export interface ProjectOptions {
+  /** Turns a video into timed words when a reel starts. Defaults to the skill's audio transcription. */
+  transcriber?: Transcriber;
+}
+
+export function openProject(projectDir: string, options: ProjectOptions = {}): Project {
   const dir = resolve(projectDir);
   const watcher = createWatcher(join(dir, 'reels'));
   return {
@@ -57,6 +68,8 @@ export function openProject(projectDir: string): Project {
     setNote: (slug, number, note) => setNote(dir, slug, number, note),
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
     carryNotice: (slug, number) => carryNotice(dir, slug, number),
+    listVideos: () => listVideos(dir),
+    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
   };
 }
 

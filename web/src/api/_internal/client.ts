@@ -256,3 +256,27 @@ export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
 
 /** Same-origin URL of a footage reel's footage file (served with byte ranges so video can seek). */
 export const footageUrl = (slug: string): string => `/footage/${encodeURIComponent(slug)}`;
+
+/** A video in the project, as the New reel screen lists it. */
+export interface VideoEntry {
+  /** Relative to the project folder. */
+  path: string;
+  name: string;
+  /** A reel name taken from the file name. */
+  suggestedTitle: string;
+  /** Seconds. */
+  duration: number;
+  codec: string;
+  /** Bytes. */
+  size: number;
+}
+
+/** The project's videos, for the New reel screen. */
+export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ videos: VideoEntry[] }>('/api/videos')).videos;
+
+/**
+ * Starts a reel from a video in the project. Resolves with the new reel's slug once its first version is built,
+ * which takes as long as the transcription does.
+ */
+export const startReel = (input: { video: string; title: string }): Promise<{ slug: string }> =>
+  requestJson('/api/reels', jsonBody('POST', input));

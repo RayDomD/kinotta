@@ -164,6 +164,14 @@ export interface Project {
   copyBatch(slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch>;
   /** What the version before could not hand over because its section changed, or null when nothing was left behind. */
   carryNotice(slug: string, number: number): Promise<CarryNotice | null>;
+  /** The project's videos (outside reels/) with length, codec and size. */
+  listVideos(): Promise<VideoEntry[]>;
+  /**
+   * Starts a reel from a video in the project, which stays where it is: writes the reel and its plan, transcribes,
+   * and builds v1 with `builtBy: "you"`. Throws `KinottaError` `invalid` for a path that is not a video in the project
+   * and `not-found` for a missing file; a transcription or build failure throws its reason and leaves the reel without a version.
+   */
+  startReel(input: NewReel): Promise<StartedReel>;
 }
 
 /** What a batch covers, and what the editor adds to it beyond the comments. */
@@ -278,3 +286,32 @@ export interface AddedComment {
   /** Every comment of the version, renumbered. */
   comments: Comment[];
 }
+
+/** One video in the project, as the New reel screen lists it. */
+export interface VideoEntry {
+  /** Relative to the project folder, with forward slashes. */
+  path: string;
+  /** The file name. */
+  name: string;
+  /** A reel title taken from the file name. */
+  suggestedTitle: string;
+  /** Seconds. */
+  duration: number;
+  codec: string;
+  /** Bytes. */
+  size: number;
+}
+
+export interface NewReel {
+  /** Project-relative path of the video. */
+  video: string;
+  /** The reel's name; the video's file name when absent or blank. */
+  title?: string;
+}
+
+export interface StartedReel {
+  slug: string;
+}
+
+/** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
+export type Transcriber = (videoFile: string) => Promise<TranscriptWord[]>;
