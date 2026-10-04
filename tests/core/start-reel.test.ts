@@ -64,7 +64,7 @@ describe('startReel', () => {
     const shots = readJson(join(reelDir, 'v1', 'shots.json'));
     expect(shots.builtBy).toBe('you');
     expect(existsSync(join(reelDir, 'v1', 'index.html'))).toBe(true);
-    expect(readdirSync(join(reelDir, 'v1')).sort()).toEqual(['index.html', 'shots.json']);
+    expect(readdirSync(join(reelDir, 'v1')).sort()).toEqual(['index.html', 'plan.json', 'shots.json', 'transcript.json']);
     // The video is not copied, moved or rewritten.
     expect(readdirSync(join(dir, 'media'))).toEqual(files);
     expect(fingerprint(join(dir, VIDEO))).toBe(before);

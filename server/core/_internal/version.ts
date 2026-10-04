@@ -49,9 +49,9 @@ export async function listVersions(projectDir: string, slug: string): Promise<Ve
   const newest = numbers[numbers.length - 1];
   return Promise.all(
     numbers.map(async (number): Promise<VersionEntry> => {
-      const entry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION };
-      if (number === STORYBOARD_VERSION) return entry;
       const version = await readVersion(projectDir, slug, number).catch(() => null);
+      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, ...(version?.builtBy ? { builtBy: version.builtBy } : {}) };
+      if (number === STORYBOARD_VERSION) return entry;
       // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
       return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;
     }),
@@ -156,6 +156,7 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
     issues: parsed === null ? fileCheck.issues : [...fileCheck.issues, ...page.issues, ...checkShotsAgainstPage(fileCheck.shots, page.scenes)],
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
+  if (typeof file.builtBy === 'string' && file.builtBy.trim() !== '') version.builtBy = file.builtBy;
   return addFootage(projectDir, reelDir, versionDir, version);
 }
 

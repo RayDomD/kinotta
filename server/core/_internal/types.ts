@@ -1,3 +1,4 @@
+import type { NewOperation, Operation } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
 
 export interface ReelSummary {
@@ -102,6 +103,8 @@ export interface Version {
   transcript?: TranscriptWord[];
   /** Footage reels only: why there is no transcript. */
   transcriptProblem?: string;
+  /** Who made the version: `you` for one Kinotta built, else an agent's name. Absent on versions that do not say. */
+  builtBy?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -112,6 +115,8 @@ export interface VersionEntry {
   isStoryboard: boolean;
   /** Reels with several sections only, from v2 on: the ids of the sections this version changed. */
   changedSections?: string[];
+  /** Who made the version, as its shots.json says. */
+  builtBy?: string;
 }
 
 /** What `Project.subscribe` reports. */
@@ -176,6 +181,37 @@ export interface Project {
    * and `not-found` for a missing file; a transcription or build failure throws its reason and leaves the reel without a version.
    */
   startReel(input: NewReel): Promise<StartedReel>;
+  /** The reel's unsaved edits (empty when there are none). */
+  readEditList(slug: string): Promise<EditList>;
+  /**
+   * Adds an operation to the edit list and writes the list to the reel folder. Throws `invalid` for an operation that does
+   * not apply (a snip outside the footage, one already cut out, one that would remove everything) and `frozen` for a list
+   * made on an older version.
+   */
+  addOperation(slug: string, operation: NewOperation): Promise<EditList>;
+  /** Drops the edit list. */
+  discardEdits(slug: string): Promise<EditList>;
+  /**
+   * Builds the next version from the edit list with no agent: writes the operations into the reel's plan and transcript,
+   * builds `v<n+1>` (with its own plan and transcript, `edits.json`, `changedSections`, `builtBy: "you"`) and clears the
+   * list. Throws `invalid` for an empty list, a batch that is out or a build that fails, in which case there is no new
+   * version, the sources are as they were and the list is kept.
+   */
+  saveEdits(slug: string): Promise<SavedVersion>;
+}
+
+/** A reel's unsaved edits: operations on named targets, in the order they were made. */
+export interface EditList {
+  /** The version the edits are against: the newest when they were made. */
+  base: number;
+  operations: Operation[];
+  /** The list was made on a version that is no longer the newest; it cannot take edits or be saved. */
+  stale?: true;
+}
+
+export interface SavedVersion {
+  /** The number of the version Save built. */
+  version: number;
 }
 
 /** What a batch covers, and what the editor adds to it beyond the comments. */

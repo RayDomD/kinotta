@@ -1,5 +1,7 @@
 import { basename, join, resolve } from 'node:path';
 import { copyBatch } from './_internal/batch.ts';
+import { addOperation, discardEdits, readEditList } from './_internal/edit-list.ts';
+import { saveEdits } from './_internal/save.ts';
 import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
@@ -13,6 +15,7 @@ import { createWatcher } from './_internal/watch.ts';
 export { KinottaError } from './_internal/errors.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
+export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
 export type {
   AddedComment,
   BatchOptions,
@@ -21,6 +24,7 @@ export type {
   ContractIssue,
   CommentList,
   CopiedBatch,
+  EditList,
   FramePin,
   NewComment,
   NewFramePin,
@@ -35,6 +39,7 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  SavedVersion,
   StartedReel,
   TranscriptWord,
   Transcriber,
@@ -70,6 +75,10 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     carryNotice: (slug, number) => carryNotice(dir, slug, number),
     listVideos: () => listVideos(dir),
     startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
+    readEditList: (slug) => readEditList(dir, slug),
+    addOperation: (slug, operation) => addOperation(dir, slug, operation),
+    discardEdits: (slug) => discardEdits(dir, slug),
+    saveEdits: (slug) => saveEdits(dir, slug),
   };
 }
 

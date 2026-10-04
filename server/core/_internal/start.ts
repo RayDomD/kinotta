@@ -1,10 +1,11 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { KinottaError } from './errors.ts';
-import { buildPage, buildShots, probeVideo, transcribeAudio } from './runner.ts';
+import { probeVideo, transcribeAudio } from './runner.ts';
 import type { NewReel, StartedReel, Transcriber } from './types.ts';
 import { isVideoFile, posix, titleFromFile } from './videos.ts';
+import { publishVersion, stageVersion } from './version-build.ts';
 
 const REELS_DIR = 'reels';
 const BUILT_BY_YOU = 'you';
@@ -54,27 +55,9 @@ export const transcribeWithWhisper: Transcriber = async (videoFile) => {
   }
 };
 
-/** v1 of a reel Kinotta made: the page, then shots.json (with `builtBy`) last, since its appearing is the new-version signal. */
-async function buildFirstVersion(reelDir: string, planFile: string): Promise<void> {
-  const versionDir = join(reelDir, 'v1');
-  const shotsFile = join(versionDir, 'shots.json');
-  const staged = `${shotsFile}.tmp`;
-  try {
-    await mkdir(versionDir);
-    await buildPage(planFile, join(versionDir, 'index.html'));
-    await buildShots(planFile, staged);
-    const shots = JSON.parse(await readFile(staged, 'utf8')) as Record<string, unknown>;
-    await writeJson(staged, { ...shots, builtBy: BUILT_BY_YOU });
-    await rename(staged, shotsFile);
-  } catch (err) {
-    await rm(versionDir, { recursive: true, force: true });
-    throw err;
-  }
-}
-
 /**
  * Starts a reel from a video that stays where it is: writes reel.json and a plan of one piece with captions on and
- * no clips, transcribes, writes the transcript and builds v1. A transcription or build failure leaves the reel
+ * no clips, transcribes, writes the transcript and builds v1 (which keeps its own copies of both, E14). A transcription or build failure leaves the reel
  * without a version, and throws the reason.
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, input: NewReel): Promise<StartedReel> {
@@ -87,7 +70,7 @@ export async function startReel(projectDir: string, transcriber: Transcriber, in
   const planFile = join(reelDir, 'plan.json');
 
   await writeJson(join(reelDir, 'reel.json'), { title, footage });
-  await writeJson(planFile, {
+  const plan = {
     title,
     video: posix(relative(dirname(planFile), file)),
     transcript: 'transcript.json',
@@ -96,9 +79,10 @@ export async function startReel(projectDir: string, transcriber: Transcriber, in
     pieces: [{ in: 0, out: duration }],
     clips: [],
     sections: [{ id: 'all', name: title, start: 0, end: duration }],
-  });
+  };
+  await writeJson(planFile, plan);
   const words = await transcriber(file);
   await writeJson(join(reelDir, 'transcript.json'), { words });
-  await buildFirstVersion(reelDir, planFile);
+  await publishVersion(reelDir, await stageVersion(reelDir, { plan, words, builtBy: BUILT_BY_YOU }), 1);
   return { slug };
 }
