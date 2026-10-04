@@ -4,5 +4,5 @@
  */
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
-export { MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, operationTouches, planPieces, snipPieces } from './_internal/edit-model.ts';
-export type { NewOperation, Operation, Plan, SnipOperation, Sources } from './_internal/edit-model.ts';
+export { MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, operationTouches, pieceLetter, planPieces, snipPieces } from './_internal/edit-model.ts';
+export type { CutOperation, MovePieceOperation, NewOperation, Operation, Plan, SnipOperation, Sources } from './_internal/edit-model.ts';

@@ -10,7 +10,7 @@ import { newestVersionNumber, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['snip']);
+const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['snip', 'cut', 'move-piece']);
 
 const queues = new Map<string, Promise<unknown>>();
 

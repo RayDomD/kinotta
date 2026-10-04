@@ -34,6 +34,20 @@ async function readWords(file: string | null): Promise<TranscriptWord[]> {
 const sameSpan = (a: { start: number; end: number } | null, b: { start: number; end: number } | null): boolean =>
   a === null || b === null ? a === b : Math.abs(a.start - b.start) < SPAN_TOLERANCE && Math.abs(a.end - b.end) < SPAN_TOLERANCE;
 
+/** The stretches of a section's source range in the order the pieces play them (a cut inside one is not a break), as one string to compare. */
+function playOrder(plan: Plan, start: number, end: number): string {
+  const stretches: { from: number; to: number }[] = [];
+  for (const p of pieceMap(plan.pieces, plan.duration ?? 0).pieces) {
+    const from = Math.max(start, p.in);
+    const to = Math.min(end, p.out);
+    if (to - from <= SPAN_TOLERANCE) continue;
+    const last = stretches[stretches.length - 1];
+    if (last && Math.abs(last.to - from) < SPAN_TOLERANCE) last.to = to;
+    else stretches.push({ from, to });
+  }
+  return stretches.map((r) => `${r.from.toFixed(4)}-${r.to.toFixed(4)}`).join(',');
+}
+
 /**
  * The sections the edits changed: one an operation touches, or whose place on the timeline moved or shrank. This is what
  * comparing the pages finds, so the claim in shots.json and the comparison agree.
@@ -43,7 +57,7 @@ export function changedSectionsOf(before: Plan, after: Plan, operations: readonl
   const was = pieceMap(before.pieces, duration);
   const now = pieceMap(after.pieces, duration);
   return (after.sections ?? [])
-    .filter((s) => operations.some((op) => operationTouches(op, s)) || !sameSpan(toTimelineSpan(was, s.start, s.end), toTimelineSpan(now, s.start, s.end)))
+    .filter((s) => operations.some((op) => operationTouches(op, s)) || playOrder(before, s.start, s.end) !== playOrder(after, s.start, s.end) || !sameSpan(toTimelineSpan(was, s.start, s.end), toTimelineSpan(now, s.start, s.end)))
     .map((s) => s.id);
 }
 

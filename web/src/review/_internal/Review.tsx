@@ -7,6 +7,7 @@ import type { CaptionPhrase } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
 import { Player } from './Player.tsx';
+import { pieceMap, toSource } from '../../../../server/core/model.ts';
 import { editedList, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
@@ -109,10 +110,12 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     shownSection.current = section?.id;
   }, [section, total]);
 
-  const [tool, setTool] = useState<Tool>('select');
+  const [toolName, setTool] = useState<Tool>('select');
   const [selection, setSelection] = useState<Span | null>(null);
   const live = useRef({ playback, win, total, time, selection, pieces, editable, edits });
   live.current = { playback, win, total, time, selection, pieces, editable, edits };
+  const tool = useRef(toolName);
+  tool.current = toolName;
   const afterSnip = useRef<number | null>(null);
 
   // The playhead goes to where a snip was, or stays put, once the edited reel is what plays.
@@ -134,6 +137,20 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     for (const { from, to } of sourceStretches(shown, chosen.start, chosen.end)) {
       if (!(await changes.add({ kind: 'snip', from, to }))) break;
     }
+  };
+  /** Cuts the footage at a timeline time. A time already on a join is refused by the core, and its reason shows in the Edits panel. */
+  const cutAt = async (at: number): Promise<void> => {
+    const { pieces: shown, editable: allowed, edits: changes } = live.current;
+    if (!shown || !allowed || !changes || changes.busy) return;
+    const source = toSource(pieceMap(shown, 0), at);
+    if (source !== null) await changes.add({ kind: 'cut', at: source });
+  };
+  const cutRef = useRef(cutAt);
+  cutRef.current = cutAt;
+  const movePiece = (from: number, to: number): void => {
+    const { editable: allowed, edits: changes } = live.current;
+    if (!allowed || !changes || changes.busy) return;
+    void changes.add({ kind: 'move-piece', from, to });
   };
   const snipRef = useRef(snip);
   snipRef.current = snip;
@@ -165,6 +182,10 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
       else if (e.key === 'Home') player.seek(0);
       else if (e.key === 'End') player.seek(length);
       else if ((e.key === 's' || e.key === 'S') && allowed) setTool('snip');
+      else if ((e.key === 'b' || e.key === 'B') && allowed) {
+        setTool('blade');
+        setSelection(null);
+      } else if (e.key === 'Enter' && tool.current === 'blade' && allowed) void cutRef.current(live.current.time);
       else if ((e.key === 'v' || e.key === 'V') && allowed) {
         setTool('select');
         setSelection(null);
@@ -206,7 +227,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
         tools={
           editable ? (
             <Tools
-              tool={tool}
+              tool={toolName}
               onTool={(next) => {
                 setTool(next);
                 if (next === 'select') setSelection(null);
@@ -214,6 +235,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
               selection={selection}
               busy={edits?.busy === true}
               onSnip={() => void snip()}
+              onCutAtPlayhead={() => void cutAt(time)}
             />
           ) : undefined
         }
@@ -238,7 +260,10 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
           overview={overview}
           onWindow={setRaw}
           onScrub={playback.seek}
-          snipping={editable && tool === 'snip'}
+          snipping={editable && toolName === 'snip'}
+          blading={editable && toolName === 'blade'}
+          onCut={(at) => void cutAt(at)}
+          onMovePiece={editable && withFootage ? movePiece : undefined}
           selection={selection}
           onSelect={setSelection}
         />

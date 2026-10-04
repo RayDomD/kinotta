@@ -11,6 +11,9 @@ export interface Remap {
   page(time: number): number;
 }
 
+/** Two source times this close are the same second. */
+const SAME_SECOND = 1e-6;
+
 const same: Remap = { span: (start, end) => ({ start, end }), point: (time) => time, page: (time) => time };
 
 /** Both lists are the pieces in play order; with the same pieces, nothing moves. */
@@ -20,10 +23,20 @@ export function remap(saved: readonly Piece[], edited: readonly Piece[]): Remap 
   const now = pieceMap(edited, 0);
   return {
     span(start, end) {
-      const spans = toSourceSpans(was, start, end);
-      const first = spans[0];
-      const last = spans[spans.length - 1];
-      return first && last ? toTimelineSpan(now, first.start, last.end) : null;
+      // The saved timeline range is some source stretches; ones that run on from each other are one stretch, and
+      // when the edits leave a stretch in separate places the longest one wins (as the engine does).
+      const joined: { start: number; end: number }[] = [];
+      for (const part of toSourceSpans(was, start, end).sort((a, b) => a.start - b.start)) {
+        const last = joined[joined.length - 1];
+        if (last && part.start - last.end < SAME_SECOND) last.end = Math.max(last.end, part.end);
+        else joined.push({ ...part });
+      }
+      let best: { start: number; end: number } | null = null;
+      for (const part of joined) {
+        const placed = toTimelineSpan(now, part.start, part.end);
+        if (placed && (best === null || placed.end - placed.start > best.end - best.start)) best = placed;
+      }
+      return best;
     },
     point(time) {
       const source = toSource(was, time);

@@ -15,8 +15,6 @@ export interface Span {
   end: number;
 }
 
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
 /** The clips of a version from its shots: a clip's states (05a, 05b) are one clip, running over its shots' lines. */
 export function clipSpans(shots: readonly Shot[]): ClipSpan[] {
   const clips = new Map<string, ClipSpan>();
@@ -36,7 +34,4 @@ export function indexAt(items: readonly Span[], time: number): number {
   return items.findIndex((item) => time >= item.start && time < item.end);
 }
 
-/** Piece letters: A, B, C, then AA, AB. */
-export function pieceLetter(index: number): string {
-  return index < LETTERS.length ? LETTERS[index]! : `${LETTERS[Math.floor(index / LETTERS.length) - 1]}${LETTERS[index % LETTERS.length]}`;
-}
+export { pieceLetter } from '../../../../server/core/model.ts';

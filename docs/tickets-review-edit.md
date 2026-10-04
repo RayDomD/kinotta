@@ -101,7 +101,7 @@ drop its own operation without undoing those after it. The edit list survives a 
 - [x] Removing one card leaves later operations applied
 - [x] Reloading the app restores the unsaved edit list
 
-## T34 (#36). Blade and reorder pieces
+## T34 (#36). Blade and reorder pieces — Done
 
 **What to build:** The Blade tool cuts the footage into two pieces at the playhead or a click. Dragging a piece
 moves it to a new place in the order. Clips, words and captions on a moved piece move with it. Cuts and snips are
@@ -111,10 +111,10 @@ marked on the timeline. Sections stay contiguous after a reorder.
 
 **Model:** top
 
-- [ ] Cut and move-piece operations apply in the editor and on Save
-- [ ] Clips and words on a moved piece play at their new place in the saved version
-- [ ] Every section is one contiguous stretch after a reorder
-- [ ] Cuts and snips are marked on the footage lane
+- [x] Cut and move-piece operations apply in the editor and on Save
+- [x] Clips and words on a moved piece play at their new place in the saved version
+- [x] Every section is one contiguous stretch after a reorder
+- [x] Cuts and snips are marked on the footage lane
 
 ## T35 (#37). Comments carry forward by remapping
 

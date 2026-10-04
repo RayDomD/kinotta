@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import type { Comment, TranscriptWord } from '../../api/index.ts';
 import type { CaptionPhrase } from '../../stage/index.ts';
@@ -15,6 +15,8 @@ const MS_PER_SECOND = 1000;
 const SNIP_MIN = 0.005;
 /** A drag shorter than this selects nothing. */
 const MIN_SELECTION = 0.05;
+/** A press on a piece that moves less than this many pixels is a click, not a drag. */
+const DRAG_THRESHOLD = 4;
 
 const place = (win: TimeWindow, start: number, end: number): CSSProperties => ({
   left: `${percentIn(win, start)}%`,
@@ -28,27 +30,75 @@ function timeAt(win: TimeWindow, rect: DOMRect, clientX: number): number {
   return win.start + (Math.min(Math.max(clientX - rect.left, 0), rect.width) / rect.width) * win.length;
 }
 
-const FootageLane = memo(function FootageLane({ win, pieces }: { win: TimeWindow; pieces: readonly Piece[] }) {
+/** What the Footage lane shows of a piece being dragged: which one, and how far it is from where it started. */
+interface PieceDrag {
+  index: number;
+  /** Pixels. */
+  dx: number;
+}
+
+/** Where a dragged piece lands in the play order: after every other piece whose middle it has passed. */
+export function dropIndex(pieces: readonly Piece[], index: number, shiftSeconds: number): number {
+  const middle = (p: Piece): number => p.at + (p.out - p.in) / 2;
+  const dragged = middle(pieces[index]!) + shiftSeconds;
+  return pieces.filter((p, i) => i !== index && middle(p) < dragged).length;
+}
+
+const FootageLane = memo(function FootageLane({
+  win,
+  pieces,
+  drag,
+  onMove,
+}: {
+  win: TimeWindow;
+  pieces: readonly Piece[];
+  drag: PieceDrag | null;
+  /** Present when the pieces can be reordered: Alt with an arrow key moves the focused piece one place. */
+  onMove: ((from: number, to: number) => void) | undefined;
+}) {
+  // A cut or a snip is marked where the piece before it in the source ends, so it stays with its footage when pieces move.
+  const marks = [...pieces.keys()]
+    .sort((a, b) => pieces[a]!.in - pieces[b]!.in)
+    .flatMap((i, k, order) => {
+      const next = pieces[order[k + 1] ?? -1];
+      return next ? [{ piece: pieces[i]!, gap: next.in - pieces[i]!.out }] : [];
+    });
   return (
     <div className="lane rv-zone rv-foot">
       {pieces.map((piece, i) => {
         const end = piece.at + piece.out - piece.in;
         if (!inWindow(win, piece.at, end)) return null;
+        const dragging = drag?.index === i;
         return (
-          <div key={i} className="rv-piece" style={place(win, piece.at, end)} data-piece={pieceLetter(i)}>
+          <div
+            key={i}
+            className={dragging ? 'rv-piece dragging' : onMove ? 'rv-piece movable' : 'rv-piece'}
+            style={{ ...place(win, piece.at, end), ...(dragging ? { transform: `translateX(${drag.dx}px)` } : {}) }}
+            data-piece={pieceLetter(i)}
+            data-index={i}
+            tabIndex={onMove ? 0 : undefined}
+            aria-label={onMove ? `Piece ${pieceLetter(i)}. Alt with the arrow keys moves it.` : undefined}
+            onKeyDown={(e) => {
+              if (!onMove || !e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+              const to = i + (e.key === 'ArrowRight' ? 1 : -1);
+              if (to < 0 || to >= pieces.length) return;
+              e.preventDefault();
+              onMove(i, to);
+            }}
+          >
             <b>{pieceLetter(i)}</b>
             {`${formatTimecode(piece.in)} to ${formatTimecode(piece.out)}`}
           </div>
         );
       })}
-      {pieces.slice(1).map((piece, i) => {
-        if (piece.at < win.start || piece.at > win.start + win.length) return null;
-        const gap = piece.in - pieces[i]!.out;
+      {marks.map(({ piece, gap }, i) => {
+        const edge = piece.at + piece.out - piece.in;
+        if (edge < win.start || edge > win.start + win.length) return null;
         const snip = gap > SNIP_MIN;
-        const label = snip ? `SNIP −${gap.toFixed(1)}s` : Math.abs(gap) <= SNIP_MIN ? 'CUT' : null;
+        if (!snip && Math.abs(gap) > SNIP_MIN) return null;
         return (
-          <div key={i} className={snip ? 'rv-joint' : 'rv-joint cut'} style={{ left: `${percentIn(win, piece.at)}%` }}>
-            {label !== null && <span>{label}</span>}
+          <div key={i} className={snip ? 'rv-joint' : 'rv-joint cut'} style={{ left: `${percentIn(win, edge)}%` }}>
+            <span>{snip ? `SNIP −${gap.toFixed(1)}s` : 'CUT'}</span>
           </div>
         );
       })}
@@ -211,14 +261,21 @@ export interface LanesProps {
   /** The selected stretch of the timeline, shown as a band over the lanes. */
   selection: Span | null;
   onSelect(selection: Span | null): void;
+  /** The Blade tool is on: pressing the lanes cuts the footage at that time instead of scrubbing. */
+  blading: boolean;
+  onCut(time: number): void;
+  /** Present when the pieces can be reordered: a piece is dragged to a new place in the order. */
+  onMovePiece?(from: number, to: number): void;
 }
 
 /** The overview of the reel and the zoomed lanes under it, on one time axis with one playhead. */
 export function Lanes(props: LanesProps) {
-  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect } = props;
+  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece } = props;
   const plane = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
   const selecting = useRef<{ anchor: number; band: Span | null } | null>(null);
+  const press = useRef<{ index: number; startX: number; active: boolean } | null>(null);
+  const [drag, setDrag] = useState<PieceDrag | null>(null);
   const scrub = useCallback(
     (e: PointerEvent) => {
       const rect = plane.current?.getBoundingClientRect();
@@ -242,6 +299,21 @@ export function Lanes(props: LanesProps) {
     selecting.current = null;
     onSelect(band !== null && band.end - band.start >= MIN_SELECTION ? band : null);
   };
+  /** Ends a press on a piece: a drag drops it in a new place, a click scrubs to where it was pressed. */
+  const endPress = (e: PointerEvent): void => {
+    const started = press.current;
+    press.current = null;
+    setDrag(null);
+    if (!started) return;
+    if (!started.active) {
+      scrub(e);
+      return;
+    }
+    const rect = plane.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || !pieces || !onMovePiece) return;
+    const to = dropIndex(pieces, started.index, ((e.clientX - started.startX) / rect.width) * win.length);
+    if (to !== started.index) onMovePiece(started.index, to);
+  };
   const visible = time >= win.start && time <= win.start + win.length;
 
   return (
@@ -249,11 +321,20 @@ export function Lanes(props: LanesProps) {
       <span>Reel</span>
       <Overview win={win} total={total} time={time} blocks={overview} onWindow={onWindow} />
       <div
-        className={snipping ? 'rv-zoomed snipping' : 'rv-zoomed'}
+        className={snipping ? 'rv-zoomed snipping' : blading ? 'rv-zoomed blading' : 'rv-zoomed'}
         onPointerDown={(e) => {
           if (e.button !== 0 || (e.target as Element).closest('button') !== null) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
           const rect = plane.current?.getBoundingClientRect();
+          if (blading) {
+            if (rect && rect.width > 0) onCut(timeAt(win, rect, e.clientX));
+            return;
+          }
+          e.currentTarget.setPointerCapture(e.pointerId);
+          const piece = onMovePiece && !snipping ? (e.target as Element).closest('.rv-piece') : null;
+          if (piece) {
+            press.current = { index: Number((piece as HTMLElement).dataset.index), startX: e.clientX, active: false };
+            return;
+          }
           if (snipping && rect && rect.width > 0) {
             selecting.current = { anchor: timeAt(win, rect, e.clientX), band: null };
             onSelect(null);
@@ -262,14 +343,29 @@ export function Lanes(props: LanesProps) {
           scrubbing.current = true;
           scrub(e);
         }}
-        onPointerMove={(e) => (selecting.current ? select(e) : scrubbing.current && scrub(e))}
-        onPointerUp={() => (selecting.current ? endSelecting() : (scrubbing.current = false))}
-        onPointerCancel={() => (selecting.current ? endSelecting() : (scrubbing.current = false))}
+        onPointerMove={(e) => {
+          const started = press.current;
+          if (started) {
+            const dx = e.clientX - started.startX;
+            if (started.active || Math.abs(dx) >= DRAG_THRESHOLD) {
+              started.active = true;
+              setDrag({ index: started.index, dx });
+            }
+          } else if (selecting.current) select(e);
+          else if (scrubbing.current) scrub(e);
+        }}
+        onPointerUp={(e) => (press.current ? endPress(e) : selecting.current ? endSelecting() : (scrubbing.current = false))}
+        onPointerCancel={() => {
+          press.current = null;
+          setDrag(null);
+          if (selecting.current) endSelecting();
+          else scrubbing.current = false;
+        }}
       >
         {pieces !== null && (
           <>
             <span>Footage</span>
-            <FootageLane win={win} pieces={pieces} />
+            <FootageLane win={win} pieces={pieces} drag={drag} onMove={onMovePiece} />
           </>
         )}
         <span>Clips</span>

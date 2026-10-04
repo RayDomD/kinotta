@@ -169,3 +169,55 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   const project = readFileSync(PROJECT_FILE, 'utf8');
   expect(JSON.parse(readFileSync(join(project, 'reels', 'undo-talk', 'edit-list.json'), 'utf8')).operations).toHaveLength(2);
 });
+
+test('the Blade cuts the footage in two, a piece is dragged to a new place, and Save builds it', async ({ page }) => {
+  await startReel(page, 'Blade talk');
+  const tools = review(page).getByRole('toolbar', { name: 'Edit tools' });
+  const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
+  const pieces = review(page).locator('.rv-piece');
+
+  // B turns the Blade on; pressing the middle of the lanes cuts there. The cut is marked and listed, and nothing is removed.
+  await page.keyboard.press('b');
+  await expect(tools.getByRole('button', { name: 'Blade B' })).toHaveAttribute('aria-pressed', 'true');
+  await review(page).locator('.axis').scrollIntoViewIfNeeded();
+  const plane = (await review(page).locator('.rv-plane').boundingBox())!;
+  await page.mouse.click(plane.x + plane.width / 2, plane.y + plane.height - AXIS_INSET);
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText(/Cut into two pieces at 00:0[56]\.\d\d/);
+  await expect(pieces).toHaveCount(2);
+  await expect(review(page).locator('.rv-joint.cut span')).toHaveText('CUT');
+  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+
+  // Cutting at the playhead, which sits at the start where the footage already begins, is refused with a reason.
+  await tools.getByRole('button', { name: /^Cut at playhead/ }).click();
+  await expect(page.getByRole('alert')).toContainText('already a cut');
+  await expect(cards).toHaveCount(1);
+  await page.keyboard.press('v');
+
+  // Dragging piece B to the left of A reorders the reel; the first piece now starts about halfway through the source.
+  const second = (await pieces.nth(1).boundingBox())!;
+  const y = second.y + second.height / 2;
+  await page.mouse.move(second.x + second.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(second.x + second.width / 2 - plane.width * 0.3, y, { steps: 5 });
+  await page.mouse.move(second.x + second.width / 2 - plane.width * 0.6, y, { steps: 5 });
+  await page.mouse.up();
+  await expect(cards.last()).toContainText('Moved piece B to place 1');
+  await expect(pieces.first()).toContainText(/^A06\.00 to 12\.00$/);
+  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+
+  // Undo takes the move back.
+  await page.keyboard.press('Control+z');
+  await expect(pieces.first()).toContainText(/^A00\.00 to 06\.00$/);
+  await page.keyboard.press('Control+Shift+z');
+  await expect(pieces.first()).toContainText(/^A06\.00 to 12\.00$/);
+
+  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  const project = readFileSync(PROJECT_FILE, 'utf8');
+  const plan = JSON.parse(readFileSync(join(project, 'reels', 'blade-talk', 'v2', 'plan.json'), 'utf8'));
+  expect(plan.pieces).toHaveLength(2);
+  expect(plan.pieces[0].in).toBeGreaterThan(5);
+  expect(plan.pieces[1].in).toBe(0);
+  await expect(pieces.first()).toContainText(/^A06\.00 to 12\.00$/);
+});

@@ -32,8 +32,23 @@ export interface SnipOperation {
   to: number;
 }
 
+/** Splits the piece holding a source time into two at it. Removes nothing. */
+export interface CutOperation {
+  id: string;
+  kind: 'cut';
+  at: number;
+}
+
+/** Moves the piece at index `from` of the current play order to index `to` (its place in the order after the move). */
+export interface MovePieceOperation {
+  id: string;
+  kind: 'move-piece';
+  from: number;
+  to: number;
+}
+
 /** Everything the edit list can hold. */
-export type Operation = SnipOperation;
+export type Operation = SnipOperation | CutOperation | MovePieceOperation;
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 /** An operation as the caller sends it: the core gives it an id. */
@@ -81,11 +96,58 @@ function applySnip(sources: Sources, op: SnipOperation): Sources {
   return { ...sources, plan: { ...sources.plan, pieces: snipPieces(planPieces(sources.plan), op.from, op.to) } };
 }
 
+function applyCut(sources: Sources, op: CutOperation): Sources {
+  if (!Number.isFinite(op.at) || op.at < 0) throw new KinottaError('invalid', 'A cut needs a time in the footage, in seconds.');
+  const pieces = planPieces(sources.plan);
+  const index = pieces.findIndex((p) => op.at - p.in > MIN_SNIP && p.out - op.at > MIN_SNIP);
+  if (index < 0 && pieces.some((p) => Math.abs(op.at - p.in) <= MIN_SNIP || Math.abs(op.at - p.out) <= MIN_SNIP)) throw new KinottaError('invalid', 'There is already a cut there.');
+  if (index < 0) throw new KinottaError('invalid', 'That time is not inside the footage that is in the reel.');
+  const piece = pieces[index]!;
+  const at = round(op.at);
+  const next = [...pieces.slice(0, index), { in: piece.in, out: at }, { in: at, out: piece.out }, ...pieces.slice(index + 1)];
+  return { ...sources, plan: { ...sources.plan, pieces: next } };
+}
+
+/** How many separate stretches of the timeline the source range `start` to `end` plays in: 1 when it is contiguous. */
+function sectionRuns(pieces: readonly Piece[], start: number, end: number): number {
+  let runs = 0;
+  let at = 0;
+  let runEnd = Number.NaN;
+  for (const p of pieces) {
+    const lo = Math.max(start, p.in);
+    const hi = Math.min(end, p.out);
+    if (hi - lo > MIN_SNIP) {
+      const from = at + lo - p.in;
+      if (!(Math.abs(from - runEnd) < MIN_SNIP)) runs += 1;
+      runEnd = at + hi - p.in;
+    }
+    at += p.out - p.in;
+  }
+  return runs;
+}
+
+function applyMovePiece(sources: Sources, op: MovePieceOperation): Sources {
+  const pieces = planPieces(sources.plan);
+  const valid = (n: number): boolean => Number.isInteger(n) && n >= 0 && n < pieces.length;
+  if (!valid(op.from) || !valid(op.to)) throw new KinottaError('invalid', 'That piece, or the place to move it to, is not in the reel.');
+  if (op.from === op.to) throw new KinottaError('invalid', 'The piece is already there.');
+  const next = [...pieces];
+  next.splice(op.to, 0, next.splice(op.from, 1)[0]!);
+  // Sections stay contiguous: a move that would cut a section's footage in two on the timeline is refused.
+  const split = (sources.plan.sections ?? []).find((s) => sectionRuns(next, s.start, s.end) > 1);
+  if (split) throw new KinottaError('invalid', `That would split the section "${split.name}". Cut at the section's edge first, or move the whole section.`);
+  return { ...sources, plan: { ...sources.plan, pieces: next } };
+}
+
 /** The sources with one operation written into them. Throws `invalid` for an operation that cannot apply. */
 export function applyOperation(sources: Sources, op: Operation): Sources {
   switch (op.kind) {
     case 'snip':
       return applySnip(sources, op);
+    case 'cut':
+      return applyCut(sources, op);
+    case 'move-piece':
+      return applyMovePiece(sources, op);
   }
 }
 
@@ -99,7 +161,19 @@ export function operationTouches(op: Operation, section: { start: number; end: n
   switch (op.kind) {
     case 'snip':
       return op.from < section.end && op.to > section.start;
+    case 'cut':
+      return false;
+    // Which sections a move changes depends on the pieces; Save compares each section's order on the timeline instead.
+    case 'move-piece':
+      return false;
   }
+}
+
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/** Piece letters: A, B, C, then AA, AB. */
+export function pieceLetter(index: number): string {
+  return index < LETTERS.length ? LETTERS[index]! : `${LETTERS[Math.floor(index / LETTERS.length) - 1]}${LETTERS[index % LETTERS.length]}`;
 }
 
 const clock = (seconds: number): string => {
@@ -114,6 +188,10 @@ export function describeOperation(op: Operation): { target: string; text: string
   switch (op.kind) {
     case 'snip':
       return { target: 'Footage', text: `Snipped ${(op.to - op.from).toFixed(1)}s (${clock(op.from)} to ${clock(op.to)})` };
+    case 'cut':
+      return { target: 'Footage', text: `Cut into two pieces at ${clock(op.at)}` };
+    case 'move-piece':
+      return { target: 'Footage', text: `Moved piece ${pieceLetter(op.from)} to place ${op.to + 1}` };
   }
 }
 

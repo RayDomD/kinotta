@@ -260,3 +260,64 @@ describe('undo, redo and removing one edit', () => {
     expect(await project.readEditList(slug)).toMatchObject({ operations: [], canUndo: false, canRedo: false });
   });
 });
+
+describe('cut and move-piece on Save', () => {
+  const SLUG = 'founder-talk';
+  const SECTION_CUT = 6;
+
+  it('puts clips, words and sections at their new places and keeps each section one stretch', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    const reelDir = join(dir, 'reels', SLUG);
+    await project.addOperation(SLUG, { kind: 'cut', at: SECTION_CUT });
+    const listed = await project.addOperation(SLUG, { kind: 'move-piece', from: 1, to: 0 });
+    expect(listed.operations.map((op) => op.kind)).toEqual(['cut', 'move-piece']);
+
+    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+
+    expect(readJson(join(dir, 'motion/plan.json')).pieces).toEqual([{ in: 6, out: 12 }, { in: 0, out: 6 }]);
+    expect(readJson(join(reelDir, 'v2', 'shots.json'))).toMatchObject({ builtBy: 'you', changedSections: ['cold-open', 'sync-problem'] });
+    const version = await project.readVersion(SLUG, 2);
+    expect(version.issues).toEqual([]);
+    expect(version.claimMismatch).toEqual([]);
+    expect(version.duration).toBeCloseTo(12, 1);
+    expect(version.pieces?.map((p) => [p.in, p.at])).toEqual([[6, 0], [0, 6]]);
+    // Sections: "sync-problem" now plays first, "cold-open" after it; each is one stretch.
+    const sections = (await project.readVersion(SLUG, 2)).sections ?? [];
+    expect(sections.map((s) => [s.id, s.start, s.end])).toEqual([['cold-open', 6, 12], ['sync-problem', 0, 6]]);
+    // Clips follow their footage: 03 and 04 sit in the first six seconds, 01 in the second six. 02 crosses the cut and the longer half wins.
+    const startOf = (id: string): number => version.shots.find((s) => s.number === id)!.start;
+    expect(startOf('03')).toBeCloseTo(0.2, 1);
+    expect(startOf('04')).toBeCloseTo(3.4, 1);
+    expect(startOf('01')).toBeCloseTo(6, 1);
+    expect(startOf('02')).toBeCloseTo(9.2, 1);
+    // Words move with their piece: one at source second s >= 6 is now at s - 6, one before it at s + 6.
+    const source = readJson(join(reelDir, 'transcript.json')).words as { text: string; start: number }[];
+    expect(readJson(join(reelDir, 'v2', 'transcript.json')).words).toEqual(source);
+    const late = source.find((w) => w.start >= SECTION_CUT)!;
+    const early = source.find((w) => w.start < SECTION_CUT)!;
+    expect(version.transcript!.find((w) => w.text === late.text && Math.abs(w.start - (late.start - SECTION_CUT)) < 0.01)).toBeDefined();
+    expect(version.transcript!.find((w) => w.text === early.text && Math.abs(w.start - (early.start + SECTION_CUT)) < 0.01)).toBeDefined();
+  });
+
+  it('refuses a move that would split a section, and says why', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    await project.addOperation(SLUG, { kind: 'cut', at: SECTION_CUT });
+    await project.addOperation(SLUG, { kind: 'cut', at: 4 });
+
+    await expect(project.addOperation(SLUG, { kind: 'move-piece', from: 1, to: 2 })).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('split the section') });
+    expect((await project.readEditList(SLUG)).operations).toHaveLength(2);
+  });
+
+  it('undoes a move and removes a cut that a later move depends on only if what remains still applies', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    const first = await project.addOperation(SLUG, { kind: 'cut', at: SECTION_CUT });
+    await project.addOperation(SLUG, { kind: 'move-piece', from: 1, to: 0 });
+    expect((await project.undoEdit(SLUG)).operations).toHaveLength(1);
+    await project.redoEdit(SLUG);
+    await expect(project.removeOperation(SLUG, first.operations[0]!.id)).rejects.toMatchObject({ code: 'invalid' });
+    expect((await project.readEditList(SLUG)).operations).toHaveLength(2);
+  });
+});

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { describeOperation, toTimelineSpan, pieceMap } from '../../../../server/core/model.ts';
+import { describeOperation, pieceMap, toTimeline, toTimelineSpan } from '../../../../server/core/model.ts';
 import type { Operation, Piece } from '../../../../server/core/model.ts';
 import { formatTransport } from './clock.ts';
 import { editedList } from './edited.ts';
@@ -26,8 +26,13 @@ export interface ReviewSideProps {
 function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number): string {
   const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   const op = operations[index]!;
-  const span = op.kind === 'snip' ? toTimelineSpan(before, op.from, op.to) : null;
-  return span ? formatTransport(span.start) : formatTransport(0);
+  const at =
+    op.kind === 'snip'
+      ? toTimelineSpan(before, op.from, op.to)?.start
+      : op.kind === 'cut'
+        ? toTimeline(before, op.at)
+        : before.pieces[op.from]?.at;
+  return formatTransport(at ?? 0);
 }
 
 function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
@@ -44,7 +49,7 @@ function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<Review
     <>
       <div className="rv-panelbody">
         {!editable && <p className="meta">{stale ? 'These edits were made on an older version. Discard them to start again.' : 'Open the newest version to edit it.'}</p>}
-        {editable && operations.length === 0 && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip.</p>}
+        {editable && operations.length === 0 && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
           <div className="rv-undo">
             <button type="button" disabled={!idle || edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>

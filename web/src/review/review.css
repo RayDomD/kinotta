@@ -64,7 +64,10 @@
 .rv-snip-go { margin-left: 10px; padding: 4px 12px; font: 600 13px Outfit, sans-serif; background: var(--light); color: var(--ground); border: 1.4px solid var(--light); transition: transform var(--t-press) var(--ease); }
 .rv-snip-go:active:not(:disabled) { transform: scale(.97); }
 .rv-snip-go:disabled { opacity: .5; }
-.rv-zoomed.snipping { cursor: crosshair; }
+.rv-zoomed.snipping, .rv-zoomed.blading { cursor: crosshair; }
+.rv-piece.movable { cursor: grab; user-select: none; touch-action: none; }
+.rv-piece.movable:focus-visible { outline: 2px solid var(--light); outline-offset: -3px; }
+.rv-piece.dragging { cursor: grabbing; z-index: 4; border-color: var(--light); box-shadow: 0 6px 16px oklch(0 0 0 / .35); }
 .rv-sel { position: absolute; top: 0; bottom: 0; background: var(--light-wash); border-left: 1.6px solid var(--light); border-right: 1.6px solid var(--light); pointer-events: none; z-index: 3; }
 .rv-sel span { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); font: 800 10px Doto, monospace; color: var(--light); background: var(--ground); padding: 0 4px; border: 1.2px solid var(--light); white-space: nowrap; }
 

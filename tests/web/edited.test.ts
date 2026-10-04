@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
 import { remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
@@ -32,11 +33,40 @@ describe('remap', () => {
   });
 });
 
+describe('remap with pieces moved', () => {
+  // Cut at 6, second half moved first.
+  const moved = remap([{ in: 0, out: 12 }], [{ in: 6, out: 12 }, { in: 0, out: 6 }]);
+
+  it('moves a span with its piece and keeps a span across the cut in its longer half', () => {
+    expect(moved.span(7, 9)).toEqual({ start: 1, end: 3 });
+    expect(moved.span(1, 3)).toEqual({ start: 7, end: 9 });
+    expect(moved.span(3.2, 6.2)).toEqual({ start: 9.2, end: 12 });
+    expect(moved.point(2)).toBe(8);
+  });
+
+  it('gives the saved time for an edited time', () => {
+    expect(moved.page(1)).toBe(7);
+  });
+});
+
 describe('sourceStretches', () => {
   it('turns a stretch of the edited timeline into source stretches, merging ones with only a snipped gap between', () => {
     expect(sourceStretches([{ in: 0, out: 6 }, { in: 6, out: 12 }], 4, 8)).toEqual([{ from: 4, to: 8 }]);
     expect(sourceStretches(EDITED, 2, 4)).toEqual([{ from: 2, to: 6 }]);
     // Pieces played out of order stay separate.
     expect(sourceStretches([{ in: 6, out: 10 }, { in: 0, out: 4 }], 2, 6)).toEqual([{ from: 8, to: 10 }, { from: 0, to: 2 }]);
+  });
+});
+
+describe('dropIndex', () => {
+  const pieces = [{ in: 0, out: 4, at: 0 }, { in: 4, out: 8, at: 4 }, { in: 8, out: 12, at: 8 }];
+
+  it('places a dragged piece after every other piece whose middle it has passed', () => {
+    expect(dropIndex(pieces, 2, -3)).toBe(2);
+    expect(dropIndex(pieces, 2, -5)).toBe(1);
+    expect(dropIndex(pieces, 2, -9)).toBe(0);
+    expect(dropIndex(pieces, 0, 5)).toBe(1);
+    expect(dropIndex(pieces, 0, 9)).toBe(2);
+    expect(dropIndex(pieces, 1, 1)).toBe(1);
   });
 });

@@ -31,3 +31,50 @@ describe('applyOperation', () => {
     expect(describeOperation({ id: 'a', kind: 'snip', from: 36.9, to: 38.4 })).toEqual({ target: 'Footage', text: 'Snipped 1.5s (00:36.90 to 00:38.40)' });
   });
 });
+
+describe('cut and move-piece', () => {
+  const whole = { plan: { duration: 12 }, words: [] };
+  const withSections = {
+    plan: { duration: 12, sections: [{ id: 'one', name: 'One', start: 0, end: 6 }, { id: 'two', name: 'Two', start: 6, end: 12 }] },
+    words: [],
+  };
+  const cut = (at: number) => ({ id: 'c', kind: 'cut', at }) as const;
+  const move = (from: number, to: number) => ({ id: 'm', kind: 'move-piece', from, to }) as const;
+
+  it('cuts a piece into two and removes nothing', () => {
+    const next = applyOperation(whole, cut(6));
+    expect(next.plan.pieces).toEqual([{ in: 0, out: 6 }, { in: 6, out: 12 }]);
+    expect(editedPieces(whole.plan, [cut(6)]).length).toBe(12);
+  });
+
+  it('refuses a cut where one already is, or outside the footage', () => {
+    const cutOnce = applyOperation(whole, cut(6));
+    expect(() => applyOperation(cutOnce, cut(6))).toThrow(/already a cut/);
+    expect(() => applyOperation(whole, cut(0))).toThrow();
+    expect(() => applyOperation(whole, cut(20))).toThrow(/not inside/);
+  });
+
+  it('moves a piece to a place in the order', () => {
+    const cut3 = applyOperation(applyOperation(whole, cut(4)), cut(8));
+    expect(applyOperation(cut3, move(2, 0)).plan.pieces).toEqual([{ in: 8, out: 12 }, { in: 0, out: 4 }, { in: 4, out: 8 }]);
+    expect(applyOperation(cut3, move(0, 2)).plan.pieces).toEqual([{ in: 4, out: 8 }, { in: 8, out: 12 }, { in: 0, out: 4 }]);
+    expect(() => applyOperation(cut3, move(1, 1))).toThrow(/already there/);
+    expect(() => applyOperation(cut3, move(0, 3))).toThrow(/not in the reel/);
+  });
+
+  it('keeps every section one stretch: a move that splits one is refused, one that moves a whole section is allowed', () => {
+    const cutAtEdge = applyOperation(withSections, cut(6));
+    expect(applyOperation(cutAtEdge, move(1, 0)).plan.pieces).toEqual([{ in: 6, out: 12 }, { in: 0, out: 6 }]);
+    // Cut inside section One, then move its second half past Two: One would be in two places.
+    const cutInside = applyOperation(applyOperation(withSections, cut(6)), cut(4));
+    expect(cutInside.plan.pieces).toEqual([{ in: 0, out: 4 }, { in: 4, out: 6 }, { in: 6, out: 12 }]);
+    expect(() => applyOperation(cutInside, move(1, 2))).toThrow(/split the section "One"/);
+    // Moving a piece within its own section is fine.
+    expect(applyOperation(cutInside, move(1, 0)).plan.pieces).toEqual([{ in: 4, out: 6 }, { in: 0, out: 4 }, { in: 6, out: 12 }]);
+  });
+
+  it('describes both in plain words', () => {
+    expect(describeOperation(cut(43.2))).toEqual({ target: 'Footage', text: 'Cut into two pieces at 00:43.20' });
+    expect(describeOperation(move(1, 0)).text).toBe('Moved piece B to place 1');
+  });
+});
