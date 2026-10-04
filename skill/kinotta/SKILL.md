@@ -191,8 +191,9 @@ Rules that differ from code-only reels:
 Below, `$SKILL` is this skill's folder. Sources live in a `motion/` folder in the project; only the
 built page and the shot list go in the version.
 
-1. **Ask only what the request leaves open**, in one round: which video, whether there is an SRT or
-   VTT, and the density (light, medium or heavy, default medium; see `reference/motion-broll.md`).
+1. **Ask only what the request leaves open**, in one round: which video and the density (light,
+   medium or heavy, default medium; see `reference/motion-broll.md`). Don't ask for captions: the
+   transcript comes from the audio (step 4).
 2. **Set up** (first footage reel in the project): `bash $SKILL/scripts/setup.sh ./motion`. Run the
    engine's Node scripts with `NODE_PATH=./motion/node_modules`.
 3. **Reel folder.** Pick a slug as in section 3. Write `reels/<slug>/reel.json`:
@@ -202,9 +203,11 @@ built page and the shot list go in the version.
    make an H.264 copy beside it
    (`ffmpeg -i <video> -c:v libx264 -crf 20 -r 30 -pix_fmt yuv420p -c:a aac -movflags +faststart <copy>.mp4`),
    point `footage` at the copy, and say so in the hand-over. The original stays untouched.
-4. **Transcript.** With captions: `python3 $SKILL/scripts/transcript.py <captions.srt> reels/<slug>/transcript.json`.
-   Without: `python3 $SKILL/scripts/transcript.py --audio <video> reels/<slug>/transcript.json`, which
-   needs `pip install faster-whisper`; if it is missing, ask the owner to install it or give captions.
+4. **Transcript.** By default, from the audio with faster-whisper:
+   `python3 $SKILL/scripts/transcript.py --audio <video> reels/<slug>/transcript.json`. It needs
+   `pip install faster-whisper`; if it is missing, ask the owner to install it. Only when the owner
+   hands you an SRT or VTT, use it instead: `python3 $SKILL/scripts/transcript.py <captions.srt> reels/<slug>/transcript.json`
+   (its word times are estimates; the audio's are the model's own).
    Read the transcript before planning, and fix misheard words in `transcript.json` itself (names and
    products most of all, such as "Cloud" for "Claude"), keeping each word's times. The captions and the
    spoken lines show these words. List the corrections in the hand-over.
