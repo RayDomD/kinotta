@@ -363,3 +363,15 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .rv-name input { font-size: 16px; padding: 7px 10px; border: 1.4px solid var(--hairline); background: var(--card); }
 .rv-busy, .rv-problem { flex-basis: 100%; font-size: 13px; color: var(--ink-2); }
 .rv-footage { width: 100%; margin-top: 14px; background: var(--ink); }
+
+/* Start from a brief, the waiting page, and the empty Storyboard (T45) */
+.rv-brief { max-width: 640px; display: flex; flex-direction: column; gap: 6px; margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--rule); }
+.rv-brief h3 { font-size: 16px; font-weight: 500; }
+.rv-brief .rv-brief-text { flex-basis: 100%; }
+.rv-brief textarea, .copy-request textarea { font-size: 16px; padding: 7px 10px; border: 1.4px solid var(--hairline); background: var(--card); resize: vertical; }
+.rv-brief-quote { margin: 10px 0 14px; padding-left: 12px; border-left: 1.6px solid var(--hairline); color: var(--ink-2); font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy-request { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.copy-request textarea { width: 100%; }
+.reels .waiting { margin-left: 8px; }
+.empty-board { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.empty-board .copy-request { align-items: center; }

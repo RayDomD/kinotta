@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { KinottaError } from './errors.ts';
 import { buildPage, buildShots, probeVideo, transcribeAudio } from './runner.ts';
-import type { NewReel, StartedReel, Transcriber } from './types.ts';
+import { briefRequest } from './requests.ts';
+import type { NewBriefReel, NewReel, StartedBriefReel, StartedReel, Transcriber } from './types.ts';
 import { isVideoFile, posix, titleFromFile } from './videos.ts';
 
 const REELS_DIR = 'reels';
@@ -101,4 +102,18 @@ export async function startReel(projectDir: string, transcriber: Transcriber, in
   await writeJson(join(reelDir, 'transcript.json'), { words });
   await buildFirstVersion(reelDir, planFile);
   return { slug };
+}
+
+/**
+ * Starts a reel from a short brief: writes reel.json with the title and the brief, and nothing else. The reel has no
+ * version until whoever builds it writes one, and shows as waiting until then.
+ */
+export async function startReelFromBrief(projectDir: string, input: NewBriefReel): Promise<StartedBriefReel> {
+  const title = typeof input?.title === 'string' ? input.title.trim() : '';
+  const brief = typeof input?.brief === 'string' ? input.brief.trim() : '';
+  if (title === '') throw new KinottaError('invalid', 'A reel needs a name.');
+  if (brief === '') throw new KinottaError('invalid', 'A reel started from a brief needs the brief.');
+  const { slug, dir } = await makeReelDir(join(projectDir, REELS_DIR), title);
+  await writeJson(join(dir, 'reel.json'), { title, brief });
+  return { slug, request: briefRequest(slug, title, brief) };
 }

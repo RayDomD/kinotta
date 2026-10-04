@@ -4,7 +4,7 @@ import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
 import { listReels } from './_internal/reels.ts';
-import { startReel, transcribeWithWhisper } from './_internal/start.ts';
+import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
 import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
 import { listVideos } from './_internal/videos.ts';
 import { listVersions } from './_internal/version.ts';
@@ -22,6 +22,7 @@ export type {
   CommentList,
   CopiedBatch,
   FramePin,
+  NewBriefReel,
   NewComment,
   NewFramePin,
   NewReel,
@@ -35,6 +36,7 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  StartedBriefReel,
   StartedReel,
   TranscriptWord,
   Transcriber,
@@ -70,6 +72,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     carryNotice: (slug, number) => carryNotice(dir, slug, number),
     listVideos: () => listVideos(dir),
     startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
+    startReelFromBrief: (input) => startReelFromBrief(dir, input),
   };
 }
 

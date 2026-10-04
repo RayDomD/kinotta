@@ -3,6 +3,8 @@ export interface ReelSummary {
   title: string;
   newestVersion: number | null;
   lastChange: number;
+  /** A reel started from a brief: the brief and the request copied for building it. Waiting while `newestVersion` is null. */
+  brief?: { text: string; request: string };
 }
 
 export type ReelsState = 'ok' | 'no-reels-folder' | 'no-reels';
@@ -81,6 +83,8 @@ export interface Version {
   footage?: { path: string; exists: boolean };
   transcript?: TranscriptWord[];
   transcriptProblem?: string;
+  /** Set when the version has no shots: the request to copy for b-roll. */
+  brollRequest?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -278,5 +282,9 @@ export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ vi
  * Starts a reel from a video in the project. Resolves with the new reel's slug once its first version is built,
  * which takes as long as the transcription does.
  */
+/** Starts a reel from a short brief. It has no version until one is built; `request` is what to hand to whoever builds it. */
+export const startReelFromBrief = (input: { title: string; brief: string }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
+
 export const startReel = (input: { video: string; title: string }): Promise<{ slug: string }> =>
   requestJson('/api/reels', jsonBody('POST', input));

@@ -1,6 +1,9 @@
 import type { Comment, Section, Shot } from './api/index.ts';
 import { formatClock } from './timecode.ts';
 
+/** The shot a word pin carries on a version with no shots: it belongs to the transcript. */
+export const NO_SHOT = '';
+
 /** A reel with one section (declared or implicit) shows no section list, bands or section heading. */
 export function hasSections(sections: Section[]): boolean {
   return sections.length > 1;

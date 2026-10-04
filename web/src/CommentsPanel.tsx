@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { CarryNotice, Comment } from './api/index.ts';
-import { sectionNumber } from './sections.ts';
+import { NO_SHOT, sectionNumber } from './sections.ts';
 import { Empty } from './Empty.tsx';
 import { readOnlyNote } from './readOnly.ts';
 import { wordLabel } from './Transcript.tsx';
@@ -83,7 +83,7 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
     <li className="c">
       <div className="where">
         <span className="dot">{comment.number}</span>
-        <span className="num">{`Shot ${pin.shot} · ${formatTimecode(pin.time)}s`}</span>
+        <span className="num">{`${pin.shot === NO_SHOT ? '' : `Shot ${pin.shot} · `}${formatTimecode(pin.time)}s`}</span>
         <span className={target ? 'el' : undefined}>{where}</span>
       </div>
       {(comment.sent || comment.carried) && (
@@ -118,7 +118,7 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
             ref={openButton}
             type="button"
             className="c-open"
-            aria-label={`Open comment ${comment.number} on shot ${pin.shot}, ${where}`}
+            aria-label={pin.shot === NO_SHOT ? `Open comment ${comment.number}, ${where}` : `Open comment ${comment.number} on shot ${pin.shot}, ${where}`}
             onClick={(e) => onOpen(e.currentTarget)}
           />
           {editable && (

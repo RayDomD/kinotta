@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, Version, VersionEntry } from './api/index.ts';
+import { BriefWaiting } from './BriefReel.tsx';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
+import { lastTab, rememberTab } from './lastTab.ts';
 import { NewReel } from './NewReel.tsx';
 import { Review } from './Review.tsx';
 import { Storyboard } from './Storyboard.tsx';
@@ -190,6 +192,7 @@ function Rail(props: RailProps) {
             {listing.reels.map((reel) => (
               <button key={reel.slug} type="button" aria-current={reel.slug === current && !creating ? 'true' : undefined} onClick={() => onOpen(reel.slug)}>
                 {reel.title}
+                {reel.brief !== undefined && reel.newestVersion === null && <WaitingMark />}
               </button>
             ))}
           </nav>
@@ -243,17 +246,19 @@ interface MainProps {
   phase: Phase;
   creating: boolean;
   onStarted(slug: string): void;
+  onBriefStarted(slug: string): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted } = props;
-  if (creating) return <NewReel project={project} onStarted={onStarted} />;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, onBriefStarted } = props;
+  if (creating) return <NewReel project={project} onStarted={onStarted} onBriefStarted={onBriefStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
   }
   if (listing.state === 'no-reels' || !reel) {
     return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask Claude for a storyboard to add one.`}</Empty></main>;
   }
+  if (reel.brief !== undefined && reel.newestVersion === null) return <BriefWaiting reel={{ ...reel, brief: reel.brief }} />;
   if (phase === 'Review') return <Review reel={reel} version={version.status === 'ready' ? version.version : undefined} />;
   return (
     <main className="main">
@@ -364,6 +369,7 @@ export function App() {
     setSelected(slug);
     setChosen(undefined);
     setReady(new Set());
+    setPhase(lastTab(slug) ?? 'Storyboard');
   }, []);
 
   const openVersionNumber = useCallback((number: number) => {
@@ -390,6 +396,19 @@ export function App() {
       );
       openReel(slug);
       setPhase('Review');
+      rememberTab(slug, 'Review');
+    },
+    [openReel],
+  );
+
+  // A reel started from a brief joins the list as waiting and opens on its waiting page.
+  const briefStarted = useCallback(
+    (slug: string) => {
+      fetchReels().then(
+        (listing) => setLoad((prev) => (prev.status === 'ready' ? { ...prev, listing } : prev)),
+        () => undefined,
+      );
+      openReel(slug);
     },
     [openReel],
   );
@@ -404,8 +423,8 @@ export function App() {
     if (load.status === 'ready' && selected === undefined && load.listing.reels[0]) openReel(load.listing.reels[0].slug);
   }, [load, selected, openReel]);
 
-  const current = useRef({ slug: reel?.slug, version: chosen });
-  current.current = { slug: reel?.slug, version: chosen };
+  const current = useRef({ slug: reel?.slug, version: chosen, waiting: false });
+  current.current = { slug: reel?.slug, version: chosen, waiting: reel?.brief !== undefined && reel.newestVersion === null };
 
   useEffect(() => {
     const refreshListing = (): void => {
@@ -420,6 +439,11 @@ export function App() {
       } else if (event.type === 'version-added') {
         refreshListing();
         if (event.reel === current.current.slug) {
+          // The shot list a brief reel was waiting for: it opens in Storyboard.
+          if (current.current.waiting) {
+            setPhase('Storyboard');
+            rememberTab(event.reel, 'Storyboard');
+          }
           setVersionsTick((n) => n + 1);
           setReady((prev) => new Set([...prev, event.version]));
         }
@@ -456,6 +480,7 @@ export function App() {
         onPhase={(next) => {
           setCreating(false);
           setPhase(next);
+          if (reel) rememberTab(reel.slug, next);
         }}
         section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
       />
@@ -492,6 +517,7 @@ export function App() {
           phase={phase}
           creating={creating}
           onStarted={reelStarted}
+          onBriefStarted={briefStarted}
         />
         <CommentsPanel
           version={openVersion?.number}

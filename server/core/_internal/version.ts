@@ -5,6 +5,7 @@ import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
 import { SAFE_SLUG, addFootage } from './footage.ts';
 import { readTitle } from './reels.ts';
+import { brollRequest } from './requests.ts';
 import { readSections } from './sections.ts';
 import type { Overlay, Shot, Version, VersionEntry } from './types.ts';
 
@@ -156,7 +157,9 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
     issues: parsed === null ? fileCheck.issues : [...fileCheck.issues, ...page.issues, ...checkShotsAgainstPage(fileCheck.shots, page.scenes)],
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
-  return addFootage(projectDir, reelDir, version);
+  const withFootage = await addFootage(projectDir, reelDir, version);
+  if (withFootage.shots.length > 0) return withFootage;
+  return { ...withFootage, brollRequest: brollRequest(slug, (await readTitle(reelDir)) ?? slug, number) };
 }
 
 /** The page of version n as text, or empty when it has none (for comparing two versions). */

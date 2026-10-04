@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { briefRequest } from './requests.ts';
 import type { ReelListing, ReelSummary } from './types.ts';
 
 const REELS_DIR = 'reels';
@@ -45,17 +46,30 @@ export async function readTitle(reelDir: string): Promise<string | null> {
   }
 }
 
+/** The brief a reel was started from, or null for a reel that was not. */
+async function readBrief(reelDir: string): Promise<string | null> {
+  try {
+    const parsed = JSON.parse(await readFile(join(reelDir, REEL_FILE), 'utf8')) as { brief?: unknown };
+    return typeof parsed.brief === 'string' && parsed.brief.trim() ? parsed.brief : null;
+  } catch {
+    return null;
+  }
+}
+
 async function summarize(reelsDir: string, slug: string): Promise<ReelSummary> {
   const reelDir = join(reelsDir, slug);
   const versions = (await readDirs(reelDir))!
     .map((name) => VERSION_DIR.exec(name))
     .filter((m): m is RegExpExecArray => m !== null)
     .map((m) => Number(m[1]));
+  const title = (await readTitle(reelDir)) ?? slug;
+  const brief = await readBrief(reelDir);
   return {
     slug,
-    title: (await readTitle(reelDir)) ?? slug,
+    title,
     newestVersion: versions.length ? Math.max(...versions) : null,
     lastChange: await newestMtime(reelDir),
+    ...(brief !== null ? { brief: { text: brief, request: briefRequest(slug, title, brief) } } : {}),
   };
 }
 

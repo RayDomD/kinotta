@@ -7,6 +7,11 @@ export interface ReelSummary {
   newestVersion: number | null;
   /** Newest mtime (ms since epoch) of any file inside the reel. */
   lastChange: number;
+  /**
+   * Set on a reel started from a brief: the brief, and the request that was copied for building it. The reel is
+   * waiting while `newestVersion` is null.
+   */
+  brief?: { text: string; request: string };
 }
 
 export type ReelsState = 'ok' | 'no-reels-folder' | 'no-reels';
@@ -98,6 +103,8 @@ export interface Version {
   transcript?: TranscriptWord[];
   /** Footage reels only: why there is no transcript. */
   transcriptProblem?: string;
+  /** Set when the version has no shots: the request to copy for b-roll over its transcript. */
+  brollRequest?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -172,6 +179,24 @@ export interface Project {
    * and `not-found` for a missing file; a transcription or build failure throws its reason and leaves the reel without a version.
    */
   startReel(input: NewReel): Promise<StartedReel>;
+  /**
+   * Starts a reel from a short brief: writes `reel.json` with the title and the brief, and returns the request to give
+   * whoever builds it. The reel has no version (it is waiting) until a version with a shots.json appears. Throws
+   * `KinottaError` `invalid` for an empty title or brief.
+   */
+  startReelFromBrief(input: NewBriefReel): Promise<StartedBriefReel>;
+}
+
+/** A reel started from a brief instead of a video. */
+export interface NewBriefReel {
+  title: string;
+  brief: string;
+}
+
+export interface StartedBriefReel {
+  slug: string;
+  /** The request naming the reel and the brief, ready to paste. */
+  request: string;
 }
 
 /** What a batch covers, and what the editor adds to it beyond the comments. */
@@ -231,7 +256,7 @@ export interface FramePin {
 /** What the caller supplies for a word pin: a word of the shot's spoken line, by its start time and text. */
 export interface NewWordPin {
   kind: 'word';
-  /** Shot number, "03". */
+  /** Shot number, "03". Empty on a version with no shots: the pin then belongs to the transcript. */
   shot: string;
   /** The word's start, in seconds. */
   time: number;
