@@ -1,0 +1,57 @@
+/* Review tab (docs/mockups/2026-10-05-review-edit.html). Tokens and shared lane classes come from styles.css. */
+.rv-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rv-main .head { margin-bottom: 0; }
+
+/* player: the Gate well around a 16:9 frame */
+.rv-well { padding: 12px; }
+.rv-frame { position: relative; aspect-ratio: 16 / 9; width: min(100%, calc(36vh * 16 / 9)); margin: 0 auto; overflow: hidden; background: var(--still-ground); }
+.rv-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.rv-page { position: absolute; inset: 0; pointer-events: none; }
+.rv-problem { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: 14px; color: var(--ink-2); }
+
+/* transport */
+.rv-transport { display: flex; align-items: center; gap: 18px; padding: 10px 2px 0; }
+.rv-play { width: 34px; height: 34px; display: grid; place-items: center; transition: transform var(--t-press) var(--ease); }
+.rv-play:active { transform: scale(.97); }
+.rv-tc { font: 700 15px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ink); }
+.rv-tc span { color: var(--muted); }
+.rv-zoom { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.rv-zoom b { font: 700 12px Doto, monospace; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.rv-tool { display: flex; align-items: center; justify-content: center; min-width: 30px; padding: 3px 9px; font-size: 14px; color: var(--ink-2); border: 1.4px solid transparent; transition: color var(--t-color) var(--ease), border-color var(--t-color) var(--ease); }
+.rv-tool:hover:not(:disabled) { color: var(--ink); border-color: var(--hairline); }
+.rv-tool:disabled { color: var(--muted); opacity: .5; }
+
+/* lanes: an overview of the whole reel, then the zoomed lanes with one playhead */
+.rv-lanes { margin-top: 0; --rv-label: 86px; }
+.rv-lanes .lane { overflow: hidden; }
+.rv-lanes :is(.rv-pins, .axis) { overflow: visible; }
+.rv-lanes .lpin { transform: translate(-50%, -50%); }
+.rv-zoomed { grid-column: 1 / -1; position: relative; display: grid; grid-template-columns: 72px 1fr; gap: 6px 14px; align-items: center; touch-action: none; cursor: col-resize; }
+.rv-plane { position: absolute; left: var(--rv-label); right: 0; top: 0; bottom: 0; pointer-events: none; }
+.rv-over { height: 20px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; cursor: pointer; touch-action: none; }
+.rv-over i { position: absolute; top: 6px; height: 8px; background: var(--hairline); }
+.rv-win { position: absolute; top: 0; bottom: 0; border: 1.4px solid var(--ink-2); background: oklch(.945 .004 106 / .06); }
+.rv-ph { position: absolute; top: -4px; bottom: -4px; width: 1.6px; margin-left: -.8px; background: var(--light); box-shadow: 0 0 8px var(--light-glow); z-index: 4; pointer-events: none; }
+.rv-ph::before { content: ""; position: absolute; top: -6px; left: -5px; width: 12px; height: 8px; background: var(--light); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.rv-ph-over { top: 0; bottom: 0; }
+.rv-ph-over::before { display: none; }
+
+/* footage pieces */
+.rv-lanes .rv-foot { height: 38px; margin-top: 14px; overflow: visible; clip-path: inset(-14px 0 -6px 0); }
+.rv-piece { position: absolute; top: 0; bottom: 0; background: var(--card); border: 1.4px solid var(--hairline); padding: 4px 8px; font: 12px Outfit, sans-serif; color: var(--ink-2); overflow: hidden; white-space: nowrap; }
+.rv-piece b { font: 800 11px Doto, monospace; color: var(--muted); margin-right: 6px; }
+.rv-joint { position: absolute; top: -10px; bottom: -4px; width: 0; z-index: 3; }
+.rv-joint::before { content: ""; position: absolute; top: 10px; bottom: 0; left: -1px; width: 2px; background: var(--light); }
+.rv-joint span { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font: 800 10px Doto, monospace; color: var(--light); background: var(--ground); padding: 0 4px; border: 1.2px solid var(--light); white-space: nowrap; }
+.rv-joint.cut::before { background: var(--ink-2); width: 1.4px; }
+.rv-joint.cut span { color: var(--ink-2); border-color: var(--hairline); }
+
+/* captions */
+.rv-caps { height: 24px; }
+.rv-phrase { position: absolute; top: 2px; bottom: 2px; border: 1.2px solid var(--hairline); border-right-width: 0; padding: 0 6px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; }
+.rv-phrase.cur { background: var(--light-wash); color: var(--ink); border-color: var(--light); border-right-width: 1.2px; }
+
+/* words */
+.rv-words { height: 30px; border-top: 1.4px solid var(--hairline); border-bottom: 1.4px solid var(--hairline); }
+.rv-w { position: absolute; top: 0; bottom: 0; padding: 5px 3px 0; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; border-left: 1px solid var(--rule); }
+.rv-w.lit { color: var(--light); text-shadow: 0 0 8px var(--light-glow); }

@@ -28,7 +28,7 @@ export interface Shot {
   line?: { start: number; end: number };
   /** Set when the shot is one state of a clip that changes (05a, 05b, …): the clip's number. */
   clip?: string;
-  /** Footage reels with a transcript: the words spoken over the shot, and the same words joined. */
+  /** Footage reels with a transcript: the words spoken over the shot (on the timeline), and the same words joined. */
   words?: TranscriptWord[];
   spoken?: string;
 }
@@ -37,6 +37,13 @@ export interface TranscriptWord {
   text: string;
   start: number;
   end: number;
+}
+
+/** A stretch of the source video (seconds) kept in the reel, and where it starts on the reel's timeline. */
+export interface VersionPiece {
+  in: number;
+  out: number;
+  at: number;
 }
 
 export interface Overlay {
@@ -79,6 +86,8 @@ export interface Version {
   claimMismatch?: string[];
   /** Footage reels only. */
   footage?: { path: string; exists: boolean };
+  /** Footage reels only: the stretches of the video the reel plays, in play order, with where each starts on the timeline. */
+  pieces?: VersionPiece[];
   transcript?: TranscriptWord[];
   transcriptProblem?: string;
 }

@@ -40,6 +40,11 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
   element and reports a position only.
 - `unavailable` on both: a reason the shot is known not to render (found statically); the page is not loaded and the same
   labelled placeholder shows it.
+- `PagePlayer({ pageUrl, time, title, className?, onPhrases? })`, the page while a reel plays (Review). Loads the page like a
+  still, then calls its global `seek(time)` on every change of `time` without waiting for the frame to draw, so the
+  caller can drive it once per animation frame. Seek problems are reported like a still's. On load it reports the
+  caption phrases the page holds (`{ start, end, text }` from its `[data-caption]` scenes), so the editor shows the
+  engine's own phrase breaks. The page is only read. The caller sizes the box (`className`); the frame fills it.
 - `useSeekProblems(pageUrl)`, the runtime contract issues seen while driving that page (`{ kind: 'no-seek' }` or
   `{ kind: 'seek-threw', time, detail }`), each once however many stills hit it. Stills and frames report their seeks here.
 - `seekPage(window, seconds)`, the seek-and-wait step on its own.
@@ -47,7 +52,7 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
 
 ## Does not handle
 
-Playback and word pins. The issue list itself is drawn by the app.
+Playback timing (the Review module decides when to seek; the player only seeks) and word pins. The issue list itself is drawn by the app.
 
 ## Dependencies
 

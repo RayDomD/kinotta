@@ -35,6 +35,10 @@ const BROLL_PORT = 4390;
 /** A ninth for new-reel.spec.ts: the footage sample with a fake transcriber, since a reel is started in it. */
 const NEW_REEL_PORT = 4389;
 
+/** A tenth for review.spec.ts: the footage sample with a fake transcriber, since it starts reels and adds a version to the project. */
+const REVIEW_PORT = 4386;
+const REVIEW_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-review-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -120,6 +124,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${NEW_REEL_PORT}`,
       env: { ...serverEnv(NEW_REEL_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1' },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${REVIEW_PORT}`,
+      env: { ...serverEnv(REVIEW_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1', KINOTTA_E2E_PROJECT_FILE: REVIEW_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },

@@ -5,7 +5,7 @@ import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { NewReel } from './NewReel.tsx';
-import { Review } from './Review.tsx';
+import { Review } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
 import { useVersionIssues } from './issues.ts';
@@ -254,7 +254,18 @@ function Main(props: MainProps) {
   if (listing.state === 'no-reels' || !reel) {
     return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask Claude for a storyboard to add one.`}</Empty></main>;
   }
-  if (phase === 'Review') return <Review reel={reel} version={version.status === 'ready' ? version.version : undefined} />;
+  if (phase === 'Review') {
+    return (
+      <Review
+        reel={reel}
+        state={version.status}
+        message={version.status === 'error' ? version.message : undefined}
+        version={version.status === 'ready' ? version.version : undefined}
+        comments={comments.comments}
+        section={version.status === 'ready' && hasSections(version.version.sections) ? (version.version.sections.find((s) => s.id === sectionId) ?? null) : null}
+      />
+    );
+  }
   return (
     <main className="main">
       <ReadyNotice version={readyVersion} onOpen={onOpenVersion} />
