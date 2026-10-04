@@ -156,7 +156,7 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
     issues: parsed === null ? fileCheck.issues : [...fileCheck.issues, ...page.issues, ...checkShotsAgainstPage(fileCheck.shots, page.scenes)],
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
-  return addFootage(projectDir, reelDir, version);
+  return addFootage(projectDir, reelDir, versionDir, version);
 }
 
 /** The page of version n as text, or empty when it has none (for comparing two versions). */

@@ -7,7 +7,7 @@ export interface Piece {
 }
 
 /** A piece with where it starts on the timeline. */
-interface PlacedPiece extends Piece {
+export interface PlacedPiece extends Piece {
   at: number;
 }
 

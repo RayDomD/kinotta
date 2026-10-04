@@ -1,3 +1,5 @@
+import type { PlacedPiece } from './pieces.ts';
+
 export interface ReelSummary {
   /** Folder name under reels/. */
   slug: string;
@@ -94,7 +96,9 @@ export interface Version {
   claimMismatch?: string[];
   /** Footage reels only: the footage file named in reel.json, which stays where it is in the project. */
   footage?: { path: string; exists: boolean };
-  /** Footage reels only: the timed words of transcript.json. Absent when it is missing or unreadable. */
+  /** Footage reels only: the pieces of the video the reel plays, in play order, with where each starts on the timeline. One piece over the whole video when the plan has none. */
+  pieces?: PlacedPiece[];
+  /** Footage reels only: the timed words of the version's transcript.json, on the reel's timeline (a word in a snip is gone). Absent when it is missing or unreadable. */
   transcript?: TranscriptWord[];
   /** Footage reels only: why there is no transcript. */
   transcriptProblem?: string;
