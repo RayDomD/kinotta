@@ -1,5 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
+import type { CaptionsPlan } from './edit-model.ts';
 import { pieceMap } from './pieces.ts';
 import type { Piece, PlacedPiece } from './pieces.ts';
 import type { Shot, TranscriptWord, Version } from './types.ts';
@@ -95,6 +96,17 @@ async function readPieces(versionDir: string, reelDir: string, duration: number)
   }
 }
 
+/** The version plan's captions: `true`, or the object holding the look, colour and positions. Absent when off or unreadable. */
+async function readCaptions(versionDir: string, reelDir: string): Promise<Version['captions']> {
+  try {
+    const captions = (JSON.parse((await readOwn(versionDir, reelDir, PLAN_FILE)) ?? 'null') as { captions?: unknown } | null)?.captions;
+    if (captions === true) return true;
+    return captions !== null && typeof captions === 'object' && !Array.isArray(captions) ? (captions as CaptionsPlan) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The transcript on the timeline: words that start inside a piece, cut at its out, in timeline order. */
 function wordsOnTimeline(words: TranscriptWord[], pieces: PlacedPiece[]): TranscriptWord[] {
   const placed: TranscriptWord[] = [];
@@ -119,7 +131,8 @@ export async function addFootage(projectDir: string, reelDir: string, versionDir
   if (!ref) return version;
   const pieces = await readPieces(versionDir, reelDir, version.duration);
   const transcript = await readTranscript(versionDir, reelDir);
-  const withFootage: Version = { ...version, footage: { path: ref.path, exists: await isFile(ref.file) }, pieces };
+  const captions = await readCaptions(versionDir, reelDir);
+  const withFootage: Version = { ...version, footage: { path: ref.path, exists: await isFile(ref.file) }, pieces, ...(captions === undefined ? {} : { captions }) };
   if ('problem' in transcript) return { ...withFootage, transcriptProblem: transcript.problem };
   const words = wordsOnTimeline(transcript.words, pieces);
   return {

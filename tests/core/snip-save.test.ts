@@ -381,3 +381,37 @@ describe('word-text and word-timing on Save', () => {
     expect((await project.readEditList(slug)).operations).toHaveLength(2);
   });
 });
+
+describe('caption positions on Save', () => {
+  const shifted = (html: string): string[] => [...html.matchAll(/class="caption"[^>]*style="[^"]*?(?:;translate:([^;"]+))?"/g)].map((m) => m[1] ?? 'none');
+
+  it('writes both positions into the plan and the next page, which keeps a phrase in place after nearby words are re-timed', { timeout: SLOW_MS }, async () => {
+    const { reelDir, slug, project } = await startedReel();
+    // Phrases: "hello there friends." (first word 0.5 s) and "later" (8.2 s).
+    await project.addOperation(slug, { kind: 'caption-position', x: 30, y: -10 });
+    await project.addOperation(slug, { kind: 'caption-phrase-position', at: 8.2, x: 0, y: -200 });
+    await project.addOperation(slug, { kind: 'word-timing', at: 1.5, start: 1.55, end: 2.1 });
+
+    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+
+    const plan = readJson(join(reelDir, 'v2', 'plan.json'));
+    expect(plan.captions).toEqual({ position: { x: 30, y: -10 }, phrases: [{ at: 8.2, x: 0, y: -200 }] });
+    expect(readJson(join(reelDir, 'plan.json')).captions).toEqual(plan.captions);
+    expect(shifted(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8'))).toEqual(['30px -10px', '30px -210px']);
+    expect((await project.readVersion(slug, 2)).captions).toEqual(plan.captions);
+    // v1 is as it was built.
+    expect(shifted(readFileSync(join(reelDir, 'v1', 'index.html'), 'utf8'))).toEqual(['none', 'none']);
+    expect((await project.readVersion(slug, 1)).captions).toBe(true);
+    expect((await project.readVersion(slug, 2)).changedSections).toEqual(['all']);
+  });
+
+  it('moves a phrase position with its first word when that word is re-timed, and refuses a phrase that has no word', { timeout: SLOW_MS }, async () => {
+    const { slug, project } = await startedReel();
+    await project.addOperation(slug, { kind: 'caption-phrase-position', at: 8.2, x: 0, y: -200 });
+    await project.addOperation(slug, { kind: 'word-timing', at: 8.2, start: 8.3, end: 8.6 });
+    await expect(project.addOperation(slug, { kind: 'caption-phrase-position', at: 4, x: 1, y: 1 })).rejects.toMatchObject({ code: 'invalid' });
+    await project.saveEdits(slug);
+
+    expect((await project.readVersion(slug, 2)).captions).toEqual({ phrases: [{ at: 8.3, x: 0, y: -200 }] });
+  });
+});

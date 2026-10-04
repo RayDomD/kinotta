@@ -26,6 +26,7 @@ export interface ReviewSideProps {
 function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number): string {
   const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   const op = operations[index]!;
+  if (op.kind === 'caption-position') return 'all captions';
   const at =
     op.kind === 'snip'
       ? toTimelineSpan(before, op.from, op.to)?.start

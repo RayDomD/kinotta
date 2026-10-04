@@ -11,6 +11,8 @@ A clip's fragment is the plan clip's "clip" path, else clips/<id>-*.html or <id>
 plan. The page lasts the plan's "duration" (the video's length), else until the last clip's out-point.
 With "captions" (true, or { "look": "highlight" | "phrase" | "words", "color" }) and "transcript" (its path from
 the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word.
+Captions can be moved: "position" { x, y } offsets every caption and "phrases" [{ at, x, y }] one more, the phrase
+whose first word starts at source second "at" (within CAPTION_AT); px of the 1920x1080 page, CSS translate on the caption.
 With "pieces" ([{ "in", "out" }], see pieces.py) the plan's source times are mapped to the reel's timeline: a clip in a
 snipped stretch is dropped, one straddling a snip is trimmed to its edge, and words in a snip get no caption."""
 import base64, html, json, re, sys, pathlib
@@ -57,6 +59,7 @@ CAPTION_LOOKS = ('highlight', 'phrase', 'words')
 CAPTION_COLOR = '#FF5A1F'   # the engine's accent
 CAPTION_WORDS = 6           # a phrase's usual cap; it runs up to two over to reach a clause end
 CAPTION_PAUSE = 0.3         # a gap between words this long ends a phrase
+CAPTION_AT = 0.005          # a phrase position names its first word's source start to within this
 CAPTION_HOLD = 0.6          # a phrase stays up until the next starts when the gap is shorter than this
 # Bottom centre, clear of left-side panels; the scene lets clicks through to the clips under it, the caption takes them.
 CAPTION_CSS = ('[data-caption]{pointer-events:none}'
@@ -72,6 +75,14 @@ def caption_style(value):
     look = opts.get('look', 'highlight')
     if look not in CAPTION_LOOKS: sys.exit(f'captions look must be one of {", ".join(CAPTION_LOOKS)}')
     return look, opts.get('color', CAPTION_COLOR)
+def caption_shift(value, first):
+    """The offset (x, y) of the phrase whose first word starts at source second `first`: the reel-wide position plus
+    that phrase's own, or None when it is not moved."""
+    opts = {} if value is True else value
+    pos = opts.get('position') or {}
+    own = min((e for e in opts.get('phrases') or [] if abs(e['at'] - first) <= CAPTION_AT), key=lambda e: abs(e['at'] - first), default={})
+    x, y = pos.get('x', 0) + own.get('x', 0), pos.get('y', 0) + own.get('y', 0)
+    return None if x == 0 and y == 0 else (x, y)
 def phrases(words):
     """Caption phrases: a break at a pause, at a clause end once the phrase has 3 words, or at the cap (up to two
     words over it when that reaches a clause end)."""
@@ -90,13 +101,15 @@ def phrases(words):
 def caption_scenes(plan_dir, P, pieces=None):
     if not P.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
     look, color = caption_style(P['captions'])
-    words = json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']
+    words = [{**w, 'at': w['start']} for w in json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']]
     if pieces: words = timeline_words(words, pieces)
     scenes = []
     for n, ph in enumerate(phrases(words), 1):
         spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}">{html.escape(w["text"])}</span>' for w in ph['words'])
+        shift = caption_shift(P['captions'], ph['words'][0]['at'])
+        moved = f';translate:{shift[0]:g}px {shift[1]:g}px' if shift else ''
         scenes.append(f'<section data-scene="cap-{n:03d}" data-caption data-start="{ph["start"]}" data-duration="{round(ph["end"] - ph["start"], 6)}">'
-                      f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}"><span class="ph">{spans}</span></div></section>')
+                      f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}{moved}"><span class="ph">{spans}</span></div></section>')
     return scenes
 def compose(plan_path, dst):
     plan_dir = pathlib.Path(plan_path).resolve().parent; source = json.load(open(plan_path, encoding='utf-8')); P = timeline_plan(source)

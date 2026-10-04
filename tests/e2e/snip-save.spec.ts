@@ -12,6 +12,8 @@ const AXIS_INSET = 10;
 /** The sample video is 12 s and the lanes open on all of it; a drag from a quarter to a half selects about 3 s. */
 const DRAG_FROM = 0.25;
 const DRAG_TO = 0.5;
+/** A caption nobody moved: no `translate`, or the preview's zero offset (which Chrome reports as one 0px). */
+const NOT_MOVED = /^(none|0px)$/;
 
 // The footage sample with a fake transcriber, its own server (playwright.config.ts).
 test.use({ baseURL: 'http://localhost:4385' });
@@ -280,4 +282,68 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   expect(first[1].text).toBe('there');
   await expect(word(1)).toHaveText('where');
   await expect(word(1)).not.toHaveClass(/fixed/);
+});
+
+test('dragging a caption moves every caption, Alt-drag moves one phrase, and Save builds both', async ({ page }) => {
+  await startReel(page, 'Caption talk');
+  const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
+  const handle = review(page).getByRole('button', { name: /^Move captions/ });
+  const caption = page.frameLocator('iframe[title="Caption talk page"]').locator('.caption').first();
+
+  // One second in, a caption is on show: the editor's handle sits over it, outside the page.
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(timecode(page)).toHaveText(/^00:01\.\d\d/);
+  await expect(handle).toBeVisible();
+  await expect(caption).toHaveCSS('translate', NOT_MOVED);
+  await expect(page.frameLocator('iframe[title="Caption talk page"]').locator('.rv-caphandle')).toHaveCount(0);
+
+  const dragBy = async (dx: number, dy: number, alt: boolean): Promise<void> => {
+    const box = (await handle.boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    if (alt) await page.keyboard.down('Alt');
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx / 2, y + dy / 2, { steps: 4 });
+    await page.mouse.move(x + dx, y + dy, { steps: 4 });
+    await page.mouse.up();
+    if (alt) await page.keyboard.up('Alt');
+  };
+
+  // A drag moves all captions: one card, and the page's caption is shifted in the preview.
+  const before = (await handle.boundingBox())!;
+  await dragBy(-30, -40, false);
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('Captions · all captions');
+  await expect(cards.first()).toContainText(/Moved all captions to -\d+, -\d+/);
+  await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
+  const after = (await handle.boundingBox())!;
+  expect(after.y).toBeLessThan(before.y - 20);
+  expect(after.x).toBeLessThan(before.x - 15);
+
+  // Alt-drag moves this phrase alone, on top of that: its own card, and the lane marks the phrase.
+  await dragBy(0, -40, true);
+  await expect(cards).toHaveCount(2);
+  await expect(cards.last()).toContainText(/Moved one caption to 0, -\d+/);
+  await expect(review(page).locator('.rv-phrase.own')).toHaveCount(1);
+
+  // The arrow keys nudge the focused handle (Shift for one pixel; Alt moves the phrase).
+  await handle.focus();
+  await page.keyboard.press('Shift+ArrowDown');
+  await expect(cards).toHaveCount(3);
+  await expect(cards.last()).toContainText('Moved all captions');
+
+  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  const project = readFileSync(PROJECT_FILE, 'utf8');
+  const reelDir = join(project, 'reels', 'caption-talk');
+  const { captions } = JSON.parse(readFileSync(join(reelDir, 'v2', 'plan.json'), 'utf8'));
+  expect(captions.position.x).toBeLessThan(0);
+  expect(captions.position.y).toBeLessThan(-30);
+  expect(captions.phrases).toEqual([{ at: 0.5, x: 0, y: expect.any(Number) }]);
+  expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain(';translate:');
+  expect(readFileSync(join(reelDir, 'v1', 'index.html'), 'utf8')).not.toContain('translate:');
+  // The new version's page already holds the positions; the editor shows them without any unsaved edit.
+  await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
+  await expect(cards).toHaveCount(0);
 });

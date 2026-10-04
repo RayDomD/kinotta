@@ -108,3 +108,51 @@ describe('word-text and word-timing', () => {
     expect(operationTouches(text(5, 'x'), { start: 0, end: 2 })).toBe(false);
   });
 });
+
+describe('caption-position and caption-phrase-position', () => {
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const sources = { plan: { captions: true as const }, words };
+  const all = (x: number, y: number) => ({ id: 'a', kind: 'caption-position' as const, x, y });
+  const one = (at: number, x: number, y: number) => ({ id: 'b', kind: 'caption-phrase-position' as const, at, x, y });
+
+  it('writes the reel-wide position into the plan, turning `true` into an object, and a second move replaces the first', () => {
+    const first = applyOperation(sources, all(40, -20));
+    expect(first.plan.captions).toEqual({ position: { x: 40, y: -20 } });
+    expect(applyOperation(first, all(5, 6)).plan.captions).toEqual({ position: { x: 5, y: 6 } });
+    expect(applyOperation(first, all(0, 0)).plan.captions).toEqual({});
+    expect(sources.plan.captions).toBe(true);
+  });
+
+  it('keeps look and colour, and writes a phrase position keyed by its first word start', () => {
+    const next = applyOperation({ plan: { captions: { look: 'words' } }, words }, one(1, 0, -100));
+    expect(next.plan.captions).toEqual({ look: 'words', phrases: [{ at: 1, x: 0, y: -100 }] });
+    expect(applyOperation(next, one(1, 3, 4)).plan.captions).toEqual({ look: 'words', phrases: [{ at: 1, x: 3, y: 4 }] });
+    expect(applyOperation(next, one(1, 0, 0)).plan.captions).toEqual({ look: 'words' });
+  });
+
+  it('moves a phrase position with its first word when that word is re-timed, and leaves the others', () => {
+    const placed = applyOperation(applyOperation(sources, one(1, 0, -100)), one(0.5, 7, 7));
+    const next = applyOperation(placed, { id: 'c', kind: 'word-timing', at: 1, start: 1.1, end: 1.4 });
+    expect(next.plan.captions).toEqual({ phrases: [{ at: 0.5, x: 7, y: 7 }, { at: 1.1, x: 0, y: -100 }] });
+    // A re-time of a word that opens no phrase changes nothing in the plan's captions.
+    expect(applyOperation(sources, { id: 'c', kind: 'word-timing', at: 1, start: 1.1, end: 1.4 }).plan.captions).toBe(true);
+  });
+
+  it('refuses when captions are off, a position that is not a number, and a phrase with no word at its time', () => {
+    expect(() => applyOperation({ plan: {}, words }, all(1, 1))).toThrow(/Captions are off/);
+    expect(() => applyOperation({ plan: { captions: false }, words }, one(1, 1, 1))).toThrow(/Captions are off/);
+    expect(() => applyOperation(sources, all(Number.NaN, 1))).toThrow(/numbers/);
+    expect(() => applyOperation(sources, one(3, 1, 1))).toThrow(/no word/);
+  });
+
+  it('says what it did, and touches the sections whose captions it moves', () => {
+    expect(describeOperation(all(40, -20))).toEqual({ target: 'Captions', text: 'Moved all captions to 40, -20' });
+    expect(describeOperation(one(1, 0, -100))).toEqual({ target: 'Captions', text: 'Moved one caption to 0, -100' });
+    expect(operationTouches(all(1, 1), { start: 5, end: 9 })).toBe(true);
+    expect(operationTouches(one(1, 1, 1), { start: 0, end: 2 })).toBe(true);
+    expect(operationTouches(one(1, 1, 1), { start: 2, end: 4 })).toBe(false);
+  });
+});

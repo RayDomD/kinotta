@@ -129,12 +129,17 @@ const ClipsLane = memo(function ClipsLane({ win, clips }: { win: TimeWindow; cli
   );
 });
 
-const CaptionsLane = memo(function CaptionsLane({ win, phrases, current }: { win: TimeWindow; phrases: readonly CaptionPhrase[]; current: number }) {
+/** A caption phrase on the Captions lane; `own` marks one moved on its own. */
+export interface PhraseCell extends CaptionPhrase {
+  own?: boolean;
+}
+
+const CaptionsLane = memo(function CaptionsLane({ win, phrases, current }: { win: TimeWindow; phrases: readonly PhraseCell[]; current: number }) {
   return (
     <div className="lane rv-caps">
       {phrases.map((phrase, i) =>
         inWindow(win, phrase.start, phrase.end) ? (
-          <div key={i} className={i === current ? 'rv-phrase cur' : 'rv-phrase'} style={place(win, phrase.start, phrase.end)} title={phrase.text}>
+          <div key={i} className={`rv-phrase${i === current ? ' cur' : ''}${phrase.own ? ' own' : ''}`} style={place(win, phrase.start, phrase.end)} title={phrase.text}>
             {phrase.text}
           </div>
         ) : null,
@@ -379,7 +384,7 @@ export interface LanesProps {
   /** Footage reels only. */
   pieces: readonly Piece[] | null;
   clips: readonly ClipSpan[];
-  phrases: readonly CaptionPhrase[];
+  phrases: readonly PhraseCell[];
   currentPhrase: number;
   /** Footage reels with a transcript only. */
   words: readonly WordCell[] | null;

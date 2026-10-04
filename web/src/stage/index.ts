@@ -1,5 +1,5 @@
 export { PagePlayer } from './_internal/PagePlayer.tsx';
-export type { CaptionPhrase, PagePlayerProps } from './_internal/PagePlayer.tsx';
+export type { CaptionMove, CaptionPhrase, CaptionShift, PagePlayerProps } from './_internal/PagePlayer.tsx';
 export { PageStill } from './_internal/PageStill.tsx';
 export type { PageStillProps, StillState } from './_internal/PageStill.tsx';
 export { PinFrame } from './_internal/PinFrame.tsx';

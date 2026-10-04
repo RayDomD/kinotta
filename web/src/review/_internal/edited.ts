@@ -1,5 +1,6 @@
-import { applyOperations, pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from '../../../../server/core/model.ts';
-import type { Operation, Piece } from '../../../../server/core/model.ts';
+import { MIN_SNIP, applyOperations, pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan, wordIndexAt } from '../../../../server/core/model.ts';
+import type { Operation, Piece, Plan } from '../../../../server/core/model.ts';
+import type { TranscriptWord, Version } from '../../api/index.ts';
 
 /** Moves things from the saved version's timeline to the timeline with the unsaved edits applied, and back for the page. */
 export interface Remap {
@@ -73,4 +74,44 @@ export function editedList<T extends Piece>(saved: readonly T[], operations: rea
   } catch {
     return saved;
   }
+}
+
+/** Where a caption sits relative to its default place, in pixels of the 1920x1080 page, and whether the phrase has a position of its own. */
+export interface CaptionShift {
+  x: number;
+  y: number;
+  own: boolean;
+  /** The reel-wide part of the offset. */
+  wide: { x: number; y: number };
+  /** The phrase's first word's start in source seconds with the unsaved re-times applied: what a phrase position names. */
+  key: number;
+}
+
+/**
+ * The offset of each caption phrase with the unsaved operations applied over the saved version's captions: the reel-wide
+ * position plus the phrase's own, found by its first word. `phraseStarts` are the phrases' first-word starts in source
+ * seconds and `words` the saved words in source seconds. Null when the version has captions off.
+ */
+export function captionShifts(captions: Version['captions'], operations: readonly Operation[], words: readonly TranscriptWord[], phraseStarts: readonly number[]): CaptionShift[] | null {
+  if (captions === undefined) return null;
+  let plan: Plan = { captions };
+  let edited: readonly TranscriptWord[] = words;
+  try {
+    const moves = operations.filter((op) => op.kind === 'caption-position' || op.kind === 'caption-phrase-position' || op.kind === 'word-timing');
+    ({ plan, words: edited } = applyOperations({ plan, words: [...words] }, moves));
+  } catch {
+    // The list no longer applies to these words; the saved positions show.
+  }
+  const positions = typeof plan.captions === 'object' ? plan.captions : {};
+  return phraseStarts.map((start) => {
+    let key = start;
+    try {
+      key = edited[wordIndexAt(words, start)]!.start;
+    } catch {
+      // No word opens a phrase there; the phrase keeps the reel-wide position.
+    }
+    const own = positions.phrases?.find((p) => Math.abs(p.at - key) <= MIN_SNIP);
+    const wide = { x: positions.position?.x ?? 0, y: positions.position?.y ?? 0 };
+    return { x: wide.x + (own?.x ?? 0), y: wide.y + (own?.y ?? 0), own: own !== undefined, wide, key };
+  });
 }

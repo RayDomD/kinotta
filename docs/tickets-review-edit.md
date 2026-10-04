@@ -145,7 +145,7 @@ spoken lines follow. Phrase breaks stay automatic. Operations target a word by i
 - [x] A re-timed word lights at its new time in the saved version
 - [x] Playwright: edit a word (spec written, run pending)
 
-## T37 (#39). Move captions
+## T37 (#39). Move captions — Done
 
 **What to build:** Dragging a caption moves every caption (`captions.position` in the plan). Alt-dragging moves only
 that phrase, anchored to its first word's source time, and the phrase keeps its place when words around it are
@@ -155,9 +155,9 @@ re-timed. `build.py` applies both.
 
 **Model:** mid
 
-- [ ] Dragging moves all captions in the saved version
-- [ ] Alt-drag moves one phrase; it keeps its place after nearby words are re-timed
-- [ ] A plan without caption positions builds as before
+- [x] Dragging moves all captions in the saved version (spec written, run pending)
+- [x] Alt-drag moves one phrase; it keeps its place after nearby words are re-timed (spec written, run pending)
+- [x] A plan without caption positions builds as before
 
 ## T38 (#40). Trim and slide clips
 

@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from 'react';
 import { PagePlayer } from '../../stage/index.ts';
-import type { CaptionPhrase } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase, CaptionShift } from '../../stage/index.ts';
 import { formatClock } from '../../timecode.ts';
 import { formatTransport } from './clock.ts';
 import type { TimeWindow } from './timeline.ts';
@@ -25,6 +25,10 @@ export interface PlayerProps {
   onToggle(): void;
   onZoom(factor: number): void;
   onPhrases(phrases: CaptionPhrase[]): void;
+  /** Where each caption phrase sits with the unsaved moves applied, previewed in the page. */
+  captionShifts?: readonly CaptionShift[] | null;
+  /** The caption was dragged or nudged; absent when captions cannot be moved. */
+  onCaptionMove?(move: CaptionMove): void | Promise<unknown>;
   onVideoMetadata(duration: number): void;
   onVideoError(): void;
 }
@@ -43,7 +47,7 @@ function PlayMark({ playing }: { playing: boolean }) {
 
 /** The Gate well: the reel's frame (footage under the version page) and the transport under it. */
 export function Player(props: PlayerProps) {
-  const { title, footageSrc, video, pageUrl, problem, time, pageTime, total, playing, win, tools, onToggle, onZoom, onPhrases, onVideoMetadata, onVideoError } = props;
+  const { title, footageSrc, video, pageUrl, problem, time, pageTime, total, playing, win, tools, onToggle, onZoom, onPhrases, captionShifts, onCaptionMove, onVideoMetadata, onVideoError } = props;
   return (
     <div className="well rv-well">
       <div className="rv-frame" aria-label={`${title} frame`}>
@@ -60,7 +64,7 @@ export function Player(props: PlayerProps) {
             onError={onVideoError}
           />
         )}
-        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} />}
+        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} captionShifts={captionShifts} onCaptionMove={onCaptionMove} />}
         {problem !== null && <div className="rv-problem" role="status">{problem}</div>}
       </div>
       <div className="rv-transport">

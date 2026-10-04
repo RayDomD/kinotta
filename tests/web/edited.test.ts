@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
-import { remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
+import { captionShifts, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
 /** Seconds 3 to 5 snipped. */
@@ -68,5 +68,39 @@ describe('dropIndex', () => {
     expect(dropIndex(pieces, 0, 5)).toBe(1);
     expect(dropIndex(pieces, 0, 9)).toBe(2);
     expect(dropIndex(pieces, 1, 1)).toBe(1);
+  });
+});
+
+describe('captionShifts', () => {
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+    { text: 'later', start: 8.2, end: 8.6 },
+  ];
+  const starts = [0.5, 8.2];
+  const shown = (...args: Parameters<typeof captionShifts>) => captionShifts(...args)?.map(({ x, y, own }) => ({ x, y, own })) ?? null;
+  const all = (x: number, y: number) => ({ id: 'a', kind: 'caption-position' as const, x, y });
+  const one = (at: number, x: number, y: number) => ({ id: 'b', kind: 'caption-phrase-position' as const, at, x, y });
+
+  it('is null when captions are off, and zero for a plan nobody moved', () => {
+    expect(shown(undefined, [], words, starts)).toBeNull();
+    expect(shown(true, [], words, starts)).toEqual([{ x: 0, y: 0, own: false }, { x: 0, y: 0, own: false }]);
+  });
+
+  it('shows the saved positions, and the unsaved ones over them: the reel-wide position replaces, the phrase adds to it', () => {
+    const saved = { position: { x: 10, y: 0 }, phrases: [{ at: 8.2, x: 0, y: -50 }] };
+    expect(shown(saved, [], words, starts)).toEqual([{ x: 10, y: 0, own: false }, { x: 10, y: -50, own: true }]);
+    expect(shown(saved, [all(30, 5), one(0.5, 0, 9)], words, starts)).toEqual([{ x: 30, y: 14, own: true }, { x: 30, y: -45, own: true }]);
+  });
+
+  it('names the phrase by its first word as re-timed, and keeps the reel-wide part apart', () => {
+    const moved = [all(30, 5), one(8.2, 0, -50), { id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
+    const [, second] = captionShifts(true, moved, words, starts)!;
+    expect(second).toMatchObject({ key: 8.3, wide: { x: 30, y: 5 }, x: 30, y: -45 });
+  });
+
+  it('follows a phrase whose first word is re-timed', () => {
+    const moved = [one(8.2, 0, -50), { id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
+    expect(shown(true, moved, words, starts)).toEqual([{ x: 0, y: 0, own: false }, { x: 0, y: -50, own: true }]);
   });
 });

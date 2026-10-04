@@ -9,11 +9,31 @@ import type { TranscriptWord } from './types.ts';
  * same code. A new kind of edit is one member of `Operation`, one `apply` function, and a line in each `switch` below.
  */
 
+/** An offset in pixels of the 1920x1080 page, from where captions sit by default. */
+export interface CaptionOffset {
+  x: number;
+  y: number;
+}
+
+/** A phrase's own offset, keyed by its first word's start in source seconds. It adds to the reel-wide one. */
+export interface PhrasePosition extends CaptionOffset {
+  at: number;
+}
+
+/** The plan's `captions` once it is more than `true`: the look and colour pass through. */
+export interface CaptionsPlan {
+  look?: string;
+  color?: string;
+  position?: CaptionOffset;
+  phrases?: PhrasePosition[];
+}
+
 /** The plan a reel's sources hold. Only the fields an operation touches are named; the rest passes through. */
 export interface Plan {
   /** Source seconds of the video. */
   duration?: number;
   pieces?: Piece[];
+  captions?: boolean | CaptionsPlan;
   sections?: { id: string; name: string; start: number; end: number }[];
   [key: string]: unknown;
 }
@@ -65,8 +85,32 @@ export interface WordTimingOperation {
   end: number;
 }
 
+/** Moves every caption: the reel-wide offset (`captions.position`). A new one replaces the last. */
+export interface CaptionPositionOperation {
+  id: string;
+  kind: 'caption-position';
+  x: number;
+  y: number;
+}
+
+/** Moves one caption phrase: its own offset, on top of the reel-wide one, keyed by its first word's start in source seconds. */
+export interface CaptionPhrasePositionOperation {
+  id: string;
+  kind: 'caption-phrase-position';
+  at: number;
+  x: number;
+  y: number;
+}
+
 /** Everything the edit list can hold. */
-export type Operation = SnipOperation | CutOperation | MovePieceOperation | WordTextOperation | WordTimingOperation;
+export type Operation =
+  | SnipOperation
+  | CutOperation
+  | MovePieceOperation
+  | WordTextOperation
+  | WordTimingOperation
+  | CaptionPositionOperation
+  | CaptionPhrasePositionOperation;
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 /** An operation as the caller sends it: the core gives it an id. */
@@ -176,6 +220,50 @@ function applyWordText(sources: Sources, op: WordTextOperation): Sources {
   return { ...sources, words };
 }
 
+/** The plan's captions as an object to change, or `invalid` when captions are off. */
+function captionsOf(plan: Plan): CaptionsPlan {
+  if (plan.captions === true) return {};
+  if (plan.captions && typeof plan.captions === 'object') return plan.captions;
+  throw new KinottaError('invalid', 'Captions are off for this reel, so there is nothing to move.');
+}
+
+/** The plan with these captions: `position` and `phrases` left out when empty, and `true` kept when nothing else is set. */
+function withCaptions(plan: Plan, captions: CaptionsPlan): Plan {
+  const { position, phrases, ...rest } = captions;
+  const next: CaptionsPlan = { ...rest, ...(position ? { position } : {}), ...(phrases && phrases.length > 0 ? { phrases } : {}) };
+  return { ...plan, captions: Object.keys(next).length === 0 && plan.captions === true ? true : next };
+}
+
+function offsetOf(op: { x: number; y: number }): CaptionOffset {
+  if (!Number.isFinite(op.x) || !Number.isFinite(op.y)) throw new KinottaError('invalid', 'A caption position needs x and y as numbers, in pixels.');
+  return { x: round(op.x), y: round(op.y) };
+}
+
+const isOrigin = (offset: CaptionOffset): boolean => offset.x === 0 && offset.y === 0;
+
+function applyCaptionPosition(sources: Sources, op: CaptionPositionOperation): Sources {
+  const { position: _was, ...captions } = captionsOf(sources.plan);
+  const offset = offsetOf(op);
+  return { ...sources, plan: withCaptions(sources.plan, isOrigin(offset) ? captions : { ...captions, position: offset }) };
+}
+
+function applyCaptionPhrasePosition(sources: Sources, op: CaptionPhrasePositionOperation): Sources {
+  const captions = captionsOf(sources.plan);
+  const offset = offsetOf(op);
+  const at = sources.words[wordIndexAt(sources.words, op.at)]!.start;
+  const others = (captions.phrases ?? []).filter((p) => Math.abs(p.at - at) > MIN_SNIP);
+  return { ...sources, plan: withCaptions(sources.plan, { ...captions, phrases: isOrigin(offset) ? others : [...others, { at, ...offset }].sort((a, b) => a.at - b.at) }) };
+}
+
+/** A phrase position follows its first word when that word is re-timed: it is keyed by the word's start. */
+function followWord(plan: Plan, from: number, to: number): Plan {
+  const captions = plan.captions;
+  if (!captions || typeof captions !== 'object' || !captions.phrases?.some((p) => Math.abs(p.at - from) <= MIN_SNIP)) return plan;
+  const moved = captions.phrases.map((p) => (Math.abs(p.at - from) <= MIN_SNIP ? { ...p, at: to } : p));
+  const unique = moved.filter((p, i) => moved.findIndex((q) => Math.abs(q.at - p.at) <= MIN_SNIP) === i);
+  return { ...plan, captions: { ...captions, phrases: unique.sort((a, b) => a.at - b.at) } };
+}
+
 function applyWordTiming(sources: Sources, op: WordTimingOperation): Sources {
   if (!Number.isFinite(op.start) || !Number.isFinite(op.end) || op.start < 0 || op.end - op.start <= MIN_SNIP) {
     throw new KinottaError('invalid', 'A word needs a start before its end, in seconds.');
@@ -186,7 +274,8 @@ function applyWordTiming(sources: Sources, op: WordTimingOperation): Sources {
   if (sources.words.some((w, i) => i !== index && w.start < end - MIN_SNIP && w.end > start + MIN_SNIP)) {
     throw new KinottaError('invalid', 'That would run the word over the one next to it.');
   }
-  return { ...sources, words: sources.words.map((w, i) => (i === index ? { ...w, start, end } : w)) };
+  const was = sources.words[index]!.start;
+  return { ...sources, plan: followWord(sources.plan, was, start), words: sources.words.map((w, i) => (i === index ? { ...w, start, end } : w)) };
 }
 
 /** The sources with one operation written into them. Throws `invalid` for an operation that cannot apply. */
@@ -202,6 +291,10 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyWordText(sources, op);
     case 'word-timing':
       return applyWordTiming(sources, op);
+    case 'caption-position':
+      return applyCaptionPosition(sources, op);
+    case 'caption-phrase-position':
+      return applyCaptionPhrasePosition(sources, op);
   }
 }
 
@@ -225,6 +318,11 @@ export function operationTouches(op: Operation, section: { start: number; end: n
       return op.at >= section.start && op.at < section.end;
     case 'word-timing':
       return (op.at >= section.start && op.at < section.end) || (op.start < section.end && op.end > section.start);
+    // Every caption moves, so every section's captions change.
+    case 'caption-position':
+      return true;
+    case 'caption-phrase-position':
+      return op.at >= section.start && op.at < section.end;
   }
 }
 
@@ -255,6 +353,10 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: 'Word', text: op.was ? `Changed “${op.was}” to “${op.text}”` : `Changed the word to “${op.text}”` };
     case 'word-timing':
       return { target: 'Word', text: `Re-timed to ${clock(op.start)} to ${clock(op.end)}` };
+    case 'caption-position':
+      return { target: 'Captions', text: `Moved all captions to ${op.x}, ${op.y}` };
+    case 'caption-phrase-position':
+      return { target: 'Captions', text: `Moved one caption to ${op.x}, ${op.y}` };
   }
 }
 

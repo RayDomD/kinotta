@@ -3,13 +3,13 @@ import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
 import type { Comment, ReelSummary, Section, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
-import type { CaptionPhrase } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
-import type { WordCell } from './Lanes.tsx';
+import type { PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
-import { editedList, remap, sourceStretches } from './edited.ts';
+import { captionShifts, editedList, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
 import type { Span } from './model.ts';
@@ -83,14 +83,18 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   const clips = useMemo(() => remapped(clipSpans(version?.shots ?? []), moved), [version, moved]);
   const overview = useMemo(() => (clips.length > 0 ? clips : (pieces ?? []).map((p) => ({ start: p.at, end: p.at + p.out - p.in }))), [clips, pieces]);
   // Words: the saved version's, taken back to source time, with the unsaved word edits applied, then placed on the edited timeline.
-  const shownWords = useMemo(() => {
+  const sourceWords = useMemo(() => {
     if (!version?.transcript) return null;
     const was = pieceMap(savedPieces ?? [], 0);
-    const now = pieceMap(pieces ?? [], 0);
-    const source = version.transcript.flatMap((w) => {
+    return version.transcript.flatMap((w) => {
       const start = toSource(was, w.start);
       return start === null ? [] : [{ text: w.text, start, end: start + (w.end - w.start) }];
     });
+  }, [version, savedPieces]);
+  const shownWords = useMemo(() => {
+    if (!sourceWords) return null;
+    const now = pieceMap(pieces ?? [], 0);
+    const source = sourceWords;
     let edited = source;
     try {
       edited = applyOperations({ plan: {}, words: source }, operations.filter((op) => op.kind === 'word-text' || op.kind === 'word-timing')).words;
@@ -102,9 +106,15 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
       const before = source[i]!;
       return span ? [{ text: w.text, ...span, fixed: w.text !== before.text, retimed: w.start !== before.start || w.end !== before.end, source: w }] : [];
     });
-  }, [version, savedPieces, pieces, operations]);
+  }, [sourceWords, pieces, operations]);
   const words: WordCell[] | null = shownWords;
-  const shownPhrases = useMemo(() => remapped(phrases, moved), [phrases, moved]);
+  // Caption positions: the saved ones with the unsaved moves over them, per phrase of the saved page.
+  const placements = useMemo(() => {
+    if (!sourceWords || !savedPieces) return null;
+    const was = pieceMap(savedPieces, 0);
+    return captionShifts(version?.captions, operations, sourceWords, phrases.map((p) => toSource(was, p.start) ?? Number.NaN));
+  }, [version, sourceWords, savedPieces, operations, phrases]);
+  const shownPhrases = useMemo(() => remapped<PhraseCell>(phrases.map((p, i) => ({ ...p, own: placements?.[i]?.own })), moved), [phrases, placements, moved]);
   const shownComments = useMemo(
     () =>
       comments.flatMap((c) => {
@@ -187,6 +197,19 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     const word = shownWordsRef.current?.[index];
     if (!allowed || !changes || changes.busy || !word) return;
     void changes.add({ kind: 'word-timing', at: word.source.start, start: word.source.start + startBy, end: word.source.end + endBy });
+  };
+  const placementsRef = useRef(placements);
+  placementsRef.current = placements;
+  /** A drag or nudge of the caption on show: all captions, or with Alt that phrase alone, by what it moved. */
+  const moveCaption = async ({ index, alt, dx, dy }: CaptionMove): Promise<void> => {
+    const { editable: allowed, edits: changes } = live.current;
+    const placed = placementsRef.current?.[index];
+    if (!allowed || !changes || changes.busy || !placed) return;
+    if (!alt) {
+      await changes.add({ kind: 'caption-position', x: placed.wide.x + dx, y: placed.wide.y + dy });
+      return;
+    }
+    await changes.add({ kind: 'caption-phrase-position', at: placed.key, x: placed.x - placed.wide.x + dx, y: placed.y - placed.wide.y + dy });
   };
   const snipRef = useRef(snip);
   snipRef.current = snip;
@@ -278,6 +301,8 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
         onToggle={playback.toggle}
         onZoom={zoom}
         onPhrases={setPhrases}
+        captionShifts={editable ? placements : null}
+        onCaptionMove={editable && placements ? moveCaption : undefined}
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />

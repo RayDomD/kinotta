@@ -1,4 +1,4 @@
-import type { NewOperation, Operation } from './edit-model.ts';
+import type { CaptionsPlan, NewOperation, Operation } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
 
 export interface ReelSummary {
@@ -103,6 +103,8 @@ export interface Version {
   transcript?: TranscriptWord[];
   /** Footage reels only: why there is no transcript. */
   transcriptProblem?: string;
+  /** Footage reels only: the `captions` of the version's plan (`true`, or the look, colour and caption positions). Absent when captions are off. */
+  captions?: true | CaptionsPlan;
   /** Who made the version: `you` for one Kinotta built, else an agent's name. Absent on versions that do not say. */
   builtBy?: string;
 }
