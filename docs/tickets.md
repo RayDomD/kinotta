@@ -456,3 +456,19 @@ Decisions C1 to C6; look picked in the sample pass (B, active word lit). No GitH
 **Blocked by:** none
 
 **Model:** `mid`
+
+## T28. Each version keeps the transcript it was built with
+
+Found checking the sample's v2 (2026-10-04). No GitHub issue yet.
+
+**What to build:** The transcript belongs to the reel, so a word fixed for `v2` ("Vidal" to "Dela") also changes `v1`'s spoken lines and word row in the editor, while `v1`'s page still shows the old word. A version should show the transcript it was built with.
+
+**Acceptance criteria:**
+
+- [ ] A version folder may hold its own `transcript.json`, which Kinotta reads before the reel's
+- [ ] The skill copies the transcript into the version when it corrects a word, leaving older versions as they were
+- [ ] `v1` keeps its spoken lines after `v2` corrects a word
+
+**Blocked by:** none
+
+**Model:** `mid`
