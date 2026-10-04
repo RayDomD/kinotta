@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { PagePlayer } from '../../stage/index.ts';
 import type { CaptionPhrase } from '../../stage/index.ts';
 import { formatClock } from '../../timecode.ts';
@@ -15,9 +15,13 @@ export interface PlayerProps {
   /** Why nothing can play, shown in the frame. */
   problem: string | null;
   time: number;
+  /** The second of the saved version's page to show: the page is the saved version's, while `time` is the edited reel's. */
+  pageTime: number;
   total: number;
   playing: boolean;
   win: TimeWindow;
+  /** The editing tools, between the timecode and the zoom. Absent when the reel cannot be edited. */
+  tools?: ReactNode;
   onToggle(): void;
   onZoom(factor: number): void;
   onPhrases(phrases: CaptionPhrase[]): void;
@@ -39,7 +43,7 @@ function PlayMark({ playing }: { playing: boolean }) {
 
 /** The Gate well: the reel's frame (footage under the version page) and the transport under it. */
 export function Player(props: PlayerProps) {
-  const { title, footageSrc, video, pageUrl, problem, time, total, playing, win, onToggle, onZoom, onPhrases, onVideoMetadata, onVideoError } = props;
+  const { title, footageSrc, video, pageUrl, problem, time, pageTime, total, playing, win, tools, onToggle, onZoom, onPhrases, onVideoMetadata, onVideoError } = props;
   return (
     <div className="well rv-well">
       <div className="rv-frame" aria-label={`${title} frame`}>
@@ -56,7 +60,7 @@ export function Player(props: PlayerProps) {
             onError={onVideoError}
           />
         )}
-        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={time} title={`${title} page`} onPhrases={onPhrases} />}
+        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} />}
         {problem !== null && <div className="rv-problem" role="status">{problem}</div>}
       </div>
       <div className="rv-transport">
@@ -66,6 +70,7 @@ export function Player(props: PlayerProps) {
         <div className="rv-tc" aria-label="Timecode">
           {formatTransport(time)} <span>{`/ ${formatTransport(total)}`}</span>
         </div>
+        {tools}
         <div className="rv-zoom">
           Showing <b>{`${formatClock(win.start)} to ${formatClock(win.start + win.length)}`}</b>
           <button type="button" className="rv-tool" aria-label="Zoom out" disabled={win.length >= total} onClick={() => onZoom(ZOOM_OUT)}>−</button>

@@ -1,3 +1,5 @@
+import type { NewOperation, Operation } from '../../../../server/core/model.ts';
+
 export interface ReelSummary {
   slug: string;
   title: string;
@@ -90,6 +92,7 @@ export interface Version {
   pieces?: VersionPiece[];
   transcript?: TranscriptWord[];
   transcriptProblem?: string;
+  builtBy?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -100,6 +103,8 @@ export interface VersionEntry {
   isStoryboard: boolean;
   /** Reels with several sections only: the ids of the sections this version changed. */
   changedSections?: string[];
+  /** Who made the version: `you`, or an agent's name. */
+  builtBy?: string;
 }
 
 /** What the server reports as it happens. */
@@ -289,3 +294,19 @@ export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ vi
  */
 export const startReel = (input: { video: string; title: string }): Promise<{ slug: string }> =>
   requestJson('/api/reels', jsonBody('POST', input));
+
+/** A reel's unsaved edits. A `stale` list was made on a version that is no longer the newest. */
+export interface EditList {
+  base: number;
+  operations: Operation[];
+  stale?: true;
+}
+
+const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
+
+export const fetchEdits = (slug: string): Promise<EditList> => getJson(editsPath(slug));
+export const addOperation = (slug: string, operation: NewOperation): Promise<EditList> => requestJson(editsPath(slug), jsonBody('POST', operation));
+export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
+/** Builds the next version from the edits. Resolves with its number. */
+export const saveEdits = async (slug: string): Promise<number> =>
+  (await requestJson<{ version: number }>(`/api/reels/${encodeURIComponent(slug)}/save`, { method: 'POST' })).version;

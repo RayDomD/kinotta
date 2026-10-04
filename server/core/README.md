@@ -63,6 +63,20 @@ since carry `waiting: true`. The first touch of a new newest version (a read, a 
 it once: unsent comments on unchanged sections move up from the version before, the rest stay and are listed by `carryNotice(slug, n)`;
 sent comments never move. Comments say whether they were `sent` and whether they `carried` on.
 
+- `readEditList(slug)`, `addOperation(slug, op)`, `discardEdits(slug)`, `saveEdits(slug)`: the reel's edit list and Save. The
+  list is `{ base, operations }` at `reels/<reel>/edit-list.json`, outside every version, rewritten atomically on every change;
+  `base` is the newest version when the edits were made, and a list for an older one is `stale` (no edits, no Save, Discard
+  works). An operation is `{ id, kind, ... }`; so far `snip` (`from`, `to`, source seconds). `addOperation` checks it applies on
+  top of the list, else throws `invalid`. `saveEdits` writes the operations into the reel's `plan.json` (and `transcript.json`
+  when an operation changes words), builds `v<n+1>` in `reels/<reel>/.save/` (its own `plan.json` and `transcript.json`,
+  `index.html`, `edits.json`, then `shots.json` last with `builtBy: "you"` and `changedSections`), renames it into place and
+  clears the list. Any failure (a build error, an empty list, a batch that is out) leaves no new version, the sources as they were
+  and the list in place. Only reels with a `plan.json` in the reel folder (those started in Kinotta) can be edited so far. A
+  new kind of edit is one member of the `Operation` union and one apply function in `_internal/edit-model.ts`.
+- `server/core/model.ts` re-exports the pure parts (pieces mapping, the operation model) with no file access, for the web editor.
+- A version may hold its own `transcript.json` and `plan.json`; `readVersion` reads them before the reel's (E14), and
+  `builtBy` (from `shots.json`) says who made it. `startReel` and Save both write them.
+
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at
 a time per file. Nothing is written into a version folder.

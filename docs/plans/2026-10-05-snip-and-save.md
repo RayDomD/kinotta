@@ -1,7 +1,7 @@
 ---
 title: Snip and Save (T32)
 date: 2026-10-05
-status: In Progress
+status: Done
 summary: T32. An edit list of operations (snip first) kept in the reel folder, an Edits panel and Snip tool in Review, and Save building the next version from the sources atomically.
 spec: docs/tickets-review-edit.md T32 (#34); docs/specs/2026-10-05-review-edit-phase.md
 ---
@@ -48,3 +48,4 @@ T32's seven criteria met, with an edit list that later operation kinds extend by
 
 ### 2026-10-05
 - Plan created.
+- Done. See the session summary.

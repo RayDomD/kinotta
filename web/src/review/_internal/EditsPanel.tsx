@@ -1,0 +1,99 @@
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { describeOperation, toTimelineSpan, pieceMap } from '../../../../server/core/model.ts';
+import type { Operation, Piece } from '../../../../server/core/model.ts';
+import { formatTransport } from './clock.ts';
+import { editedList } from './edited.ts';
+import type { EditsState } from './useEdits.ts';
+
+export interface ReviewSideProps {
+  edits: EditsState | undefined;
+  /** The open version's pieces; the cards say where each edit landed on the timeline. */
+  pieces: readonly Piece[] | undefined;
+  /** The open version is the newest and has footage, so it can be edited. */
+  editable: boolean;
+  /** The number the next Save makes. */
+  nextVersion: number;
+  /** Unsent comments on the open version. */
+  commentCount: number;
+  /** Save built this version; open it. */
+  onSaved(version: number): void;
+  /** The Comments tab's content. */
+  comments: ReactNode;
+}
+
+/** Where an operation landed on the timeline as it was when the operation was made, in the transport's reading. */
+function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number): string {
+  const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
+  const op = operations[index]!;
+  const span = op.kind === 'snip' ? toTimelineSpan(before, op.from, op.to) : null;
+  return span ? formatTransport(span.start) : formatTransport(0);
+}
+
+function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
+  const operations = edits?.list?.operations ?? [];
+  const stale = edits?.list?.stale === true;
+  const idle = edits !== undefined && !edits.busy;
+
+  async function save(): Promise<void> {
+    const version = await edits?.save();
+    if (version !== null && version !== undefined) onSaved(version);
+  }
+
+  return (
+    <>
+      <div className="rv-panelbody">
+        {!editable && <p className="meta">{stale ? 'These edits were made on an older version. Discard them to start again.' : 'Open the newest version to edit it.'}</p>}
+        {editable && operations.length === 0 && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip.</p>}
+        {operations.length > 0 && (
+          <ol className="clist" aria-label="Edits">
+            {operations.map((op, i) => {
+              const { target, text } = describeOperation(op);
+              return (
+                <li key={op.id} className="c">
+                  <div className="where">
+                    <span className="dot">{i + 1}</span>
+                    {`${target} · ${pieces ? whereOn(pieces, operations, i) : ''}`}
+                  </div>
+                  <p>{text}</p>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        {edits?.error && <p role="alert" className="c-error">{edits.error}</p>}
+      </div>
+      {operations.length > 0 && (
+        <div className="rv-save">
+          <div className="row">
+            <button type="button" className="btn" disabled={!idle || stale} onClick={() => void save()}>
+              {`Save as v${nextVersion}`}
+              <span className="count">{operations.length}</span>
+            </button>
+            <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.discard()}>Discard</button>
+          </div>
+          <div className="hint">{`Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The right column of the Review tab: Edits (the edit list, Save and Discard) and Comments. */
+export function ReviewSide(props: ReviewSideProps) {
+  const [tab, setTab] = useState<'edits' | 'comments'>('edits');
+  const count = props.edits?.list?.operations.length ?? 0;
+  return (
+    <div className="rv-side">
+      <div className="rv-tabs" role="tablist" aria-label="Edits and comments">
+        <button type="button" role="tab" aria-selected={tab === 'edits'} onClick={() => setTab('edits')}>
+          Edits{count > 0 && <span className="dot">{count}</span>}
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'comments'} onClick={() => setTab('comments')}>
+          Comments{props.commentCount > 0 && <span className="dot">{props.commentCount}</span>}
+        </button>
+      </div>
+      {tab === 'edits' ? <EditsTab {...props} /> : props.comments}
+    </div>
+  );
+}

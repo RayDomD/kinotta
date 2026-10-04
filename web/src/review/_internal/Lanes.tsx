@@ -13,6 +13,8 @@ const FULL = 100;
 const MS_PER_SECOND = 1000;
 /** Less than this between two pieces' source times is a cut, not a snip. */
 const SNIP_MIN = 0.005;
+/** A drag shorter than this selects nothing. */
+const MIN_SELECTION = 0.05;
 
 const place = (win: TimeWindow, start: number, end: number): CSSProperties => ({
   left: `${percentIn(win, start)}%`,
@@ -204,13 +206,19 @@ export interface LanesProps {
   onWindow(win: TimeWindow): void;
   /** Dragging along the lanes, or pressing a pin. */
   onScrub(time: number): void;
+  /** The Snip tool is on: dragging along the lanes selects a stretch instead of scrubbing. */
+  snipping: boolean;
+  /** The selected stretch of the timeline, shown as a band over the lanes. */
+  selection: Span | null;
+  onSelect(selection: Span | null): void;
 }
 
 /** The overview of the reel and the zoomed lanes under it, on one time axis with one playhead. */
 export function Lanes(props: LanesProps) {
-  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub } = props;
+  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect } = props;
   const plane = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
+  const selecting = useRef<{ anchor: number; band: Span | null } | null>(null);
   const scrub = useCallback(
     (e: PointerEvent) => {
       const rect = plane.current?.getBoundingClientRect();
@@ -218,6 +226,22 @@ export function Lanes(props: LanesProps) {
     },
     [onScrub, win],
   );
+  const select = useCallback(
+    (e: PointerEvent) => {
+      const rect = plane.current?.getBoundingClientRect();
+      const drag = selecting.current;
+      if (!rect || rect.width <= 0 || !drag) return;
+      const at = timeAt(win, rect, e.clientX);
+      drag.band = { start: Math.min(drag.anchor, at), end: Math.max(drag.anchor, at) };
+      onSelect(drag.band);
+    },
+    [onSelect, win],
+  );
+  const endSelecting = (): void => {
+    const band = selecting.current?.band ?? null;
+    selecting.current = null;
+    onSelect(band !== null && band.end - band.start >= MIN_SELECTION ? band : null);
+  };
   const visible = time >= win.start && time <= win.start + win.length;
 
   return (
@@ -225,16 +249,22 @@ export function Lanes(props: LanesProps) {
       <span>Reel</span>
       <Overview win={win} total={total} time={time} blocks={overview} onWindow={onWindow} />
       <div
-        className="rv-zoomed"
+        className={snipping ? 'rv-zoomed snipping' : 'rv-zoomed'}
         onPointerDown={(e) => {
           if (e.button !== 0 || (e.target as Element).closest('button') !== null) return;
-          scrubbing.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
+          const rect = plane.current?.getBoundingClientRect();
+          if (snipping && rect && rect.width > 0) {
+            selecting.current = { anchor: timeAt(win, rect, e.clientX), band: null };
+            onSelect(null);
+            return;
+          }
+          scrubbing.current = true;
           scrub(e);
         }}
-        onPointerMove={(e) => scrubbing.current && scrub(e)}
-        onPointerUp={() => (scrubbing.current = false)}
-        onPointerCancel={() => (scrubbing.current = false)}
+        onPointerMove={(e) => (selecting.current ? select(e) : scrubbing.current && scrub(e))}
+        onPointerUp={() => (selecting.current ? endSelecting() : (scrubbing.current = false))}
+        onPointerCancel={() => (selecting.current ? endSelecting() : (scrubbing.current = false))}
       >
         {pieces !== null && (
           <>
@@ -257,6 +287,11 @@ export function Lanes(props: LanesProps) {
         <span />
         <Axis win={win} total={total} />
         <div ref={plane} className="rv-plane">
+          {selection !== null && inWindow(win, selection.start, selection.end) && (
+            <div className="rv-sel" style={place(win, selection.start, selection.end)} aria-label="Selected stretch">
+              <span>{`−${(selection.end - selection.start).toFixed(1)}s`}</span>
+            </div>
+          )}
           {visible && (
             <div
               className="rv-ph"

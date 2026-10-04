@@ -5,7 +5,8 @@ import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { NewReel } from './NewReel.tsx';
-import { Review } from './review/index.ts';
+import { Review, ReviewSide, useEdits } from './review/index.ts';
+import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
 import { useVersionIssues } from './issues.ts';
@@ -104,6 +105,12 @@ interface VersionRailProps {
   onOpen(number: number): void;
 }
 
+/** Who made a version, as the rail says it: "Saved by you" for one Kinotta built, else the agent's name. */
+function whoMade(builtBy: string | undefined): string | null {
+  if (builtBy === undefined) return null;
+  return builtBy === 'you' ? 'Saved by you' : `Built by ${builtBy}`;
+}
+
 /** `now · changed 01`, `changed 01, 02`, `storyboard`: what a version row says besides its number. */
 function versionTag(entry: VersionEntry, sectionIds: string[] | null): string {
   const label = entry.isNewest ? 'now' : entry.isStoryboard ? 'storyboard' : '';
@@ -124,7 +131,10 @@ function VersionRail({ entries, selected, ready, sectionIds, onOpen }: VersionRa
             data-newest={entry.isNewest ? 'true' : undefined}
             onClick={() => onOpen(entry.number)}
           >
-            <span>{`v${entry.number}`}</span>
+            <span>
+              {`v${entry.number}`}
+              {whoMade(entry.builtBy) !== null && <span className="rv-who">{whoMade(entry.builtBy)}</span>}
+            </span>
             <span className="tags">
               {versionTag(entry, sectionIds) !== '' && <small className="num">{versionTag(entry, sectionIds)}</small>}
               {ready.has(entry.number) && entry.number !== selected && <small className="num ready-mark">ready</small>}
@@ -243,10 +253,11 @@ interface MainProps {
   phase: Phase;
   creating: boolean;
   onStarted(slug: string): void;
+  edits: EditsState;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits } = props;
   if (creating) return <NewReel project={project} onStarted={onStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
@@ -263,6 +274,7 @@ function Main(props: MainProps) {
         version={version.status === 'ready' ? version.version : undefined}
         comments={comments.comments}
         section={version.status === 'ready' && hasSections(version.version.sections) ? (version.version.sections.find((s) => s.id === sectionId) ?? null) : null}
+        edits={edits}
       />
     );
   }
@@ -351,6 +363,7 @@ export function App() {
   const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
+  const edits = useEdits(reel?.slug, versionsTick);
   const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
   const [reveal, setReveal] = useState<Reveal | null>(null);
   // The section on screen is kept per reel and version, so opening another one starts on its first section.
@@ -453,6 +466,28 @@ export function App() {
     [...ready].filter((n) => openVersion === undefined || n > openVersion.number).sort((a, b) => b - a)[0] ?? null;
   const frozen = openVersion !== undefined && newest !== undefined && openVersion.number !== newest;
 
+  const commentsPanel = (
+    <CommentsPanel
+      version={openVersion?.number}
+      newest={newest}
+      state={comments}
+      note={note}
+      sectionIds={multiSection ? openVersion.sections.map((s) => s.id) : null}
+      onOpenVersion={openVersionNumber}
+      onOpenComment={(comment: Comment, opener: HTMLElement) =>
+        setReveal((prev) => ({ commentId: comment.id, seq: (prev?.seq ?? 0) + 1, opener }))
+      }
+      section={
+        multiSection
+          ? {
+              number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)),
+              shots: new Set(openVersion.shots.filter((s) => s.section === sectionId).map((s) => s.number)),
+            }
+          : null
+      }
+    />
+  );
+
   return (
     <div className="app">
       <TopBar
@@ -503,26 +538,21 @@ export function App() {
           phase={phase}
           creating={creating}
           onStarted={reelStarted}
+          edits={edits}
         />
-        <CommentsPanel
-          version={openVersion?.number}
-          newest={newest}
-          state={comments}
-          note={note}
-          sectionIds={multiSection ? openVersion.sections.map((s) => s.id) : null}
-          onOpenVersion={openVersionNumber}
-          onOpenComment={(comment: Comment, opener: HTMLElement) =>
-            setReveal((prev) => ({ commentId: comment.id, seq: (prev?.seq ?? 0) + 1, opener }))
-          }
-          section={
-            multiSection
-              ? {
-                  number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)),
-                  shots: new Set(openVersion.shots.filter((s) => s.section === sectionId).map((s) => s.number)),
-                }
-              : null
-          }
-        />
+        {phase === 'Review' && !creating ? (
+          <ReviewSide
+            edits={edits}
+            pieces={openVersion?.pieces}
+            editable={openVersion?.isNewest === true && openVersion.pieces !== undefined && edits.list?.stale !== true}
+            nextVersion={(newest ?? 0) + 1}
+            commentCount={comments.comments.length}
+            onSaved={openVersionNumber}
+            comments={commentsPanel}
+          />
+        ) : (
+          commentsPanel
+        )}
       </div>
     </div>
   );

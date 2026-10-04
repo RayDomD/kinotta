@@ -65,7 +65,7 @@ timecode reads in Doto numerals with the reel's total length. A reel with no ver
 - [x] The zoomed timeline and its overview stay in step with the playhead
 - [x] Playwright: pick a video and play it
 
-## T32 (#34). Snip and Save
+## T32 (#34). Snip and Save — Done
 
 **What to build:** The Snip tool selects a stretch on the timeline and removes it, closing the gap. Each change is
 an operation in the reel's edit list, stored in the reel folder outside every version and written on every change.
@@ -80,13 +80,13 @@ a saved version "Saved by you" and a built one with its agent.
 
 **Model:** top
 
-- [ ] A snip adds an operation, marks the timeline with the snip's length, and playback skips it
-- [ ] Save makes `v<n+1>` with `edits.json`, `changedSections`, `builtBy: "you"`, and its own transcript and plan
-- [ ] Any failure in Save leaves no `v<n+1>` and keeps the edit list
-- [ ] `v1` keeps its spoken lines after `v2` corrects a word (T28's criterion)
-- [ ] Discard clears the edit list
-- [ ] The rail shows who made each version
-- [ ] Playwright: snip a stretch and Save to a new version
+- [x] A snip adds an operation, marks the timeline with the snip's length, and playback skips it
+- [x] Save makes `v<n+1>` with `edits.json`, `changedSections`, `builtBy: "you"`, and its own transcript and plan
+- [x] Any failure in Save leaves no `v<n+1>` and keeps the edit list
+- [x] `v1` keeps its spoken lines after `v2` corrects a word (T28's criterion)
+- [x] Discard clears the edit list
+- [x] The rail shows who made each version
+- [x] Playwright: snip a stretch and Save to a new version
 
 ## T33 (#35). Undo, redo and remove one edit
 

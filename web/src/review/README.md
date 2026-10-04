@@ -17,9 +17,16 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
   follows the playhead.
 - The timecode reads `mm:ss.ff` in Doto with the reel's length.
 
+- Editing (the newest version of a footage reel): `useEdits(slug, refresh)` holds the reel's edit list from the API and adds,
+  discards and saves. The unsaved operations are applied over the version's pieces with the core's own model, so the player,
+  the Footage lane (SNIP joints with their length), clips, captions, words and pins show the edited reel; the page is the saved
+  version's, seeked to the matching saved time. Select (V) and Snip (S) tools: with Snip on, dragging the lanes selects a
+  stretch, then Snip (or Enter) adds the operation. `ReviewSide` is the right column: Edits (numbered cards, Save as
+  v<n+1>, Discard) and Comments (the comments panel, passed in).
+
 ## Does not handle
 
-Editing: Snip, Blade, the Edits panel, word, clip and element edits and Save are later tickets. Comments are made and
+Undo and redo, Blade and reorder, word, clip and element edits and the hand-off are later tickets. Comments are made and
 shown elsewhere; Review only draws their pins. It never reads a version page itself; that is `stage`'s job.
 
 ## Dependencies

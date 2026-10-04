@@ -39,6 +39,10 @@ const NEW_REEL_PORT = 4389;
 const REVIEW_PORT = 4386;
 const REVIEW_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-review-project.txt');
 
+/** An eleventh for snip-save.spec.ts: the footage sample with a fake transcriber, since it starts a reel and saves a version of it. */
+const SNIP_SAVE_PORT = 4385;
+const SNIP_SAVE_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-snip-save-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -131,6 +135,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${REVIEW_PORT}`,
       env: { ...serverEnv(REVIEW_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1', KINOTTA_E2E_PROJECT_FILE: REVIEW_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${SNIP_SAVE_PORT}`,
+      env: { ...serverEnv(SNIP_SAVE_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1', KINOTTA_E2E_PROJECT_FILE: SNIP_SAVE_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },
