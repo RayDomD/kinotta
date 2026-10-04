@@ -172,7 +172,7 @@ re-timed. `build.py` applies both.
 - [x] A slid clip is marked "off its words" and `slid` in the plan
 - [x] A trim that removes a state drops its shot from the shot list
 
-## T39 (#41). Move and scale elements on footage reels
+## T39 (#41). Move and scale elements on footage reels — Done
 
 **What to build:** Clicking an element in the frame selects it; dragging moves it and its corner handle scales it.
 The name tag shows the element's name and offset while dragging, and a ghost outline marks its original place. A
@@ -184,10 +184,10 @@ handles, tags and ghosts are drawn by the editor over the page, never inside it.
 
 **Model:** top
 
-- [ ] An offset moves and scales the element through its whole animation in the saved version
-- [ ] Offsets stack on an animated `transform`, `left` and `top` (engine test)
-- [ ] Tag and ghost show while dragging; the page holds no editor markup
-- [ ] Playwright: drag an element and see its offset in the tag
+- [x] An offset moves and scales the element through its whole animation in the saved version (engine test, core Save test)
+- [x] Offsets stack on an animated `transform`, `left` and `top` (engine test) (tests/engine/offsets.test.ts)
+- [x] Tag and ghost show while dragging; the page holds no editor markup (spec run: clips.spec.ts)
+- [x] Playwright: drag an element and see its offset in the tag (spec run: clips.spec.ts)
 
 ## T40 (#42). Move and scale elements on code-only reels
 
