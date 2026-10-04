@@ -45,6 +45,17 @@ function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<Review
       <div className="rv-panelbody">
         {!editable && <p className="meta">{stale ? 'These edits were made on an older version. Discard them to start again.' : 'Open the newest version to edit it.'}</p>}
         {editable && operations.length === 0 && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip.</p>}
+        {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
+          <div className="rv-undo">
+            <button type="button" disabled={!idle || edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>
+              Undo <kbd className="dot">Ctrl Z</kbd>
+            </button>
+            <button type="button" disabled={!idle || edits?.list?.canRedo !== true} onClick={() => void edits?.redo()}>
+              Redo <kbd className="dot">Ctrl Shift Z</kbd>
+            </button>
+            <span>{`since v${edits?.list?.base ?? ''}`}</span>
+          </div>
+        )}
         {operations.length > 0 && (
           <ol className="clist" aria-label="Edits">
             {operations.map((op, i) => {
@@ -56,6 +67,9 @@ function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<Review
                     {`${target} · ${pieces ? whereOn(pieces, operations, i) : ''}`}
                   </div>
                   <p>{text}</p>
+                  <button type="button" className="x" aria-label={`Remove edit ${i + 1}`} disabled={!idle || stale} onClick={() => void edits?.remove(op.id)}>
+                    Remove
+                  </button>
                 </li>
               );
             })}

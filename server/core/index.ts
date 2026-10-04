@@ -1,6 +1,6 @@
 import { basename, join, resolve } from 'node:path';
 import { copyBatch } from './_internal/batch.ts';
-import { addOperation, discardEdits, readEditList } from './_internal/edit-list.ts';
+import { addOperation, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { saveEdits } from './_internal/save.ts';
 import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
@@ -77,6 +77,9 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
     readEditList: (slug) => readEditList(dir, slug),
     addOperation: (slug, operation) => addOperation(dir, slug, operation),
+    removeOperation: (slug, id) => removeOperation(dir, slug, id),
+    undoEdit: (slug) => undoEdit(dir, slug),
+    redoEdit: (slug) => redoEdit(dir, slug),
     discardEdits: (slug) => discardEdits(dir, slug),
     saveEdits: (slug) => saveEdits(dir, slug),
   };

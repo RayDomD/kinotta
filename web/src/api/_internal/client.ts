@@ -299,6 +299,8 @@ export const startReel = (input: { video: string; title: string }): Promise<{ sl
 export interface EditList {
   base: number;
   operations: Operation[];
+  canUndo: boolean;
+  canRedo: boolean;
   stale?: true;
 }
 
@@ -306,6 +308,10 @@ const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slu
 
 export const fetchEdits = (slug: string): Promise<EditList> => getJson(editsPath(slug));
 export const addOperation = (slug: string, operation: NewOperation): Promise<EditList> => requestJson(editsPath(slug), jsonBody('POST', operation));
+/** Drops one operation and keeps the later ones. */
+export const removeOperation = (slug: string, id: string): Promise<EditList> => requestJson(`${editsPath(slug)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const undoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/undo`, { method: 'POST' });
+export const redoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/redo`, { method: 'POST' });
 export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
 /** Builds the next version from the edits. Resolves with its number. */
 export const saveEdits = async (slug: string): Promise<number> =>

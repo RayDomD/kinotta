@@ -11,7 +11,7 @@ const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
-const EDITS_API = /^\/api\/reels\/([^/]+)\/edits$/;
+const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
 const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
@@ -131,10 +131,19 @@ async function handleBatch(req: IncomingMessage, res: ServerResponse, project: P
   else res.writeHead(405).end();
 }
 
-/** The reel's edit list: read it, add an operation to it, or drop it. */
+/** The reel's edit list: read it, add an operation, remove one (`/edits/<id>`), undo or redo (`/edits/undo`), or drop it. */
 async function handleEdits(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (route[2] === 'undo' || route[2] === 'redo') {
+    if (req.method !== 'POST') res.writeHead(405).end();
+    else sendJson(res, 200, route[2] === 'undo' ? await project.undoEdit(slug) : await project.redoEdit(slug));
+  } else if (route[2] !== undefined) {
+    const id = safeDecode(route[2]);
+    if (id === null) sendJson(res, 404, { error: 'Not found' });
+    else if (req.method === 'DELETE') sendJson(res, 200, await project.removeOperation(slug, id));
+    else res.writeHead(405).end();
+  }
   else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, await project.readEditList(slug));
   else if (req.method === 'POST') sendJson(res, 201, await project.addOperation(slug, (await readJsonBody(req)) as NewOperation));
   else if (req.method === 'DELETE') sendJson(res, 200, await project.discardEdits(slug));

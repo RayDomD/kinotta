@@ -147,6 +147,15 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      // Ctrl or Cmd with Z (Shift for redo) or Y steps the edit list, unless a field has its own undo.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
+        const field = e.target instanceof HTMLElement && (TYPING.has(e.target.tagName) || e.target.isContentEditable);
+        const { editable: allowed, edits: changes } = live.current;
+        if (field || !allowed || !changes || changes.busy) return;
+        e.preventDefault();
+        void (e.key.toLowerCase() === 'y' || e.shiftKey ? changes.redo() : changes.undo());
+        return;
+      }
       if (ignoresKey(e)) return;
       const { playback: player, total: length, editable: allowed, selection: chosen } = live.current;
       const frames = e.shiftKey ? FRAME_RATE : 1;

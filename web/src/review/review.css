@@ -86,3 +86,14 @@
 
 /* rail: who made a version */
 .rv-who { display: block; font-size: 11px; font-weight: 400; color: var(--muted); text-shadow: none; }
+
+/* undo and redo, and removing one edit */
+.rv-undo { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
+.rv-undo button { color: var(--muted); transition: color var(--t-color) var(--ease); }
+.rv-undo button:hover:not(:disabled) { color: var(--ink); }
+.rv-undo button:disabled { opacity: 0.5; }
+.rv-undo kbd { font-size: 11px; margin-left: 4px; }
+.rv-undo span { margin-left: auto; }
+.c .x { position: absolute; right: 10px; top: 8px; font-size: 12px; color: var(--muted); opacity: 0; transition: opacity var(--t-color) var(--ease), color var(--t-color) var(--ease); }
+.c:hover .x, .c .x:focus-visible { opacity: 1; }
+.c .x:hover:not(:disabled) { color: var(--ink); }

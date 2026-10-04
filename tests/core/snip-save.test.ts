@@ -183,3 +183,80 @@ describe('an agent-built footage reel', () => {
     await expect(project.addOperation(slug, { kind: 'snip', from: 1, to: 2 })).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('built from code') });
   });
 });
+
+describe('undo, redo and removing one edit', () => {
+  const pieceOf = async (project: Project, slug: string): Promise<number> => (await project.readEditList(slug)).operations.length;
+
+  it('steps the list back and forward, and a new edit ends the redo history', { timeout: SLOW_MS }, async () => {
+    const { slug, project } = await startedReel();
+    await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
+    await project.addOperation(slug, { kind: 'snip', from: 9, to: 10 });
+
+    const undone = await project.undoEdit(slug);
+    expect(undone.operations.map((op) => (op as { from: number }).from)).toEqual([3]);
+    expect(undone).toMatchObject({ canUndo: true, canRedo: true });
+
+    expect((await project.redoEdit(slug)).operations).toHaveLength(2);
+    expect(await project.readEditList(slug)).toMatchObject({ canUndo: true, canRedo: false });
+
+    await project.undoEdit(slug);
+    const changed = await project.addOperation(slug, { kind: 'snip', from: 6, to: 7 });
+    expect(changed.canRedo).toBe(false);
+    await expect(project.redoEdit(slug)).rejects.toMatchObject({ code: 'invalid' });
+
+    await project.undoEdit(slug);
+    await project.undoEdit(slug);
+    const empty = await project.undoEdit(slug).then(
+      (list) => list,
+      (err) => err,
+    );
+    expect(empty).toMatchObject({ code: 'invalid' });
+    expect(await project.readEditList(slug)).toMatchObject({ operations: [], canUndo: false, canRedo: true });
+  });
+
+  it('keeps the redo history on disk, so a reopened project still has it', { timeout: SLOW_MS }, async () => {
+    const { dir, reelDir, slug, project } = await startedReel();
+    await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
+    await project.addOperation(slug, { kind: 'snip', from: 9, to: 10 });
+    await project.undoEdit(slug);
+
+    expect(readJson(join(reelDir, 'edit-list.json'))).toMatchObject({ operations: [{ from: 3 }], redo: [[{ from: 3 }, { from: 9 }]] });
+    const reopened = openProject(dir, { transcriber: fakeTranscriber });
+    expect(await reopened.readEditList(slug)).toMatchObject({ canUndo: true, canRedo: true });
+    expect((await reopened.redoEdit(slug)).operations).toHaveLength(2);
+  });
+
+  it('removes one edit and leaves the later ones applied', { timeout: SLOW_MS }, async () => {
+    const { reelDir, slug, project } = await startedReel();
+    const first = await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
+    await project.addOperation(slug, { kind: 'snip', from: 9, to: 10 });
+
+    const list = await project.removeOperation(slug, first.operations[0]!.id);
+
+    expect(list.operations.map((op) => (op as { from: number }).from)).toEqual([9]);
+    expect(await pieceOf(project, slug)).toBe(1);
+    // Save builds the later snip alone: the first stretch of footage is back.
+    await project.saveEdits(slug);
+    expect(readJson(join(reelDir, 'v2', 'plan.json')).pieces).toEqual([{ in: 0, out: 9 }, { in: 10, out: expect.closeTo(VIDEO_SECONDS, 0) }]);
+  });
+
+  it('can undo a removal, and refuses an unknown edit', { timeout: SLOW_MS }, async () => {
+    const { slug, project } = await startedReel();
+    const list = await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
+    await project.removeOperation(slug, list.operations[0]!.id);
+    expect((await project.undoEdit(slug)).operations).toHaveLength(1);
+    await expect(project.removeOperation(slug, 'nope')).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('drops the history with Discard and with Save', { timeout: SLOW_MS }, async () => {
+    const { reelDir, slug, project } = await startedReel();
+    await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
+    await project.undoEdit(slug);
+    expect(await project.discardEdits(slug)).toMatchObject({ canUndo: false, canRedo: false });
+    expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
+
+    await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
+    await project.saveEdits(slug);
+    expect(await project.readEditList(slug)).toMatchObject({ operations: [], canUndo: false, canRedo: false });
+  });
+});

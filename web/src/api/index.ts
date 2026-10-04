@@ -1,4 +1,4 @@
-export { addComment, addOperation, copyBatch, deleteComment, discardEdits, editComment, fetchComments, fetchEdits, fetchNote, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, listVideos, saveEdits, saveNote, startReel, subscribe, versionPageUrl } from './_internal/client.ts';
+export { addComment, addOperation, copyBatch, deleteComment, discardEdits, editComment, fetchComments, fetchEdits, fetchNote, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, listVideos, redoEdit, removeOperation, saveEdits, undoEdit, saveNote, startReel, subscribe, versionPageUrl } from './_internal/client.ts';
 export type {
   BatchOptions,
   CarryNotice,

@@ -116,3 +116,56 @@ test('an agent-built footage reel can be snipped and saved too', async ({ page }
   expect(JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')).pieces).toHaveLength(2);
   expect(existsSync(join(project, 'reels', 'founder-talk', 'plan.json'))).toBe(false);
 });
+
+/** Snips the stretch the lanes' drag selects. */
+async function snipOnce(page: Page): Promise<void> {
+  await selectStretch(page);
+  await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
+}
+
+test('undo and redo step the edit list, one card can be removed, and a reload brings it all back', async ({ page }) => {
+  await startReel(page, 'Undo talk');
+  const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
+  await snipOnce(page);
+  await expect(cards).toHaveCount(1);
+  const oneSnip = (await timecode(page).textContent())!.split('/')[1]!.trim();
+  await snipOnce(page);
+  await expect(cards).toHaveCount(2);
+  await expect(timecode(page)).not.toHaveText(new RegExp(`/ ${oneSnip.replace('.', '\.')}$`));
+  const twoSnips = (await timecode(page).textContent())!.split('/')[1]!.trim();
+
+  // Ctrl+Z restores the list and the reel's length, Ctrl+Shift+Z puts the snip back.
+  await page.keyboard.press('Control+z');
+  await expect(cards).toHaveCount(1);
+  await expect(timecode(page)).toHaveText(new RegExp(`/ ${oneSnip.replace('.', '\.')}$`));
+  await page.keyboard.press('Control+Shift+z');
+  await expect(cards).toHaveCount(2);
+  await expect(timecode(page)).toHaveText(new RegExp(`/ ${twoSnips.replace('.', '\.')}$`));
+  await page.keyboard.press('Control+z');
+  await expect(cards).toHaveCount(1);
+  await page.keyboard.press('Control+y');
+  await expect(cards).toHaveCount(2);
+
+  // Removing the first card leaves the second applied.
+  await cards.first().hover();
+  await page.getByRole('button', { name: 'Remove edit 1' }).click();
+  await expect(cards).toHaveCount(1);
+  await expect(timecode(page)).not.toHaveText(new RegExp(`/ ${twoSnips.replace('.', '\.')}$`));
+
+  // The buttons do the same as the keys, and Redo is there after an Undo.
+  await page.getByRole('button', { name: /^Undo Ctrl/ }).click();
+  await expect(cards).toHaveCount(2);
+  await page.getByRole('button', { name: /^Undo Ctrl/ }).click();
+  await expect(cards).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Redo Ctrl/ })).toBeEnabled();
+
+  // Reloading restores the list and its redo history.
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Undo talk/ }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await expect(cards).toHaveCount(1);
+  await page.getByRole('button', { name: /^Redo Ctrl/ }).click();
+  await expect(cards).toHaveCount(2);
+  const project = readFileSync(PROJECT_FILE, 'utf8');
+  expect(JSON.parse(readFileSync(join(project, 'reels', 'undo-talk', 'edit-list.json'), 'utf8')).operations).toHaveLength(2);
+});

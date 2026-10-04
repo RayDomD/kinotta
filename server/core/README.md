@@ -63,11 +63,13 @@ since carry `waiting: true`. The first touch of a new newest version (a read, a 
 it once: unsent comments on unchanged sections move up from the version before, the rest stay and are listed by `carryNotice(slug, n)`;
 sent comments never move. Comments say whether they were `sent` and whether they `carried` on.
 
-- `readEditList(slug)`, `addOperation(slug, op)`, `discardEdits(slug)`, `saveEdits(slug)`: the reel's edit list and Save. The
-  list is `{ base, operations }` at `reels/<reel>/edit-list.json`, outside every version, rewritten atomically on every change;
+- `readEditList(slug)`, `addOperation(slug, op)`, `removeOperation(slug, id)`, `undoEdit(slug)`, `redoEdit(slug)`, `discardEdits(slug)`,
+  `saveEdits(slug)`: the reel's edit list and Save. The
+  list is `{ base, operations, undo, redo }` (the last two are lists of whole lists, up to 100 back, shown to callers as `canUndo` and `canRedo`; any new change, an add or a removal, ends the redo history, and a removal can be undone) at `reels/<reel>/edit-list.json`, outside every version, rewritten atomically on every change;
   `base` is the newest version when the edits were made, and a list for an older one is `stale` (no edits, no Save, Discard
   works). An operation is `{ id, kind, ... }`; so far `snip` (`from`, `to`, source seconds). `addOperation` checks it applies on
-  top of the list, else throws `invalid`. `saveEdits` writes the operations into the reel's `plan.json` (and `transcript.json`
+  top of the list, else throws `invalid`. `removeOperation` drops one by id and keeps the later ones (operations name things in source
+  time, so the result is worked out again from what remains; `invalid` if it would not apply, `not-found` for an unknown id). `saveEdits` writes the operations into the reel's `plan.json` (and `transcript.json`
   when an operation changes words), builds `v<n+1>` in `reels/<reel>/.save/` (its own `plan.json` and `transcript.json`,
   `index.html`, `edits.json`, then `shots.json` last with `builtBy: "you"` and `changedSections`), renames it into place and
   clears the list. Any failure (a build error, an empty list, a batch that is out) leaves no new version, the sources as they were

@@ -189,7 +189,18 @@ export interface Project {
    * made on an older version.
    */
   addOperation(slug: string, operation: NewOperation): Promise<EditList>;
-  /** Drops the edit list. */
+  /**
+   * Drops one operation by id and keeps the later ones (the result is worked out again from the rest). Throws `not-found`
+   * for an unknown id, `invalid` when the remaining operations no longer apply, `frozen` for a stale list.
+   */
+  removeOperation(slug: string, id: string): Promise<EditList>;
+  /**
+   * Steps the edit list back to before its last change (an add or a removal), or forward again with `redoEdit`. Both
+   * histories are kept in `edit-list.json`, so they survive a reload. Throws `invalid` when there is nothing to step to.
+   */
+  undoEdit(slug: string): Promise<EditList>;
+  redoEdit(slug: string): Promise<EditList>;
+  /** Drops the edit list, with its undo and redo history. */
   discardEdits(slug: string): Promise<EditList>;
   /**
    * Builds the next version from the edit list with no agent: writes the operations into the reel's plan and transcript,
@@ -205,6 +216,10 @@ export interface EditList {
   /** The version the edits are against: the newest when they were made. */
   base: number;
   operations: Operation[];
+  /** Undo has a list to step back to. */
+  canUndo: boolean;
+  /** Redo has a list to step forward to (a new change ends it). */
+  canRedo: boolean;
   /** The list was made on a version that is no longer the newest; it cannot take edits or be saved. */
   stale?: true;
 }

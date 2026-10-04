@@ -88,7 +88,7 @@ a saved version "Saved by you" and a built one with its agent.
 - [x] The rail shows who made each version
 - [x] Playwright: snip a stretch and Save to a new version
 
-## T33 (#35). Undo, redo and remove one edit
+## T33 (#35). Undo, redo and remove one edit — Done
 
 **What to build:** Undo and redo step through the edit list (keyboard and buttons). Each card in the Edits panel can
 drop its own operation without undoing those after it. The edit list survives a reload or crash.
@@ -97,9 +97,9 @@ drop its own operation without undoing those after it. The edit list survives a 
 
 **Model:** mid
 
-- [ ] Undo and redo restore the edit list and the player's view
-- [ ] Removing one card leaves later operations applied
-- [ ] Reloading the app restores the unsaved edit list
+- [x] Undo and redo restore the edit list and the player's view
+- [x] Removing one card leaves later operations applied
+- [x] Reloading the app restores the unsaved edit list
 
 ## T34 (#36). Blade and reorder pieces
 
