@@ -36,6 +36,16 @@ export interface ClipState {
   [key: string]: unknown;
 }
 
+/** Where an element sits against where the clip puts it: CSS px of its parent's space, and a scale factor about its centre. */
+export interface ElementOffset {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+/** The reserved element name for a clip's root: moving it moves the whole clip. */
+export const CLIP_ROOT = '@clip';
+
 /** A b-roll clip of the plan: `in` and `out` are source seconds; `slid` marks one moved off the words it was placed on. */
 export interface PlanClip {
   id: string;
@@ -46,6 +56,8 @@ export interface PlanClip {
   still?: number;
   stills?: ClipState[];
   slid?: boolean;
+  /** Offsets by element name (a `data-el`, or `@clip` for the clip's root). the engine applies them with CSS `translate` and `scale`. */
+  offsets?: Record<string, ElementOffset>;
   [key: string]: unknown;
 }
 
@@ -141,6 +153,17 @@ export interface ClipSlideOperation {
   delta: number;
 }
 
+/** Moves and scales one element of a clip: its new offset, replacing the last one. An offset of 0, 0 at scale 1 puts it back. */
+export interface ElementOffsetOperation {
+  id: string;
+  kind: 'element-offset';
+  clip: string;
+  element: string;
+  x: number;
+  y: number;
+  scale: number;
+}
+
 /** Everything the edit list can hold. */
 export type Operation =
   | SnipOperation
@@ -151,7 +174,8 @@ export type Operation =
   | CaptionPositionOperation
   | CaptionPhrasePositionOperation
   | ClipTrimOperation
-  | ClipSlideOperation;
+  | ClipSlideOperation
+  | ElementOffsetOperation;
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 /** An operation as the caller sends it: the core gives it an id. */
@@ -161,9 +185,13 @@ export type NewOperation = DistributiveOmit<Operation, 'id'>;
 export const MIN_SNIP = 0.005;
 /** A clip is never trimmed shorter than this (seconds). */
 export const MIN_CLIP = 0.2;
+/** An element is scaled within these factors. */
+export const MIN_SCALE = 0.1;
+export const MAX_SCALE = 10;
 const MICROSECOND = 1e6;
 const SECONDS_PER_MINUTE = 60;
 const HUNDREDTHS = 100;
+const PERCENT = 100;
 
 const round = (seconds: number): number => Math.round(seconds * MICROSECOND) / MICROSECOND;
 
@@ -364,6 +392,21 @@ function applyClipSlide(sources: Sources, op: ClipSlideOperation): Sources {
   return { ...sources, plan: withClip(sources.plan, index, { ...clip, in: from, out: to, slid: true }) };
 }
 
+function applyElementOffset(sources: Sources, op: ElementOffsetOperation): Sources {
+  const index = clipIndex(sources.plan, op.clip);
+  const clip = sources.plan.clips![index]!;
+  // The name goes into a CSS attribute selector in the built page.
+  if (typeof op.element !== 'string' || op.element === '' || /["\\<>\s]/.test(op.element)) throw new KinottaError('invalid', 'The element needs a name without spaces or quotes.');
+  if (!Number.isFinite(op.x) || !Number.isFinite(op.y) || !Number.isFinite(op.scale)) throw new KinottaError('invalid', 'An offset needs x, y and scale as numbers.');
+  if (op.scale < MIN_SCALE || op.scale > MAX_SCALE) throw new KinottaError('invalid', `The scale needs to be between ${MIN_SCALE} and ${MAX_SCALE}.`);
+  const offset: ElementOffset = { x: round(op.x), y: round(op.y), scale: round(op.scale) };
+  const { offsets: was, ...rest } = clip;
+  const { [op.element]: _replaced, ...others } = was ?? {};
+  const home = offset.x === 0 && offset.y === 0 && offset.scale === 1;
+  const offsets = home ? others : { ...others, [op.element]: offset };
+  return { ...sources, plan: withClip(sources.plan, index, Object.keys(offsets).length > 0 ? { ...rest, offsets } : rest) };
+}
+
 /** The sources with one operation written into them. Throws `invalid` for an operation that cannot apply. */
 export function applyOperation(sources: Sources, op: Operation): Sources {
   switch (op.kind) {
@@ -385,6 +428,8 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyClipTrim(sources, op);
     case 'clip-slide':
       return applyClipSlide(sources, op);
+    case 'element-offset':
+      return applyElementOffset(sources, op);
   }
 }
 
@@ -416,6 +461,7 @@ export function operationTouches(op: Operation, section: { start: number; end: n
     // A clip belongs to a section by its own `section`, which an operation does not carry: Save compares the plan's clips.
     case 'clip-trim':
     case 'clip-slide':
+    case 'element-offset':
       return false;
   }
 }
@@ -455,6 +501,8 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: `Clip ${op.clip}`, text: `Trimmed to ${clock(op.in)} to ${clock(op.out)}` };
     case 'clip-slide':
       return { target: `Clip ${op.clip}`, text: `Slid ${op.delta > 0 ? '+' : '−'}${Math.abs(op.delta).toFixed(1)}s` };
+    case 'element-offset':
+      return { target: `Clip ${op.clip}`, text: `Moved ${op.element === CLIP_ROOT ? 'the whole clip' : op.element} by ${op.x}, ${op.y} at ${Math.round(op.scale * PERCENT)}%` };
   }
 }
 

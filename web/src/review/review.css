@@ -130,3 +130,12 @@
 .c .x { position: absolute; right: 10px; top: 8px; font-size: 12px; color: var(--muted); opacity: 0; transition: opacity var(--t-color) var(--ease), color var(--t-color) var(--ease); }
 .c:hover .x, .c .x:focus-visible { opacity: 1; }
 .c .x:hover:not(:disabled) { color: var(--ink); }
+
+/* element offsets: outline, grip, name tag and ghost, drawn over the page (docs/mockups/2026-10-05-review-edit.html) */
+.rv-elayer { position: absolute; inset: 0; pointer-events: none; }
+.rv-elayer[data-editable] { pointer-events: auto; touch-action: none; cursor: default; }
+.rv-elbox { position: absolute; outline: 1.5px solid var(--light); outline-offset: 3px; box-shadow: 0 0 12px var(--light-glow); pointer-events: none; }
+.rv-elghost { position: absolute; border: 1.2px dashed var(--muted); pointer-events: none; }
+.rv-elgrip { position: absolute; right: -8px; bottom: -8px; background: var(--light); cursor: nwse-resize; pointer-events: auto; }
+.rv-eltag { position: absolute; background: var(--light); color: var(--ground); font: 600 12px Outfit, sans-serif; padding: 2px 7px; white-space: nowrap; pointer-events: none; z-index: 5; }
+.rv-eltag b { font: 800 12px Doto, monospace; margin-left: 6px; font-variant-numeric: tabular-nums; }

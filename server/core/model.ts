@@ -4,5 +4,5 @@
  */
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
-export { MIN_CLIP, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';
-export type { CaptionOffset, CaptionPhrasePositionOperation, CaptionPositionOperation, CaptionsPlan, ClipSlideOperation, ClipState, ClipTrimOperation, CutOperation, MovePieceOperation, NewOperation, Operation, PhrasePosition, Plan, PlanClip, SnipOperation, Sources, WordTextOperation, WordTimingOperation } from './_internal/edit-model.ts';
+export { CLIP_ROOT, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';
+export type { CaptionOffset, CaptionPhrasePositionOperation, CaptionPositionOperation, CaptionsPlan, ClipSlideOperation, ClipState, ClipTrimOperation, CutOperation, ElementOffset, ElementOffsetOperation, MovePieceOperation, NewOperation, Operation, PhrasePosition, Plan, PlanClip, SnipOperation, Sources, WordTextOperation, WordTimingOperation } from './_internal/edit-model.ts';

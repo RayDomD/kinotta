@@ -30,8 +30,8 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   const op = operations[index]!;
   if (op.kind === 'caption-position') return 'all captions';
   if (op.kind === 'clip-trim') return formatTransport(toTimeline(before, op.in) ?? 0);
-  if (op.kind === 'clip-slide') {
-    // Where the clip began before the slide, with the clip edits made earlier applied.
+  if (op.kind === 'clip-slide' || op.kind === 'element-offset') {
+    // Where the clip began before this edit, with the clip edits made earlier applied.
     let from: number | undefined;
     try {
       from = applyOperations({ plan: { clips: [...(clips ?? [])] }, words: [] }, operations.slice(0, index).filter((o) => o.kind === 'clip-trim' || o.kind === 'clip-slide')).plan.clips?.find((c) => c.id === op.clip)?.in;

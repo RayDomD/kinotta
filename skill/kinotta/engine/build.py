@@ -13,6 +13,8 @@ With "captions" (true, or { "look": "highlight" | "phrase" | "words", "color" })
 the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word.
 Captions can be moved: "position" { x, y } offsets every caption and "phrases" [{ at, x, y }] one more, the phrase
 whose first word starts at source second "at" (within CAPTION_AT); px of the 1920x1080 page, CSS translate on the caption.
+A clip can carry "offsets" { "<element>": { x, y, scale } } (CSS px, a factor about the element's centre; "@clip" is the clip's
+root): written as CSS translate and scale on that element in that scene, which stack on the clip's own transform, left and top.
 With "pieces" ([{ "in", "out" }], see pieces.py) the plan's source times are mapped to the reel's timeline: a clip in a
 snipped stretch is dropped, one straddling a snip is trimmed to its edge, and words in a snip get no caption."""
 import base64, html, json, re, sys, pathlib
@@ -30,6 +32,18 @@ def name_parts(html):
         if 'data-el=' in tag or re.search(r'(?<![\w-])class="(?:[^"]*\s)?L(?:\s[^"]*)?"', tag): return tag
         return tag.replace(f'id="{id_}"', f'id="{id_}" data-el="{id_}"', 1)
     return ID_TAG.sub(add, html)
+CLIP_ROOT = '@clip'
+def offsets_style(sel, offsets):
+    """A style tag moving and scaling a clip's elements, or '' when none is off its home (0, 0 at scale 1). The properties are
+    CSS individual translate and scale, so they compose with the clip's own animated transform instead of replacing it."""
+    rules = []
+    for name, o in (offsets or {}).items():
+        if not name or re.search(r'["\\<>\s]', name): sys.exit(f'offsets: "{name}" is not an element name')
+        x, y, k = o.get('x', 0), o.get('y', 0), o.get('scale', 1)
+        if x == 0 and y == 0 and k == 1: continue
+        props = (f'translate:{x:g}px {y:g}px;' if x or y else '') + (f'scale:{k:g};' if k != 1 else '')
+        rules.append(f'{sel if name == CLIP_ROOT else sel + " [data-el=" + chr(34) + name + chr(34) + "]"}{{{props}}}')
+    return f'<style>{"".join(rules)}</style>' if rules else ''
 def clip_length(src, js):
     m = re.search(r'M\.scene\(\s*\{.*?\bT\s*:\s*([0-9]*\.?[0-9]+)', js, re.S)
     if not m: sys.exit(f'{src}: M.scene has no T (clip length in seconds)')
@@ -119,6 +133,7 @@ def compose(plan_path, dst):
     for c in P['clips']:
         p = parts(clip_source(plan_dir, c)); sel = f'[data-scene="{p["name"]}"]'
         style = f'<style>{sel}{{{p["css"]}}}</style>' if p['css'].strip() else ''
+        style += offsets_style(sel, c.get('offsets'))
         script = f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>'
         body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
     captions = P.get('captions')

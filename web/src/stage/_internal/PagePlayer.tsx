@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
+import { ElementLayer } from './ElementLayer.tsx';
+import type { ElementEditing } from './ElementLayer.tsx';
 import { useSeekReporter } from './issues.ts';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekNow } from './page.ts';
 
@@ -40,6 +42,8 @@ export interface PagePlayerProps {
   captionShifts?: readonly CaptionShift[] | null;
   /** Draws a handle over the caption on show, outside the page, and reports a drag or an arrow-key nudge of it. Absent: no handle. */
   onCaptionMove?(move: CaptionMove): void | Promise<unknown>;
+  /** Element offsets previewed in the page; with `onChange` set, a click picks an element, a drag moves it and its corner grip scales it. Absent: the page as built. */
+  elements?: ElementEditing;
 }
 
 interface Handle {
@@ -71,7 +75,7 @@ function readPhrases(doc: Document | null): CaptionPhrase[] {
  * The version page playing: a same-origin frame at 1920x1080 scaled to its box, seeked to `time` each time that
  * changes. Not interactive. The page's background is transparent, so footage stacked under the box shows through.
  */
-export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove }: PagePlayerProps) {
+export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements }: PagePlayerProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -159,6 +163,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
           onPhrases?.(readPhrases(frame.current?.contentDocument ?? null));
         }}
       />
+      {elements && <ElementLayer frame={frame} loaded={loaded} scale={scale} time={time} editing={elements} />}
       {handle && scale > 0 && (
         <div
           className="rv-caphandle"

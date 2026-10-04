@@ -479,3 +479,29 @@ describe('clip trim and slide on Save', () => {
     expect((await project.undoEdit(SLUG)).operations).toEqual([]);
   });
 });
+
+describe('element offsets on Save', () => {
+  const SLUG = 'founder-talk';
+
+  it('writes an offset into the plan and the version page, counts the section it plays in as changed, and leaves v1 alone', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    const reelDir = join(dir, 'reels', SLUG);
+    const v1 = readFileSync(join(reelDir, 'v1', 'index.html'), 'utf8');
+    await project.addOperation(SLUG, { kind: 'element-offset', clip: '04', element: 'shape', x: 40, y: -30, scale: 1.5 });
+    await project.addOperation(SLUG, { kind: 'element-offset', clip: '04', element: '@clip', x: 0, y: 12, scale: 1 });
+
+    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+
+    expect(readJson(join(dir, 'motion/plan.json')).clips[3].offsets).toEqual({ shape: { x: 40, y: -30, scale: 1.5 }, '@clip': { x: 0, y: 12, scale: 1 } });
+    const page = readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8');
+    expect(page).toContain('[data-scene="04-merge-diagram"] [data-el="shape"]{translate:40px -30px;scale:1.5;}');
+    expect(page).toContain('[data-scene="04-merge-diagram"]{translate:0px 12px;}');
+    expect(readFileSync(join(reelDir, 'v1', 'index.html'), 'utf8')).toBe(v1);
+    const v2 = await project.readVersion(SLUG, 2);
+    expect(v2.clips?.find((c) => c.id === '04')?.offsets?.shape).toEqual({ x: 40, y: -30, scale: 1.5 });
+    expect(v2.changedSections).toEqual(['sync-problem']);
+    expect(v2.claimMismatch).toEqual([]);
+    expect(v2.issues).toEqual([]);
+  });
+});

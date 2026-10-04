@@ -1,5 +1,5 @@
 import { MIN_SNIP, applyOperations, pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan, wordIndexAt } from '../../../../server/core/model.ts';
-import type { Operation, Piece, Plan, PlanClip } from '../../../../server/core/model.ts';
+import type { ElementOffset, Operation, Piece, Plan, PlanClip } from '../../../../server/core/model.ts';
 import type { TranscriptWord, Version } from '../../api/index.ts';
 import type { ClipSpan } from './model.ts';
 
@@ -136,4 +136,35 @@ export function editedClips(clips: readonly PlanClip[], operations: readonly Ope
       return span ? [{ id: clip.id, title: clip.title ?? clip.id, ...span, source: { in: clip.in, out: clip.out }, slid: clip.slid === true }] : [];
     })
     .sort((a, b) => a.start - b.start);
+}
+
+const HOME: ElementOffset = { x: 0, y: 0, scale: 1 };
+
+/**
+ * Each clip's element offsets by clip id, with the unsaved moves applied over the plan's. An element an unsaved move put back
+ * at home stays in, as 0, 0 at scale 1, so the preview can undo an offset the saved page still draws.
+ */
+export function clipOffsets(clips: readonly PlanClip[], operations: readonly Operation[]): Record<string, Record<string, ElementOffset>> {
+  const moves = operations.filter((op) => op.kind === 'element-offset');
+  let edited: readonly PlanClip[] = clips;
+  try {
+    if (moves.length > 0) edited = applyOperations({ plan: { clips: [...clips] }, words: [] }, moves).plan.clips ?? clips;
+  } catch {
+    // The list no longer applies to these clips; the saved offsets show.
+  }
+  const found: Record<string, Record<string, ElementOffset>> = {};
+  for (const clip of edited) {
+    const named = { ...clip.offsets };
+    for (const op of moves) if (op.clip === clip.id && named[op.element] === undefined) named[op.element] = HOME;
+    if (Object.keys(named).length > 0) found[clip.id] = named;
+  }
+  return found;
+}
+
+const stemOf = (path: string): string => (path.split('/').pop() ?? path).replace(/\.html$/, '');
+
+/** The plan clip a scene of the page is, as `build.py` names it: the fragment's file name, else `<id>-<name>`. */
+export function clipIdForScene(scene: string, clips: readonly PlanClip[]): string | undefined {
+  const exact = clips.find((c) => typeof c.clip === 'string' && stemOf(c.clip) === scene);
+  return (exact ?? clips.find((c) => scene === c.id || scene.startsWith(`${c.id}-`)))?.id;
 }

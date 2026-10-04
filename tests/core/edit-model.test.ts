@@ -210,3 +210,43 @@ describe('clip trim and slide', () => {
     expect(describeOperation(slide('05', -1.25))).toEqual({ target: 'Clip 05', text: 'Slid −1.3s' });
   });
 });
+
+describe('element-offset', () => {
+  const clips = [
+    { id: '01', title: 'One', in: 0, out: 3 },
+    { id: '02', title: 'Two', in: 3, out: 6, offsets: { badge: { x: 5, y: 6, scale: 1 } } },
+  ];
+  const sources = { plan: { duration: 12, clips }, words: [] };
+  const move = (clip: string, element: string, x: number, y: number, scale = 1) => ({ id: 'o', kind: 'element-offset' as const, clip, element, x, y, scale });
+
+  it('writes the element\'s offset into its clip, replacing the last one and leaving the others', () => {
+    const next = applyOperation(sources, move('01', 'badge', 12, -8, 1.25));
+    expect(next.plan.clips![0]).toEqual({ id: '01', title: 'One', in: 0, out: 3, offsets: { badge: { x: 12, y: -8, scale: 1.25 } } });
+    expect(applyOperation(next, move('01', 'badge', 1, 2, 1)).plan.clips![0]!.offsets).toEqual({ badge: { x: 1, y: 2, scale: 1 } });
+    expect(applyOperation(sources, move('02', 'title', 3, 0)).plan.clips![1]!.offsets).toEqual({ badge: { x: 5, y: 6, scale: 1 }, title: { x: 3, y: 0, scale: 1 } });
+    expect(sources.plan.clips[0]).not.toHaveProperty('offsets');
+  });
+
+  it('moves the whole clip through the reserved name', () => {
+    expect(applyOperation(sources, move('01', '@clip', 40, 0)).plan.clips![0]!.offsets).toEqual({ '@clip': { x: 40, y: 0, scale: 1 } });
+  });
+
+  it('puts an element back with no offset: its entry goes, and an empty offsets with it', () => {
+    expect(applyOperation(sources, move('02', 'badge', 0, 0, 1)).plan.clips![1]).not.toHaveProperty('offsets');
+  });
+
+  it('refuses an unknown clip, a bad number, a scale out of range and an element name that cannot be a selector', () => {
+    expect(() => applyOperation(sources, move('09', 'badge', 1, 1))).toThrow(/no clip/);
+    expect(() => applyOperation(sources, move('01', 'badge', Number.NaN, 1))).toThrow(/numbers/);
+    expect(() => applyOperation(sources, move('01', 'badge', 1, 1, 0))).toThrow(/scale/);
+    expect(() => applyOperation(sources, move('01', 'badge', 1, 1, 11))).toThrow(/scale/);
+    expect(() => applyOperation(sources, move('01', '', 1, 1))).toThrow(/element/);
+    expect(() => applyOperation(sources, move('01', 'a"]{', 1, 1))).toThrow(/element/);
+  });
+
+  it('says what it did, and is a clip change rather than a section one', () => {
+    expect(describeOperation(move('02', 'badge', 0, 40, 1.1))).toEqual({ target: 'Clip 02', text: 'Moved badge by 0, 40 at 110%' });
+    expect(describeOperation(move('02', '@clip', -20, 0))).toEqual({ target: 'Clip 02', text: 'Moved the whole clip by -20, 0 at 100%' });
+    expect(operationTouches(move('02', 'badge', 1, 1), { start: 0, end: 12 })).toBe(false);
+  });
+});

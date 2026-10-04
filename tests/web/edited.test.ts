@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
-import { captionShifts, editedClips, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
+import { captionShifts, clipIdForScene, clipOffsets, editedClips, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
 /** Seconds 3 to 5 snipped. */
@@ -132,5 +132,35 @@ describe('editedClips', () => {
   it('follows the snips, and leaves out a clip that is wholly inside one', () => {
     const snipped = [{ in: 0, out: 3 }, { in: 6, out: 12 }];
     expect(editedClips(clips, [], snipped).map((c) => [c.id, c.start, c.end])).toEqual([['01', 0, 3], ['03', 3, 6]]);
+  });
+});
+
+describe('clipOffsets', () => {
+  const clips = [
+    { id: '01', in: 0, out: 3 },
+    { id: '02', in: 3, out: 6, offsets: { badge: { x: 5, y: 6, scale: 1 }, title: { x: 1, y: 1, scale: 2 } } },
+  ];
+  const move = (clip: string, element: string, x: number, y: number, scale = 1) => ({ id: 'o', kind: 'element-offset' as const, clip, element, x, y, scale });
+
+  it('is the saved offsets with the unsaved moves over them', () => {
+    expect(clipOffsets(clips, [])).toEqual({ '02': { badge: { x: 5, y: 6, scale: 1 }, title: { x: 1, y: 1, scale: 2 } } });
+    const next = clipOffsets(clips, [move('01', 'cursor', 9, 0), move('02', 'badge', 7, 8, 1.5)]);
+    expect(next['01']).toEqual({ cursor: { x: 9, y: 0, scale: 1 } });
+    expect(next['02']!.badge).toEqual({ x: 7, y: 8, scale: 1.5 });
+  });
+
+  it('keeps an element that was put back at home, so the preview can undo a saved offset', () => {
+    expect(clipOffsets(clips, [move('02', 'badge', 0, 0)])['02']!.badge).toEqual({ x: 0, y: 0, scale: 1 });
+  });
+});
+
+describe('clipIdForScene', () => {
+  const clips = [{ id: '1', in: 0, out: 1 }, { id: '10', in: 1, out: 2 }, { id: '02', in: 2, out: 3, clip: 'motion/clips/conflict.html' }];
+
+  it('finds a clip from its scene: the file name of its fragment, else the id before a dash', () => {
+    expect(clipIdForScene('1-intro', clips)).toBe('1');
+    expect(clipIdForScene('10-outro', clips)).toBe('10');
+    expect(clipIdForScene('conflict', clips)).toBe('02');
+    expect(clipIdForScene('cap-001', clips)).toBeUndefined();
   });
 });

@@ -3,13 +3,13 @@ import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
 import type { Comment, ReelSummary, Section, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
-import type { CaptionMove, CaptionPhrase } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
 import type { PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
-import { captionShifts, editedClips, editedList, remap, sourceStretches } from './edited.ts';
+import { captionShifts, clipIdForScene, clipOffsets, editedClips, editedList, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
 import type { Span } from './model.ts';
@@ -235,6 +235,20 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     }
     await changes.add({ kind: 'caption-phrase-position', at: placed.key, x: placed.x - placed.wide.x + dx, y: placed.y - placed.wide.y + dy });
   };
+  const changeElement = async ({ clip, element, x, y, scale }: ElementChange): Promise<void> => {
+    const { editable: allowed, edits: changes } = live.current;
+    if (!allowed || !changes || changes.busy) return;
+    await changes.add({ kind: 'element-offset', clip, element, x, y, scale });
+  };
+  const changeElementRef = useRef(changeElement);
+  changeElementRef.current = changeElement;
+  // Element offsets: the plan's, with the unsaved moves over them, shown on the page. Dragging is on with the Select tool.
+  const offsets = useMemo(() => (planClips ? clipOffsets(planClips, operations) : null), [planClips, operations]);
+  const dragElements = editable && toolName === 'select';
+  const elements = useMemo<ElementEditing | undefined>(
+    () => (planClips && offsets ? { offsets, clipOf: (scene) => clipIdForScene(scene, planClips), onChange: dragElements ? (change) => changeElementRef.current(change) : undefined } : undefined),
+    [planClips, offsets, dragElements],
+  );
   const snipRef = useRef(snip);
   snipRef.current = snip;
   const zoom = (factor: number): void => {
@@ -327,6 +341,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
         onPhrases={setPhrases}
         captionShifts={editable ? placements : null}
         onCaptionMove={editable && placements ? moveCaption : undefined}
+        elements={elements}
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
