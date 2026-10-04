@@ -88,7 +88,7 @@ a saved version "Saved by you" and a built one with its agent.
 - [x] The rail shows who made each version
 - [x] Playwright: snip a stretch and Save to a new version
 
-## T33 (#35). Undo, redo and remove one edit — Done
+## T33 (#35). Undo, redo and remove one edit ï¿½ Done
 
 **What to build:** Undo and redo step through the edit list (keyboard and buttons). Each card in the Edits panel can
 drop its own operation without undoing those after it. The edit list survives a reload or crash.
@@ -101,7 +101,7 @@ drop its own operation without undoing those after it. The edit list survives a 
 - [x] Removing one card leaves later operations applied
 - [x] Reloading the app restores the unsaved edit list
 
-## T34 (#36). Blade and reorder pieces — Done
+## T34 (#36). Blade and reorder pieces ï¿½ Done
 
 **What to build:** The Blade tool cuts the footage into two pieces at the playhead or a click. Dragging a piece
 moves it to a new place in the order. Clips, words and captions on a moved piece move with it. Cuts and snips are
@@ -132,7 +132,7 @@ or deleted. This replaces "unchanged sections only" as the carry rule.
 - [x] An agent-built version carries comments by the same rule
 - [x] Existing carry-forward tests are updated to the new rule
 
-## T36 (#38). Fix and re-time words — Done
+## T36 (#38). Fix and re-time words ï¿½ Done
 
 **What to build:** In the Words lane, editing a word fixes its text and dragging its edges re-times it. Captions and
 spoken lines follow. Phrase breaks stay automatic. Operations target a word by its source time.
@@ -145,7 +145,7 @@ spoken lines follow. Phrase breaks stay automatic. Operations target a word by i
 - [x] A re-timed word lights at its new time in the saved version
 - [x] Playwright: edit a word (spec written, run pending)
 
-## T37 (#39). Move captions — Done
+## T37 (#39). Move captions ï¿½ Done
 
 **What to build:** Dragging a caption moves every caption (`captions.position` in the plan). Alt-dragging moves only
 that phrase, anchored to its first word's source time, and the phrase keeps its place when words around it are
@@ -159,7 +159,7 @@ re-timed. `build.py` applies both.
 - [x] Alt-drag moves one phrase; it keeps its place after nearby words are re-timed (spec written, run pending)
 - [x] A plan without caption positions builds as before
 
-## T38 (#40). Trim and slide clips — Done
+## T38 (#40). Trim and slide clips ï¿½ Done
 
 **What to build:** Dragging a clip's edges trims it; dragging the whole clip slides it. A slid clip gets the plan's
 `slid` flag and shows "off its words". A trim that removes one of a clip's states drops that state's shot.
@@ -172,7 +172,7 @@ re-timed. `build.py` applies both.
 - [x] A slid clip is marked "off its words" and `slid` in the plan
 - [x] A trim that removes a state drops its shot from the shot list
 
-## T39 (#41). Move and scale elements on footage reels — Done
+## T39 (#41). Move and scale elements on footage reels ï¿½ Done
 
 **What to build:** Clicking an element in the frame selects it; dragging moves it and its corner handle scales it.
 The name tag shows the element's name and offset while dragging, and a ghost outline marks its original place. A
@@ -189,7 +189,7 @@ handles, tags and ghosts are drawn by the editor over the page, never inside it.
 - [x] Tag and ghost show while dragging; the page holds no editor markup (spec run: clips.spec.ts)
 - [x] Playwright: drag an element and see its offset in the tag (spec run: clips.spec.ts)
 
-## T40 (#42). Move and scale elements on code-only reels — Done
+## T40 (#42). Move and scale elements on code-only reels ï¿½ Done
 
 **What to build:** The same drag works on code-only reels. Save writes the next version as a copy of `v<n>` plus a
 `kinotta-edits.css` with `translate` and `scale` rules scoped to `[data-scene]` and `[data-el]`. Scene timing is not
@@ -203,7 +203,7 @@ editable.
 - [x] The moved element shows at its offset in the new version
 - [x] Timing tools are unavailable on code-only reels
 
-## T41 (#43). A hand-off blocks Save — Done
+## T41 (#43). A hand-off blocks Save ï¿½ Done
 
 **What to build:** Copying a batch marks the reel as handed off until the next version appears or the hand-off is
 cancelled. While handed off, Save is blocked with the reason shown and edits still collect. When the agent's
@@ -233,7 +233,7 @@ the original is never altered. ADR 0002 records the copy.
 - [ ] HEVC or ProRes gets an H.264 playback copy; the original is unchanged
 - [ ] ADR 0002 is amended
 
-## T43 (#45). Real transcription with progress
+## T43 (#45). Real transcription with progress â€” Done
 
 **What to build:** The default transcriber runs `transcript.py --audio` on the user's machine and reports progress
 with a time estimate. The video plays and can be cut and snipped while it runs. Words, then captions, appear when it
@@ -244,10 +244,10 @@ runs real faster-whisper on the 12-second sample.
 
 **Model:** mid
 
-- [ ] Progress and an estimate show while transcribing
-- [ ] Snips made during transcription survive its end
-- [ ] Long videos get automatic sections at pauses; short ones get one section
-- [ ] The opt-in faster-whisper test passes on the sample
+- [x] Progress and an estimate show while transcribing
+- [x] Snips made during transcription survive its end
+- [x] Long videos get automatic sections at pauses; short ones get one section
+- [x] The opt-in faster-whisper test passes on the sample
 
 ## T44 (#46). Startup check for Python, ffmpeg and faster-whisper
 
