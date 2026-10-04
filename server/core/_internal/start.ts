@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { probeVideo, transcribeAudio } from './runner.ts';
 import { autoSections } from './transcription.ts';
@@ -11,7 +12,6 @@ import { isVideoFile, posix, titleFromFile } from './videos.ts';
 import { publishVersion, stageVersion } from './version-build.ts';
 
 const REELS_DIR = 'reels';
-const BUILT_BY_YOU = 'you';
 const MS_PER_SECOND = 1000;
 
 const slugify = (title: string): string => title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'reel';

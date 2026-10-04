@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchProject, fetchReels, fetchTranscription, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
+import { BUILT_BY_YOU } from '../../server/core/model.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
@@ -108,7 +109,7 @@ interface VersionRailProps {
 /** Who made a version, as the rail says it: "Saved by you" for one Kinotta built, else the agent's name. */
 function whoMade(builtBy: string | undefined): string | null {
   if (builtBy === undefined) return null;
-  return builtBy === 'you' ? 'Saved by you' : `Built by ${builtBy}`;
+  return builtBy === BUILT_BY_YOU ? 'Saved by you' : `Built by ${builtBy}`;
 }
 
 /** `now · changed 01`, `changed 01, 02`, `storyboard`: what a version row says besides its number. */

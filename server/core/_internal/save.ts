@@ -1,6 +1,6 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { applyOperations, operationTouches } from './edit-model.ts';
+import { BUILT_BY_YOU, applyOperations, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { handoffReason, readHandoff } from './handoff.ts';
@@ -12,7 +12,6 @@ import type { SavedVersion, TranscriptWord } from './types.ts';
 import { STAGE_DIR, publishVersion, stageVersion } from './version-build.ts';
 import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 
-const BUILT_BY_YOU = 'you';
 const SPAN_TOLERANCE = 1e-6;
 
 const sameSpan = (a: { start: number; end: number } | null, b: { start: number; end: number } | null): boolean =>

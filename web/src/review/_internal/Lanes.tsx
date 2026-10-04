@@ -3,6 +3,7 @@ import type { CSSProperties, PointerEvent } from 'react';
 import type { Comment, TranscriptWord } from '../../api/index.ts';
 import type { CaptionPhrase } from '../../stage/index.ts';
 import { formatClock, formatTimecode } from '../../timecode.ts';
+import { MIN_SNIP } from '../../../../server/core/model.ts';
 import { formatTransport } from './clock.ts';
 import { pieceLetter } from './model.ts';
 import type { ClipSpan, Span } from './model.ts';
@@ -12,8 +13,6 @@ import type { Piece, TimeWindow } from './timeline.ts';
 
 const FULL = 100;
 const MS_PER_SECOND = 1000;
-/** Less than this between two pieces' source times is a cut, not a snip. */
-const SNIP_MIN = 0.005;
 /** A drag shorter than this selects nothing. */
 const MIN_SELECTION = 0.05;
 /** A press on a piece that moves less than this many pixels is a click, not a drag. */
@@ -95,8 +94,8 @@ const FootageLane = memo(function FootageLane({
       {marks.map(({ piece, gap }, i) => {
         const edge = piece.at + piece.out - piece.in;
         if (edge < win.start || edge > win.start + win.length) return null;
-        const snip = gap > SNIP_MIN;
-        if (!snip && Math.abs(gap) > SNIP_MIN) return null;
+        const snip = gap > MIN_SNIP;
+        if (!snip && Math.abs(gap) > MIN_SNIP) return null;
         return (
           <div key={i} className={snip ? 'rv-joint' : 'rv-joint cut'} style={{ left: `${percentIn(win, edge)}%` }}>
             <span>{snip ? `SNIP −${gap.toFixed(1)}s` : 'CUT'}</span>
@@ -184,7 +183,7 @@ const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, 
       return;
     }
     const by = limit(clip, mode, (e.clientX - start.x) * perPixel());
-    if (Math.abs(by) < SNIP_MIN) return;
+    if (Math.abs(by) < MIN_SNIP) return;
     if (mode === 'slide') onSlide?.(clip.id, by);
     else onTrim?.(clip.id, mode, by);
   };
@@ -228,7 +227,7 @@ const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, 
               if (!editable || !e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
               e.preventDefault();
               const by = limit(clip, 'slide', (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? NUDGE_FAR : NUDGE));
-              if (Math.abs(by) >= SNIP_MIN) onSlide(clip.id, by);
+              if (Math.abs(by) >= MIN_SNIP) onSlide(clip.id, by);
             }}
           >
             {editable && grip('start')}
@@ -346,7 +345,7 @@ const WordsLane = memo(function WordsLane({
               setDrag(null);
               if (!began || !onRetime) return;
               const by = limit(i, edge, (e.clientX - began.x) * perPixel());
-              if (Math.abs(by) >= SNIP_MIN) onRetime(i, edge === 'start' ? by : 0, edge === 'end' ? by : 0);
+              if (Math.abs(by) >= MIN_SNIP) onRetime(i, edge === 'start' ? by : 0, edge === 'end' ? by : 0);
             }}
             onPointerCancel={() => {
               start.current = null;

@@ -26,7 +26,7 @@ import '../review.css';
 const ZOOM_DEFAULT_SECONDS = 15;
 const TYPING = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 /** The shortest stretch the keyboard marks (the same floor as a drag along the lanes), in seconds. */
-const MIN_SNIP = 0.05;
+const MIN_MARK = 0.05;
 const ZOOM_IN = 0.5;
 const ZOOM_OUT = 2;
 /** Two source times this close are the same second. */
@@ -308,7 +308,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         if (e.key === '[') {
           markIn.current = at;
           setSelection(null);
-        } else if (markIn.current !== null && at - markIn.current >= MIN_SNIP) setSelection({ start: markIn.current, end: at });
+        } else if (markIn.current !== null && at - markIn.current >= MIN_MARK) setSelection({ start: markIn.current, end: at });
       } else if (e.key === 'Enter' && chosen !== null && allowed) void snipRef.current();
       else if (e.key === 'Escape' && chosen !== null) setSelection(null);
       else if (e.key === '+' || e.key === '=') zoomRef.current(ZOOM_IN);

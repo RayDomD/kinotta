@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent, RefObject } from 'react';
+import { CLIP_ROOT } from '../../../../server/core/model.ts';
 import { hitTest } from './dom.ts';
 import type { Rect } from './placeBox.ts';
 
@@ -17,7 +18,7 @@ export interface ElementChange extends ElementOffset {
 }
 
 /** The reserved element name for a clip's root, as the plan names it. */
-export const CLIP_ROOT = '@clip';
+export { CLIP_ROOT };
 
 export interface ElementEditing {
   /** Each clip's offsets by element name, as they should show. An element at home is listed too when a saved offset must be undone. */

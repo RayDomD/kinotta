@@ -45,6 +45,8 @@ export interface ElementOffset {
 
 /** The reserved element name for a clip's root: moving it moves the whole clip. */
 export const CLIP_ROOT = '@clip';
+/** The `builtBy` of a version Kinotta built from the owner's edits, not an agent. */
+export const BUILT_BY_YOU = 'you';
 
 /** A b-roll clip of the plan: `in` and `out` are source seconds; `slid` marks one moved off the words it was placed on. */
 export interface PlanClip {

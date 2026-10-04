@@ -4,3 +4,7 @@ docs/mockups/sessions/
 test-results/
 playwright-report/
 .vitest/
+
+# Python bytecode
+__pycache__/
+*.pyc
