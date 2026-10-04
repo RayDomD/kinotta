@@ -77,8 +77,8 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1
             <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.cancelHandoff()}>Cancel hand-off</button>
           </div>
         )}
-        {editable && operations.length === 0 && codeOnly && <p className="meta rv-hint">No edits yet. Click an element in the frame and drag it to move it, or drag its corner to scale it. This reel is built from code, so its timing is changed by your agent.</p>}
-        {editable && operations.length === 0 && !codeOnly && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it.</p>}
+        {editable && operations.length === 0 && codeOnly && <p className="meta rv-hint">No edits yet. Click an element in the frame and drag it to move it, or drag its corner to scale it. The arrow keys nudge it. This reel is built from code, so its timing is changed by your agent.</p>}
+        {editable && operations.length === 0 && !codeOnly && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it. Click an element in the frame to move it; the arrow keys nudge it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
           <div className="rv-undo">
             <button type="button" disabled={!idle || edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>

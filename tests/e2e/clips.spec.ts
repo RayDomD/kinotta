@@ -139,12 +139,23 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   await expect(tag).toContainText(/ · (1[1-9]\d|[2-9]\d\d)%/);
   await expect(edits).toContainText(/at (1[1-9]\d|[2-9]\d\d)%/);
 
+  // Arrow keys nudge the selected element, a run of them settling into one change, and do not step the player.
+  const nudgeTag = /02 · conflict-panel\s*\+(\d+), \+(\d+)/.exec((await tag.textContent()) ?? '')!;
+  const movedX = Number(nudgeTag[1]);
+  const clock = await review(page).getByLabel('Timecode').textContent();
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await expect(tag).toContainText(new RegExp(String.raw`conflict-panel\s*\+${movedX + 11}, \+${Number(nudgeTag[2]) + 1}`));
+  await expect(edits.getByRole('listitem')).toHaveCount(3);
+  await expect(review(page).getByLabel('Timecode')).toHaveText(clock!);
+
   await page.getByRole('button', { name: /^Save as v3/ }).click();
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const plan = JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')) as { clips: { id: string; offsets?: Record<string, { x: number; y: number; scale: number }> }[] };
   const offset = plan.clips.find((c) => c.id === '02')!.offsets!['conflict-panel']!;
-  expect(offset.x).toBeGreaterThan(0);
+  expect(offset.x).toBeGreaterThan(10);
   expect(offset.y).toBeGreaterThan(0);
   expect(offset.scale).toBeGreaterThan(1.1);
   const v3 = readFileSync(join(project, 'reels', 'founder-talk', 'v3', 'index.html'), 'utf8');

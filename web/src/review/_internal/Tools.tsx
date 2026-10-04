@@ -34,6 +34,7 @@ export function Tools({ tool, onTool, selection, busy, onSnip, onCutAtPlayhead, 
           Cut at playhead <kbd>Enter</kbd>
         </button>
       )}
+      {tool === 'snip' && selection === null && unavailable === undefined && <span className="rv-tools-note">Drag along the lanes, or press [ and ] at the start and end.</span>}
       {selection !== null && (
         <button type="button" className="rv-snip-go" disabled={busy} onClick={onSnip}>
           {`Snip ${(selection.end - selection.start).toFixed(1)}s`}

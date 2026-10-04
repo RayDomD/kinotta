@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent, RefObject } from 'react';
 import { hitTest } from './dom.ts';
 import type { Rect } from './placeBox.ts';
@@ -63,6 +63,13 @@ const PROBE_PX = 100;
 const GRIP_SIZE = 9;
 const TAG_HEIGHT = 22;
 const PERCENT = 100;
+/** Arrow keys nudge the selected element by this many offset units, or the large step with Shift. */
+const NUDGE_STEP = 1;
+const NUDGE_STEP_LARGE = 10;
+/** A run of arrow presses is written as one change after this long without another. */
+const NUDGE_SETTLE_MS = 350;
+const NUDGE_KEYS: Readonly<Record<string, readonly [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+const FIELD_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 
 const sameOffset = (a: ElementOffset, b: ElementOffset): boolean => a.x === b.x && a.y === b.y && a.scale === b.scale;
 const sameRect = (a: Rect | null, b: Rect | null): boolean => (a === null || b === null ? a === b : a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
@@ -240,6 +247,36 @@ export function ElementLayer({ frame, loaded, scale, time, editing }: ElementLay
     if (moved && end) await editing.onChange?.({ clip: d.target.clip, element: d.target.element, ...end });
     setLive(null);
   };
+
+  // Arrow keys nudge the selected element (Shift: ten at a time) in place of stepping the player; they settle into one change.
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+  const offsetRef = useRef(shownOffset);
+  offsetRef.current = shownOffset;
+  const nudge = useRef<{ target: Target; offset: ElementOffset; timer: number } | null>(null);
+  useEffect(() => {
+    if (!editable || !selected) return;
+    const target = selected;
+    const onKey = (e: KeyboardEvent): void => {
+      const dir = NUDGE_KEYS[e.key];
+      if (!dir || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      const el = e.target;
+      if (el instanceof HTMLElement && (FIELD_TAGS.has(el.tagName) || el.isContentEditable)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? NUDGE_STEP_LARGE : NUDGE_STEP;
+      const base = nudge.current?.offset ?? offsetRef.current(target);
+      const offset = { ...base, x: base.x + dir[0] * step, y: base.y + dir[1] * step };
+      if (nudge.current) window.clearTimeout(nudge.current.timer);
+      setLive({ target, offset });
+      const timer = window.setTimeout(() => {
+        nudge.current = null;
+        void Promise.resolve(editingRef.current.onChange?.({ clip: target.clip, element: target.element, ...offset })).finally(() => setLive(null));
+      }, NUDGE_SETTLE_MS);
+      nudge.current = { target, offset, timer };
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [editable, selected]);
 
   const box = marks?.box;
   const ghost = marks?.ghost;

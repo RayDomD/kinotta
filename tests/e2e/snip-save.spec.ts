@@ -349,3 +349,53 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
   await expect(cards).toHaveCount(0);
 });
+
+/** Tabs forward, at most this many times, until the focused element matches; fails if focus never gets there (a trap or an unreachable control). */
+const MAX_TABS = 80;
+async function tabTo(page: Page, target: Locator): Promise<void> {
+  for (let i = 0; i < MAX_TABS; i += 1) {
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+    await page.keyboard.press('Tab');
+  }
+  throw new Error('Tab never reached the control');
+}
+
+test('keyboard only: pick a video, play, mark a stretch, snip it and Save', async ({ page }) => {
+  await page.goto('/');
+  // Tab reaches New reel, Enter opens it, and the video, the name and Start are all reachable and work from the keyboard.
+  await tabTo(page, page.getByRole('button', { name: 'New reel' }));
+  await page.keyboard.press('Enter');
+  await tabTo(page, page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ }));
+  await page.keyboard.press('Enter');
+  await tabTo(page, page.getByLabel('Reel name'));
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('Keys talk');
+  await tabTo(page, page.getByRole('button', { name: 'Start reel' }));
+  await page.keyboard.press('Enter');
+  await expect(review(page).getByRole('heading', { name: 'Keys talk' })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+
+  // Play, pause, step with the arrows.
+  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Space');
+  await expect(timecode(page)).not.toHaveText(/^00:00\.00/);
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('s');
+  await expect(review(page).getByRole('button', { name: 'Snip S' })).toHaveAttribute('aria-pressed', 'true');
+  for (let i = 0; i < 2; i += 1) await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('[');
+  for (let i = 0; i < 3; i += 1) await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press(']');
+  await expect(review(page).getByRole('button', { name: /^Snip 3\.0s$/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
+
+  // Save is reachable by Tab and works with Enter.
+  const save = page.getByRole('button', { name: /^Save as v2/ });
+  await tabTo(page, save);
+  await page.keyboard.press('Enter');
+  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+});

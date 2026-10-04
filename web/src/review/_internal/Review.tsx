@@ -25,6 +25,8 @@ import '../review.css';
 /** The lanes open on this many seconds of the reel (all of it when it is shorter). */
 const ZOOM_DEFAULT_SECONDS = 15;
 const TYPING = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+/** The shortest stretch the keyboard marks (the same floor as a drag along the lanes), in seconds. */
+const MIN_SNIP = 0.05;
 const ZOOM_IN = 0.5;
 const ZOOM_OUT = 2;
 /** Two source times this close are the same second. */
@@ -269,6 +271,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     const inside = now >= shown.start && now <= shown.start + shown.length;
     setRaw(zoomWindow(shown, factor, inside ? now : shown.start + shown.length / 2, length));
   };
+  const markIn = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
 
@@ -299,6 +302,13 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       else if ((e.key === 'v' || e.key === 'V') && allowed) {
         setTool('select');
         setSelection(null);
+      } else if ((e.key === '[' || e.key === ']') && tool.current === 'snip' && allowed) {
+        // The keyboard path to a stretch: [ marks where it starts, ] where it ends, both at the playhead.
+        const at = live.current.time;
+        if (e.key === '[') {
+          markIn.current = at;
+          setSelection(null);
+        } else if (markIn.current !== null && at - markIn.current >= MIN_SNIP) setSelection({ start: markIn.current, end: at });
       } else if (e.key === 'Enter' && chosen !== null && allowed) void snipRef.current();
       else if (e.key === 'Escape' && chosen !== null) setSelection(null);
       else if (e.key === '+' || e.key === '=') zoomRef.current(ZOOM_IN);
