@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { openProject } from './core/index.ts';
+import { checkTools, missingToolsMessage, openProject } from './core/index.ts';
 import { DEFAULT_PORT, startServer } from './main.ts';
 
 const CHECK_COMMAND = 'kinotta check <reel> [version]';
@@ -80,5 +80,7 @@ export async function main(argv: string[]): Promise<void> {
   }
   const { url } = await startServer({ projectDir: options.projectDir, port: options.port });
   console.log(`Kinotta: ${url}`);
+  const warning = missingToolsMessage(await checkTools());
+  if (warning) console.warn(warning);
   if (options.open) openBrowser(url);
 }

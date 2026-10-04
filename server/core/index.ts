@@ -4,11 +4,13 @@ import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
 import { listReels } from './_internal/reels.ts';
+import { checkTools, missingToolsMessage } from './_internal/tools.ts';
 import type { Project, ProjectEvent } from './_internal/types.ts';
 import { listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
 
 export { KinottaError } from './_internal/errors.ts';
+export { checkTools, missingToolsMessage };
 export type {
   AddedComment,
   BatchOptions,
@@ -30,6 +32,9 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  ToolCheck,
+  ToolId,
+  ToolStatus,
   TranscriptWord,
   Version,
   VersionEntry,

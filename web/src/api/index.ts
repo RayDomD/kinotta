@@ -1,4 +1,4 @@
-export { addComment, copyBatch, deleteComment, editComment, fetchComments, fetchNote, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, saveNote, subscribe, versionPageUrl } from './_internal/client.ts';
+export { addComment, copyBatch, deleteComment, editComment, fetchComments, fetchNote, fetchProject, fetchReels, fetchTools, fetchVersion, fetchVersions, footageUrl, saveNote, subscribe, versionPageUrl } from './_internal/client.ts';
 export type {
   BatchOptions,
   CarryNotice,
@@ -15,6 +15,8 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  ToolCheck,
+  ToolStatus,
   TranscriptWord,
   Version,
   VersionEntry,

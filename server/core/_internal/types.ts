@@ -278,3 +278,18 @@ export interface AddedComment {
   /** Every comment of the version, renumbered. */
   comments: Comment[];
 }
+
+export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper';
+
+export interface ToolStatus {
+  id: ToolId;
+  name: string;
+  present: boolean;
+  /** How to install it on this machine. */
+  hint: string;
+}
+
+export interface ToolCheck {
+  tools: ToolStatus[];
+  missing: ToolStatus[];
+}
