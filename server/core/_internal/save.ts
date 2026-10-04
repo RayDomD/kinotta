@@ -101,6 +101,7 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
   return withReelLock(reelDir, async () => {
     const list = await readEditListNow(projectDir, slug);
     if (list.operations.length === 0) throw new KinottaError('invalid', 'There are no edits to save.');
+    if ((await newestVersionNumber(reelDir)) === 0) throw new KinottaError('invalid', 'This reel has no version yet. Save is off until its transcript is done and v1 is built. Edits still collect.');
     if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Discard it to start again.`);
     if ((await readHandoff(reelDir, await newestVersionNumber(reelDir))) !== null) throw new KinottaError('invalid', handoffReason(list.base));
     const flagged = Object.keys(list.flagged ?? {}).length;

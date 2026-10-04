@@ -11,6 +11,7 @@ import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
 import { listVideos } from './_internal/videos.ts';
 import { listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
+import { createTranscriptions } from './_internal/transcription.ts';
 
 export { KinottaError } from './_internal/errors.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
@@ -40,6 +41,7 @@ export type {
   Shot,
   SavedVersion,
   StartedReel,
+  TranscriptionProgress,
   TranscriptWord,
   Transcriber,
   Version,
@@ -56,13 +58,22 @@ export interface ProjectOptions {
 export function openProject(projectDir: string, options: ProjectOptions = {}): Project {
   const dir = resolve(projectDir);
   const watcher = createWatcher(join(dir, 'reels'));
+  const listeners = new Set<(event: ProjectEvent) => void>();
+  const transcriptions = createTranscriptions((event) => listeners.forEach((listener) => listener(event)));
   return {
     name: basename(dir),
     reelsDir: join(dir, 'reels'),
     listReels: () => listReels(dir),
     readVersion: (slug, number) => readVersion(dir, slug, number),
     listVersions: (slug) => listVersions(dir, slug),
-    subscribe: (listener) => watcher.subscribe(settling(dir, listener)),
+    subscribe: (listener) => {
+      listeners.add(listener);
+      const stopWatching = watcher.subscribe(settling(dir, listener));
+      return () => {
+        listeners.delete(listener);
+        stopWatching();
+      };
+    },
     footageFile: (slug) => footageFile(dir, slug),
     listComments: (slug, number) => listComments(dir, slug, number),
     addComment: (slug, number, input) => addComment(dir, slug, number, input),
@@ -72,7 +83,9 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     setNote: (slug, number, note) => setNote(dir, slug, number, note),
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
     listVideos: () => listVideos(dir),
-    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
+    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input),
+    transcriptionProgress: (slug) => transcriptions.progress(slug),
+    whenTranscribed: (slug) => transcriptions.whenDone(slug),
     readEditList: (slug) => readEditList(dir, slug),
     addOperation: (slug, operation) => addOperation(dir, slug, operation),
     removeOperation: (slug, id) => removeOperation(dir, slug, id),

@@ -141,3 +141,10 @@
 .rv-elgrip { position: absolute; right: -8px; bottom: -8px; background: var(--light); cursor: nwse-resize; pointer-events: auto; }
 .rv-eltag { position: absolute; background: var(--light); color: var(--ground); font: 600 12px Outfit, sans-serif; padding: 2px 7px; white-space: nowrap; pointer-events: none; z-index: 5; }
 .rv-eltag b { font: 800 12px Doto, monospace; margin-left: 6px; font-variant-numeric: tabular-nums; }
+
+/* transcription still running: where the words will be */
+.rv-progress { height: 30px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border: 1.4px dashed var(--hairline); font-size: 13px; color: var(--ink-2); position: relative; overflow: hidden; }
+.rv-progress .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left; background: var(--light-wash); }
+.rv-progress span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-progress .dot { color: var(--light); }
+.rv-progress.failed { color: var(--ink); }

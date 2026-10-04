@@ -1,8 +1,11 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+import { withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { KinottaError } from './errors.ts';
 import { probeVideo, transcribeAudio } from './runner.ts';
+import { autoSections } from './transcription.ts';
+import type { Transcriptions } from './transcription.ts';
 import type { NewReel, StartedReel, Transcriber } from './types.ts';
 import { isVideoFile, posix, titleFromFile } from './videos.ts';
 import { publishVersion, stageVersion } from './version-build.ts';
@@ -45,10 +48,10 @@ async function resolveVideo(projectDir: string, video: string): Promise<string> 
 const writeJson = (file: string, value: unknown): Promise<void> => writeFile(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 
 /** The default transcriber: the skill's audio transcription, through the runner, into a temp file read back. */
-export const transcribeWithWhisper: Transcriber = async (videoFile) => {
+export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) => {
   const temp = join(tmpdir(), `kinotta-transcript-${process.pid}-${Date.now()}.json`);
   try {
-    await transcribeAudio(videoFile, temp);
+    await transcribeAudio(videoFile, temp, onProgress);
     return (JSON.parse(await readFile(temp, 'utf8')) as { words: { text: string; start: number; end: number }[] }).words;
   } finally {
     await rm(temp, { force: true });
@@ -57,10 +60,11 @@ export const transcribeWithWhisper: Transcriber = async (videoFile) => {
 
 /**
  * Starts a reel from a video that stays where it is: writes reel.json and a plan of one piece with captions on and
- * no clips, transcribes, writes the transcript and builds v1 (which keeps its own copies of both, E14). A transcription or build failure leaves the reel
- * without a version, and throws the reason.
+ * no clips, and returns. The transcription then runs in the background (the video plays and edits collect meanwhile): its
+ * words become the reel's transcript, the plan gets its transcript and automatic sections, and v1 is built from it (which
+ * keeps its own copies of both, E14). A failure leaves the reel without a version and is reported through `jobs`.
  */
-export async function startReel(projectDir: string, transcriber: Transcriber, input: NewReel): Promise<StartedReel> {
+export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
   const file = await resolveVideo(projectDir, input.video);
   const probe = await probeVideo(file);
   const title = input.title?.trim() || titleFromFile(file);
@@ -73,7 +77,6 @@ export async function startReel(projectDir: string, transcriber: Transcriber, in
   const plan = {
     title,
     video: posix(relative(dirname(planFile), file)),
-    transcript: 'transcript.json',
     captions: true,
     duration,
     pieces: [{ in: 0, out: duration }],
@@ -81,8 +84,16 @@ export async function startReel(projectDir: string, transcriber: Transcriber, in
     sections: [{ id: 'all', name: title, start: 0, end: duration }],
   };
   await writeJson(planFile, plan);
-  const words = await transcriber(file);
-  await writeJson(join(reelDir, 'transcript.json'), { words });
-  await publishVersion(reelDir, await stageVersion(reelDir, { plan, planDir: reelDir, words, builtBy: BUILT_BY_YOU }), 1);
+  jobs.start(slug, duration, async (report) => {
+    const words = await transcriber(file, report);
+    // The transcript and the sections go into the plan under the reel's lock, so an edit being checked never sees half of them.
+    const planned = { ...plan, transcript: 'transcript.json', sections: autoSections(words, duration, title) };
+    await withReelLock(reelDir, async () => {
+      await writeJson(join(reelDir, 'transcript.json'), { words });
+      await writeJsonAtomic(planFile, planned);
+    });
+    const staged = await stageVersion(reelDir, { plan: planned, planDir: reelDir, words, builtBy: BUILT_BY_YOU });
+    await withReelLock(reelDir, () => publishVersion(reelDir, staged, 1));
+  });
   return { slug };
 }

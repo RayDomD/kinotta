@@ -88,6 +88,7 @@ comments never move. Comments say whether they were `sent` and which version the
 - `server/core/model.ts` re-exports the pure parts (pieces mapping, the operation model) with no file access, for the web editor.
 - A version may hold its own `transcript.json` and `plan.json`; `readVersion` reads them before the reel's (E14), and
   `builtBy` (from `shots.json`) says who made it. `startReel` and Save both write them.
+- `startReel` returns once the reel and its plan exist; transcription runs in the background (`_internal/transcription.ts`). `transcriptionProgress(slug)` and `transcription-progress` events say how far it is, with an estimate; `whenTranscribed(slug)` resolves when the job ends. When it does, the transcript, the plan's sections (one, or about one per three minutes split at the largest pause) and v1 are written. A reel with no version yet collects edits (base 0) that replay onto v1; Save is refused until it exists. Progress is in memory only.
 
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at

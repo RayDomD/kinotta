@@ -17,7 +17,7 @@ type Videos = { status: 'loading' } | { status: 'error'; message: string } | { s
 
 interface NewReelProps {
   project: string;
-  /** Called with the new reel's slug once its first version is built. */
+  /** Called with the new reel's slug as soon as it exists; its transcript and v1 follow in the background. */
   onStarted(slug: string): void;
 }
 
@@ -95,7 +95,7 @@ export function NewReel({ project, onStarted }: NewReelProps) {
               <input value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} />
             </label>
             <button type="submit" className="btn" disabled={busy}>Start reel</button>
-            {busy && <span className="rv-busy" role="status">Transcribing and building v1…</span>}
+            {busy && <span className="rv-busy" role="status">Starting the reel…</span>}
             {problem !== null && <span className="rv-problem" role="alert">{problem}</span>}
           </form>
         )}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
-import type { Comment, ReelSummary, Section, Version } from '../../api/index.ts';
+import type { Comment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
 import type { CaptionMove, CaptionPhrase, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
@@ -18,6 +18,7 @@ import type { Tool } from './Tools.tsx';
 import type { EditsState } from './useEdits.ts';
 import { FRAME_RATE, centerWindow, followWindow, timelineLength, wholeVideo, zoomWindow } from './timeline.ts';
 import type { Piece, TimeWindow } from './timeline.ts';
+import { laneProgress } from './transcribing.ts';
 import { usePlayback } from './usePlayback.ts';
 import '../review.css';
 
@@ -46,6 +47,8 @@ export interface ReviewProps {
   section?: Section | null;
   /** The reel's edit list and the changes to it. Absent: the reel plays but cannot be edited. */
   edits?: EditsState;
+  /** The reel's transcription, while its v1 waits for it. */
+  transcription?: TranscriptionProgress | null;
 }
 
 /** Keys the player owns. Typing in a field and a focused button's own Space are left alone. */
@@ -64,7 +67,7 @@ function remapped<T extends Span>(items: readonly T[], map: Remap): T[] {
   });
 }
 
-function Playing({ reel, state, version, comments, section = null, edits }: ReviewProps) {
+function Playing({ reel, state, version, comments, section = null, edits, transcription }: ReviewProps) {
   const video = useRef<HTMLVideoElement>(null);
   const [videoLength, setVideoLength] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -76,7 +79,9 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   const savedTotal = version ? version.duration : videoLength;
   const savedPieces: readonly Piece[] | null = useMemo(() => version?.pieces ?? (withFootage && savedTotal > 0 ? wholeVideo(savedTotal) : null), [version, withFootage, savedTotal]);
   // The reel can be edited when this is the newest version of a footage reel and its edit list is for it.
-  const editable = edits !== undefined && version?.isNewest === true && version.pieces !== undefined && edits.list !== null && edits.list.stale !== true;
+  // A reel still being transcribed has no version: its footage is the whole of what plays, and edits collect against it.
+  const awaitingV1 = version === undefined && state === 'none' && withFootage && savedPieces !== null;
+  const editable = edits !== undefined && edits.list !== null && edits.list.stale !== true && ((version?.isNewest === true && version.pieces !== undefined) || awaitingV1);
   // A reel built from code takes element moves only: its page is the version, with no footage, pieces or plan to edit.
   const codeOnly = version?.code !== undefined;
   const moveable = editable || (codeOnly && edits !== undefined && version?.isNewest === true && edits.list !== null && edits.list.stale !== true);
@@ -315,7 +320,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
       <div className="head">
         <h1>{reel.title}</h1>
         <span className="meta">
-          {version ? `v${version.number} · ${formatDuration(total)}${operations.length > 0 ? ' · unsaved edits' : ''}` : 'No version yet. The footage plays alone.'}
+          {version ? `v${version.number} · ${formatDuration(total)}${operations.length > 0 ? ' · unsaved edits' : ''}` : transcription?.state === 'running' ? 'No version yet. v1 is built when the words are in.' : 'No version yet. The footage plays alone.'}
         </span>
       </div>
       <Player
@@ -364,6 +369,7 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
           phrases={shownPhrases}
           currentPhrase={indexAt(shownPhrases, time)}
           words={words}
+          transcribing={version === undefined ? laneProgress(transcription) : null}
           currentWord={words ? indexAt(words, time) : -1}
           onFixWord={editable && words ? fixWord : undefined}
           onRetimeWord={editable && words ? retimeWord : undefined}

@@ -54,6 +54,7 @@ describe('startReel', () => {
     const project = openProject(dir, { transcriber: fakeTranscriber });
 
     const { slug } = await project.startReel({ video: VIDEO, title: 'My Talk' });
+    await project.whenTranscribed(slug);
 
     expect(slug).toBe('my-talk');
     const reelDir = join(dir, 'reels', slug);
@@ -75,6 +76,7 @@ describe('startReel', () => {
     const project = openProject(dir, { transcriber: fakeTranscriber });
 
     const { slug } = await project.startReel({ video: VIDEO, title: 'Checked' });
+    await project.whenTranscribed(slug);
     const version = await project.readVersion(slug, 1);
 
     expect(version.issues).toEqual([]);
@@ -91,6 +93,7 @@ describe('startReel', () => {
 
     const first = await project.startReel({ video: VIDEO });
     const second = await project.startReel({ video: VIDEO });
+    await Promise.all([project.whenTranscribed(first.slug), project.whenTranscribed(second.slug)]);
 
     expect(readJson(join(dir, 'reels', first.slug, 'reel.json')).title).toBe('talk');
     expect([first.slug, second.slug]).toEqual(['talk', 'talk-2']);
@@ -113,8 +116,10 @@ describe('startReel', () => {
       },
     });
 
-    await expect(project.startReel({ video: VIDEO, title: 'Broken' })).rejects.toThrow(/faster-whisper is not installed/);
+    const { slug } = await project.startReel({ video: VIDEO, title: 'Broken' });
+    await project.whenTranscribed(slug);
 
+    expect(project.transcriptionProgress(slug)).toMatchObject({ state: 'failed', error: expect.stringContaining('faster-whisper is not installed') });
     const reelDir = join(dir, 'reels', 'broken');
     expect(readJson(join(reelDir, 'reel.json')).footage).toBe(VIDEO);
     expect(existsSync(join(reelDir, 'v1'))).toBe(false);

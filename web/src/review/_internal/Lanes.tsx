@@ -7,6 +7,7 @@ import { formatTransport } from './clock.ts';
 import { pieceLetter } from './model.ts';
 import type { ClipSpan, Span } from './model.ts';
 import { centerWindow, percentIn, tickTimes } from './timeline.ts';
+import type { LaneProgress } from './transcribing.ts';
 import type { Piece, TimeWindow } from './timeline.ts';
 
 const FULL = 100;
@@ -501,6 +502,8 @@ export interface LanesProps {
   currentPhrase: number;
   /** Footage reels with a transcript only. */
   words: readonly WordCell[] | null;
+  /** The transcription still running (or failed), shown where the words will be. */
+  transcribing?: LaneProgress | null;
   currentWord: number;
   /** Present when words can be edited. */
   onFixWord?(index: number, text: string): void;
@@ -528,7 +531,7 @@ export interface LanesProps {
 
 /** The overview of the reel and the zoomed lanes under it, on one time axis with one playhead. */
 export function Lanes(props: LanesProps) {
-  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord, onSlideClip, onTrimClip } = props;
+  const { win, total, time, pieces, clips, phrases, currentPhrase, words, transcribing, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord, onSlideClip, onTrimClip } = props;
   const plane = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
   const selecting = useRef<{ anchor: number; band: Span | null } | null>(null);
@@ -640,6 +643,24 @@ export function Lanes(props: LanesProps) {
           <>
             <span>Words</span>
             <WordsLane win={win} words={words} lit={currentWord} onFix={onFixWord} onRetime={onRetimeWord} />
+          </>
+        )}
+        {words === null && transcribing && (
+          <>
+            <span>Words</span>
+            <div
+              className={transcribing.failed ? 'lane rv-progress failed' : 'lane rv-progress'}
+              role={transcribing.failed ? 'alert' : 'progressbar'}
+              aria-label="Transcription"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={transcribing.failed ? undefined : transcribing.percent}
+              aria-valuetext={transcribing.text}
+            >
+              <div className="fill" style={{ transform: `scaleX(${transcribing.fraction})` }} />
+              <span className="dot">{transcribing.failed ? '!' : `${transcribing.percent}%`}</span>
+              <span>{transcribing.text}</span>
+            </div>
           </>
         )}
         <span>Pins</span>

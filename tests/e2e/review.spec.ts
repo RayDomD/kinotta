@@ -33,6 +33,8 @@ async function startReel(page: Page, title: string): Promise<void> {
   await page.getByLabel('Reel name').fill(title);
   await page.getByRole('button', { name: 'Start reel' }).click();
   await expect(review(page).getByRole('heading', { name: title })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  // The reel opens at once; v1 follows when the (fake) transcription and the build are done.
+  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
 }
 
 /** A point on the lane column at a fraction of its width, on the axis row. */

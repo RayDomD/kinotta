@@ -132,7 +132,20 @@ export interface VersionEntry {
 export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
-  | { type: 'comments-changed'; reel: string; version: number };
+  | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+
+/** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
+export interface TranscriptionProgress {
+  state: 'running' | 'done' | 'failed';
+  /** Seconds of audio in the video. */
+  duration: number;
+  /** Seconds of it transcribed so far. */
+  processed: number;
+  remaining: number | null;
+  /** Why it failed, when `state` is `failed`. */
+  error?: string;
+}
 
 export interface Project {
   /** The project folder's name. */
@@ -183,11 +196,17 @@ export interface Project {
   /** The project's videos (outside reels/) with length, codec and size. */
   listVideos(): Promise<VideoEntry[]>;
   /**
-   * Starts a reel from a video in the project, which stays where it is: writes the reel and its plan, transcribes,
-   * and builds v1 with `builtBy: "you"`. Throws `KinottaError` `invalid` for a path that is not a video in the project
-   * and `not-found` for a missing file; a transcription or build failure throws its reason and leaves the reel without a version.
+   * Starts a reel from a video in the project, which stays where it is: writes the reel and its plan and returns at once.
+   * Transcription then runs in the background (see `transcriptionProgress`); when it ends the transcript, the captions and the
+   * sections are written and v1 is built with `builtBy: "you"`. Until then the reel has no version, its footage plays and
+   * edits collect. Throws `KinottaError` `invalid` for a path that is not a video in the project and `not-found` for a missing
+   * file. A transcription or build failure leaves the reel without a version and is reported by `transcriptionProgress`.
    */
   startReel(input: NewReel): Promise<StartedReel>;
+  /** How the reel's transcription stands, or null when none has run since the server started. Changes arrive as `transcription-progress` events. */
+  transcriptionProgress(slug: string): TranscriptionProgress | null;
+  /** Resolves when the reel's transcription and v1 build have ended (done or failed); at once when none is running. */
+  whenTranscribed(slug: string): Promise<void>;
   /** The reel's unsaved edits (empty when there are none). */
   readEditList(slug: string): Promise<EditList>;
   /**
@@ -381,4 +400,4 @@ export interface StartedReel {
 }
 
 /** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
-export type Transcriber = (videoFile: string) => Promise<TranscriptWord[]>;
+export type Transcriber = (videoFile: string, onProgress?: (processedSeconds: number) => void) => Promise<TranscriptWord[]>;

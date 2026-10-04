@@ -55,6 +55,10 @@ const CODE_ONLY_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-code-only-project.txt
 const HANDOFF_PORT = 4382;
 const HANDOFF_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-handoff-project.txt');
 
+/** A fifteenth for transcription.spec.ts: the footage sample with a transcriber that holds its words until the spec lets them go. */
+const TRANSCRIPTION_PORT = 4381;
+const TRANSCRIPTION_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-transcription-project.txt');
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -175,6 +179,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${HANDOFF_PORT}`,
       env: { ...serverEnv(HANDOFF_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_PROJECT_FILE: HANDOFF_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${TRANSCRIPTION_PORT}`,
+      env: { ...serverEnv(TRANSCRIPTION_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_GATED_TRANSCRIBER: '1', KINOTTA_E2E_PROJECT_FILE: TRANSCRIPTION_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },

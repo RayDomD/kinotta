@@ -16,6 +16,8 @@ export interface ReviewSideProps {
   editable: boolean;
   /** Built from code: only element moves are edits, and the cards name scenes, not clips. */
   codeOnly?: boolean;
+  /** The reel has no version yet (its transcript is still coming in): edits collect, and Save waits for v1. */
+  awaitingV1?: boolean;
   /** The number the next Save makes. */
   nextVersion: number;
   /** Unsent comments on the open version. */
@@ -51,7 +53,7 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   return formatTransport(at ?? 0);
 }
 
-function EditsTab({ edits, pieces, clips, editable, codeOnly = false, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
+function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1 = false, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
   const operations = edits?.list?.operations ?? [];
   const stale = edits?.list?.stale === true;
   const flagged = edits?.list?.flagged ?? {};
@@ -115,13 +117,13 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, nextVersio
       {operations.length > 0 && (
         <div className="rv-save">
           <div className="row">
-            <button type="button" className="btn" disabled={!idle || stale} onClick={() => void save()}>
-              {`Save as v${nextVersion}`}
+            <button type="button" className="btn" disabled={!idle || stale || awaitingV1} onClick={() => void save()}>
+              {awaitingV1 ? 'Save' : `Save as v${nextVersion}`}
               <span className="count">{operations.length}</span>
             </button>
             <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.discard()}>Discard</button>
           </div>
-          <div className="hint">{codeOnly ? `Writes the moves into kinotta-edits.css beside the page and saves v${nextVersion}.` : `Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
+          <div className="hint">{awaitingV1 ? 'Save is on once the transcript is done and v1 is built. Your edits are kept and apply to v1.' : codeOnly ? `Writes the moves into kinotta-edits.css beside the page and saves v${nextVersion}.` : `Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
         </div>
       )}
     </>

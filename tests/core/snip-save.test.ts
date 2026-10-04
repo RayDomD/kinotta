@@ -23,6 +23,7 @@ async function startedReel(): Promise<{ dir: string; reelDir: string; slug: stri
   const dir = copyFixture('footage-project');
   const project = openProject(dir, { transcriber: fakeTranscriber });
   const { slug } = await project.startReel({ video: VIDEO, title: 'Snippy' });
+  await project.whenTranscribed(slug);
   const reelDir = join(dir, 'reels', slug);
   mkdirSync(join(reelDir, 'clips'));
   cpSync(join(dir, 'motion/clips/01-two-laptops.html'), join(reelDir, 'clips/01-two-laptops.html'));

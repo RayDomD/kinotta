@@ -117,7 +117,19 @@ export interface VersionEntry {
 export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
-  | { type: 'comments-changed'; reel: string; version: number };
+  | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+
+/** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
+export interface TranscriptionProgress {
+  state: 'running' | 'done' | 'failed';
+  /** Seconds of audio in the video. */
+  duration: number;
+  /** Seconds of it transcribed so far. */
+  processed: number;
+  remaining: number | null;
+  error?: string;
+}
 
 export interface FramePin {
   kind: 'frame';
@@ -286,12 +298,13 @@ export interface VideoEntry {
 /** The project's videos, for the New reel screen. */
 export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ videos: VideoEntry[] }>('/api/videos')).videos;
 
-/**
- * Starts a reel from a video in the project. Resolves with the new reel's slug once its first version is built,
- * which takes as long as the transcription does.
- */
+/** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
 export const startReel = (input: { video: string; title: string }): Promise<{ slug: string }> =>
   requestJson('/api/reels', jsonBody('POST', input));
+
+/** How the reel's transcription stands, or null when none has run since the server started. */
+export const fetchTranscription = async (slug: string): Promise<TranscriptionProgress | null> =>
+  (await getJson<{ progress: TranscriptionProgress | null }>(`/api/reels/${encodeURIComponent(slug)}/transcription`)).progress;
 
 /** A reel's unsaved edits. A `stale` list was made on a version that is no longer the newest. */
 export interface EditList {

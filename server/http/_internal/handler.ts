@@ -14,6 +14,7 @@ const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
 const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
+const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -274,6 +275,7 @@ export function createHandler(project: Project, webRoot: string) {
       const editsRoute = EDITS_API.exec(pathname);
       const saveRoute = SAVE_API.exec(pathname);
       const handoffRoute = HANDOFF_API.exec(pathname);
+      const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -300,6 +302,10 @@ export function createHandler(project: Project, webRoot: string) {
         await serveFootage(req, res, project, footageRoute);
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });
+      } else if (transcriptionRoute) {
+        const slug = safeDecode(transcriptionRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
       } else if (pathname === '/api/videos') {
         sendJson(res, 200, { videos: await project.listVideos() });
       } else if (pathname === '/api/reels') {

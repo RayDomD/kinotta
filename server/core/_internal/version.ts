@@ -32,8 +32,9 @@ async function versionNumbers(reelDir: string): Promise<number[]> {
     .sort((a, b) => a - b);
 }
 
+/** The newest version's number, or 0 for a reel with no version yet (one still being transcribed). */
 export async function newestVersionNumber(reelDir: string): Promise<number> {
-  return Math.max(...(await versionNumbers(reelDir)));
+  return Math.max(0, ...(await versionNumbers(reelDir)));
 }
 
 export async function requireReelDir(projectDir: string, slug: string): Promise<string> {

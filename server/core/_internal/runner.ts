@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -14,6 +14,7 @@ const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const BUILD_TIMEOUT_MS = 120_000;
 const PROBE_TIMEOUT_MS = 20_000;
+const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 
 const exec = promisify(execFile);
@@ -40,9 +41,44 @@ export async function buildShots(planFile: string, shotsFile: string): Promise<v
   await run(PYTHON, [SHOTS_SCRIPT, planFile, shotsFile], BUILD_TIMEOUT_MS);
 }
 
-/** `transcript.py --audio`: the video's spoken words as a transcript.json. No timeout; a long video takes minutes. */
-export async function transcribeAudio(videoFile: string, transcriptFile: string): Promise<void> {
-  await run(PYTHON, [TRANSCRIPT_SCRIPT, '--audio', videoFile, transcriptFile]);
+/** Seconds of the video transcribed so far, from one line of `transcript.py --audio`'s output; null for any other line. */
+export function parseProgress(line: string): number | null {
+  try {
+    const { progress } = JSON.parse(line) as { progress?: unknown };
+    return typeof progress === 'number' && Number.isFinite(progress) ? progress : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `transcript.py --audio`: the video's spoken words as a transcript.json. No timeout; a long video takes minutes.
+ * The script prints progress as JSON lines while it works; each one calls `onProgress` with the seconds done.
+ */
+export function transcribeAudio(videoFile: string, transcriptFile: string, onProgress?: (processed: number) => void): Promise<void> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(PYTHON, [TRANSCRIPT_SCRIPT, '--audio', videoFile, transcriptFile], { windowsHide: true });
+    let pending = '';
+    let errors = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      const lines = (pending + chunk).split('\n');
+      pending = lines.pop() ?? '';
+      for (const line of lines) {
+        const processed = parseProgress(line);
+        if (processed !== null) onProgress?.(processed);
+      }
+    });
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      errors = (errors + chunk).slice(-ERROR_TAIL_CHARS);
+    });
+    child.on('error', (err: NodeJS.ErrnoException) =>
+      reject(new Error(err.code === 'ENOENT' ? `${PYTHON} is not installed or not on the PATH.` : `${PYTHON} failed: ${err.message}`)),
+    );
+    child.on('close', (code) => {
+      if (code === 0) resolveRun();
+      else reject(new Error(`${PYTHON} failed: ${errors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`));
+    });
+  });
 }
 
 export interface VideoProbe {

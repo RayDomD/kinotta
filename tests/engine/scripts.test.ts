@@ -49,6 +49,17 @@ describe('transcript.py', () => {
   });
 });
 
+describe('transcript.py --audio', () => {
+  it('gives no words, and a first progress line, for a video with no audio track', () => {
+    const out = join(temp(), 'transcript.json');
+    const r = spawnSync(PYTHON, [join(SCRIPTS, 'transcript.py'), '--audio', join(SAMPLE, 'media', 'talk.mp4'), out], { encoding: 'utf8' });
+
+    expect(r.status).toBe(0);
+    expect(json(out)).toEqual({ words: [] });
+    expect(JSON.parse(r.stdout.split('\n')[0]!)).toEqual({ progress: 0, duration: 0 });
+  });
+});
+
 describe('shots.py', () => {
   it('writes the footage sample\'s shot list from its plan, as committed', () => {
     const out = join(temp(), 'shots.json');

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchProject, fetchReels, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
-import type { Comment, ProjectEvent, ReelListing, ReelSummary, Version, VersionEntry } from './api/index.ts';
+import { fetchProject, fetchReels, fetchTranscription, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
+import type { Comment, ProjectEvent, ReelListing, ReelSummary, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
@@ -254,10 +254,12 @@ interface MainProps {
   creating: boolean;
   onStarted(slug: string): void;
   edits: EditsState;
+  /** The open reel's transcription, while its v1 waits for it. */
+  transcription: TranscriptionProgress | null;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription } = props;
   if (creating) return <NewReel project={project} onStarted={onStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask Claude for a storyboard to create one.`}</Empty></main>;
@@ -275,6 +277,7 @@ function Main(props: MainProps) {
         comments={comments.comments}
         section={version.status === 'ready' && hasSections(version.version.sections) ? (version.version.sections.find((s) => s.id === sectionId) ?? null) : null}
         edits={edits}
+        transcription={transcription}
       />
     );
   }
@@ -299,7 +302,11 @@ function Main(props: MainProps) {
       ) : version.status === 'error' ? (
         <Empty>{`Could not read the storyboard. ${version.message}`}</Empty>
       ) : (
-        <Empty>{`${reel.title} has no versions yet. Ask Claude for a storyboard to add one.`}</Empty>
+        <Empty>
+          {transcription?.state === 'running'
+            ? `${reel.title} is being transcribed. Its storyboard appears when v1 is built.`
+            : `${reel.title} has no versions yet. Ask Claude for a storyboard to add one.`}
+        </Empty>
       )}
     </main>
   );
@@ -364,6 +371,8 @@ export function App() {
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
   const edits = useEdits(reel?.slug, versionsTick + commentsTick);
+  const [transcribed, setTranscribed] = useState<{ slug: string; progress: TranscriptionProgress | null } | null>(null);
+  const transcription = transcribed !== null && transcribed.slug === reel?.slug ? transcribed.progress : null;
   const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
   const [reveal, setReveal] = useState<Reveal | null>(null);
   // The section on screen is kept per reel and version, so opening another one starts on its first section.
@@ -428,6 +437,20 @@ export function App() {
     if (load.status === 'ready' && selected === undefined && load.listing.reels[0]) openReel(load.listing.reels[0].slug);
   }, [load, selected, openReel]);
 
+  // A reel opened while its transcription runs picks up where it is; after that events carry it.
+  const openSlug = reel?.slug;
+  useEffect(() => {
+    if (openSlug === undefined) return;
+    let live = true;
+    fetchTranscription(openSlug).then(
+      (progress) => live && setTranscribed((prev) => (prev?.slug === openSlug && prev.progress !== null && progress === null ? prev : { slug: openSlug, progress })),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [openSlug]);
+
   const current = useRef({ slug: reel?.slug, version: chosen });
   current.current = { slug: reel?.slug, version: chosen };
 
@@ -447,6 +470,8 @@ export function App() {
           setVersionsTick((n) => n + 1);
           setReady((prev) => new Set([...prev, event.version]));
         }
+      } else if (event.type === 'transcription-progress') {
+        setTranscribed({ slug: event.reel, progress: event.progress });
       } else if (event.reel === current.current.slug && event.version === current.current.version) {
         setCommentsTick((n) => n + 1);
       }
@@ -464,6 +489,8 @@ export function App() {
 
   const readyVersion =
     [...ready].filter((n) => openVersion === undefined || n > openVersion.number).sort((a, b) => b - a)[0] ?? null;
+  // A reel with no version yet (its transcript is still coming in) can be cut and snipped; Save waits for v1.
+  const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
   const frozen = openVersion !== undefined && newest !== undefined && openVersion.number !== newest;
 
   const commentsPanel = (
@@ -537,13 +564,15 @@ export function App() {
           creating={creating}
           onStarted={reelStarted}
           edits={edits}
+          transcription={transcription}
         />
         {phase === 'Review' && !creating ? (
           <ReviewSide
             edits={edits}
             pieces={openVersion?.pieces}
             clips={openVersion?.clips}
-            editable={openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined) && edits.list?.stale !== true}
+            editable={(openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined) && edits.list?.stale !== true) || awaitingV1}
+            awaitingV1={awaitingV1}
             codeOnly={openVersion?.code !== undefined}
             nextVersion={(newest ?? 0) + 1}
             commentCount={comments.comments.length}
