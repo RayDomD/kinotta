@@ -175,7 +175,28 @@ describe('an agent-built footage reel', () => {
     expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
   });
 
-  it('refuses edits on a code-only reel with a clear reason', { timeout: SLOW_MS }, async () => {
+  it('carries unsent comments to the saved version at remapped times, and marks the one whose moment was snipped', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+    await project.addComment(SLUG, 1, { pin: { shot: '02', x: 0.5, y: 0.5, element: 'conflict-panel' }, text: 'Bigger count.' });
+    await project.addComment(SLUG, 1, { pin: { shot: '03', x: 0.5, y: 0.6, element: null }, text: 'Hold the grey-out longer.' });
+    await project.addComment(SLUG, 1, { pin: { kind: 'word', shot: '03', time: 8.65, word: 'lose' }, text: 'Land this word harder.' });
+    await project.addOperation(SLUG, { kind: 'snip', from: 6, to: 7 });
+
+    await project.saveEdits(SLUG);
+
+    const v2 = await project.listComments(SLUG, 2);
+    expect(v2.map((c) => [c.text, c.pin.shot, c.pin.time, c.state])).toEqual([
+      ['Bigger count.', '02', 3.2, undefined],
+      ['Hold the grey-out longer.', '03', 6, 'moment-removed'],
+      ['Land this word harder.', '03', 7.65, undefined],
+    ]);
+    expect(v2[0]!.pin).toMatchObject({ element: 'conflict-panel' });
+    expect(v2[2]!.pin).toMatchObject({ kind: 'word', word: 'lose' });
+    expect((await project.listComments(SLUG, 1)).every((c) => c.carried?.to === 2)).toBe(true);
+  });
+
+  it('refuses edits on a code-only reel with a clear reason',{ timeout: SLOW_MS }, async () => {
     const dir = copyFixture('showreel-project');
     const project = openProject(dir);
     const slug = readdirSync(join(dir, 'reels'))[0]!;

@@ -99,7 +99,15 @@ test('Discard drops the edit list and the reel plays whole again', async ({ page
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveCount(0);
 });
 
-test('an agent-built footage reel can be snipped and saved too', async ({ page }) => {
+test('an agent-built footage reel can be snipped and saved too, and its unsent comments go with their moments', async ({ page }) => {
+  // Three comments on v1: shot 01 at 0 s, shot 02 at 3.2 s (inside the stretch snipped below) and a word at 8.65 s.
+  const commentsUrl = '/api/reels/founder-talk/versions/1/comments';
+  const pins = [
+    { pin: { shot: '01', x: 0.3, y: 0.4, element: 'document' }, text: 'Slide the laptops in faster.' },
+    { pin: { shot: '02', x: 0.5, y: 0.5, element: 'conflict-panel' }, text: 'Bigger count.' },
+    { pin: { kind: 'word', shot: '03', time: 8.65, word: 'lose' }, text: 'Land this word harder.' },
+  ];
+  for (const input of pins) expect((await page.request.post(commentsUrl, { data: input })).ok()).toBe(true);
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
@@ -111,6 +119,19 @@ test('an agent-built footage reel can be snipped and saved too', async ({ page }
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+
+  // v2 holds all three: the one whose moment was snipped says so, the others sit at their new times (the word 3 s earlier).
+  await page.getByRole('tab', { name: /^Comments/ }).click();
+  const cards = page.locator('.clist .c');
+  // The column lists the open section's (01) comments.
+  await expect(cards).toHaveCount(2);
+  await expect(cards.filter({ hasText: 'Bigger count.' }).locator('.carry-state')).toHaveText('Moment removed');
+  await expect(cards.filter({ hasText: 'Slide the laptops in faster.' }).locator('.carry-state')).toHaveCount(0);
+  const carried = (await (await page.request.get('/api/reels/founder-talk/versions/2/comments')).json()) as { comments: Array<{ text: string; state?: string; pin: { time: number } }> };
+  expect(carried.comments).toHaveLength(3);
+  const word = carried.comments.find((c) => c.text === 'Land this word harder.')!;
+  expect(word.pin.time).toBe(5.65);
+  expect(word.state).toBeUndefined();
 
   const project = readFileSync(PROJECT_FILE, 'utf8');
   expect(JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')).pieces).toHaveLength(2);

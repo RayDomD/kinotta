@@ -89,8 +89,7 @@ async function handleComments(req: IncomingMessage, res: ServerResponse, project
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'POST') sendJson(res, 201, await project.addComment(slug, version, (await readJsonBody(req)) as NewComment));
   else if (req.method === 'GET' || req.method === 'HEAD') {
-    const comments = await project.listComments(slug, version);
-    sendJson(res, 200, { comments, notCarried: await project.carryNotice(slug, version) });
+    sendJson(res, 200, { comments: await project.listComments(slug, version) });
   } else res.writeHead(405).end();
 }
 

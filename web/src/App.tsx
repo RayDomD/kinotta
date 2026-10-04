@@ -472,8 +472,6 @@ export function App() {
       newest={newest}
       state={comments}
       note={note}
-      sectionIds={multiSection ? openVersion.sections.map((s) => s.id) : null}
-      onOpenVersion={openVersionNumber}
       onOpenComment={(comment: Comment, opener: HTMLElement) =>
         setReveal((prev) => ({ commentId: comment.id, seq: (prev?.seq ?? 0) + 1, opener }))
       }

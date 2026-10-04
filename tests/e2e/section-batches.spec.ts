@@ -85,8 +85,8 @@ test('copying a section hands off only that section, and marks it waiting', asyn
   await expect(page.locator('.head .waiting')).toHaveText('Waiting');
 });
 
-test('a new version that changes section 01 takes the unsent comments of section 02 and lists the ones it left', async ({ page }) => {
-  // A second comment in section 01 that is never copied, so it cannot follow the change.
+test('a new version that changes section 01 takes the unsent comments of both sections', async ({ page }) => {
+  // A second comment in section 01 that is never copied, so it moves with its moment even though the section changed.
   await pin(page, '02', 1, { x: 0.5, y: 0.5 }, 'Unsent in section one.');
   await page.goto('/');
   await expect(versionButtons(page)).toHaveText(['v1now']);
@@ -99,8 +99,8 @@ test('a new version that changes section 01 takes the unsent comments of section
   await expect(versionButtons(page)).toHaveText(['v1storyboard', 'v2now · changed 01']);
   await expect(versionButtons(page).nth(1)).toHaveAttribute('aria-current', 'true');
   await expect(sectionButtons(page).nth(0).getByText('Waiting')).toHaveCount(0);
-  await expect(page.locator('.comments header .meta')).toHaveText('v2 · section 01 · 0');
-  await expect(page.locator('.carry-line')).toHaveText('1 comment on v1 was not carried because section 01 changed.Open v1');
+  await expect(page.locator('.comments header .meta')).toHaveText('v2 · section 01 · 1');
+  await expect(cards(page).locator('p')).toHaveText(['Unsent in section one.']);
 
   await sectionButtons(page).nth(1).click();
   await expect(page.locator('.comments header .meta')).toHaveText('v2 · section 02 · 2');
@@ -109,20 +109,19 @@ test('a new version that changes section 01 takes the unsent comments of section
   await expect(copyButton(page)).toHaveAccessibleName('Copy section 02 comments, 2');
 });
 
-test('v1 stays as it was: sent and frozen, the moved ones say so, and the one left behind says so', async ({ page }) => {
+test('v1 stays as it was: sent and frozen, and the unsent ones say they moved', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open v1' }).click();
+  await versionButtons(page).nth(0).click();
 
   await expect(versionButtons(page).nth(0)).toHaveAttribute('aria-current', 'true');
   await expect(copyButton(page)).toBeDisabled();
   await expect(sectionButtons(page).nth(0).getByText('Waiting')).toBeVisible();
-  await expect(page.locator('.carry-line')).toHaveCount(0);
 
   await expect(cards(page)).toHaveCount(2);
   await expect(cards(page).nth(0)).toContainText('Slide the laptops in faster.');
   await expect(cards(page).nth(0).locator('.carry-state')).toHaveText('Sent to Claude');
   await expect(cards(page).nth(1)).toContainText('Unsent in section one.');
-  await expect(cards(page).nth(1).locator('.carry-state')).toHaveText('Not carried to v2');
+  await expect(cards(page).nth(1).locator('.carry-state')).toHaveText('Moved to v2');
   await expect(cards(page).nth(1).getByRole('button', { name: /^Edit/ })).toHaveCount(0);
 
   await sectionButtons(page).nth(1).click();

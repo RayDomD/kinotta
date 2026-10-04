@@ -21,6 +21,8 @@ interface ShotsFile {
 }
 
 interface Edits {
+  /** The version's own plan.json, as a Save writes it: the pieces of the footage it plays. */
+  plan?: { pieces: Array<{ in: number; out: number }> };
   shots?(file: ShotsFile): void;
   html?(page: string): string;
 }
@@ -31,6 +33,7 @@ function addVersion(dir: string, from: number, to: number, edits: Edits = {}): v
   const target = join(dir, 'reels', REEL, `v${to}`);
   cpSync(source, target, { recursive: true });
   for (const name of ['comments.json', `comments-${COLD}.json`, `comments-${SYNC}.json`]) rmSync(join(target, name), { force: true });
+  if (edits.plan) writeFileSync(join(target, 'plan.json'), JSON.stringify(edits.plan));
   if (edits.shots) {
     const shotsFile = join(target, 'shots.json');
     const file = JSON.parse(readFileSync(shotsFile, 'utf8')) as ShotsFile;
@@ -215,7 +218,7 @@ describe('change detection', () => {
 });
 
 describe('carry-forward', () => {
-  it('moves unsent comments on unchanged sections, and keeps the rest on the old version', async () => {
+  it('moves every unsent comment, even in a changed section, and keeps the sent ones on the old version', async () => {
     const { project, dir } = await withComments();
     await project.copyBatch(REEL, 1, { section: COLD });
     await project.addComment(REEL, 1, { pin: { ...COLD_PIN, x: 0.9 }, text: 'Added after the copy.' });
@@ -223,48 +226,42 @@ describe('carry-forward', () => {
 
     const v2 = await project.listComments(REEL, 2);
 
-    expect(texts(v2).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
-    expect(v2.every((c) => c.pin.version === 2)).toBe(true);
+    expect(texts(v2).sort()).toEqual(['Added after the copy.', 'Hold the grey-out longer.', 'Land this word harder.']);
+    expect(v2.every((c) => c.pin.version === 2 && c.state === undefined)).toBe(true);
     const word = v2.find((c) => c.pin.kind === 'word')!;
     expect(word.pin).toMatchObject({ kind: 'word', shot: '03', section: SYNC, time: 8.65, word: 'lose' });
+    const added = v2.find((c) => c.text === 'Added after the copy.')!;
+    expect(added.pin).toMatchObject({ kind: 'frame', shot: '01', section: COLD, time: 0, x: 0.9, y: 0.4, element: 'document' });
     const v1 = await project.listComments(REEL, 1);
     expect(v1).toHaveLength(5);
-    expect(v1.find((c) => c.text === 'Hold the grey-out longer.')!.carried).toEqual({ to: 2, moved: true });
-    expect(v1.find((c) => c.text === 'Added after the copy.')!.carried).toEqual({ to: 2, moved: false });
+    for (const text of ['Hold the grey-out longer.', 'Land this word harder.', 'Added after the copy.']) {
+      expect(v1.find((c) => c.text === text)!.carried).toEqual({ to: 2 });
+    }
     expect(v1.find((c) => c.text === 'Bigger count.')).toMatchObject({ sent: true });
     expect(v1.find((c) => c.text === 'Bigger count.')!.carried).toBeUndefined();
     expect(v2.map((c) => c.id).some((id) => v1.some((c) => c.id === id))).toBe(false);
   });
 
-  it('lists what was left behind, by section', async () => {
+  it('leaves nothing behind: every unsent comment of a changed section moves too', async () => {
     const { project, dir } = await withComments();
     addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
 
-    expect(await project.carryNotice(REEL, 2)).toEqual({ from: 1, count: 2, sections: [COLD] });
-    expect(await project.carryNotice(REEL, 1)).toBeNull();
+    expect(await project.listComments(REEL, 2)).toHaveLength(4);
+    expect((await project.listComments(REEL, 1)).every((c) => c.carried?.to === 2)).toBe(true);
   });
 
-  it('has no notice when every left-behind comment was sent', async () => {
-    const { project, dir } = await withComments();
-    await project.copyBatch(REEL, 1, { section: COLD });
-    addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
-
-    expect(await project.carryNotice(REEL, 2)).toBeNull();
-  });
-
-  it('keeps sent comments on an unchanged section on the old version', async () => {
+  it('keeps sent comments, on an unchanged section too, on the old version', async () => {
     const { project, dir } = await withComments();
     await project.copyBatch(REEL, 1, { section: SYNC });
     addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
 
-    expect(await project.listComments(REEL, 2)).toEqual([]);
+    expect(texts(await project.listComments(REEL, 2)).sort()).toEqual(['Bigger count.', 'Slide the laptops in faster.']);
     const v1 = await project.listComments(REEL, 1);
     expect(v1.filter((c) => c.sent).map((c) => c.text).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
     expect(v1.filter((c) => c.sent).every((c) => c.carried === undefined)).toBe(true);
-    expect(await project.carryNotice(REEL, 2)).toEqual({ from: 1, count: 2, sections: [COLD] });
   });
 
-  it('moves a comment onto the same shot when the numbers shifted', async () => {
+  it('moves a comment onto the shot that plays at its moment when the numbers shifted', async () => {
     const { project, dir } = await withComments();
     addVersion(dir, 1, 2, {
       shots: (f) => {
@@ -277,9 +274,77 @@ describe('carry-forward', () => {
     const v2 = await project.listComments(REEL, 2);
 
     expect(v2.map((c) => [c.text, c.pin.shot]).sort()).toEqual([
+      ['Bigger count.', '02'],
       ['Hold the grey-out longer.', '04'],
       ['Land this word harder.', '04'],
+      ['Slide the laptops in faster.', '01'],
     ]);
+  });
+
+  describe('through a snip', () => {
+    /** v2 as a Save builds it after snipping the footage from 4s to 7s: its own plan with two pieces, shots at the new times. */
+    const snipped = (dir: string): void =>
+      addVersion(dir, 1, 2, {
+        plan: { pieces: [{ in: 0, out: 4 }, { in: 7, out: 12 }] },
+        shots: (f) => {
+          f.duration = 9;
+          f.sections = [{ id: COLD, name: 'Cold open', start: 0, end: 4 }, { id: SYNC, name: 'The sync problem', start: 4, end: 9 }];
+          f.shots[2]!.start = 4;
+          f.shots[2]!.line = { start: 4, end: 6.4 };
+          f.shots[3]!.start = 6.4;
+          f.shots[3]!.line = { start: 6.4, end: 9 };
+        },
+      });
+
+    it('puts the comments at their remapped times', async () => {
+      const { project, dir } = await withComments();
+      snipped(dir);
+
+      const v2 = await project.listComments(REEL, 2);
+
+      const word = v2.find((c) => c.pin.kind === 'word')!;
+      expect(word.pin).toMatchObject({ shot: '03', section: SYNC, time: 5.65, word: 'lose' });
+      expect(word.state).toBeUndefined();
+      expect(v2.find((c) => c.text === 'Bigger count.')!.pin).toMatchObject({ shot: '02', time: 3.2, element: 'conflict-panel' });
+      expect(v2.find((c) => c.text === 'Slide the laptops in faster.')!.pin).toMatchObject({ shot: '01', time: 0, element: 'document' });
+    });
+
+    it('keeps a comment whose moment was snipped, marked moment-removed, where the snip closed up', async () => {
+      const { project, dir } = await withComments();
+      snipped(dir);
+
+      const gone = (await project.listComments(REEL, 2)).find((c) => c.text === 'Hold the grey-out longer.')!;
+
+      expect(gone.state).toBe('moment-removed');
+      expect(gone.pin).toMatchObject({ version: 2, shot: '03', section: SYNC, time: 4, x: 0.5, y: 0.6 });
+      expect(gone.carried).toBeUndefined();
+      expect((await project.listComments(REEL, 1)).find((c) => c.text === 'Hold the grey-out longer.')!.carried).toEqual({ to: 2 });
+      await project.deleteComment(REEL, 2, gone.id);
+      expect(texts(await project.listComments(REEL, 2))).not.toContain('Hold the grey-out longer.');
+    });
+
+    it('keeps the mark on the next version, and the comment follows the closed-up place', async () => {
+      const { project, dir } = await withComments();
+      snipped(dir);
+      addVersion(dir, 2, 3);
+
+      const v3 = await project.listComments(REEL, 3);
+
+      expect(v3.find((c) => c.text === 'Hold the grey-out longer.')).toMatchObject({ state: 'moment-removed', pin: { time: 4 } });
+      expect(v3.find((c) => c.text === 'Land this word harder.')).toMatchObject({ pin: { time: 5.65 } });
+      expect(v3.filter((c) => c.state === undefined)).toHaveLength(3);
+    });
+
+    it('follows reordered pieces', async () => {
+      const { project, dir } = await withComments();
+      addVersion(dir, 1, 2, { plan: { pieces: [{ in: 6, out: 12 }, { in: 0, out: 6 }] } });
+
+      const v2 = await project.listComments(REEL, 2);
+
+      expect(v2.find((c) => c.text === 'Hold the grey-out longer.')!.pin.time).toBe(0.2);
+      expect(v2.find((c) => c.text === 'Land this word harder.')!.pin.time).toBe(2.65);
+      expect(v2.find((c) => c.text === 'Bigger count.')!.pin.time).toBe(9.2);
+    });
   });
 
   it('settles once: reading again changes nothing', async () => {
@@ -335,9 +400,9 @@ describe('carry-forward', () => {
 
     const v3 = await project.listComments(REEL, 3);
 
-    expect(texts(v3).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
+    expect(texts(v3).sort()).toEqual(['Bigger count.', 'Hold the grey-out longer.', 'Land this word harder.', 'Slide the laptops in faster.']);
     const v2 = await project.listComments(REEL, 2);
-    expect(v2.filter((c) => c.carried?.moved === true).map((c) => c.text).sort()).toEqual(['Hold the grey-out longer.', 'Land this word harder.']);
+    expect(v2.filter((c) => c.carried?.to === 3)).toHaveLength(4);
   });
 });
 

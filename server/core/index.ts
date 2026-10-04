@@ -2,7 +2,7 @@ import { basename, join, resolve } from 'node:path';
 import { copyBatch } from './_internal/batch.ts';
 import { addOperation, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { saveEdits } from './_internal/save.ts';
-import { carryNotice, readVersion, settleNewest } from './_internal/carry.ts';
+import { readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
 import { listReels } from './_internal/reels.ts';
@@ -19,7 +19,6 @@ export type { NewOperation, Operation, SnipOperation } from './_internal/edit-mo
 export type {
   AddedComment,
   BatchOptions,
-  CarryNotice,
   Comment,
   ContractIssue,
   CommentList,
@@ -72,7 +71,6 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     readNote: (slug, number) => readNote(dir, slug, number),
     setNote: (slug, number, note) => setNote(dir, slug, number, note),
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
-    carryNotice: (slug, number) => carryNotice(dir, slug, number),
     listVideos: () => listVideos(dir),
     startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, input),
     readEditList: (slug) => readEditList(dir, slug),

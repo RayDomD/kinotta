@@ -171,8 +171,6 @@ export interface Project {
    * for a version that is not the newest.
    */
   copyBatch(slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch>;
-  /** What the version before could not hand over because its section changed, or null when nothing was left behind. */
-  carryNotice(slug: string, number: number): Promise<CarryNotice | null>;
   /** The project's videos (outside reels/) with length, codec and size. */
   listVideos(): Promise<VideoEntry[]>;
   /**
@@ -237,15 +235,6 @@ export interface BatchOptions {
   includeIssues?: boolean;
   /** Problems only the browser can see, such as a page with no seek(). Plain-word messages. */
   runtimeIssues?: string[];
-}
-
-/** Unsent comments that stayed on the version before because their section changed. */
-export interface CarryNotice {
-  /** The version they stayed on. */
-  from: number;
-  count: number;
-  /** Ids of the sections they belong to. */
-  sections: string[];
 }
 
 export interface CopiedBatch {
@@ -316,8 +305,13 @@ export interface Comment {
   createdAt: string;
   /** Copied to Claude in its section's latest batch. */
   sent?: true;
-  /** Once a newer version has settled: whether this comment moved to it. */
-  carried?: { to: number; moved: boolean };
+  /** Once a newer version has settled: this unsent comment moved on to it. */
+  carried?: { to: number };
+  /**
+   * Set when the comment's moment was snipped out of the footage: its text is kept, its pin sits where the snip closed up,
+   * and it waits to be re-pinned (a new comment) or deleted.
+   */
+  state?: 'moment-removed';
 }
 
 export interface NewComment {

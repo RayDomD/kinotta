@@ -60,8 +60,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles
-it once: unsent comments on unchanged sections move up from the version before, the rest stay and are listed by `carryNotice(slug, n)`;
-sent comments never move. Comments say whether they were `sent` and whether they `carried` on.
+it once, whoever built it (a Save or an agent): every unsent comment moves up from the version before at its remapped time, old
+timeline to source time through the old version's pieces and onto the new timeline through the new version's. The pin's shot is
+the new shot playing there; element and word pins keep their element or word. A moment that was snipped keeps the comment's text
+and gives it `state: 'moment-removed'`, pinned where the snip closed up, until it is deleted or re-pinned as a new comment. Sent
+comments never move. Comments say whether they were `sent` and which version they `carried` on to.
 
 - `readEditList(slug)`, `addOperation(slug, op)`, `removeOperation(slug, id)`, `undoEdit(slug)`, `redoEdit(slug)`, `discardEdits(slug)`,
   `saveEdits(slug)`: the reel's edit list and Save. The

@@ -275,7 +275,7 @@ Done when `kinotta check <slug>` prints `no contract issues` and the owner has t
 A footage reel's batch covers one section, from `comments-<section>.json`. You rebuild only that
 section's clips from the sources in `motion/` and carry every other section over unchanged. Kinotta
 works out which sections changed by comparing each section's scenes and shots with the version
-before, and moves unsent comments on unchanged sections forward by itself.
+before, and moves every unsent comment forward by itself, to the same moment of the footage in the new version.
 
 1. **Read the batch file** and confirm `v<n>` is the newest version, as in section 4 steps 1 and 2.
    The look follows section 5.

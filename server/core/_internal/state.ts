@@ -11,11 +11,15 @@ const BUSY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
 const RENAME_ATTEMPTS = 8;
 const RENAME_BACKOFF_MS = 25;
 
+/** A comment whose moment was snipped out of the footage: it keeps its text, and waits to be re-pinned or deleted. */
+export const MOMENT_REMOVED = 'moment-removed';
+
 export interface StoredComment {
   id: string;
   pin: FramePin | WordPin;
   text: string;
   createdAt: string;
+  state?: typeof MOMENT_REMOVED;
 }
 
 /** What one copy handed to Claude for a section: the comments it held. A later copy of the section replaces it. */
@@ -34,8 +38,8 @@ export interface StateFile {
   waiting?: string[];
   /** Set once this version has taken the carried comments of the one before it (settling is done). `ids` are the new comment ids. */
   carriedFrom?: { version: number; ids: string[] };
-  /** Set on the older version once the next one settled: where its unsent comments went. */
-  carriedTo?: { version: number; carried: string[]; notCarried: string[] };
+  /** Set on the older version once the next one settled: the ids of its unsent comments that went on to it. */
+  carriedTo?: { version: number; carried: string[] };
 }
 
 /** Writes to one state file run one at a time, so two saves never overwrite each other. */

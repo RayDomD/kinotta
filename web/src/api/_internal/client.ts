@@ -147,22 +147,14 @@ export interface Comment {
   createdAt: string;
   /** Copied to Claude in its section's latest batch. */
   sent?: true;
-  /** Once a newer version has settled: whether this comment moved to it. */
-  carried?: { to: number; moved: boolean };
-}
-
-/** Unsent comments that stayed on the version before because their section changed. */
-export interface CarryNotice {
-  from: number;
-  count: number;
-  /** Ids of their sections. */
-  sections: string[];
+  /** Once a newer version has settled: this unsent comment moved on to it. */
+  carried?: { to: number };
+  /** The comment's moment was snipped out of the footage: it keeps its text and waits to be re-pinned or deleted. */
+  state?: 'moment-removed';
 }
 
 export interface CommentsOfVersion {
   comments: Comment[];
-  /** Set on a version whose predecessor kept some comments back. */
-  notCarried: CarryNotice | null;
 }
 
 export interface NewComment {
