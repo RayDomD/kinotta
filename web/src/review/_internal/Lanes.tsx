@@ -106,7 +106,34 @@ const FootageLane = memo(function FootageLane({
   );
 });
 
-const ClipsLane = memo(function ClipsLane({ win, clips }: { win: TimeWindow; clips: readonly ClipSpan[] }) {
+/** A clip is never dragged shorter than this (seconds); the core's own floor is looser. */
+const MIN_CLIP_DRAG = 0.5;
+/** Seconds one Alt arrow key slides a focused clip, and with Shift. */
+const NUDGE = 0.1;
+const NUDGE_FAR = 1;
+
+/** What the Clips lane shows of a clip being dragged: which one, how (its body slides, an edge trims), and how far (pixels). */
+interface ClipDrag {
+  id: string;
+  mode: 'slide' | 'start' | 'end';
+  dx: number;
+}
+
+interface ClipsLaneProps {
+  win: TimeWindow;
+  total: number;
+  clips: readonly ClipSpan[];
+  /** Present when clips can be edited: a drag of the body slides, a drag of an edge trims. Seconds of the edited timeline. */
+  onSlide: ((id: string, by: number) => void) | undefined;
+  onTrim: ((id: string, edge: 'start' | 'end', by: number) => void) | undefined;
+  /** A press on a clip that does not drag seeks to where it was pressed. */
+  onSeekAt(clientX: number): void;
+}
+
+const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, onSeekAt }: ClipsLaneProps) {
+  const lane = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<ClipDrag | null>(null);
+  const began = useRef<{ x: number; moved: boolean } | null>(null);
   const seen = clips.filter((clip) => inWindow(win, clip.start, clip.end));
   if (seen.length === 0) {
     return (
@@ -117,14 +144,100 @@ const ClipsLane = memo(function ClipsLane({ win, clips }: { win: TimeWindow; cli
       </div>
     );
   }
+  const perPixel = (): number => {
+    const width = lane.current?.getBoundingClientRect().width ?? 0;
+    return width > 0 ? win.length / width : 0;
+  };
+  /** The seconds a drag moves a clip by: a slide stays on the timeline, an edge keeps the clip a minimum long. */
+  const limit = (clip: ClipSpan, mode: ClipDrag['mode'], seconds: number): number => {
+    if (mode === 'slide') return Math.min(Math.max(seconds, -clip.start), total - clip.end);
+    if (mode === 'start') return Math.min(Math.max(seconds, -clip.start), clip.end - MIN_CLIP_DRAG - clip.start);
+    return Math.max(Math.min(seconds, total - clip.end), clip.start + MIN_CLIP_DRAG - clip.end);
+  };
+  const press = (e: PointerEvent<HTMLElement>, id: string, mode: ClipDrag['mode']): void => {
+    if (e.button !== 0) return;
+    // Handled here, not by the lanes' own press: capturing the pointer there would send this clip's events to the container.
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    began.current = { x: e.clientX, moved: false };
+    setDrag({ id, mode, dx: 0 });
+  };
+  const move = (e: PointerEvent<HTMLElement>, id: string, mode: ClipDrag['mode']): void => {
+    e.stopPropagation();
+    const start = began.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    if (start.moved || Math.abs(dx) >= DRAG_THRESHOLD) {
+      start.moved = true;
+      setDrag({ id, mode, dx });
+    }
+  };
+  const release = (e: PointerEvent<HTMLElement>, clip: ClipSpan, mode: ClipDrag['mode']): void => {
+    e.stopPropagation();
+    const start = began.current;
+    began.current = null;
+    setDrag(null);
+    if (!start) return;
+    if (!start.moved) {
+      if (mode === 'slide') onSeekAt(e.clientX);
+      return;
+    }
+    const by = limit(clip, mode, (e.clientX - start.x) * perPixel());
+    if (Math.abs(by) < SNIP_MIN) return;
+    if (mode === 'slide') onSlide?.(clip.id, by);
+    else onTrim?.(clip.id, mode, by);
+  };
+  const cancel = (): void => {
+    began.current = null;
+    setDrag(null);
+  };
   return (
-    <div className="lane ov-lane">
-      {seen.map((clip) => (
-        <div key={clip.id} className="ov" style={place(win, clip.start, clip.end)} title={`${clip.id} ${clip.title}, ${formatTimecode(clip.start)} to ${formatTimecode(clip.end)}`}>
-          <b>{clip.id}</b>
-          {clip.title}
-        </div>
-      ))}
+    <div ref={lane} className="lane ov-lane">
+      {seen.map((clip) => {
+        const moved = drag?.id === clip.id ? limit(clip, drag.mode, drag.dx * perPixel()) : 0;
+        const start = clip.start + (drag?.id === clip.id && drag.mode !== 'end' ? moved : 0);
+        const end = clip.end + (drag?.id === clip.id && drag.mode !== 'start' ? moved : 0);
+        const editable = onSlide !== undefined && onTrim !== undefined;
+        const grip = (edge: 'start' | 'end') => (
+          <i
+            className={`rv-cgrip ${edge === 'start' ? 'l' : 'r'}`}
+            data-edge={edge}
+            aria-hidden="true"
+            onPointerDown={(e) => press(e, clip.id, edge)}
+            onPointerMove={(e) => move(e, clip.id, edge)}
+            onPointerUp={(e) => release(e, clip, edge)}
+            onPointerCancel={cancel}
+          />
+        );
+        const classes = ['ov', editable ? 'editable' : '', drag?.id === clip.id ? 'sel' : '', clip.slid ? 'slid' : ''].filter(Boolean).join(' ');
+        return (
+          <div
+            key={clip.id}
+            className={classes}
+            style={place(win, start, end)}
+            data-clip={clip.id}
+            title={`${clip.id} ${clip.title}, ${formatTimecode(clip.start)} to ${formatTimecode(clip.end)}${clip.slid ? '. Off its words: it was slid, so its changes no longer land on the words they were placed on.' : ''}`}
+            tabIndex={editable ? 0 : undefined}
+            aria-label={editable ? `Clip ${clip.id} ${clip.title}${clip.slid ? ', off its words' : ''}. Alt with the arrow keys slides it.` : undefined}
+            onPointerDown={editable ? (e) => press(e, clip.id, 'slide') : undefined}
+            onPointerMove={editable ? (e) => move(e, clip.id, 'slide') : undefined}
+            onPointerUp={editable ? (e) => release(e, clip, 'slide') : undefined}
+            onPointerCancel={editable ? cancel : undefined}
+            onKeyDown={(e) => {
+              if (!editable || !e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+              e.preventDefault();
+              const by = limit(clip, 'slide', (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? NUDGE_FAR : NUDGE));
+              if (Math.abs(by) >= SNIP_MIN) onSlide(clip.id, by);
+            }}
+          >
+            {editable && grip('start')}
+            <b>{clip.id}</b>
+            {clip.title}
+            {clip.slid && <span className="rv-off">off its words</span>}
+            {editable && grip('end')}
+          </div>
+        );
+      })}
     </div>
   );
 });
@@ -392,6 +505,9 @@ export interface LanesProps {
   /** Present when words can be edited. */
   onFixWord?(index: number, text: string): void;
   onRetimeWord?(index: number, startBy: number, endBy: number): void;
+  /** Present when clips can be edited: the body slides a clip, an edge trims it; by seconds of the timeline. */
+  onSlideClip?(id: string, by: number): void;
+  onTrimClip?(id: string, edge: 'start' | 'end', by: number): void;
   comments: readonly Comment[];
   /** What the overview draws: the clips, or the pieces when there are none. */
   overview: readonly Span[];
@@ -412,19 +528,20 @@ export interface LanesProps {
 
 /** The overview of the reel and the zoomed lanes under it, on one time axis with one playhead. */
 export function Lanes(props: LanesProps) {
-  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord } = props;
+  const { win, total, time, pieces, clips, phrases, currentPhrase, words, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord, onSlideClip, onTrimClip } = props;
   const plane = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
   const selecting = useRef<{ anchor: number; band: Span | null } | null>(null);
   const press = useRef<{ index: number; startX: number; active: boolean } | null>(null);
   const [drag, setDrag] = useState<PieceDrag | null>(null);
-  const scrub = useCallback(
-    (e: PointerEvent) => {
+  const scrubAt = useCallback(
+    (clientX: number) => {
       const rect = plane.current?.getBoundingClientRect();
-      if (rect && rect.width > 0) onScrub(timeAt(win, rect, e.clientX));
+      if (rect && rect.width > 0) onScrub(timeAt(win, rect, clientX));
     },
     [onScrub, win],
   );
+  const scrub = useCallback((e: PointerEvent) => scrubAt(e.clientX), [scrubAt]);
   const select = useCallback(
     (e: PointerEvent) => {
       const rect = plane.current?.getBoundingClientRect();
@@ -516,7 +633,7 @@ export function Lanes(props: LanesProps) {
           </>
         )}
         <span>Clips</span>
-        <ClipsLane win={win} clips={clips} />
+        <ClipsLane win={win} total={total} clips={clips} onSlide={onSlideClip} onTrim={onTrimClip} onSeekAt={scrubAt} />
         <span>Captions</span>
         <CaptionsLane win={win} phrases={phrases} current={currentPhrase} />
         {words !== null && (

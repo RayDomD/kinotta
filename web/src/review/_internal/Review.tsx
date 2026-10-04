@@ -9,7 +9,7 @@ import { Lanes } from './Lanes.tsx';
 import type { PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
-import { captionShifts, editedList, remap, sourceStretches } from './edited.ts';
+import { captionShifts, editedClips, editedList, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
 import type { Span } from './model.ts';
@@ -26,6 +26,8 @@ const ZOOM_DEFAULT_SECONDS = 15;
 const TYPING = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 const ZOOM_IN = 0.5;
 const ZOOM_OUT = 2;
+/** Two source times this close are the same second. */
+const SAME_SECOND = 1e-6;
 const NO_PHRASES: CaptionPhrase[] = [];
 const NO_OPERATIONS: readonly Operation[] = [];
 
@@ -80,7 +82,12 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
   const { time } = playback;
   const moved = useMemo(() => remap(savedPieces ?? [], pieces ?? []), [savedPieces, pieces]);
 
-  const clips = useMemo(() => remapped(clipSpans(version?.shots ?? []), moved), [version, moved]);
+  // Clips: the plan's, in source time, with the unsaved trims and slides applied, placed on the edited timeline. A version without a plan shows its shots' clips.
+  const planClips = version?.clips;
+  const clips = useMemo(
+    () => (planClips && pieces ? editedClips(planClips, operations, pieces) : remapped(clipSpans(version?.shots ?? []), moved)),
+    [version, planClips, pieces, operations, moved],
+  );
   const overview = useMemo(() => (clips.length > 0 ? clips : (pieces ?? []).map((p) => ({ start: p.at, end: p.at + p.out - p.in }))), [clips, pieces]);
   // Words: the saved version's, taken back to source time, with the unsaved word edits applied, then placed on the edited timeline.
   const sourceWords = useMemo(() => {
@@ -144,8 +151,8 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
 
   const [toolName, setTool] = useState<Tool>('select');
   const [selection, setSelection] = useState<Span | null>(null);
-  const live = useRef({ playback, win, total, time, selection, pieces, editable, edits });
-  live.current = { playback, win, total, time, selection, pieces, editable, edits };
+  const live = useRef({ playback, win, total, time, selection, pieces, editable, edits, clips });
+  live.current = { playback, win, total, time, selection, pieces, editable, edits, clips };
   const tool = useRef(toolName);
   tool.current = toolName;
   const afterSnip = useRef<number | null>(null);
@@ -197,6 +204,23 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
     const word = shownWordsRef.current?.[index];
     if (!allowed || !changes || changes.busy || !word) return;
     void changes.add({ kind: 'word-timing', at: word.source.start, start: word.source.start + startBy, end: word.source.end + endBy });
+  };
+  const slideClip = (id: string, by: number): void => {
+    const { editable: allowed, edits: changes, clips: shown } = live.current;
+    const clip = shown.find((c) => c.id === id);
+    if (!allowed || !changes || changes.busy || !clip?.source) return;
+    void changes.add({ kind: 'clip-slide', clip: id, delta: by });
+  };
+  /** An edge dragged by `by` seconds of the timeline: the new edge is where that lands in the footage, the other edge stays. */
+  const trimClip = (id: string, edge: 'start' | 'end', by: number): void => {
+    const { editable: allowed, edits: changes, clips: shown, pieces: current } = live.current;
+    const clip = shown.find((c) => c.id === id);
+    if (!allowed || !changes || changes.busy || !clip?.source || !current) return;
+    const now = pieceMap(current, 0);
+    // An out edge belongs to the footage before it, so ask for the second just inside.
+    const found = edge === 'start' ? toSource(now, clip.start + by) : toSource(now, clip.end + by - SAME_SECOND);
+    const edgeAt = found === null ? (edge === 'start' ? clip.source.in : clip.source.out) + by : found + (edge === 'end' ? SAME_SECOND : 0);
+    void changes.add({ kind: 'clip-trim', clip: id, in: edge === 'start' ? edgeAt : clip.source.in, out: edge === 'end' ? edgeAt : clip.source.out });
   };
   const placementsRef = useRef(placements);
   placementsRef.current = placements;
@@ -319,6 +343,8 @@ function Playing({ reel, state, version, comments, section = null, edits }: Revi
           currentWord={words ? indexAt(words, time) : -1}
           onFixWord={editable && words ? fixWord : undefined}
           onRetimeWord={editable && words ? retimeWord : undefined}
+          onSlideClip={editable && toolName === 'select' && planClips ? slideClip : undefined}
+          onTrimClip={editable && toolName === 'select' && planClips ? trimClip : undefined}
           comments={shownComments}
           overview={overview}
           onWindow={setRaw}

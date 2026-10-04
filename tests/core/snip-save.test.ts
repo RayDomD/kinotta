@@ -415,3 +415,67 @@ describe('caption positions on Save', () => {
     expect((await project.readVersion(slug, 2)).captions).toEqual({ phrases: [{ at: 8.3, x: 0, y: -200 }] });
   });
 });
+
+describe('clip trim and slide on Save', () => {
+  const SLUG = 'founder-talk';
+
+  /** The footage sample with clip 02 split into two states, 1.5 s in. */
+  function sampleWithStates(): { dir: string; project: Project } {
+    const dir = copyFixture('footage-project');
+    const planFile = join(dir, 'motion/plan.json');
+    const plan = readJson(planFile);
+    plan.clips[1].stills = [{ from: 0, title: 'Counting' }, { from: 1.5, title: 'Conflict' }];
+    writeFileSync(planFile, JSON.stringify(plan));
+    return { dir, project: openProject(dir) };
+  }
+
+  it('writes a trim into the plan, drops the shot of the state it removed, and rebuilds the page', { timeout: SLOW_MS }, async () => {
+    const { dir, project } = sampleWithStates();
+    const reelDir = join(dir, 'reels', SLUG);
+    await project.addOperation(SLUG, { kind: 'clip-trim', clip: '02', in: 3.2, out: 4.4 });
+
+    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+
+    const clip = readJson(join(dir, 'motion/plan.json')).clips[1];
+    expect(clip).toMatchObject({ id: '02', in: 3.2, out: 4.4, stills: [{ from: 0, title: 'Counting' }] });
+    expect(clip).not.toHaveProperty('slid');
+    expect(readJson(join(reelDir, 'v2', 'plan.json')).clips[1]).toMatchObject({ in: 3.2, out: 4.4 });
+    const v2 = await project.readVersion(SLUG, 2);
+    expect(v2.shots.map((s) => s.number)).toEqual(['01', '02a', '03', '04']);
+    expect(v2.shots.find((s) => s.number === '02a')?.line).toEqual({ start: 3.2, end: 4.4 });
+    expect(v2.changedSections).toEqual(['cold-open', 'sync-problem']);
+    expect(v2.issues).toEqual([]);
+    expect(v2.claimMismatch).toEqual([]);
+    expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toMatch(/data-start="3.2" data-duration="1.2"/);
+    // v1 keeps both states. Its clips are the editing plan's while it is the newest version, and none once it is not.
+    expect((await project.readVersion(SLUG, 2)).clips?.map((c) => c.id)).toEqual(['01', '02', '03', '04']);
+    expect((await project.readVersion(SLUG, 1)).clips).toBeUndefined();
+    expect((await project.readVersion(SLUG, 1)).shots.map((s) => s.number)).toEqual(['01', '02', '03', '04']);
+  });
+
+  it('keeps both shots when a trim leaves both states, and a slid clip is slid in the plan and the version', { timeout: SLOW_MS }, async () => {
+    const { dir, project } = sampleWithStates();
+    await project.addOperation(SLUG, { kind: 'clip-trim', clip: '02', in: 3.2, out: 5.4 });
+    await project.addOperation(SLUG, { kind: 'clip-slide', clip: '03', delta: 0.4 });
+
+    await project.saveEdits(SLUG);
+
+    const clips = readJson(join(dir, 'motion/plan.json')).clips;
+    expect(clips[1].stills).toHaveLength(2);
+    expect(clips[2]).toMatchObject({ id: '03', in: 6.6, out: 9.8, slid: true });
+    expect(clips[0]).not.toHaveProperty('slid');
+    const v2 = await project.readVersion(SLUG, 2);
+    expect(v2.shots.map((s) => s.number)).toEqual(['01', '02a', '02b', '03', '04']);
+    expect(v2.clips?.find((c) => c.id === '03')).toMatchObject({ in: 6.6, slid: true });
+    expect(v2.changedSections).toEqual(['cold-open', 'sync-problem']);
+    expect(v2.claimMismatch).toEqual([]);
+  });
+
+  it('refuses a clip operation that does not apply, and undoes one', { timeout: SLOW_MS }, async () => {
+    const { project } = sampleWithStates();
+    await expect(project.addOperation(SLUG, { kind: 'clip-slide', clip: '01', delta: -1 })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(project.addOperation(SLUG, { kind: 'clip-trim', clip: '07', in: 0, out: 1 })).rejects.toMatchObject({ code: 'invalid' });
+    await project.addOperation(SLUG, { kind: 'clip-slide', clip: '01', delta: 1 });
+    expect((await project.undoEdit(SLUG)).operations).toEqual([]);
+  });
+});

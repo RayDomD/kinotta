@@ -28,11 +28,33 @@ export interface CaptionsPlan {
   phrases?: PhrasePosition[];
 }
 
+/** One state of a clip that changes (`stills`): `from` is clip-local seconds, `still` seconds into the state. */
+export interface ClipState {
+  from: number;
+  title?: string;
+  still?: number;
+  [key: string]: unknown;
+}
+
+/** A b-roll clip of the plan: `in` and `out` are source seconds; `slid` marks one moved off the words it was placed on. */
+export interface PlanClip {
+  id: string;
+  title?: string;
+  in: number;
+  out: number;
+  /** Seconds into the clip the shot's still is drawn, for a clip with one state. */
+  still?: number;
+  stills?: ClipState[];
+  slid?: boolean;
+  [key: string]: unknown;
+}
+
 /** The plan a reel's sources hold. Only the fields an operation touches are named; the rest passes through. */
 export interface Plan {
   /** Source seconds of the video. */
   duration?: number;
   pieces?: Piece[];
+  clips?: PlanClip[];
   captions?: boolean | CaptionsPlan;
   sections?: { id: string; name: string; start: number; end: number }[];
   [key: string]: unknown;
@@ -102,6 +124,23 @@ export interface CaptionPhrasePositionOperation {
   y: number;
 }
 
+/** Trims a clip: its new `in` and `out`, in source seconds. */
+export interface ClipTrimOperation {
+  id: string;
+  kind: 'clip-trim';
+  clip: string;
+  in: number;
+  out: number;
+}
+
+/** Slides a clip along the footage by `delta` seconds (negative is earlier) and marks it `slid`: off the words it was placed on. */
+export interface ClipSlideOperation {
+  id: string;
+  kind: 'clip-slide';
+  clip: string;
+  delta: number;
+}
+
 /** Everything the edit list can hold. */
 export type Operation =
   | SnipOperation
@@ -110,7 +149,9 @@ export type Operation =
   | WordTextOperation
   | WordTimingOperation
   | CaptionPositionOperation
-  | CaptionPhrasePositionOperation;
+  | CaptionPhrasePositionOperation
+  | ClipTrimOperation
+  | ClipSlideOperation;
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 /** An operation as the caller sends it: the core gives it an id. */
@@ -118,6 +159,8 @@ export type NewOperation = DistributiveOmit<Operation, 'id'>;
 
 /** Less than this of footage is not a snip. */
 export const MIN_SNIP = 0.005;
+/** A clip is never trimmed shorter than this (seconds). */
+export const MIN_CLIP = 0.2;
 const MICROSECOND = 1e6;
 const SECONDS_PER_MINUTE = 60;
 const HUNDREDTHS = 100;
@@ -278,6 +321,49 @@ function applyWordTiming(sources: Sources, op: WordTimingOperation): Sources {
   return { ...sources, plan: followWord(sources.plan, was, start), words: sources.words.map((w, i) => (i === index ? { ...w, start, end } : w)) };
 }
 
+function clipIndex(plan: Plan, id: string): number {
+  const index = (plan.clips ?? []).findIndex((c) => c.id === id);
+  if (index < 0) throw new KinottaError('invalid', `There is no clip "${id}" in the plan.`);
+  return index;
+}
+
+const withClip = (plan: Plan, index: number, clip: PlanClip): Plan => ({ ...plan, clips: plan.clips!.map((c, i) => (i === index ? clip : c)) });
+
+/** A clip's states kept to those that begin inside its (trimmed) length, and a `still` that no longer falls inside its state dropped. */
+function fitStates(clip: PlanClip): PlanClip {
+  const length = clip.out - clip.in;
+  const { stills, still, ...rest } = clip;
+  const kept = stills?.filter((s) => s.from < length - MIN_SNIP);
+  const spanOf = (i: number): number => (kept![i + 1]?.from ?? length) - kept![i]!.from;
+  const states = kept?.map(({ still: at, ...state }, i) => (at !== undefined && at < spanOf(i) ? { ...state, still: at } : state));
+  const firstSpan = states ? spanOf(0) : length;
+  return { ...rest, ...(states ? { stills: states } : {}), ...(still !== undefined && still < firstSpan ? { still } : {}) };
+}
+
+function applyClipTrim(sources: Sources, op: ClipTrimOperation): Sources {
+  const index = clipIndex(sources.plan, op.clip);
+  const clip = sources.plan.clips![index]!;
+  const from = round(op.in);
+  const to = round(op.out);
+  if (!Number.isFinite(op.in) || !Number.isFinite(op.out) || from < 0 || to - from < MIN_CLIP) {
+    throw new KinottaError('invalid', `A clip needs to be at least ${MIN_CLIP} s long, starting at 0 s or later.`);
+  }
+  if (typeof sources.plan.duration === 'number' && to > sources.plan.duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot run past the end of the footage.');
+  if (Math.abs(from - clip.in) <= MIN_SNIP && Math.abs(to - clip.out) <= MIN_SNIP) throw new KinottaError('invalid', `Clip ${op.clip} already runs there.`);
+  return { ...sources, plan: withClip(sources.plan, index, fitStates({ ...clip, in: from, out: to })) };
+}
+
+function applyClipSlide(sources: Sources, op: ClipSlideOperation): Sources {
+  const index = clipIndex(sources.plan, op.clip);
+  const clip = sources.plan.clips![index]!;
+  if (!Number.isFinite(op.delta) || Math.abs(op.delta) <= MIN_SNIP) throw new KinottaError('invalid', 'A slide needs a distance, in seconds.');
+  const from = round(clip.in + op.delta);
+  const to = round(clip.out + op.delta);
+  if (from < 0) throw new KinottaError('invalid', 'A clip cannot slide before the start of the footage.');
+  if (typeof sources.plan.duration === 'number' && to > sources.plan.duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot slide past the end of the footage.');
+  return { ...sources, plan: withClip(sources.plan, index, { ...clip, in: from, out: to, slid: true }) };
+}
+
 /** The sources with one operation written into them. Throws `invalid` for an operation that cannot apply. */
 export function applyOperation(sources: Sources, op: Operation): Sources {
   switch (op.kind) {
@@ -295,6 +381,10 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyCaptionPosition(sources, op);
     case 'caption-phrase-position':
       return applyCaptionPhrasePosition(sources, op);
+    case 'clip-trim':
+      return applyClipTrim(sources, op);
+    case 'clip-slide':
+      return applyClipSlide(sources, op);
   }
 }
 
@@ -323,6 +413,10 @@ export function operationTouches(op: Operation, section: { start: number; end: n
       return true;
     case 'caption-phrase-position':
       return op.at >= section.start && op.at < section.end;
+    // A clip belongs to a section by its own `section`, which an operation does not carry: Save compares the plan's clips.
+    case 'clip-trim':
+    case 'clip-slide':
+      return false;
   }
 }
 
@@ -357,6 +451,10 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: 'Captions', text: `Moved all captions to ${op.x}, ${op.y}` };
     case 'caption-phrase-position':
       return { target: 'Captions', text: `Moved one caption to ${op.x}, ${op.y}` };
+    case 'clip-trim':
+      return { target: `Clip ${op.clip}`, text: `Trimmed to ${clock(op.in)} to ${clock(op.out)}` };
+    case 'clip-slide':
+      return { target: `Clip ${op.clip}`, text: `Slid ${op.delta > 0 ? '+' : '−'}${Math.abs(op.delta).toFixed(1)}s` };
   }
 }
 

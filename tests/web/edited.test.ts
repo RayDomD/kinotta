@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
-import { captionShifts, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
+import { captionShifts, editedClips, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
 /** Seconds 3 to 5 snipped. */
@@ -102,5 +102,35 @@ describe('captionShifts', () => {
   it('follows a phrase whose first word is re-timed', () => {
     const moved = [one(8.2, 0, -50), { id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
     expect(shown(true, moved, words, starts)).toEqual([{ x: 0, y: 0, own: false }, { x: 0, y: -50, own: true }]);
+  });
+});
+
+describe('editedClips', () => {
+  const clips = [
+    { id: '01', title: 'One', in: 0, out: 3 },
+    { id: '02', title: 'Two', in: 3, out: 6 },
+    { id: '03', title: 'Three', in: 6, out: 9, slid: true },
+  ];
+  const whole = [{ in: 0, out: 12 }];
+  const trim = { id: 't', kind: 'clip-trim' as const, clip: '02', in: 3, out: 5 };
+  const slide = { id: 's', kind: 'clip-slide' as const, clip: '01', delta: 1 };
+
+  it('places the saved clips on the timeline with their source time and slid flag', () => {
+    expect(editedClips(clips, [], whole)).toEqual([
+      { id: '01', title: 'One', start: 0, end: 3, source: { in: 0, out: 3 }, slid: false },
+      { id: '02', title: 'Two', start: 3, end: 6, source: { in: 3, out: 6 }, slid: false },
+      { id: '03', title: 'Three', start: 6, end: 9, source: { in: 6, out: 9 }, slid: true },
+    ]);
+  });
+
+  it('applies unsaved trims and slides, and a slide marks the clip', () => {
+    const shown = editedClips(clips, [trim, slide], whole);
+    expect(shown.find((c) => c.id === '02')).toMatchObject({ start: 3, end: 5, slid: false });
+    expect(shown.find((c) => c.id === '01')).toMatchObject({ start: 1, end: 4, slid: true, source: { in: 1, out: 4 } });
+  });
+
+  it('follows the snips, and leaves out a clip that is wholly inside one', () => {
+    const snipped = [{ in: 0, out: 3 }, { in: 6, out: 12 }];
+    expect(editedClips(clips, [], snipped).map((c) => [c.id, c.start, c.end])).toEqual([['01', 0, 3], ['03', 3, 6]]);
   });
 });

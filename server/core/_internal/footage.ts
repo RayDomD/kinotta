@@ -1,8 +1,9 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
-import type { CaptionsPlan } from './edit-model.ts';
+import type { CaptionsPlan, PlanClip } from './edit-model.ts';
 import { pieceMap } from './pieces.ts';
 import type { Piece, PlacedPiece } from './pieces.ts';
+import { readReelPlan } from './sources.ts';
 import type { Shot, TranscriptWord, Version } from './types.ts';
 
 const REEL_FILE = 'reel.json';
@@ -107,6 +108,20 @@ async function readCaptions(versionDir: string, reelDir: string): Promise<Versio
   }
 }
 
+/**
+ * The clips of the version's plan, in source seconds. A version an agent built has no plan of its own: the newest one
+ * takes the plan Kinotta edits for the reel (the project's `motion/plan.json`), and an older one has none.
+ */
+async function readClips(projectDir: string, versionDir: string, reelDir: string, newest: boolean): Promise<PlanClip[] | undefined> {
+  try {
+    const own = await readOwn(versionDir, reelDir, PLAN_FILE);
+    const clips = own !== null ? (JSON.parse(own) as { clips?: unknown } | null)?.clips : newest ? (await readReelPlan(projectDir, reelDir)).plan.clips : undefined;
+    return Array.isArray(clips) ? (clips as PlanClip[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The transcript on the timeline: words that start inside a piece, cut at its out, in timeline order. */
 function wordsOnTimeline(words: TranscriptWord[], pieces: PlacedPiece[]): TranscriptWord[] {
   const placed: TranscriptWord[] = [];
@@ -132,7 +147,8 @@ export async function addFootage(projectDir: string, reelDir: string, versionDir
   const pieces = await readPieces(versionDir, reelDir, version.duration);
   const transcript = await readTranscript(versionDir, reelDir);
   const captions = await readCaptions(versionDir, reelDir);
-  const withFootage: Version = { ...version, footage: { path: ref.path, exists: await isFile(ref.file) }, pieces, ...(captions === undefined ? {} : { captions }) };
+  const clips = await readClips(projectDir, versionDir, reelDir, version.isNewest);
+  const withFootage: Version = { ...version, footage: { path: ref.path, exists: await isFile(ref.file) }, pieces, ...(captions === undefined ? {} : { captions }), ...(clips === undefined ? {} : { clips }) };
   if ('problem' in transcript) return { ...withFootage, transcriptProblem: transcript.problem };
   const words = wordsOnTimeline(transcript.words, pieces);
   return {

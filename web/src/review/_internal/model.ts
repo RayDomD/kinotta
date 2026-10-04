@@ -7,6 +7,10 @@ export interface ClipSpan {
   /** Timeline seconds. */
   start: number;
   end: number;
+  /** Plan clips only: where the clip runs in the footage (source seconds), which an edit changes. */
+  source?: { in: number; out: number };
+  /** Plan clips only: moved off the words it was placed on. */
+  slid?: boolean;
 }
 
 /** A thing placed on the timeline by start and end. */

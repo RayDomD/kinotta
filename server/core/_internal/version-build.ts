@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
-import type { Operation, Plan } from './edit-model.ts';
+import type { Operation, Plan, PlanClip } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { buildPage, buildShots } from './runner.ts';
 import type { TranscriptWord } from './types.ts';
@@ -12,14 +12,9 @@ const PUBLISHED_TRANSCRIPT = 'transcript.json';
 
 const writeJson = (file: string, value: unknown): Promise<void> => writeFile(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 
-interface ClipRef {
-  id?: string;
-  clip?: string;
-}
-
 /** The file a clip's fragment is in, relative to the plan: its "clip" path, else the engine's `clips/<id>-*.html` or `<id>-*.html`. */
-async function clipPath(planDir: string, clip: ClipRef): Promise<string | undefined> {
-  if (clip.clip) return clip.clip;
+async function clipPath(planDir: string, clip: PlanClip): Promise<string | undefined> {
+  if (typeof clip.clip === 'string') return clip.clip;
   for (const folder of ['clips', '']) {
     try {
       const found = (await readdir(join(planDir, folder))).filter((f) => f.startsWith(`${clip.id}-`) && f.endsWith('.html')).sort()[0];
@@ -43,7 +38,7 @@ async function versionPlan(planDir: string, versionDir: string, plan: Plan): Pro
   if (copy.transcript !== undefined) copy.transcript = PUBLISHED_TRANSCRIPT;
   if (Array.isArray(copy.clips)) {
     copy.clips = await Promise.all(
-      (copy.clips as ClipRef[]).map(async (clip) => {
+      copy.clips.map(async (clip) => {
         const path = await clipPath(planDir, clip);
         return path === undefined ? clip : { ...clip, clip: rebase(path) };
       }),

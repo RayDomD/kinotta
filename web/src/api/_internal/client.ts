@@ -1,4 +1,4 @@
-import type { CaptionsPlan, NewOperation, Operation } from '../../../../server/core/model.ts';
+import type { CaptionsPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
 
 export interface ReelSummary {
   slug: string;
@@ -94,6 +94,8 @@ export interface Version {
   transcriptProblem?: string;
   /** Footage reels only: the plan's `captions` (`true`, or the look, colour and caption positions). Absent when captions are off. */
   captions?: true | CaptionsPlan;
+  /** Footage reels only: the plan's clips in source seconds, with their `slid` flag. */
+  clips?: PlanClip[];
   builtBy?: string;
 }
 

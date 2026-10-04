@@ -1,6 +1,7 @@
 import { MIN_SNIP, applyOperations, pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan, wordIndexAt } from '../../../../server/core/model.ts';
-import type { Operation, Piece, Plan } from '../../../../server/core/model.ts';
+import type { Operation, Piece, Plan, PlanClip } from '../../../../server/core/model.ts';
 import type { TranscriptWord, Version } from '../../api/index.ts';
+import type { ClipSpan } from './model.ts';
 
 /** Moves things from the saved version's timeline to the timeline with the unsaved edits applied, and back for the page. */
 export interface Remap {
@@ -114,4 +115,25 @@ export function captionShifts(captions: Version['captions'], operations: readonl
     const wide = { x: positions.position?.x ?? 0, y: positions.position?.y ?? 0 };
     return { x: wide.x + (own?.x ?? 0), y: wide.y + (own?.y ?? 0), own: own !== undefined, wide, key };
   });
+}
+
+/**
+ * The plan's clips with the unsaved clip operations applied, placed on the edited timeline (`pieces` are the edited
+ * pieces). A clip the edits left wholly inside a snip is not shown. The saved clips when the list no longer applies.
+ */
+export function editedClips(clips: readonly PlanClip[], operations: readonly Operation[], pieces: readonly Piece[]): ClipSpan[] {
+  let edited: readonly PlanClip[] = clips;
+  try {
+    const ops = operations.filter((op) => op.kind === 'clip-trim' || op.kind === 'clip-slide');
+    if (ops.length > 0) edited = applyOperations({ plan: { clips: [...clips] }, words: [] }, ops).plan.clips ?? clips;
+  } catch {
+    // The list no longer applies to these clips; the saved clips show.
+  }
+  const now = pieceMap(pieces, 0);
+  return edited
+    .flatMap((clip) => {
+      const span = toTimelineSpan(now, clip.in, clip.out);
+      return span ? [{ id: clip.id, title: clip.title ?? clip.id, ...span, source: { in: clip.in, out: clip.out }, slid: clip.slid === true }] : [];
+    })
+    .sort((a, b) => a.start - b.start);
 }

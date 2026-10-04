@@ -542,6 +542,7 @@ export function App() {
           <ReviewSide
             edits={edits}
             pieces={openVersion?.pieces}
+            clips={openVersion?.clips}
             editable={openVersion?.isNewest === true && openVersion.pieces !== undefined && edits.list?.stale !== true}
             nextVersion={(newest ?? 0) + 1}
             commentCount={comments.comments.length}

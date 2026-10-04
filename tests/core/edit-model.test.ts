@@ -156,3 +156,57 @@ describe('caption-position and caption-phrase-position', () => {
     expect(operationTouches(one(1, 1, 1), { start: 2, end: 4 })).toBe(false);
   });
 });
+
+describe('clip trim and slide', () => {
+  const clips = [
+    { id: '01', title: 'One', in: 0, out: 3, still: 2.5 },
+    { id: '02', title: 'Two', in: 3, out: 6, section: 'a', stills: [{ from: 0, title: 'a' }, { from: 1, title: 'b', still: 1.5 }, { from: 2, title: 'c' }] },
+  ];
+  const sources = { plan: { duration: 12, clips }, words: [] };
+  const trim = (clip: string, from: number, to: number) => ({ id: 't', kind: 'clip-trim' as const, clip, in: from, out: to });
+  const slide = (clip: string, delta: number) => ({ id: 's', kind: 'clip-slide' as const, clip, delta });
+
+  it('trims a clip to a new in and out and leaves the others', () => {
+    const next = applyOperation(sources, trim('01', 0.5, 2));
+    expect(next.plan.clips).toEqual([{ id: '01', title: 'One', in: 0.5, out: 2 }, clips[1]]);
+  });
+
+  it('drops the states that begin outside the trimmed clip, and a still that no longer falls inside its state', () => {
+    const shorter = applyOperation(sources, trim('02', 3, 4.5)).plan.clips![1]!;
+    expect(shorter.stills).toEqual([{ from: 0, title: 'a' }, { from: 1, title: 'b' }]);
+    const one = applyOperation(sources, trim('02', 3, 3.8)).plan.clips![1]!;
+    expect(one.stills).toEqual([{ from: 0, title: 'a' }]);
+    // Trimming the front moves the clip's start, not its states, which are clip-local.
+    expect(applyOperation(sources, trim('02', 3.5, 6)).plan.clips![1]!.stills).toHaveLength(3);
+  });
+
+  it('drops a clip-level still that falls outside the trimmed clip', () => {
+    expect(applyOperation(sources, trim('01', 0, 2)).plan.clips![0]).not.toHaveProperty('still');
+    expect(applyOperation(sources, trim('01', 0, 2.9)).plan.clips![0]).toHaveProperty('still', 2.5);
+  });
+
+  it('slides a clip along the footage and marks it slid, states untouched', () => {
+    const next = applyOperation(sources, slide('02', 1.5));
+    expect(next.plan.clips![1]).toMatchObject({ in: 4.5, out: 7.5, slid: true, stills: clips[1]!.stills });
+    expect(applyOperation(next, slide('02', -1.5)).plan.clips![1]).toMatchObject({ in: 3, out: 6, slid: true });
+    expect(next.plan.clips![0]).not.toHaveProperty('slid');
+    expect(applyOperation(sources, trim('02', 3, 5)).plan.clips![1]).not.toHaveProperty('slid');
+  });
+
+  it('refuses an unknown clip, a clip too short, a trim that changes nothing, and a move off the footage', () => {
+    expect(() => applyOperation(sources, trim('09', 0, 1))).toThrow(/no clip/);
+    expect(() => applyOperation(sources, trim('01', 1, 1.1))).toThrow(/at least/);
+    expect(() => applyOperation(sources, trim('01', -1, 2))).toThrow(/at least/);
+    expect(() => applyOperation(sources, trim('01', 0, 3))).toThrow(/already/);
+    expect(() => applyOperation(sources, trim('01', 0, 13))).toThrow(/past the end/);
+    expect(() => applyOperation(sources, slide('01', -0.5))).toThrow(/before the start/);
+    expect(() => applyOperation(sources, slide('02', 7))).toThrow(/past the end/);
+    expect(() => applyOperation(sources, slide('01', 0))).toThrow(/distance/);
+  });
+
+  it('says what it did', () => {
+    expect(describeOperation(trim('05', 12, 15.4))).toEqual({ target: 'Clip 05', text: 'Trimmed to 00:12.00 to 00:15.40' });
+    expect(describeOperation(slide('05', 0.4))).toEqual({ target: 'Clip 05', text: 'Slid +0.4s' });
+    expect(describeOperation(slide('05', -1.25))).toEqual({ target: 'Clip 05', text: 'Slid −1.3s' });
+  });
+});

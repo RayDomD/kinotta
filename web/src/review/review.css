@@ -65,6 +65,19 @@
 .rv-w.fixed { color: var(--ink); }
 .rv-w.fixed::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: 3px; height: 1.4px; background: var(--light); }
 .rv-w.retimed { border-left: 1.6px solid var(--light); }
+/* clips: drag the body to slide, an edge to trim */
+.ov.editable { cursor: grab; touch-action: none; }
+.ov.editable:focus-visible { outline: 1.6px solid var(--ink); outline-offset: 2px; }
+.ov.sel { border-color: var(--light); box-shadow: 0 0 10px var(--light-glow); color: var(--ink); cursor: grabbing; z-index: 2; }
+.ov.sel b { color: var(--light); }
+.ov.slid { border-style: dashed; }
+.rv-cgrip { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; touch-action: none; }
+.rv-cgrip.l { left: 0; }
+.rv-cgrip.r { right: 0; }
+.ov.editable:hover .rv-cgrip, .ov.editable:focus-visible .rv-cgrip, .ov.sel .rv-cgrip { background: var(--light); }
+.rv-off { display: inline-flex; align-items: center; font-size: 11px; color: var(--ink); border: 1px dashed var(--ink-2); padding: 0 5px; }
+.c.flag { border-style: dashed; }
+.c.flag .note { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
 .rv-grip { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; touch-action: none; }
 .rv-grip.l { left: 0; }
 .rv-grip.r { right: 0; }

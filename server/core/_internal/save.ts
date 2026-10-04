@@ -1,7 +1,7 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { applyOperations, operationTouches } from './edit-model.ts';
-import type { Operation, Plan, Sources } from './edit-model.ts';
+import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditList, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { readReelPlan, readReelWords } from './sources.ts';
 import { KinottaError } from './errors.ts';
@@ -39,6 +39,17 @@ function playOrder(plan: Plan, start: number, end: number): string {
 }
 
 /**
+ * Whether a clip that changed (trimmed, slid, or gone) belongs to the section or plays over any of it, before or
+ * after. The page comparison counts every scene that plays inside a section, so the claim has to as well.
+ */
+function clipsChanged(before: Plan, after: Plan, section: { id: string; start: number; end: number }): boolean {
+  const was = new Map((before.clips ?? []).map((c) => [c.id, c]));
+  const now = new Map((after.clips ?? []).map((c) => [c.id, c]));
+  const plays = (clip: PlanClip | undefined): boolean => clip !== undefined && (clip.section === section.id || (clip.in < section.end && clip.out > section.start));
+  return [...new Set([...was.keys(), ...now.keys()])].some((id) => JSON.stringify(was.get(id)) !== JSON.stringify(now.get(id)) && (plays(was.get(id)) || plays(now.get(id))));
+}
+
+/**
  * The sections the edits changed: one an operation touches, or whose place on the timeline moved or shrank. This is what
  * comparing the pages finds, so the claim in shots.json and the comparison agree.
  */
@@ -47,7 +58,7 @@ export function changedSectionsOf(before: Plan, after: Plan, operations: readonl
   const was = pieceMap(before.pieces, duration);
   const now = pieceMap(after.pieces, duration);
   return (after.sections ?? [])
-    .filter((s) => operations.some((op) => operationTouches(op, s)) || playOrder(before, s.start, s.end) !== playOrder(after, s.start, s.end) || !sameSpan(toTimelineSpan(was, s.start, s.end), toTimelineSpan(now, s.start, s.end)))
+    .filter((s) => operations.some((op) => operationTouches(op, s)) || clipsChanged(before, after, s) || playOrder(before, s.start, s.end) !== playOrder(after, s.start, s.end) || !sameSpan(toTimelineSpan(was, s.start, s.end), toTimelineSpan(now, s.start, s.end)))
     .map((s) => s.id);
 }
 

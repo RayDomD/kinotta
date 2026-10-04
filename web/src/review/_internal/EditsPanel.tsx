@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { describeOperation, pieceMap, toTimeline, toTimelineSpan } from '../../../../server/core/model.ts';
-import type { Operation, Piece } from '../../../../server/core/model.ts';
+import { applyOperations, describeOperation, pieceMap, toTimeline, toTimelineSpan } from '../../../../server/core/model.ts';
+import type { Operation, Piece, PlanClip } from '../../../../server/core/model.ts';
 import { formatTransport } from './clock.ts';
 import { editedList } from './edited.ts';
 import type { EditsState } from './useEdits.ts';
@@ -10,6 +10,8 @@ export interface ReviewSideProps {
   edits: EditsState | undefined;
   /** The open version's pieces; the cards say where each edit landed on the timeline. */
   pieces: readonly Piece[] | undefined;
+  /** The open version's clips in source time, so a slide can say where its clip was. */
+  clips?: readonly PlanClip[];
   /** The open version is the newest and has footage, so it can be edited. */
   editable: boolean;
   /** The number the next Save makes. */
@@ -23,10 +25,21 @@ export interface ReviewSideProps {
 }
 
 /** Where an operation landed on the timeline as it was when the operation was made, in the transport's reading. */
-function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number): string {
+function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number, clips: readonly PlanClip[] | undefined): string {
   const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   const op = operations[index]!;
   if (op.kind === 'caption-position') return 'all captions';
+  if (op.kind === 'clip-trim') return formatTransport(toTimeline(before, op.in) ?? 0);
+  if (op.kind === 'clip-slide') {
+    // Where the clip began before the slide, with the clip edits made earlier applied.
+    let from: number | undefined;
+    try {
+      from = applyOperations({ plan: { clips: [...(clips ?? [])] }, words: [] }, operations.slice(0, index).filter((o) => o.kind === 'clip-trim' || o.kind === 'clip-slide')).plan.clips?.find((c) => c.id === op.clip)?.in;
+    } catch {
+      from = undefined;
+    }
+    return formatTransport(from === undefined ? 0 : (toTimeline(before, from) ?? 0));
+  }
   const at =
     op.kind === 'snip'
       ? toTimelineSpan(before, op.from, op.to)?.start
@@ -36,7 +49,7 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   return formatTransport(at ?? 0);
 }
 
-function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
+function EditsTab({ edits, pieces, clips, editable, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
   const operations = edits?.list?.operations ?? [];
   const stale = edits?.list?.stale === true;
   const idle = edits !== undefined && !edits.busy;
@@ -50,7 +63,7 @@ function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<Review
     <>
       <div className="rv-panelbody">
         {!editable && <p className="meta">{stale ? 'These edits were made on an older version. Discard them to start again.' : 'Open the newest version to edit it.'}</p>}
-        {editable && operations.length === 0 && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it.</p>}
+        {editable && operations.length === 0 && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
           <div className="rv-undo">
             <button type="button" disabled={!idle || edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>
@@ -67,12 +80,13 @@ function EditsTab({ edits, pieces, editable, nextVersion, onSaved }: Omit<Review
             {operations.map((op, i) => {
               const { target, text } = describeOperation(op);
               return (
-                <li key={op.id} className="c">
+                <li key={op.id} className={op.kind === 'clip-slide' ? 'c flag' : 'c'}>
                   <div className="where">
                     <span className="dot">{i + 1}</span>
-                    {`${target} · ${pieces ? whereOn(pieces, operations, i) : ''}`}
+                    {`${target} · ${pieces ? whereOn(pieces, operations, i, clips) : ''}`}
                   </div>
                   <p>{text}</p>
+                  {op.kind === 'clip-slide' && <div className="note">Off its words: its changes no longer land on the words they were placed on. Keep it, or ask your agent to re-sync.</div>}
                   <button type="button" className="x" aria-label={`Remove edit ${i + 1}`} disabled={!idle || stale} onClick={() => void edits?.remove(op.id)}>
                     Remove
                   </button>
