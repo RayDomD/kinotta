@@ -128,7 +128,7 @@
   <span class="count"><span class="dot" style="background:var(--blocked)"></span>0 Blocked</span>
   <span class="count"><span class="dot" style="background:var(--approved)"></span>0 Approved</span>
   <span class="count"><span class="dot" style="background:var(--draft)"></span>0 Draft</span>
-  <span class="count"><span class="dot" style="background:var(--done)"></span>25 Done</span>
+  <span class="count"><span class="dot" style="background:var(--done)"></span>26 Done</span>
 </div>
 
 <div class="group">
@@ -143,13 +143,8 @@
 </div>
 
 <details class="group">
-  <summary>Done (25)</summary>
+  <summary>Done (26)</summary>
   <div class="cards">
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-captions.md">Move captions (T37)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T37. caption-position and caption-phrase-position operations; drag in the frame moves all captions, Alt-drag one phrase; build.py applies both with CSS translate.</div>
-    </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-scale-elements.md">Move and scale elements on footage reels (T39)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
@@ -161,9 +156,9 @@
       <div class="summary">T29. A footage plan may list pieces of the source video; build.py and shots.py put everything on the reel's timeline, and one core module maps source time to timeline time and back.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-real-transcription-with-progress.md">Real transcription with progress (T43)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
+      <div class="summary">T43. A reel started from a video returns at once; faster-whisper runs in the background with progress and an estimate, edits collect without a version, and v1 (with captions and automatic sections) follows.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-fix-and-retime-words.md">Fix and re-time words (T36)</a>
@@ -174,6 +169,11 @@
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-handoff-blocks-save.md">A hand-off blocks Save (T41)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T41. Copying a batch marks the reel handed off and Save says why it is off; the next version replays the edit list onto its sources and flags edits whose target is gone.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-captions.md">Move captions (T37)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T37. caption-position and caption-phrase-position operations; drag in the frame moves all captions, Alt-drag one phrase; build.py applies both with CSS translate.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-snip-and-save.md">Snip and Save (T32)</a>
@@ -191,9 +191,9 @@
       <div class="summary">T38. clip-trim and clip-slide operations; drag a clip's edges to trim, its body to slide; a slide sets slid in the plan and the lane says &quot;off its words&quot;; a trim drops the shots of states it cuts off.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-real-transcription-with-progress.md">Real transcription with progress (T43)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-edit-finish.md">Finish pass on Review and Edit (T47)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T43. A reel started from a video returns at once; faster-whisper runs in the background with progress and an estimate, edits collect without a version, and v1 (with captions and automatic sections) follows.</div>
+      <div class="summary">T47. Lane B finish on the Review tab and New reel screen: critique and audit recorded, keyboard path to a stretch and arrow nudging added, DESIGN.md updated.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-tab-plays-a-reel.md">Review tab plays a reel (T31)</a>
@@ -204,6 +204,11 @@
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-skill-learns-plan-fields.md">Skill learns the new plan fields (T46)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T46. The skill keeps pieces, offsets, caption positions and slid-clearing rules, writes builtBy, copies transcript and plan into each version; app wording names no agent.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-comments-carry-by-remapping.md">Comments carry forward by remapping (T35)</a>

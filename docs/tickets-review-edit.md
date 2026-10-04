@@ -289,7 +289,7 @@ version. App wording and the skill's user-facing text name no particular agent (
 - [x] Skill rules cover pieces, offsets, caption positions, `slid`, `builtBy` and per-version transcript and plan
 - [x] App strings name no particular agent
 
-## T47 (#49). Finish pass on Review and Edit
+## T47 (#49). Finish pass on Review and Edit — Done
 
 **What to build:** Lane B finish on the built Review tab and New reel screen: `/impeccable critique`, then
 `/impeccable audit`, the verbs they flag, and `/impeccable polish`. DESIGN.md records the new surfaces.
@@ -298,6 +298,6 @@ version. App wording and the skill's user-facing text name no particular agent (
 
 **Model:** mid
 
-- [ ] Critique and audit findings resolved or recorded
-- [ ] AA contrast and a keyboard-only pass of snip and Save
-- [ ] DESIGN.md matches the built surfaces
+- [x] Critique and audit findings resolved or recorded
+- [x] AA contrast and a keyboard-only pass of snip and Save
+- [x] DESIGN.md matches the built surfaces
