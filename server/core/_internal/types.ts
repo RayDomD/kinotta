@@ -346,9 +346,10 @@ export interface Comment {
   carried?: { to: number };
   /**
    * Set when the comment's moment was snipped out of the footage: its text is kept, its pin sits where the snip closed up,
-   * and it waits to be re-pinned (a new comment) or deleted.
+   * and it waits to be re-pinned (a new comment) or deleted. `element-removed`: the element it is pinned on is gone from the
+   * version it moved to; it keeps its text and waits the same way. A gone moment is the one shown when both apply.
    */
-  state?: 'moment-removed';
+  state?: 'moment-removed' | 'element-removed';
 }
 
 export interface NewComment {

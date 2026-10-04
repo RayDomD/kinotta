@@ -9,6 +9,7 @@ import { assertCodeOnlyOperations, codeSources, isCodeOnly } from './code-edits.
 import { clearHandoff, handoffReason, readHandoff } from './handoff.ts';
 import type { Handoff } from './handoff.ts';
 import { readReelPlan, readReelWords } from './sources.ts';
+import { recoverSave } from './save-journal.ts';
 import { newestVersionNumber, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
@@ -117,6 +118,7 @@ async function replayOntoNewest(projectDir: string, reelDir: string, stored: Sto
 /** The reel's edit list, without waiting for other changes to it. Replays a list made on an earlier version first. */
 export async function readEditListNow(projectDir: string, slug: string): Promise<EditList> {
   const reelDir = await requireReelDir(projectDir, slug);
+  await recoverSave(reelDir, EDIT_LIST_FILE);
   const newest = await newestVersionNumber(reelDir);
   const handoff = await readHandoff(reelDir, newest);
   let stored = await readStored(reelDir);

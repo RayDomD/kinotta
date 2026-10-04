@@ -1,5 +1,5 @@
 import { readFile, stat } from 'node:fs/promises';
-import { join, resolve, sep } from 'node:path';
+import { basename, join, resolve, sep } from 'node:path';
 import type { CaptionsPlan, PlanClip } from './edit-model.ts';
 import { pieceMap } from './pieces.ts';
 import type { Piece, PlacedPiece } from './pieces.ts';
@@ -64,6 +64,23 @@ async function readOwn(versionDir: string, reelDir: string, name: string): Promi
   return null;
 }
 
+/**
+ * The plan text a version was built with. Its own, else (a version an agent built has none) the plan of the nearest earlier
+ * version that kept one, which is what the agent built from; with none of those the newest takes the reel's current plan and
+ * an older one has no plan at all, which is how every version from before the pieces were built. Never the reel's current
+ * plan for an older version: a Save since has changed it.
+ */
+async function readPlanText(versionDir: string, reelDir: string, newest: boolean): Promise<string | null> {
+  const own = await readFile(join(versionDir, PLAN_FILE), 'utf8').catch(() => null);
+  if (own !== null) return own;
+  const number = Number(/^v(\d+)$/.exec(basename(versionDir))?.[1]);
+  for (let earlier = number - 1; Number.isInteger(number) && earlier >= 1; earlier--) {
+    const text = await readFile(join(reelDir, `v${earlier}`, PLAN_FILE), 'utf8').catch(() => null);
+    if (text !== null) return text;
+  }
+  return newest ? readFile(join(reelDir, PLAN_FILE), 'utf8').catch(() => null) : null;
+}
+
 async function readTranscript(versionDir: string, reelDir: string): Promise<{ words: TranscriptWord[] } | { problem: string }> {
   const text = await readOwn(versionDir, reelDir, TRANSCRIPT_FILE);
   if (text === null) return { problem: `This reel uses footage but has no ${TRANSCRIPT_FILE}, so shots show no spoken line.` };
@@ -82,10 +99,10 @@ async function readTranscript(versionDir: string, reelDir: string): Promise<{ wo
  * The version's pieces on the timeline, from its own plan or else the reel's. A plan with none, or none readable,
  * is one piece over the whole reel.
  */
-async function readPieces(versionDir: string, reelDir: string, duration: number): Promise<PlacedPiece[]> {
+async function readPieces(versionDir: string, reelDir: string, duration: number, newest: boolean): Promise<PlacedPiece[]> {
   let listed: Piece[] | undefined;
   try {
-    const plan = JSON.parse((await readOwn(versionDir, reelDir, PLAN_FILE)) ?? 'null') as { pieces?: unknown } | null;
+    const plan = JSON.parse((await readPlanText(versionDir, reelDir, newest)) ?? 'null') as { pieces?: unknown } | null;
     if (Array.isArray(plan?.pieces)) listed = plan.pieces as Piece[];
   } catch {
     // an unreadable plan means no pieces
@@ -98,9 +115,9 @@ async function readPieces(versionDir: string, reelDir: string, duration: number)
 }
 
 /** The version plan's captions: `true`, or the object holding the look, colour and positions. Absent when off or unreadable. */
-async function readCaptions(versionDir: string, reelDir: string): Promise<Version['captions']> {
+async function readCaptions(versionDir: string, reelDir: string, newest: boolean): Promise<Version['captions']> {
   try {
-    const captions = (JSON.parse((await readOwn(versionDir, reelDir, PLAN_FILE)) ?? 'null') as { captions?: unknown } | null)?.captions;
+    const captions = (JSON.parse((await readPlanText(versionDir, reelDir, newest)) ?? 'null') as { captions?: unknown } | null)?.captions;
     if (captions === true) return true;
     return captions !== null && typeof captions === 'object' && !Array.isArray(captions) ? (captions as CaptionsPlan) : undefined;
   } catch {
@@ -114,7 +131,7 @@ async function readCaptions(versionDir: string, reelDir: string): Promise<Versio
  */
 async function readClips(projectDir: string, versionDir: string, reelDir: string, newest: boolean): Promise<PlanClip[] | undefined> {
   try {
-    const own = await readOwn(versionDir, reelDir, PLAN_FILE);
+    const own = await readFile(join(versionDir, PLAN_FILE), 'utf8').catch(() => null);
     const clips = own !== null ? (JSON.parse(own) as { clips?: unknown } | null)?.clips : newest ? (await readReelPlan(projectDir, reelDir)).plan.clips : undefined;
     return Array.isArray(clips) ? (clips as PlanClip[]) : undefined;
   } catch {
@@ -144,9 +161,9 @@ function withSpokenLine(shot: Shot, words: TranscriptWord[]): Shot {
 export async function addFootage(projectDir: string, reelDir: string, versionDir: string, version: Version): Promise<Version> {
   const ref = await readReelFootage(projectDir, reelDir);
   if (!ref) return version;
-  const pieces = await readPieces(versionDir, reelDir, version.duration);
+  const pieces = await readPieces(versionDir, reelDir, version.duration, version.isNewest);
   const transcript = await readTranscript(versionDir, reelDir);
-  const captions = await readCaptions(versionDir, reelDir);
+  const captions = await readCaptions(versionDir, reelDir, version.isNewest);
   const clips = await readClips(projectDir, versionDir, reelDir, version.isNewest);
   const withFootage: Version = { ...version, footage: { path: ref.path, exists: await isFile(ref.file) }, pieces, ...(captions === undefined ? {} : { captions }), ...(clips === undefined ? {} : { clips }) };
   if ('problem' in transcript) return { ...withFootage, transcriptProblem: transcript.problem };

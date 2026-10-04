@@ -13,13 +13,15 @@ const RENAME_BACKOFF_MS = 25;
 
 /** A comment whose moment was snipped out of the footage: it keeps its text, and waits to be re-pinned or deleted. */
 export const MOMENT_REMOVED = 'moment-removed';
+/** A comment pinned on an element the newer version no longer has: it keeps its text and waits to be re-pinned or deleted. */
+export const ELEMENT_REMOVED = 'element-removed';
 
 export interface StoredComment {
   id: string;
   pin: FramePin | WordPin;
   text: string;
   createdAt: string;
-  state?: typeof MOMENT_REMOVED;
+  state?: typeof MOMENT_REMOVED | typeof ELEMENT_REMOVED;
 }
 
 /** What one copy handed to an agent for a section: the comments it held. A later copy of the section replaces it. */

@@ -87,7 +87,7 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
       </div>
       {(comment.sent || comment.carried || comment.state) && (
         <div className="carry-state">
-          {[comment.state ? 'Moment removed' : '', comment.sent ? 'Sent to your agent' : '', comment.carried ? `Moved to v${comment.carried.to}` : '']
+          {[comment.state === 'moment-removed' ? 'Moment removed' : comment.state === 'element-removed' ? 'Element removed' : '', comment.sent ? 'Sent to your agent' : '', comment.carried ? `Moved to v${comment.carried.to}` : '']
             .filter((part) => part !== '')
             .join(' · ')}
         </div>

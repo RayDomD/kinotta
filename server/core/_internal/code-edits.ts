@@ -1,5 +1,5 @@
-import { cp, readFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { cp, readFile, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import { CLIP_ROOT } from './edit-model.ts';
 import type { ElementOffset, Operation, Sources } from './edit-model.ts';
 import { scanPage } from './contract.ts';
@@ -108,10 +108,15 @@ export function rulesFor(css: string, scene: string): string {
     .join('\n');
 }
 
-/** Copies a version folder to `dir`, without its shots.json (which is written last). */
+/**
+ * What sits in a version folder besides the page and its assets, by name: the version's own record (`shots.json`, written last, and
+ * `edits.json`, written fresh), the agent's notes (`answers.md`) and the comment batches Kinotta wrote when one was copied.
+ */
+const PER_VERSION_FILE = /^(shots\.json|edits\.json|answers\.md|comments(-.+)?\.json)$/;
+
+/** Copies a version folder to `dir`: the page and its assets, none of the per-version records above. */
 export async function copyVersion(from: string, dir: string): Promise<void> {
-  await cp(from, dir, { recursive: true });
-  await rm(join(dir, 'shots.json'), { force: true });
+  await cp(from, dir, { recursive: true, filter: (src) => resolve(dirname(src)) !== resolve(from) || !PER_VERSION_FILE.test(basename(src)) });
 }
 
 /** Writes the stylesheet and links it from the copied page. */

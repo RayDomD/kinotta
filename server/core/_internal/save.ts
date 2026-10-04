@@ -5,7 +5,9 @@ import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { handoffReason, readHandoff } from './handoff.ts';
 import { assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
-import { readReelPlan, readReelWords } from './sources.ts';
+import { readReelPlan, readReelTranscript, readReelWords } from './sources.ts';
+import { beginSave, endSave, rollBackSources } from './save-journal.ts';
+import { settleNewest } from './carry.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
 import type { SavedVersion, TranscriptWord } from './types.ts';
@@ -87,6 +89,7 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
   }
   const number = newest + 1;
   await publishVersion(reelDir, { dir: stage }, number);
+  await settleNewest(projectDir, slug);
   return { version: number };
 }
 
@@ -111,9 +114,11 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
     if (await isCodeOnly(projectDir, reelDir)) {
       const saved = await saveCodeOnly(projectDir, slug, reelDir, list);
       await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
+      await settleNewest(projectDir, slug);
       return saved;
     }
     const { plan, planFile, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
+    const transcript = transcriptFile ? await readReelTranscript(transcriptFile) : {};
     const words = await readReelWords(transcriptFile);
     const edited: Sources = applyOperations({ plan, words }, list.operations);
     const number = (await newestVersionNumber(reelDir)) + 1;
@@ -122,24 +127,29 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
       plan: edited.plan,
       planDir,
       words: edited.words,
+      transcript,
       builtBy: BUILT_BY_YOU,
       changedSections: changedSectionsOf(plan, edited.plan, list.operations),
       operations: { base: list.base, list: list.operations },
     });
 
-    const oldPlan = await readFile(planFile, 'utf8');
-    const oldTranscript = transcriptFile ? await readFile(transcriptFile, 'utf8') : null;
+    // The journal first, then the sources, then the rename that commits: a crash in between is settled on the next read.
+    const before = [{ file: planFile, text: await readFile(planFile, 'utf8') }];
+    if (transcriptFile) before.push({ file: transcriptFile, text: await readFile(transcriptFile, 'utf8') });
     try {
+      await beginSave(reelDir, number, before);
       await writeJsonAtomic(planFile, edited.plan);
-      if (transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { words: edited.words });
+      if (transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { ...transcript, words: edited.words });
       await publishVersion(reelDir, staged, number);
     } catch (err) {
-      await writeFile(planFile, oldPlan, 'utf8');
-      if (transcriptFile && oldTranscript !== null) await writeFile(transcriptFile, oldTranscript, 'utf8');
+      await rollBackSources(before);
+      await endSave(reelDir);
       await rm(staged.dir, { recursive: true, force: true });
       throw err;
     }
     await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
+    await endSave(reelDir);
+    await settleNewest(projectDir, slug);
     return { version: number };
   });
 }

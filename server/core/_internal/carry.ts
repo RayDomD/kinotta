@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { scanPage } from './contract.ts';
 import { readState, serialized, stateFilePath, writeState } from './state.ts';
-import { MOMENT_REMOVED } from './state.ts';
+import { ELEMENT_REMOVED, MOMENT_REMOVED } from './state.ts';
 import type { StoredComment } from './state.ts';
 import { pieceMap, toSource, toTimeline } from './pieces.ts';
 import type { PieceMap } from './pieces.ts';
@@ -57,13 +60,27 @@ function shotAt(version: Version, time: number): Shot | undefined {
   return [...ordered].reverse().find((s) => s.start <= time) ?? ordered[0];
 }
 
-/** The comment as the new version holds it: a new id, its pin on the remapped moment, marked when that moment is gone. */
-function carriedComment(comment: StoredComment, from: Version, to: Version): StoredComment {
+/** The `data-el` names the version's page has, or null when its page cannot be read (nothing is then judged gone). */
+async function pageElements(projectDir: string, slug: string, number: number): Promise<Set<string> | null> {
+  try {
+    const html = await readFile(join(await requireReelDir(projectDir, slug), `v${number}`, 'index.html'), 'utf8');
+    return new Set(scanPage(html).scenes.flatMap((s) => s.elements));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The comment as the new version holds it: a new id, its pin on the remapped moment. Marked when that moment is gone, else
+ * when the element it is pinned on is (an element pin follows its element); a mark it already had stays.
+ */
+function carriedComment(comment: StoredComment, from: Version, to: Version, elements: Set<string> | null): StoredComment {
   const moment = remapMoment(from, to, comment.pin.time);
   const shot = shotAt(to, moment.time);
   const place = { version: to.number, section: shot?.section ?? null, shot: shot?.number ?? comment.pin.shot, time: moment.time };
-  const removed = moment.removed || comment.state === MOMENT_REMOVED;
-  return { ...comment, id: randomUUID(), pin: { ...comment.pin, ...place }, ...(removed ? { state: MOMENT_REMOVED } : {}) };
+  const target = comment.pin.kind === 'word' ? undefined : comment.pin.element;
+  const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elements !== null && !elements.has(target)) ? ELEMENT_REMOVED : undefined;
+  return { ...comment, id: randomUUID(), pin: { ...comment.pin, ...place }, ...(state ? { state } : {}) };
 }
 
 /**
@@ -86,13 +103,14 @@ async function settle(projectDir: string, slug: string, n: number): Promise<void
     const previous = await readVersionFiles(projectDir, slug, n - 1);
     const version = await readVersionFiles(projectDir, slug, n);
     const changed = new Set(version.changedSections ?? []);
+    const elements = await pageElements(projectDir, slug, n);
 
     // Every unsent comment goes with its moment; sent ones stay with their batch.
     const carried: string[] = [];
     const moved: StoredComment[] = [];
     for (const comment of previousState.comments) {
       if (isSent(previousState.handedOff, comment.id)) continue;
-      moved.push(carriedComment(comment, previous, version));
+      moved.push(carriedComment(comment, previous, version, elements));
       carried.push(comment.id);
     }
     const stillWaiting = [...new Set([...(previousState.waiting ?? []), ...Object.keys(previousState.handedOff ?? {})])].filter(

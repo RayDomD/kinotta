@@ -53,12 +53,20 @@ export async function readReelPlan(projectDir: string, reelDir: string): Promise
   return { plan, planFile, planDir, transcriptFile };
 }
 
-/** The reel's transcript words (source seconds), or none when the reel has no transcript. */
-export async function readReelWords(transcriptFile: string | null): Promise<TranscriptWord[]> {
-  if (transcriptFile === null) return [];
+/** The reel's transcript as written: its words and whatever else an agent put beside them. Empty when the reel has none. */
+export async function readReelTranscript(transcriptFile: string | null): Promise<Record<string, unknown>> {
+  if (transcriptFile === null) return {};
   try {
-    return ((await readJson(transcriptFile)) as { words: TranscriptWord[] }).words;
+    return (await readJson(transcriptFile)) as Record<string, unknown>;
   } catch {
     throw new KinottaError('invalid', `The reel's transcript (${transcriptFile}) could not be read.`);
   }
+}
+
+/** The reel's transcript words (source seconds), or none when the reel has no transcript. */
+export async function readReelWords(transcriptFile: string | null): Promise<TranscriptWord[]> {
+  if (transcriptFile === null) return [];
+  const words = (await readReelTranscript(transcriptFile)).words;
+  if (!Array.isArray(words)) throw new KinottaError('invalid', `The reel's transcript (${transcriptFile}) could not be read.`);
+  return words as TranscriptWord[];
 }

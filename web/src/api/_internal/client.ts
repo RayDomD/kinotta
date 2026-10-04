@@ -168,7 +168,8 @@ export interface Comment {
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };
   /** The comment's moment was snipped out of the footage: it keeps its text and waits to be re-pinned or deleted. */
-  state?: 'moment-removed';
+  /** The comment's element is gone from the version it moved to: it keeps its text and waits to be re-pinned or deleted. */
+  state?: 'moment-removed' | 'element-removed';
 }
 
 export interface CommentsOfVersion {

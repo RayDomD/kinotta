@@ -59,6 +59,8 @@ export interface VersionInput {
   plan: Plan;
   /** The reel's transcript words with every edit already in them. */
   words: TranscriptWord[];
+  /** The reel's transcript as it was written, so fields beside `words` survive; `words` replaces its own. */
+  transcript?: Record<string, unknown>;
   /** Who made the version: `you`, or an agent's name. */
   builtBy: string;
   /** From the second version on. */
@@ -79,7 +81,7 @@ export async function stageVersion(reelDir: string, input: VersionInput): Promis
   try {
     const planFile = join(dir, 'plan.json');
     await writeJson(planFile, await versionPlan(input.planDir, dir, input.plan));
-    await writeJson(join(dir, PUBLISHED_TRANSCRIPT), { words: input.words });
+    await writeJson(join(dir, PUBLISHED_TRANSCRIPT), { ...input.transcript, words: input.words });
     await buildPage(planFile, join(dir, 'index.html'));
     await buildShots(planFile, join(dir, SHOTS_STAGE));
     const shots = JSON.parse(await readFile(join(dir, SHOTS_STAGE), 'utf8')) as Record<string, unknown>;
