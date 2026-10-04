@@ -189,7 +189,7 @@ handles, tags and ghosts are drawn by the editor over the page, never inside it.
 - [x] Tag and ghost show while dragging; the page holds no editor markup (spec run: clips.spec.ts)
 - [x] Playwright: drag an element and see its offset in the tag (spec run: clips.spec.ts)
 
-## T40 (#42). Move and scale elements on code-only reels
+## T40 (#42). Move and scale elements on code-only reels — Done
 
 **What to build:** The same drag works on code-only reels. Save writes the next version as a copy of `v<n>` plus a
 `kinotta-edits.css` with `translate` and `scale` rules scoped to `[data-scene]` and `[data-el]`. Scene timing is not
@@ -199,9 +199,9 @@ editable.
 
 **Model:** mid
 
-- [ ] Saving an element move on a code-only reel makes `v<n+1>` = `v<n>` plus `kinotta-edits.css`
-- [ ] The moved element shows at its offset in the new version
-- [ ] Timing tools are unavailable on code-only reels
+- [x] Saving an element move on a code-only reel makes `v<n+1>` = `v<n>` plus `kinotta-edits.css`
+- [x] The moved element shows at its offset in the new version
+- [x] Timing tools are unavailable on code-only reels
 
 ## T41 (#43). A hand-off blocks Save
 
