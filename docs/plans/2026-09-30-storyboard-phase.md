@@ -140,3 +140,7 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
   follow-ups, approved by the owner.
 - Step 14 done: follow-ups shipped with polish, harden and a fresh audit (14/20). Summary updated.
   Status stays In Progress for the parked tickets T9, T11 and T16.
+
+### 2026-10-04
+- T25 closed by the owner without a run on a real talking video; the sample-project loop stands in
+  for it. The skill now transcribes footage with faster-whisper by default. T28 stays open.

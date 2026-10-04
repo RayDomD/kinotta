@@ -404,9 +404,13 @@ Part of T16 (#18).
 
 **Model:** `mid`
 
-## T25 (#28). Real run on a talking video
+## T25 (#28). Real run on a talking video — Closed (owner)
 
 Part of T16 (#18).
+
+Closed without a run on 2026-10-04: the owner was satisfied by the sample-project loop
+(`kinotta-test`, reel `sample-broll`, v1 to v2 from a section batch) and has no talking video to run on.
+The criteria below stay unticked because they were not run on a real talking video.
 
 **What to build:** On one of the owner's talking videos: v1 opens in Kinotta, the owner reviews one section and hands it off, and v2 changes only that section and carries the unsent comments on the other sections forward. Done with the owner.
 
