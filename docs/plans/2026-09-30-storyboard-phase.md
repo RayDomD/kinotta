@@ -1,7 +1,7 @@
 ---
 title: Storyboard phase
 date: 2026-09-30
-status: In Progress
+status: Done
 summary: First Kinotta phase. Storyboards for short code-only reels and long b-roll videos, pinned comments on elements and words, section batches handed to Claude.
 spec: docs/specs/2026-09-30-storyboard-phase.md (https://github.com/RayDomD/kinotta/issues/1)
 ---
@@ -144,3 +144,5 @@ Split into tracer-bullet tickets by `/to-tickets`. Expected order:
 ### 2026-10-04
 - T25 closed by the owner without a run on a real talking video; the sample-project loop stands in
   for it. The skill now transcribes footage with faster-whisper by default. T28 stays open.
+- Phase closed by the owner. T28 moves to the direct-edits work, which also edits transcripts.
+  Status set to Done; summary updated.
