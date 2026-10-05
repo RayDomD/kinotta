@@ -137,7 +137,7 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
     const before = [{ file: planFile, text: await readFile(planFile, 'utf8') }];
     if (transcriptFile) before.push({ file: transcriptFile, text: await readFile(transcriptFile, 'utf8') });
     try {
-      await beginSave(reelDir, number, before);
+      await beginSave(reelDir, number, before, list.operations.map((op) => op.id));
       await writeJsonAtomic(planFile, edited.plan);
       if (transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { ...transcript, words: edited.words });
       await publishVersion(reelDir, staged, number);

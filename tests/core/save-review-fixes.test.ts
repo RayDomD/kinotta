@@ -9,6 +9,7 @@ const SLUG = 'founder-talk';
 const SHOWREEL = 'product-showreel';
 const SAVE_INTENT_FILE = 'save-intent.json';
 const readJson = (path: string): any => JSON.parse(readFileSync(path, 'utf8'));
+const readJsonText = (text: string): any => JSON.parse(text);
 const stateOf = (dir: string, slug: string, n: number): any => readJson(join(dir, 'reels', '.kinotta', slug, `v${n}.json`));
 const WORD_PIN = { kind: 'word', shot: '03', time: 8.65, word: 'lose' } as const;
 const CUBE_OFFSET = { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 4, y: 4, scale: 1 } as const;
@@ -66,6 +67,42 @@ describe('a version with no plan of its own (P3)', () => {
   });
 });
 
+describe('a version with no plan of its own, after a Save (P3, round 2)', () => {
+  const REEL_PIECES = [{ in: 0, out: 4 }, { in: 8, out: 12 }];
+  /** v1 agent-built, v2 saved by the owner (own plan), v3 and v4 built by an agent from the reel's plan, which the agent has since changed. */
+  const afterSave = async () => {
+    const dir = agentBuiltWithOwnPlan();
+    const reelDir = join(dir, 'reels', SLUG);
+    const project = openProject(dir);
+    await project.addOperation(SLUG, { kind: 'snip', from: 6, to: 7 });
+    await project.saveEdits(SLUG);
+    for (const n of [3, 4]) {
+      cpSync(join(reelDir, 'v2'), join(reelDir, `v${n}`), { recursive: true });
+      rmSync(join(reelDir, `v${n}`, 'plan.json'));
+    }
+    const plan = readJson(join(reelDir, 'plan.json'));
+    writeFileSync(join(reelDir, 'plan.json'), JSON.stringify({ ...plan, pieces: REEL_PIECES }));
+    return { project, plan: readJson(join(reelDir, 'plan.json')) };
+  };
+  const cut = (pieces: { in: number; out: number }[] | undefined) => pieces?.map(({ in: from, out }) => ({ in: from, out }));
+
+  it("the newest takes the reel's current plan, its pieces and its clips together, not an earlier version's", { timeout: SLOW_MS }, async () => {
+    const { project, plan } = await afterSave();
+
+    const v4 = await project.readVersion(SLUG, 4);
+
+    expect(cut(v4.pieces)).toEqual(REEL_PIECES);
+    expect(v4.clips).toEqual(plan.clips);
+  });
+
+  it('an older version takes the nearest earlier own plan, and v1 (none before it) is one piece', { timeout: SLOW_MS }, async () => {
+    const { project } = await afterSave();
+
+    expect(cut((await project.readVersion(SLUG, 3)).pieces)).toEqual([{ in: 0, out: 6 }, { in: 7, out: 12 }]);
+    expect((await project.readVersion(SLUG, 1)).pieces).toHaveLength(1);
+  });
+});
+
 describe('Save keeps a crash from double-applying the edits (P6)', () => {
   /** A reel with one snip listed; `crashed` leaves the disk as a crash at that step would. */
   const setup = async () => {
@@ -76,14 +113,14 @@ describe('Save keeps a crash from double-applying the edits (P6)', () => {
     await project.addOperation(SLUG, { kind: 'snip', from: 3.5, to: 5 });
     return { reelDir, project, planFile, list: readFileSync(join(reelDir, 'edit-list.json'), 'utf8'), planBefore: readFileSync(planFile, 'utf8') };
   };
-  const journal = (planFile: string, text: string): string => JSON.stringify({ version: 2, files: [{ file: planFile, text }] });
+  const journal = (planFile: string, text: string, list: string): string => JSON.stringify({ version: 2, files: [{ file: planFile, text }], operations: readJsonText(list).operations.map((op: any) => op.id) });
 
   it('crash after the sources were written but before the version appeared: sources restored, list kept', { timeout: SLOW_MS }, async () => {
     const { reelDir, project, list, planFile, planBefore } = await setup();
     await project.saveEdits(SLUG);
     rmSync(join(reelDir, 'v2'), { recursive: true });
     writeFileSync(join(reelDir, 'edit-list.json'), list);
-    writeFileSync(join(reelDir, SAVE_INTENT_FILE), journal(planFile, planBefore));
+    writeFileSync(join(reelDir, SAVE_INTENT_FILE), journal(planFile, planBefore, list));
 
     const recovered = await project.readEditList(SLUG);
 
@@ -99,7 +136,7 @@ describe('Save keeps a crash from double-applying the edits (P6)', () => {
     await project.saveEdits(SLUG);
     const edited = readFileSync(planFile, 'utf8');
     writeFileSync(join(reelDir, 'edit-list.json'), list);
-    writeFileSync(join(reelDir, SAVE_INTENT_FILE), journal(planFile, planBefore));
+    writeFileSync(join(reelDir, SAVE_INTENT_FILE), journal(planFile, planBefore, list));
 
     expect((await project.readEditList(SLUG)).operations).toEqual([]);
 
@@ -107,6 +144,30 @@ describe('Save keeps a crash from double-applying the edits (P6)', () => {
     expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
     expect(existsSync(join(reelDir, SAVE_INTENT_FILE))).toBe(false);
     expect(readdirSync(reelDir).filter((n) => /^v\d+$/.test(n))).toEqual(['v1', 'v2']);
+  });
+});
+
+describe('Save recovery when an agent built the version first (P6, round 2)', () => {
+  it('a crash before the rename, then an agent build: sources rolled back, list kept and replayed onto the agent version', { timeout: SLOW_MS }, async () => {
+    const dir = copyFixture('footage-project');
+    const reelDir = join(dir, 'reels', SLUG);
+    const planFile = join(dir, 'motion/plan.json');
+    const project = openProject(dir);
+    await project.addOperation(SLUG, { kind: 'snip', from: 3.5, to: 5 });
+    const list = readFileSync(join(reelDir, 'edit-list.json'), 'utf8');
+    const planBefore = readFileSync(planFile, 'utf8');
+    await project.saveEdits(SLUG);
+    // The disk of a crash after the source writes, before the rename; then an agent builds v2 from v1 before any list read.
+    rmSync(join(reelDir, 'v2'), { recursive: true });
+    cpSync(join(reelDir, 'v1'), join(reelDir, 'v2'), { recursive: true });
+    writeFileSync(join(reelDir, 'edit-list.json'), list);
+    writeFileSync(join(reelDir, SAVE_INTENT_FILE), JSON.stringify({ version: 2, files: [{ file: planFile, text: planBefore }], operations: readJsonText(list).operations.map((op: any) => op.id) }));
+
+    const recovered = await project.readEditList(SLUG);
+
+    expect(readFileSync(planFile, 'utf8')).toBe(planBefore);
+    expect(recovered.operations).toHaveLength(1);
+    expect(existsSync(join(reelDir, SAVE_INTENT_FILE))).toBe(false);
   });
 });
 
@@ -165,5 +226,32 @@ describe('an element pin follows its element (P9)', () => {
 
     const states = Object.fromEntries(v3.map((c) => [c.text, c.state]));
     expect(states).toEqual({ 'Hold ICONS.': 'element-removed', 'Bounce more.': undefined, 'Empty here.': undefined });
+  });
+});
+
+describe('an element pin is flagged only when it is surely gone (P9, round 2)', () => {
+  /** v3 is v2 with the page changed by `edit`; the pins are on v2. */
+  const carried = async (element: string, edit: (html: string) => string) => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    await project.addComment(SHOWREEL, 2, { pin: { shot: '03', x: 0.5, y: 0.5, element }, text: 'pin' });
+    const reelDir = join(dir, 'reels', SHOWREEL);
+    cpSync(join(reelDir, 'v2'), join(reelDir, 'v3'), { recursive: true });
+    const page = join(reelDir, 'v3', 'index.html');
+    writeFileSync(page, edit(readFileSync(page, 'utf8')));
+    return (await project.listComments(SHOWREEL, 3))[0]!.state;
+  };
+
+  it('flags an element that is nowhere in a page whose scene is still there', async () => {
+    expect(await carried('icons-word', (h) => h.replaceAll('data-el="icons-word"', 'data-el="renamed"'))).toBe('element-removed');
+  });
+
+  it('does not flag an element the page creates from script', async () => {
+    const html = (h: string) => h.replaceAll('data-el="icons-word"', 'data-el="renamed"').replace('<script>', `<script>document.body.insertAdjacentHTML('beforeend', '<i data-el="icons-word"></i>');`);
+    expect(await carried('icons-word', html)).toBeUndefined();
+  });
+
+  it('does not flag when the pin scene has no valid timing', async () => {
+    expect(await carried('icons-word', (h) => h.replaceAll('data-el="icons-word"', 'data-el="renamed"').replace('data-start="3.6" data-duration="2.3"', ''))).toBeUndefined();
   });
 });

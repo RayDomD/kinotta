@@ -60,26 +60,45 @@ function shotAt(version: Version, time: number): Shot | undefined {
   return [...ordered].reverse().find((s) => s.start <= time) ?? ordered[0];
 }
 
-/** The `data-el` names the version's page has, or null when its page cannot be read (nothing is then judged gone). */
-async function pageElements(projectDir: string, slug: string, number: number): Promise<Set<string> | null> {
+/** A version's page, for judging whether a pinned element is gone. */
+interface PageView {
+  html: string;
+  /** The scenes with valid timing. */
+  scenes: { start: number; duration: number }[];
+}
+
+/** The version's page, or null when it cannot be read (nothing is then judged gone). */
+async function readPage(projectDir: string, slug: string, number: number): Promise<PageView | null> {
   try {
     const html = await readFile(join(await requireReelDir(projectDir, slug), `v${number}`, 'index.html'), 'utf8');
-    return new Set(scanPage(html).scenes.flatMap((s) => s.elements));
+    return { html, scenes: scanPage(html).scenes };
   } catch {
     return null;
   }
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Whether the page surely no longer has the element a pin is on. Conservative: a false "kept" beats a false "removed", so it
+ * is gone only when a scene with valid timing plays at the pin's moment and no `data-el="name"` is anywhere in the page,
+ * script string literals included. An element a script creates, or one outside any scene, is never judged gone.
+ */
+function elementGone(page: PageView | null, time: number, name: string): boolean {
+  if (page === null || !page.scenes.some((sc) => time >= sc.start && time < sc.start + sc.duration)) return false;
+  return !new RegExp(`data-el\\s*=\\s*\\\\?["']${escapeRegExp(name)}\\\\?["']`).test(page.html);
 }
 
 /**
  * The comment as the new version holds it: a new id, its pin on the remapped moment. Marked when that moment is gone, else
  * when the element it is pinned on is (an element pin follows its element); a mark it already had stays.
  */
-function carriedComment(comment: StoredComment, from: Version, to: Version, elements: Set<string> | null): StoredComment {
+function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null): StoredComment {
   const moment = remapMoment(from, to, comment.pin.time);
   const shot = shotAt(to, moment.time);
   const place = { version: to.number, section: shot?.section ?? null, shot: shot?.number ?? comment.pin.shot, time: moment.time };
   const target = comment.pin.kind === 'word' ? undefined : comment.pin.element;
-  const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elements !== null && !elements.has(target)) ? ELEMENT_REMOVED : undefined;
+  const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elementGone(page, moment.time, target)) ? ELEMENT_REMOVED : undefined;
   return { ...comment, id: randomUUID(), pin: { ...comment.pin, ...place }, ...(state ? { state } : {}) };
 }
 
@@ -103,14 +122,14 @@ async function settle(projectDir: string, slug: string, n: number): Promise<void
     const previous = await readVersionFiles(projectDir, slug, n - 1);
     const version = await readVersionFiles(projectDir, slug, n);
     const changed = new Set(version.changedSections ?? []);
-    const elements = await pageElements(projectDir, slug, n);
+    const page = await readPage(projectDir, slug, n);
 
     // Every unsent comment goes with its moment; sent ones stay with their batch.
     const carried: string[] = [];
     const moved: StoredComment[] = [];
     for (const comment of previousState.comments) {
       if (isSent(previousState.handedOff, comment.id)) continue;
-      moved.push(carriedComment(comment, previous, version, elements));
+      moved.push(carriedComment(comment, previous, version, page));
       carried.push(comment.id);
     }
     const stillWaiting = [...new Set([...(previousState.waiting ?? []), ...Object.keys(previousState.handedOff ?? {})])].filter(
