@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
-import { basename, dirname, extname, join } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { KinottaError } from './errors.ts';
@@ -10,15 +10,30 @@ import type { ImportedVideo } from './types.ts';
 import { isVideoFile } from './videos.ts';
 
 const FOOTAGE_DIR = 'footage';
-/** Next to an original that browsers cannot play: `<dir>/.playback/<name>.mp4`. A dot folder, so it is never listed as a video. */
+/** Where H.264 copies of videos browsers cannot play live: `footage/.playback/`. A dot folder, so it is never listed as a video. */
 const PLAYBACK_DIR = '.playback';
 const PLAYBACK_EXT = '.mp4';
+/** Joins the folders of a video outside footage/ into its copy's name: `media/talk.mov` becomes `media--talk.mp4`. */
+const PLAYBACK_PATH_JOIN = '--';
 const PARTIAL_PREFIX = '.incoming-';
 const NEEDS_PLAYBACK_COPY = new Set(['hevc', 'prores']);
 const UNSAFE_NAME_CHARS = /[<>:"|?*\u0000-\u001f]/g;
 
-/** Where the H.264 playback copy of a video lives, whether or not it has been made. */
-export const playbackPath = (file: string): string => join(dirname(file), PLAYBACK_DIR, `${basename(file, extname(file))}${PLAYBACK_EXT}`);
+/** True for a codec browsers cannot play, whose video needs an H.264 copy. */
+export const needsPlaybackCopy = (codec: string): boolean => NEEDS_PLAYBACK_COPY.has(codec);
+
+/**
+ * Where the H.264 playback copy of a video in the project lives, whether or not it has been made: `footage/.playback/`,
+ * named after the video's path inside footage/ (`footage/talk.mov`) or, for one elsewhere, its project path
+ * (`media/talk.mov` gives `media--talk.mp4`). The copies are the only files the editor adds outside reels/ (ADR 0002).
+ */
+export function playbackPath(projectDir: string, file: string): string {
+  const footageDir = resolve(projectDir, FOOTAGE_DIR);
+  const inFootage = resolve(file).startsWith(footageDir + sep);
+  const rel = relative(inFootage ? footageDir : resolve(projectDir), resolve(file));
+  const stem = rel.slice(0, rel.length - extname(rel).length).split(sep).join(PLAYBACK_PATH_JOIN);
+  return join(footageDir, PLAYBACK_DIR, `${stem}${PLAYBACK_EXT}`);
+}
 
 /** A file name that stays inside footage/: the last segment of whatever was given, with characters Windows refuses replaced. */
 function safeName(name: string): string {
@@ -112,14 +127,14 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
     if (copied) await rm(file, { force: true });
     throw new KinottaError('invalid', `${wanted} is not a video file Kinotta can read.`);
   }
-  const needsCopy = NEEDS_PLAYBACK_COPY.has(codec);
-  if (needsCopy) await ensurePlaybackCopy(file);
+  const needsCopy = needsPlaybackCopy(codec);
+  if (needsCopy) await ensurePlaybackCopy(projectDir, file);
   return { path: `${FOOTAGE_DIR}/${basename(file)}`, copied, playbackCopy: needsCopy };
 }
 
 /** Makes the playback copy unless it is there. Written to a temp name and renamed, so a half-made copy is never served. */
-async function ensurePlaybackCopy(file: string): Promise<void> {
-  const dest = playbackPath(file);
+export async function ensurePlaybackCopy(projectDir: string, file: string): Promise<void> {
+  const dest = playbackPath(projectDir, file);
   if (await exists(dest)) return;
   await mkdir(dirname(dest), { recursive: true });
   const staged = join(dirname(dest), `${PARTIAL_PREFIX}${basename(dest)}`);

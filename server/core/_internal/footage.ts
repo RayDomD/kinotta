@@ -170,7 +170,7 @@ export async function footageFile(projectDir: string, slug: string): Promise<str
   if (!SAFE_SLUG.test(slug)) return null;
   const ref = await readReelFootage(projectDir, join(projectDir, REELS_DIR, slug));
   if (!ref || !(await isFile(ref.file))) return null;
-  // An HEVC or ProRes original has an H.264 copy beside it that browsers can play.
-  const playback = playbackPath(ref.file!);
+  // An HEVC or ProRes original has an H.264 copy in footage/.playback/ that browsers can play.
+  const playback = playbackPath(projectDir, ref.file!);
   return (await isFile(playback)) ? playback : ref.file;
 }

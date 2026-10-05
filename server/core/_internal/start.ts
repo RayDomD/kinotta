@@ -4,6 +4,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
+import { ensurePlaybackCopy, needsPlaybackCopy } from './import.ts';
 import { probeVideo, transcribeAudio } from './runner.ts';
 import { briefRequest } from './requests.ts';
 import { autoSections } from './transcription.ts';
@@ -68,6 +69,8 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
   const file = await resolveVideo(projectDir, input.video);
   const probe = await probeVideo(file);
+  // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
+  if (needsPlaybackCopy(probe.codec)) await ensurePlaybackCopy(projectDir, file);
   const title = input.title?.trim() || titleFromFile(file);
   const { slug, dir: reelDir } = await makeReelDir(join(projectDir, REELS_DIR), title);
   const footage = posix(relative(resolve(projectDir), file));

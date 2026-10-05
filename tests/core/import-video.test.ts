@@ -93,7 +93,25 @@ describe('importVideo', () => {
     expect(await project.footageFile('r')).toBe(join(dir, 'footage', '.playback', 'clip.mp4'));
   });
 
-  it('rejects a file that is not a video and leaves nothing behind', { timeout: SLOW_MS }, async () => {
+  it('gives a picked HEVC video an H.264 copy in footage/.playback at start, leaves it where it is, and serves the copy', { timeout: SLOW_MS }, async () => {
+    const dir = emptyProject();
+    mkdirSync(join(dir, 'media'));
+    const hevc = join(dir, 'media', 'clip.mp4');
+    makeHevc(hevc);
+    const before = sha(hevc);
+    const project = openProject(dir, { transcriber: async () => [] });
+
+    const { slug } = await project.startReel({ video: 'media/clip.mp4' });
+    await project.whenTranscribed(slug);
+
+    expect(sha(hevc)).toBe(before);
+    expect(codecOf(join(dir, 'footage/.playback/media--clip.mp4'))).toBe('h264');
+    expect(existsSync(join(dir, 'media', '.playback'))).toBe(false);
+    expect(await project.footageFile(slug)).toBe(join(dir, 'footage', '.playback', 'media--clip.mp4'));
+    expect((await project.listVideos()).map((v) => v.path)).toEqual(['media/clip.mp4']);
+  });
+
+  it('rejects a file that is not a video and leaves nothing behind',{ timeout: SLOW_MS }, async () => {
     const dir = emptyProject();
     const project = openProject(dir);
     const notVideo = join(dir, 'x.txt');
