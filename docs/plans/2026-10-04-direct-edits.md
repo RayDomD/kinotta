@@ -1,7 +1,7 @@
 ---
 title: Review and Edit phase (direct edits)
 date: 2026-10-04
-status: Blocked
+status: Done
 summary: Kinotta becomes an AI-agnostic editor. Drop a video, cut, fix and re-time words, move captions and elements, and Save a new version with no agent; an agent stays optional for building motion graphics. Intent grilled (E1 to E20); spec published as #30.
 spec: docs/specs/2026-10-05-review-edit-phase.md (https://github.com/RayDomD/kinotta/issues/30)
 ---
@@ -93,3 +93,7 @@ summary, as T18 to T27 did.
   merging them was not permitted. Branch code review run and its findings fixed. Status Blocked on the owner: merge the
   three branches, stop two orphaned e2e servers (ports 4398/4399) so the full e2e suite can run. Summary:
   `docs/session-summaries/2026-10-04-direct-edits-summary.md`.
+- Owner session: orphaned e2e servers stopped; full e2e ran green (97). T42, T45 and T44 merged into the branch; the
+  follow-ups ran under `docs/plans/2026-10-05-new-reel-finish.md` (MissingTools mounted, stories 8 and 10, New reel
+  finish pass). All 19 tickets Done; issues #32, #44, #46 ticked. Status Done. Goal checked against the Intent: the
+  owner can start, cut, fix and save a reel with no agent, and an agent stays optional.

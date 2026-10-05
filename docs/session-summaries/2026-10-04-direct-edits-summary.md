@@ -1,13 +1,13 @@
 # Review and Edit phase (direct edits): run summary
 
-Date: 2026-10-05 (unattended overnight run). Branch: `feat/review-edit-phase`, off `feat/storyboard-phase`, local and not
+Date: 2026-10-05 (unattended overnight run, finished in an owner session the same day). Branch: `feat/review-edit-phase`, off `feat/storyboard-phase`, local and not
 pushed. Plan: `docs/plans/2026-10-04-direct-edits.md`. Spec: `docs/specs/2026-10-05-review-edit-phase.md` (#30).
 Tickets: `docs/tickets-review-edit.md` (T29 to T47, issues #31 to #49). Executor: Sonnet sub-agents, one ticket per fresh
 context, at the owner's choice.
 
 ## Shipped vs planned
 
-16 of 19 tickets are Done on this branch:
+All 19 tickets are Done on this branch. The unattended run finished 16:
 
 - **First slice:** T29 pieces in the engine and core mapping, T30 start from a picked video, T31 Review tab plays a reel,
   and T32 snip and Save.
@@ -20,20 +20,19 @@ The owner can start a reel from a picked video, play it, cut, snip, reorder, fix
 and slide clips, and move and scale elements. They Save to the next version with no agent, and an agent's next build keeps
 those edits.
 
-Three tickets are **Parked (owner)**. Each is built and committed with its checks green, but on its own worktree branch.
-Merging into this branch was refused by the permission classifier in the unattended run.
+Three tickets were built on worktree branches whose merge the permission classifier refused in the unattended run. The
+owner session merged them:
 
-| Ticket | Branch | Commit |
+| Ticket | Branch | Merge |
 |---|---|---|
-| T42, drop a video | `worktree-agent-a9ba721915c80f62f` | `aaead62` |
-| T44, startup check | `worktree-agent-adfb0c28f2649be21` | `1ca4280`, based on old `4aa1fe6` |
-| T45, brief reels, empty Storyboard, last-used tab | `worktree-agent-a164f2735842a217f` | `129ea98` |
+| T42, drop a video | `worktree-agent-a9ba721915c80f62f` (`aaead62`) | `3d5566e` |
+| T45, brief reels, empty Storyboard, last-used tab | `worktree-agent-a164f2735842a217f` (`129ea98`) | `5a72a39` |
+| T44, startup check | `worktree-agent-adfb0c28f2649be21` (`1ca4280`) | `3ac2c22` |
 
-After merging:
-
-- Mount `<MissingTools />` in `NewReel.tsx` (T44).
-- Give T42 an editable name and an H.264 copy for picked HEVC or ProRes files (stories 8 and 10).
-- Run the T47 finish pass on the drop zone and brief form.
+The follow-ups ran under `docs/plans/2026-10-05-new-reel-finish.md`
+(summary `docs/session-summaries/2026-10-05-new-reel-finish-summary.md`): `<MissingTools />` mounted (`09440d9`), an
+H.264 copy for a picked HEVC or ProRes video (`3f80bc9`), a name step for a dropped video (`45dc967`), and the New reel
+finish pass (`f1674f4`).
 
 ## Deviations
 
@@ -48,6 +47,10 @@ After merging:
 - **Front trims (T38).** Trimming a clip's front starts its animation later instead of cutting its head.
 - **Transcription progress is held in memory (T43).** A restart mid-transcription does not resume.
 - **E12 section drag and rename** has no ticket. The spec listed no operation for it.
+- **Runner boundary test narrowed (T44 merge).** It flagged any module naming Python; it now flags one that starts
+  processes and names Python. The tool check starts its probes through `runner.ts` (`tryCommand`).
+- **Tool check shows "All found." (T44).** The criterion says no message when all are present; the New reel screen
+  follows the mockup's one-line "Needs on this machine" row instead. Startup prints nothing.
 
 ## Code review
 
@@ -64,7 +67,7 @@ calls.
 
 The **Spec** axis found P1 to P9:
 
-- **P1** is T42's, and parked.
+- **P1** is T42's, closed by the merge and the story 8 and 10 follow-ups.
 - **P4** is the `.pyc` file, fixed in `920528d`.
 - **P5** is accepted, since its features were ticketed.
 - **P2, P3 and P6 to P9** were fixed in `1806029`:
@@ -83,7 +86,15 @@ A focused re-review of those fixes found three more problems, all fixed in `947e
 
 No open findings remain.
 
-## Checks run (at `06ca70f`)
+## Checks run (at `f1674f4`, owner session)
+
+- `npm run typecheck`: clean.
+- `npx vitest run`: 37 files, 353 passed and 1 skipped (the opt-in faster-whisper test).
+- `npx playwright test`: the full suite, 101 passed, including `smoke`, `storyboard`, `lanes`, `pins`, `sections` and
+  `contract`, which the unattended run could not reach.
+- Issues #32, #44 and #46 ticked.
+
+## Checks run (at `06ca70f`, unattended run)
 
 - `npm run typecheck`: clean.
 - `rtk proxy npm test`: 33 files, 332 passed and 1 skipped. The skipped test is the opt-in real faster-whisper test,

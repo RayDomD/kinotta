@@ -249,10 +249,7 @@ runs real faster-whisper on the 12-second sample.
 - [x] Long videos get automatic sections at pauses; short ones get one section
 - [x] The opt-in faster-whisper test passes on the sample
 
-## T44 (#46). Startup check for Python, ffmpeg and faster-whisper
- — Parked (owner)
-
-Built and committed on branch `worktree-agent-adfb0c28f2649be21` (`1ca4280`), checks green there; merging into this branch was not permitted in the unattended run, so it waits for the owner's merge.
+## T44 (#46). Startup check for Python, ffmpeg and faster-whisper — Done
 
 **What to build:** At startup Kinotta checks for Python 3, ffmpeg and faster-whisper and names any that is missing,
 with how to install it, so a start from video never fails halfway.
@@ -261,8 +258,8 @@ with how to install it, so a start from video never fails halfway.
 
 **Model:** small
 
-- [ ] A missing tool is named with an install hint at startup and in the New reel screen
-- [ ] All present: no message
+- [x] A missing tool is named with an install hint at startup and in the New reel screen
+- [x] All present: no message
 
 ## T45 (#47). New reel from a brief, empty Storyboard and last-used tab — Done
 
