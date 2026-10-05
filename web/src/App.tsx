@@ -7,7 +7,7 @@ import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
-import { NewReel } from './NewReel.tsx';
+import { NewReel, NewReelSide } from './NewReel.tsx';
 import { Review, ReviewSide, useEdits } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
@@ -61,14 +61,16 @@ function TopBar(props: {
   /** The phase on screen; null while the New reel screen is open. */
   phase?: Phase | null;
   onPhase?(phase: Phase): void;
+  /** The New reel screen is open: the bar names it instead of the reel left behind, and offers no batch to copy. */
+  creating?: boolean;
 }) {
-  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase } = props;
+  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
       <div className="reelname">
-        {reel?.title}
-        {version && <span className="num">{formatDuration(version.duration)}</span>}
+        {creating ? 'New reel' : reel?.title}
+        {version && !creating && <span className="num">{formatDuration(version.duration)}</span>}
       </div>
       <nav className="modes" aria-label="Phase">
         {PHASES.map((name) =>
@@ -81,7 +83,7 @@ function TopBar(props: {
           ),
         )}
       </nav>
-      {reel && version && (
+      {reel && version && !creating && (
         <CopyButton
           slug={reel.slug}
           version={version.number}
@@ -214,8 +216,8 @@ function Rail(props: RailProps) {
           <button type="button" aria-current={creating ? 'true' : undefined} onClick={onNewReel}>New reel</button>
         </nav>
       </div>
-      {sections !== null && <SectionRail {...sections} />}
-      {current !== undefined && versions.entries.length > 0 && (
+      {sections !== null && !creating && <SectionRail {...sections} />}
+      {current !== undefined && versions.entries.length > 0 && !creating && (
         <VersionRail
           entries={versions.entries}
           selected={versions.selected}
@@ -549,6 +551,7 @@ export function App() {
         issues={issues}
         onCopied={() => setVersionTick((n) => n + 1)}
         phase={creating ? undefined : phase}
+        creating={creating}
         onPhase={(next) => {
           setCreating(false);
           setPhase(next);
@@ -593,7 +596,9 @@ export function App() {
           transcription={transcription}
           onBriefStarted={briefStarted}
         />
-        {phase === 'Review' && !creating ? (
+        {creating ? (
+          <NewReelSide />
+        ) : phase === 'Review' ? (
           <ReviewSide
             edits={edits}
             pieces={openVersion?.pieces}

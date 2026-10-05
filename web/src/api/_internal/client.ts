@@ -357,6 +357,25 @@ export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/
 export const saveEdits = async (slug: string): Promise<number> =>
   (await requestJson<{ version: number }>(`/api/reels/${encodeURIComponent(slug)}/save`, { method: 'POST' })).version;
 
-/** Sends a dropped video into the project's footage/ folder. */
-export const importVideo = (file: File): Promise<{ path: string; copied: boolean }> =>
-  requestJson(`/api/footage?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file });
+/**
+ * Sends a dropped video into the project's footage/ folder, reporting the share sent so far (0 to 1). XHR rather than
+ * fetch, because fetch reports no upload progress and a video can take a while to send.
+ */
+export const importVideo = (file: File, onProgress?: (sent: number) => void): Promise<{ path: string; copied: boolean }> =>
+  new Promise((resolve, reject) => {
+    const path = `/api/footage?name=${encodeURIComponent(file.name)}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', path);
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+    xhr.responseType = 'json';
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      const body = xhr.response as { path: string; copied: boolean; error?: string } | null;
+      if (xhr.status >= 200 && xhr.status < 300 && body !== null) resolve(body);
+      else reject(new Error(body?.error ?? `Request to ${path} failed (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error('Could not reach the Kinotta server'));
+    xhr.send(file);
+  });

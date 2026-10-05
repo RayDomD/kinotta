@@ -11,7 +11,7 @@ test('a video picked on New reel becomes a reel that opens in Review', async ({ 
   await page.getByRole('button', { name: 'New reel' }).click();
 
   const video = page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ });
-  await expect(video).toContainText('h264');
+  await expect(video).toContainText('H.264');
   await expect(video).toContainText('00:12');
   await video.click();
   await expect(page.getByLabel('Reel name')).toHaveValue('talk');

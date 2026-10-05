@@ -33,7 +33,7 @@ export function BriefForm({ onStarted }: BriefFormProps) {
 
   return (
     <section className="rv-brief" aria-labelledby="rv-brief-title">
-      <h3 id="rv-brief-title">Or start from a brief</h3>
+      <h2 id="rv-brief-title">Or start from a brief</h2>
       <p className="rv-lede">Kinotta copies a request for your agent. The reel waits in the list until it writes the shot list.</p>
       <form
         className="rv-name"

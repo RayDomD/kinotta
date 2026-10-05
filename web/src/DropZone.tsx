@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { importVideo } from './api/index.ts';
 
+const PERCENT = 100;
+
 interface DropZoneProps {
   /** Called with the video's project path once it is in footage/ (copied, or already there). */
   onImported(path: string): void;
@@ -16,8 +18,11 @@ export function DropZone({ onImported }: DropZoneProps) {
   const take = (file: File | undefined): void => {
     if (file === undefined || busy) return;
     setProblem(null);
-    setStatus('Copying into footage/…');
-    importVideo(file).then(
+    setStatus(`Copying ${file.name} into footage/…`);
+    // Once every byte is sent, the server still hashes it and makes a playback copy for HEVC or ProRes.
+    const report = (sent: number): void =>
+      setStatus(sent < 1 ? `Copying ${file.name} into footage/… ${Math.floor(sent * PERCENT)}%` : `Checking ${file.name}…`);
+    importVideo(file, report).then(
       ({ path }) => {
         setStatus(null);
         onImported(path);
@@ -34,6 +39,7 @@ export function DropZone({ onImported }: DropZoneProps) {
       <label
         className="rv-dropzone"
         data-over={over}
+        data-busy={busy}
         onDragOver={(event) => {
           event.preventDefault();
           setOver(true);
@@ -55,12 +61,19 @@ export function DropZone({ onImported }: DropZoneProps) {
             event.target.value = '';
           }}
         />
+        <svg width="44" height="44" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="var(--light)" strokeWidth="1.6" strokeLinejoin="round" />
+          <path d="M14 9v9M10 14l4 4 4-4" fill="none" stroke="var(--ink)" strokeWidth="1.6" />
+        </svg>
         <strong>Drop a video here</strong>
-        <span>It is copied into this project's footage/ folder, then transcribed on this machine.</span>
-        <span className="rv-choose">Choose a file…</span>
+        <span className="rv-drop-note">
+          It is copied into this project's <b>footage/</b> folder and transcribed on this machine. You can cut while the words come in.
+        </span>
+        <span className="btn quiet rv-choose">Choose a file…</span>
+        <span className="rv-drop-status" role="status">{status}</span>
+        {problem !== null && <span className="rv-problem" role="alert">{problem}</span>}
+        <span className="terrain" aria-hidden="true" />
       </label>
-      {status !== null && <p className="rv-busy" role="status">{status}</p>}
-      {problem !== null && <p className="rv-problem" role="alert">{problem}</p>}
     </div>
   );
 }
