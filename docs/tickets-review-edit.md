@@ -264,10 +264,7 @@ with how to install it, so a start from video never fails halfway.
 - [ ] A missing tool is named with an install hint at startup and in the New reel screen
 - [ ] All present: no message
 
-## T45 (#47). New reel from a brief, empty Storyboard and last-used tab
- — Parked (owner)
-
-Built and committed on branch `worktree-agent-a164f2735842a217f` (`129ea98`), checks green there; merging into this branch was not permitted in the unattended run, so it waits for the owner's merge.
+## T45 (#47). New reel from a brief, empty Storyboard and last-used tab — Done
 
 **What to build:** New reel offers starting from a short brief: Kinotta writes `reel.json` with the title and copies
 a request naming the reel and the brief; the reel shows Waiting until a version with `shots.json` appears, then
@@ -278,9 +275,9 @@ lanes still show, with word pins. A reel opens in the tab last used for it.
 
 **Model:** mid
 
-- [ ] A brief reel waits in the rail with the Waiting mark and opens in Storyboard once built
-- [ ] A reel with no clips shows the empty state, its lanes, and accepts word pins
-- [ ] A reel reopens in its last-used tab
+- [x] A brief reel waits in the rail with the Waiting mark and opens in Storyboard once built
+- [x] A reel with no clips shows the empty state, its lanes, and accepts word pins
+- [x] A reel reopens in its last-used tab
 
 ## T46 (#48). Skill learns the new plan fields — Done
 

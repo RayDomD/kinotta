@@ -5,6 +5,8 @@ export interface ReelSummary {
   title: string;
   newestVersion: number | null;
   lastChange: number;
+  /** A reel started from a brief: the brief and the request copied for building it. Waiting while `newestVersion` is null. */
+  brief?: { text: string; request: string };
 }
 
 export type ReelsState = 'ok' | 'no-reels-folder' | 'no-reels';
@@ -99,6 +101,8 @@ export interface Version {
   builtBy?: string;
   /** Code-only reels only: the page's scene names and the element offsets its `kinotta-edits.css` holds, by scene then element. */
   code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
+  /** Set when the version has no shots: the request to copy for b-roll. */
+  brollRequest?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -298,6 +302,10 @@ export interface VideoEntry {
 
 /** The project's videos, for the New reel screen. */
 export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ videos: VideoEntry[] }>('/api/videos')).videos;
+
+/** Starts a reel from a short brief. It has no version until one is built; `request` is what to hand to whoever builds it. */
+export const startReelFromBrief = (input: { title: string; brief: string }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
 
 /** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
 export const startReel = (input: { video: string; title?: string }): Promise<{ slug: string }> =>

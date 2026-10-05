@@ -5,9 +5,10 @@ import { withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { probeVideo, transcribeAudio } from './runner.ts';
+import { briefRequest } from './requests.ts';
 import { autoSections } from './transcription.ts';
 import type { Transcriptions } from './transcription.ts';
-import type { NewReel, StartedReel, Transcriber } from './types.ts';
+import type { NewBriefReel, NewReel, StartedBriefReel, StartedReel, Transcriber } from './types.ts';
 import { isVideoFile, posix, titleFromFile } from './videos.ts';
 import { publishVersion, stageVersion } from './version-build.ts';
 
@@ -96,4 +97,18 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
     await withReelLock(reelDir, () => publishVersion(reelDir, staged, 1));
   });
   return { slug };
+}
+
+/**
+ * Starts a reel from a short brief: writes reel.json with the title and the brief, and nothing else. The reel has no
+ * version until whoever builds it writes one, and shows as waiting until then.
+ */
+export async function startReelFromBrief(projectDir: string, input: NewBriefReel): Promise<StartedBriefReel> {
+  const title = typeof input?.title === 'string' ? input.title.trim() : '';
+  const brief = typeof input?.brief === 'string' ? input.brief.trim() : '';
+  if (title === '') throw new KinottaError('invalid', 'A reel needs a name.');
+  if (brief === '') throw new KinottaError('invalid', 'A reel started from a brief needs the brief.');
+  const { slug, dir } = await makeReelDir(join(projectDir, REELS_DIR), title);
+  await writeJson(join(dir, 'reel.json'), { title, brief });
+  return { slug, request: briefRequest(slug, title, brief) };
 }

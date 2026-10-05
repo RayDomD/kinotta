@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { sectionOfComment, settleNewest } from './carry.ts';
-import { numbered } from './comments.ts';
+import { NO_SHOT, numbered } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { recordHandoff } from './handoff.ts';
 import { readTitle } from './reels.ts';
@@ -33,7 +33,10 @@ function target({ pin }: Comment): string {
 
 function pasteableText(heading: string, file: string, comments: Comment[], notes: string[], issues: string[]): string {
   const lines = [`Kinotta comments: ${heading}`, `Saved as ${file}`, ''];
-  for (const c of comments) lines.push(`${c.number}. Shot ${c.pin.shot}, ${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
+  for (const c of comments) {
+    const where = c.pin.shot === NO_SHOT ? '' : `Shot ${c.pin.shot}, `;
+    lines.push(`${c.number}. ${where}${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
+  }
   lines.push('');
   if (notes.length > 0) lines.push('Notes', ...notes.map((n) => `- ${n}`), '');
   if (issues.length > 0) lines.push('Contract issues', ...issues.map((i) => `- ${i}`), '');
@@ -95,7 +98,7 @@ export async function copyBatch(projectDir: string, slug: string, number: number
       copiedAt,
       comments: comments.map((c) => ({
         number: c.number,
-        shot: c.pin.shot,
+        shot: c.pin.shot === NO_SHOT ? null : c.pin.shot,
         time: c.pin.time,
         ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y }),
         text: c.text,

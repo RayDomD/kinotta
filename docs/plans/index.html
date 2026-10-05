@@ -128,7 +128,7 @@
   <span class="count"><span class="dot" style="background:var(--blocked)"></span>1 Blocked</span>
   <span class="count"><span class="dot" style="background:var(--approved)"></span>0 Approved</span>
   <span class="count"><span class="dot" style="background:var(--draft)"></span>0 Draft</span>
-  <span class="count"><span class="dot" style="background:var(--done)"></span>28 Done</span>
+  <span class="count"><span class="dot" style="background:var(--done)"></span>29 Done</span>
 </div>
 
 <div class="group">
@@ -143,7 +143,7 @@
 </div>
 
 <details class="group">
-  <summary>Done (28)</summary>
+  <summary>Done (29)</summary>
   <div class="cards">
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-pieces-in-the-engine.md">Pieces in the engine (T29)</a>
@@ -161,6 +161,16 @@
       <div class="summary">Fixes from the branch code review: Save carries comments at once, a plan-less version is one piece, Save journals its source writes, transcript fields and per-version files survive, element pins flag element-removed.</div>
     </div>
     <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-scale-elements.md">Move and scale elements on footage reels (T39)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T39. element-offset operation; click an element in the frame, drag to move, corner handle to scale; build.py applies per-clip offsets with CSS translate and scale so they stack on the clip's own animation.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
+    </div>
+    <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-handoff-blocks-save.md">A hand-off blocks Save (T41)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T41. Copying a batch marks the reel handed off and Save says why it is off; the next version replays the edit list onto its sources and flags edits whose target is gone.</div>
@@ -169,16 +179,6 @@
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-captions.md">Move captions (T37)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T37. caption-position and caption-phrase-position operations; drag in the frame moves all captions, Alt-drag one phrase; build.py applies both with CSS translate.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-scale-elements.md">Move and scale elements on footage reels (T39)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T39. element-offset operation; click an element in the frame, drag to move, corner handle to scale; build.py applies per-clip offsets with CSS translate and scale so they stack on the clip's own animation.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-edit-finish.md">Finish pass on Review and Edit (T47)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T47. Lane B finish on the Review tab and New reel screen: critique and audit recorded, keyboard path to a stretch and arrow nudging added, DESIGN.md updated.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-start-a-reel-from-a-video.md">Start a reel from a picked video (T30)</a>
@@ -196,6 +196,16 @@
       <div class="summary">T38. clip-trim and clip-slide operations; drag a clip's edges to trim, its body to slide; a slide sets slid in the plan and the lane says &quot;off its words&quot;; a trim drops the shots of states it cuts off.</div>
     </div>
     <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-snip-and-save.md">Snip and Save (T32)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T32. An edit list of operations (snip first) kept in the reel folder, an Edits panel and Snip tool in Review, and Save building the next version from the sources atomically.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-edit-finish.md">Finish pass on Review and Edit (T47)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T47. Lane B finish on the Review tab and New reel screen: critique and audit recorded, keyboard path to a stretch and arrow nudging added, DESIGN.md updated.</div>
+    </div>
+    <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-tab-plays-a-reel.md">Review tab plays a reel (T31)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T31. The Review tab plays a reel in the Gate well: footage, clips and captions together, following pieces and skipping snips, with lanes on a zoomable axis under an overview.</div>
@@ -206,16 +216,6 @@
       <div class="summary">T46. The skill keeps pieces, offsets, caption positions and slid-clearing rules, writes builtBy, copies transcript and plan into each version; app wording names no agent.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-snip-and-save.md">Snip and Save (T32)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T32. An edit list of operations (snip first) kept in the reel folder, an Edits panel and Snip tool in Review, and Save building the next version from the sources atomically.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
-    </div>
-    <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-blade-and-reorder.md">Blade and reorder pieces (T34)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T34. The Blade (B) cuts the footage into two pieces, a piece is dragged to a new place in the Footage lane, cuts and snips are marked, and a move that would split a section is refused.</div>
@@ -224,6 +224,11 @@
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-fix-and-retime-words.md">Fix and re-time words (T36)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T36. word-text and word-timing operations; the Words lane edits a word in place and re-times it by its edges; Save writes them into the reel's transcript so captions and spoken lines follow.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-brief-reel-empty-storyboard-last-tab.md">New reel from a brief, empty Storyboard and last-used tab (T45)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T45. New reel can start from a brief (reel.json plus a copied request, shown Waiting until shots.json appears, then opened in Storyboard); a version with no clips gets a Storyboard empty state with a b-roll request, its lanes and word pins; a reel opens in the tab last used for it.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-comments-carry-by-remapping.md">Comments carry forward by remapping (T35)</a>

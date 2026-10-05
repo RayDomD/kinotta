@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { KinottaError } from '../../core/index.ts';
-import type { BatchOptions, NewComment, NewOperation, NewReel, Project } from '../../core/index.ts';
+import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -294,6 +294,8 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(handoffRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelHandoff(slug));
+      } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
+        sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
         sendJson(res, 201, await project.startReel((await readJsonBody(req)) as NewReel));
       } else if (pathname === '/api/footage' && req.method === 'POST') {

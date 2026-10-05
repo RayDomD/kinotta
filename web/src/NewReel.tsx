@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listVideos, startReel } from './api/index.ts';
 import type { VideoEntry } from './api/index.ts';
+import { BriefForm } from './BriefReel.tsx';
 import { DropZone } from './DropZone.tsx';
 import { Empty } from './Empty.tsx';
 import { formatClock } from './timecode.ts';
@@ -20,10 +21,12 @@ interface NewReelProps {
   project: string;
   /** Called with the new reel's slug as soon as it exists; its transcript and v1 follow in the background. */
   onStarted(slug: string): void;
+  /** Called with the slug of a reel started from a brief, which waits for its first version. */
+  onBriefStarted(slug: string): void;
 }
 
 /** The New reel screen: the project's videos, and a name for the one picked. The video is used where it is. */
-export function NewReel({ project, onStarted }: NewReelProps) {
+export function NewReel({ project, onStarted, onBriefStarted }: NewReelProps) {
   const [load, setLoad] = useState<Videos>({ status: 'loading' });
   const [picked, setPicked] = useState<VideoEntry | null>(null);
   const [title, setTitle] = useState('');
@@ -102,6 +105,7 @@ export function NewReel({ project, onStarted }: NewReelProps) {
           </form>
         )}
       </section>
+      <BriefForm onStarted={onBriefStarted} />
     </main>
   );
 }

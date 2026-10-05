@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchProject, fetchReels, fetchTranscription, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
 import { BUILT_BY_YOU } from '../../server/core/model.ts';
+import { BriefWaiting } from './BriefReel.tsx';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
+import { lastTab, rememberTab } from './lastTab.ts';
 import { NewReel } from './NewReel.tsx';
 import { Review, ReviewSide, useEdits } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
@@ -201,6 +203,7 @@ function Rail(props: RailProps) {
             {listing.reels.map((reel) => (
               <button key={reel.slug} type="button" aria-current={reel.slug === current && !creating ? 'true' : undefined} onClick={() => onOpen(reel.slug)}>
                 {reel.title}
+                {reel.brief !== undefined && reel.newestVersion === null && <WaitingMark />}
               </button>
             ))}
           </nav>
@@ -257,17 +260,19 @@ interface MainProps {
   edits: EditsState;
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
+  onBriefStarted(slug: string): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription } = props;
-  if (creating) return <NewReel project={project} onStarted={onStarted} />;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted } = props;
+  if (creating) return <NewReel project={project} onStarted={onStarted} onBriefStarted={onBriefStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
   }
   if (listing.state === 'no-reels' || !reel) {
     return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask your agent for a storyboard to add one.`}</Empty></main>;
   }
+  if (reel.brief !== undefined && reel.newestVersion === null) return <BriefWaiting reel={{ ...reel, brief: reel.brief }} />;
   if (phase === 'Review') {
     return (
       <Review
@@ -398,6 +403,7 @@ export function App() {
     setSelected(slug);
     setChosen(undefined);
     setReady(new Set());
+    setPhase(lastTab(slug) ?? 'Storyboard');
   }, []);
 
   const openVersionNumber = useCallback((number: number) => {
@@ -424,6 +430,19 @@ export function App() {
       );
       openReel(slug);
       setPhase('Review');
+      rememberTab(slug, 'Review');
+    },
+    [openReel],
+  );
+
+  // A reel started from a brief joins the list as waiting and opens on its waiting page.
+  const briefStarted = useCallback(
+    (slug: string) => {
+      fetchReels().then(
+        (listing) => setLoad((prev) => (prev.status === 'ready' ? { ...prev, listing } : prev)),
+        () => undefined,
+      );
+      openReel(slug);
     },
     [openReel],
   );
@@ -452,8 +471,8 @@ export function App() {
     };
   }, [openSlug]);
 
-  const current = useRef({ slug: reel?.slug, version: chosen });
-  current.current = { slug: reel?.slug, version: chosen };
+  const current = useRef({ slug: reel?.slug, version: chosen, waiting: false });
+  current.current = { slug: reel?.slug, version: chosen, waiting: reel?.brief !== undefined && reel.newestVersion === null };
 
   useEffect(() => {
     const refreshListing = (): void => {
@@ -468,6 +487,11 @@ export function App() {
       } else if (event.type === 'version-added') {
         refreshListing();
         if (event.reel === current.current.slug) {
+          // The shot list a brief reel was waiting for: it opens in Storyboard.
+          if (current.current.waiting) {
+            setPhase('Storyboard');
+            rememberTab(event.reel, 'Storyboard');
+          }
           setVersionsTick((n) => n + 1);
           setReady((prev) => new Set([...prev, event.version]));
         }
@@ -528,6 +552,7 @@ export function App() {
         onPhase={(next) => {
           setCreating(false);
           setPhase(next);
+          if (reel) rememberTab(reel.slug, next);
         }}
         section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
       />
@@ -566,6 +591,7 @@ export function App() {
           onStarted={reelStarted}
           edits={edits}
           transcription={transcription}
+          onBriefStarted={briefStarted}
         />
         {phase === 'Review' && !creating ? (
           <ReviewSide

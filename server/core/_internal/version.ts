@@ -6,6 +6,7 @@ import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
 import { SAFE_SLUG, addFootage } from './footage.ts';
 import { readTitle } from './reels.ts';
+import { brollRequest } from './requests.ts';
 import { readSections } from './sections.ts';
 import type { Overlay, Shot, Version, VersionEntry } from './types.ts';
 
@@ -160,7 +161,9 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
   if (typeof file.builtBy === 'string' && file.builtBy.trim() !== '') version.builtBy = file.builtBy;
   if (await isCodeOnly(projectDir, reelDir)) version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
-  return addFootage(projectDir, reelDir, versionDir, version);
+  const withFootage = await addFootage(projectDir, reelDir, versionDir, version);
+  if (withFootage.shots.length > 0) return withFootage;
+  return { ...withFootage, brollRequest: brollRequest(slug, (await readTitle(reelDir)) ?? slug, number) };
 }
 
 const readOrEmpty = (file: string): Promise<string> => readFile(file, 'utf8').catch(() => '');
