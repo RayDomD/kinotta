@@ -4,6 +4,7 @@ import type { VideoEntry } from './api/index.ts';
 import { BriefForm } from './BriefReel.tsx';
 import { DropZone } from './DropZone.tsx';
 import { Empty } from './Empty.tsx';
+import { MissingTools } from './MissingTools.tsx';
 import { formatClock } from './timecode.ts';
 
 const BYTES_PER_MB = 1024 * 1024;
@@ -67,6 +68,7 @@ export function NewReel({ project, onStarted, onBriefStarted }: NewReelProps) {
     <main className="main" aria-label="New reel">
       <section className="rv-pick">
         <h2>New reel</h2>
+        <MissingTools />
         <DropZone onStarted={onStarted} />
         <p className="rv-lede">Or pick a video already in {project}. It stays where it is.</p>
         {load.status === 'loading' && <div className="state">Loading…</div>}
