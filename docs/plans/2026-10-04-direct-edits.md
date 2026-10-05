@@ -1,7 +1,7 @@
 ---
 title: Review and Edit phase (direct edits)
 date: 2026-10-04
-status: In Progress
+status: Blocked
 summary: Kinotta becomes an AI-agnostic editor. Drop a video, cut, fix and re-time words, move captions and elements, and Save a new version with no agent; an agent stays optional for building motion graphics. Intent grilled (E1 to E20); spec published as #30.
 spec: docs/specs/2026-10-05-review-edit-phase.md (https://github.com/RayDomD/kinotta/issues/30)
 ---
@@ -89,3 +89,7 @@ summary, as T18 to T27 did.
   `Project`, the engine scripts, and a few browser flows, with an injectable transcriber.
 - Tickets T29 to T47 written (`docs/tickets-review-edit.md`) and published as issues #31 to #49. Goal, Approach,
   Steps, Risks and Checks filled; status In Progress. Branch `feat/review-edit-phase`.
+- Unattended run: T29 to T41, T43, T46 and T47 Done; T42, T44, T45 built on worktree branches and Parked (owner) because
+  merging them was not permitted. Branch code review run and its findings fixed. Status Blocked on the owner: merge the
+  three branches, stop two orphaned e2e servers (ports 4398/4399) so the full e2e suite can run. Summary:
+  `docs/session-summaries/2026-10-04-direct-edits-summary.md`.
