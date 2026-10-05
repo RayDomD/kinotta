@@ -362,3 +362,12 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .rv-name input { font-size: 16px; padding: 7px 10px; border: 1.4px solid var(--hairline); background: var(--card); }
 .rv-busy, .rv-problem { flex-basis: 100%; font-size: 13px; color: var(--ink-2); }
 .rv-footage { width: 100%; margin-top: 14px; background: var(--ink); }
+
+/* the New reel drop zone: the dashed edge is the only affordance; the whole zone is the label of a hidden file input */
+.rv-dropwrap { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.rv-dropzone { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px; text-align: center; border: 1.6px dashed var(--hairline); cursor: pointer; transition: border-color var(--t-color) var(--ease), background var(--t-color) var(--ease); }
+.rv-dropzone:hover, .rv-dropzone[data-over="true"], .rv-dropzone:focus-within { border-color: var(--light); background: var(--light-wash); }
+.rv-dropzone strong { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+.rv-dropzone span { color: var(--ink-2); font-size: 14px; max-width: 44ch; }
+.rv-dropzone .rv-choose { color: var(--ink); text-decoration: underline; }
+.rv-dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }

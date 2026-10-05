@@ -4,6 +4,7 @@ import type { CaptionsPlan, PlanClip } from './edit-model.ts';
 import { pieceMap } from './pieces.ts';
 import type { Piece, PlacedPiece } from './pieces.ts';
 import { readReelPlan } from './sources.ts';
+import { playbackPath } from './import.ts';
 import type { Shot, TranscriptWord, Version } from './types.ts';
 
 const REEL_FILE = 'reel.json';
@@ -168,5 +169,8 @@ export async function addFootage(projectDir: string, reelDir: string, versionDir
 export async function footageFile(projectDir: string, slug: string): Promise<string | null> {
   if (!SAFE_SLUG.test(slug)) return null;
   const ref = await readReelFootage(projectDir, join(projectDir, REELS_DIR, slug));
-  return ref && (await isFile(ref.file)) ? ref.file : null;
+  if (!ref || !(await isFile(ref.file))) return null;
+  // An HEVC or ProRes original has an H.264 copy beside it that browsers can play.
+  const playback = playbackPath(ref.file!);
+  return (await isFile(playback)) ? playback : ref.file;
 }

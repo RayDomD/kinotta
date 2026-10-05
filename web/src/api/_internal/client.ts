@@ -300,7 +300,7 @@ export interface VideoEntry {
 export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ videos: VideoEntry[] }>('/api/videos')).videos;
 
 /** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
-export const startReel = (input: { video: string; title: string }): Promise<{ slug: string }> =>
+export const startReel = (input: { video: string; title?: string }): Promise<{ slug: string }> =>
   requestJson('/api/reels', jsonBody('POST', input));
 
 /** How the reel's transcription stands, or null when none has run since the server started. */
@@ -334,3 +334,7 @@ export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/
 /** Builds the next version from the edits. Resolves with its number. */
 export const saveEdits = async (slug: string): Promise<number> =>
   (await requestJson<{ version: number }>(`/api/reels/${encodeURIComponent(slug)}/save`, { method: 'POST' })).version;
+
+/** Sends a dropped video into the project's footage/ folder. */
+export const importVideo = (file: File): Promise<{ path: string; copied: boolean }> =>
+  requestJson(`/api/footage?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file });

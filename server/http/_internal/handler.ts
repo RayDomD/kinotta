@@ -296,6 +296,11 @@ export function createHandler(project: Project, webRoot: string) {
         else sendJson(res, 200, await project.cancelHandoff(slug));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
         sendJson(res, 201, await project.startReel((await readJsonBody(req)) as NewReel));
+      } else if (pathname === '/api/footage' && req.method === 'POST') {
+        // The body is the video itself, streamed to disk: no size limit and never held in memory.
+        const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
+        const imported = await project.importVideo(name, req);
+        sendJson(res, imported.copied ? 201 : 200, imported);
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (footageRoute) {

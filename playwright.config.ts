@@ -59,6 +59,9 @@ const HANDOFF_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-handoff-project.txt');
 const TRANSCRIPTION_PORT = 4381;
 const TRANSCRIPTION_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-transcription-project.txt');
 
+/** A sixteenth for drop-video.spec.ts: the footage sample with a fake transcriber; a dropped video is copied into its footage/ folder. */
+const DROP_VIDEO_PORT = 4388;
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -186,6 +189,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${TRANSCRIPTION_PORT}`,
       env: { ...serverEnv(TRANSCRIPTION_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_GATED_TRANSCRIBER: '1', KINOTTA_E2E_PROJECT_FILE: TRANSCRIPTION_PROJECT_FILE },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${DROP_VIDEO_PORT}`,
+      env: { ...serverEnv(DROP_VIDEO_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_FAKE_TRANSCRIBER: '1' },
       timeout: 120_000,
       reuseExistingServer: false,
     },

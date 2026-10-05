@@ -218,10 +218,7 @@ version lands, the edit list replays onto its sources; an operation whose target
 - [x] The edit list replays onto the agent's version; gone targets are flagged
 - [x] Playwright: Save blocked while a batch is out
 
-## T42 (#44). Start from a dropped video
- — Parked (owner)
-
-Built and committed on branch `worktree-agent-a9ba721915c80f62f` (`aaead62`), checks green there; merging into this branch was not permitted in the unattended run, so it waits for the owner's merge.
+## T42 (#44). Start from a dropped video — Done
 
 **What to build:** Dropping a video onto the New reel screen streams it to the local server, which writes it to the
 project's `footage/` folder, skipping an identical file. An HEVC or ProRes video gets an H.264 copy for playback;
@@ -231,10 +228,10 @@ the original is never altered. ADR 0002 records the copy.
 
 **Model:** mid
 
-- [ ] A dropped video lands in `footage/` and starts a reel
-- [ ] Dropping the same file again does not copy it twice
-- [ ] HEVC or ProRes gets an H.264 playback copy; the original is unchanged
-- [ ] ADR 0002 is amended
+- [x] A dropped video lands in `footage/` and starts a reel
+- [x] Dropping the same file again does not copy it twice
+- [x] HEVC or ProRes gets an H.264 playback copy; the original is unchanged
+- [x] ADR 0002 is amended
 
 ## T43 (#45). Real transcription with progress — Done
 

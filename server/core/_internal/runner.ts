@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 /**
- * The one place Kinotta starts the skill's scripts (E3) and ffprobe. Everything else asks for a result here.
+ * The one place Kinotta starts the skill's scripts (E3), ffprobe and ffmpeg. Everything else asks for a result here.
  * The scripts are the repo's own copies under skill/kinotta/.
  */
 
@@ -16,6 +16,7 @@ const BUILD_TIMEOUT_MS = 120_000;
 const PROBE_TIMEOUT_MS = 20_000;
 const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+const TRANSCODE_CRF = '20';
 
 const exec = promisify(execFile);
 
@@ -79,6 +80,12 @@ export function transcribeAudio(videoFile: string, transcriptFile: string, onPro
       else reject(new Error(`${PYTHON} failed: ${errors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`));
     });
   });
+}
+
+/** ffmpeg: an H.264 and AAC copy of a video that browsers play, for HEVC or ProRes originals. The source is only read. */
+export async function makePlaybackCopy(source: string, dest: string): Promise<void> {
+  const args = ['-v', 'error', '-y', '-i', source, '-c:v', 'libx264', '-crf', TRANSCODE_CRF, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', dest];
+  await run('ffmpeg', args);
 }
 
 export interface VideoProbe {
