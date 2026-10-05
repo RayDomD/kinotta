@@ -16,6 +16,18 @@ export interface ReelListing {
   reels: ReelSummary[];
 }
 
+export interface ToolStatus {
+  id: 'python' | 'ffmpeg' | 'faster-whisper';
+  name: string;
+  present: boolean;
+  hint: string;
+}
+
+export interface ToolCheck {
+  tools: ToolStatus[];
+  missing: ToolStatus[];
+}
+
 export interface ProjectInfo {
   name: string;
 }
@@ -199,6 +211,8 @@ const versionPath = (slug: string, number: number): string => `/api/reels/${enco
 
 export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
 export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
+/** Whether Python 3, ffmpeg and faster-whisper are installed, which starting a reel from a video needs. */
+export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
 /** A reel's versions, oldest first. */
 export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
   (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 /**
- * The one place Kinotta starts the skill's scripts (E3), ffprobe and ffmpeg. Everything else asks for a result here.
+ * The one place Kinotta starts the skill's scripts (E3), ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
  * The scripts are the repo's own copies under skill/kinotta/.
  */
 
@@ -17,8 +17,20 @@ const PROBE_TIMEOUT_MS = 20_000;
 const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const TRANSCODE_CRF = '20';
+const TOOL_PROBE_TIMEOUT_MS = 10_000;
 
 const exec = promisify(execFile);
+
+/** Runs a command for the startup tool check and returns its exit code and output, or null when it cannot start. Never throws. */
+export const tryCommand = (command: string, args: string[]): Promise<{ code: number; output: string } | null> =>
+  new Promise((resolve) => {
+    let output = '';
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: TOOL_PROBE_TIMEOUT_MS });
+    child.stdout.on('data', (chunk) => (output += chunk));
+    child.stderr.on('data', (chunk) => (output += chunk));
+    child.on('error', () => resolve(null));
+    child.on('close', (code) => resolve({ code: code ?? 1, output }));
+  });
 
 /** Runs a command and returns its stdout. A failure throws an Error whose message names the tool and says why. */
 async function run(command: string, args: string[], timeout?: number): Promise<string> {

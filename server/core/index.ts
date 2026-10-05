@@ -8,6 +8,7 @@ import { footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
 import { listReels } from './_internal/reels.ts';
 import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
+import { checkTools, missingToolsMessage } from './_internal/tools.ts';
 import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
 import { listVideos } from './_internal/videos.ts';
 import { listVersions } from './_internal/version.ts';
@@ -18,6 +19,7 @@ export { KinottaError } from './_internal/errors.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
+export { checkTools, missingToolsMessage };
 export type {
   AddedComment,
   BatchOptions,
@@ -46,6 +48,9 @@ export type {
   StartedBriefReel,
   StartedReel,
   TranscriptionProgress,
+  ToolCheck,
+  ToolId,
+  ToolStatus,
   TranscriptWord,
   Transcriber,
   Version,

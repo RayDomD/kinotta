@@ -96,6 +96,10 @@ a time per file. Nothing is written into a version folder.
 
 Outside code imports from `index.ts` only.
 
+- `checkTools()` returns `{ tools, missing }`: Python 3, ffmpeg and faster-whisper, each `{ id, name, present, hint }`
+  (`hint` is the install command for the platform). It never throws. `missingToolsMessage(check)` is the startup text
+  naming each missing tool, or null when all are present. The server serves the check at `GET /api/tools`.
+
 ## Does not handle
 
 Runtime contract checks (the stage does those) and stills.

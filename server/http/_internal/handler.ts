@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
-import { KinottaError } from '../../core/index.ts';
+import { KinottaError, checkTools } from '../../core/index.ts';
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
@@ -315,6 +315,8 @@ export function createHandler(project: Project, webRoot: string) {
         else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
       } else if (pathname === '/api/videos') {
         sendJson(res, 200, { videos: await project.listVideos() });
+      } else if (pathname === '/api/tools') {
+        sendJson(res, 200, await checkTools());
       } else if (pathname === '/api/reels') {
         sendJson(res, 200, await project.listReels());
       } else if (pathname === '/api/events') {

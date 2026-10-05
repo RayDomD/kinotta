@@ -133,7 +133,11 @@ describe('the runner', () => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         const path = join(dir, entry.name);
         if (entry.isDirectory()) walk(path);
-        else if (/\.ts$/.test(entry.name) && !path.endsWith('runner.ts') && /python|\.py\b|ffprobe/i.test(readFileSync(path, 'utf8'))) offenders.push(path);
+        else if (/\.ts$/.test(entry.name) && !path.endsWith('runner.ts')) {
+          // Naming Python is fine (the tool check's hints and types); starting it outside the runner is not.
+          const text = readFileSync(path, 'utf8');
+          if (/\.py\b|ffprobe/i.test(text) || (/child_process/.test(text) && /python/i.test(text))) offenders.push(path);
+        }
       }
     };
     walk(SERVER_DIR);
