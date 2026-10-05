@@ -10,7 +10,7 @@ The output is a set of clips the creator drops into their editor. You also give 
 Everything you need is in this skill folder:
 
 - `engine/`: the motion engine (`motion.js`), the page shell (`base.css`), `build.py` (clip → self-contained HTML), `render.js` (frame-by-frame render with motion blur), `beats.js` (contact sheets of stills), fonts (Geist, OFL).
-- `scripts/`: `setup.sh`, `inspect_video.py`, `words.py`, `composite.py`, `make_pages.py`.
+- `scripts/`: `setup.sh`, `inspect_video.py`, `words.py`, `make_pages.py`.
 - `reference/engine-api.md`: how to write a clip. **Read it before writing your first clip.**
 - `examples/opus-aoe2/`: six finished clips for a real 54-second video. Use them as the quality bar and as starting points.
 
@@ -111,17 +111,18 @@ NODE_PATH=./motion/node_modules node $SKILL/engine/render.js motion/dist/NN-name
 
 ## 8. Deliver
 
-Write `motion/plan.json` (schema in `reference/engine-api.md`), then:
+Write `motion/plan.json` (schema in `reference/engine-api.md`). The preview is a Draft render of the reel's version,
+made by Kinotta (`kinotta render <reel> v<n> --preset draft` prints the file's path); copy it to
+`motion/out/preview.mp4`, then:
 
 ```bash
-python3 $SKILL/scripts/composite.py motion/plan.json motion/out/preview.mp4
 python3 $SKILL/scripts/make_pages.py motion/plan.json motion/out/preview.mp4
 ```
 
 The user gets, all in `motion/out/`:
 - the clips
 - `TIMING.md`: file, in, out, the line it covers, the treatment, and what is illustrative
-- `preview.mp4`: their video with the clips cut in, hard cuts, original audio
+- `preview.mp4`: their video cut by the plan's pieces with the clips and captions over it, original audio
 - `viewer.html`: step through the clips
 - `compare.html`: original vs preview, synced, as side by side, stacked or wipe
 
@@ -144,4 +145,4 @@ The user's brand overrides these.
 - Items that slide under a highlight need `M.FAST` springs, or the highlight row sits empty for a moment.
 - Keep the cursor inside the frame at every camera zoom, including during morphs.
 - Word estimates from an SRT drift within a cue; put important changes on the first or last word of a cue when you can.
-- A clip ends by holding its last state; the composite holds the last frame if its slot is longer.
+- A clip ends by holding its last state; the composed page holds the last frame if its slot is longer.

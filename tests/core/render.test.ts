@@ -138,13 +138,10 @@ describe('Draft render of a code-only reel', () => {
     await expect(proj.render({ reel: TINY, version: 1, preset: 'draft' }).then((job) => proj.whenRendered(job.id))).resolves.toBeDefined();
   }, RENDER_TIMEOUT_MS);
 
-  it('refuses Final and Overlay, and footage reels, which this slice does not render yet', async () => {
+  it('refuses an unknown preset', async () => {
     const proj = openProject(project());
-    const footage = openProject(copyFixture('footage-project'));
 
-    await expect(proj.render({ reel: TINY, version: 1, preset: 'final' })).rejects.toBeInstanceOf(KinottaError);
-    await expect(proj.render({ reel: TINY, version: 1, preset: 'overlay' })).rejects.toMatchObject({ code: 'invalid' });
-    await expect(footage.render({ reel: 'founder-talk', version: 1, preset: 'draft' })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(proj.render({ reel: TINY, version: 1, preset: 'best' as 'draft' })).rejects.toBeInstanceOf(KinottaError);
   });
 });
 

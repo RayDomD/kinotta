@@ -52,7 +52,7 @@ single-process half). This slice covers code-only reels and the Draft preset onl
 - [x] `kinotta render <reel> v<n> --preset draft` prints progress and the output path, then exits
 - [x] The render process starts only through `runner.ts` (boundary test passes)
 
-## T50. Final and Overlay of a footage reel
+## T50. Final and Overlay of a footage reel — Done
 
 **What to build:** The footage pipeline (spec, R13, R18). `render.js` renders the version's overlay page. ffmpeg cuts
 the footage by the version's own pieces, joining video with hard cuts and audio with about 20 ms fades (Smooth) or none
@@ -64,13 +64,13 @@ code-only reel offers Overlay only when its page renders with a transparent back
 
 **Model:** top
 
-- [ ] A Final's duration matches the version's pieces
-- [ ] A frame at a known time matches the overlay page seeked to that time, within the `engine-compose` tolerance
-- [ ] With Smooth, the audio has no sample jump at a cut; with Hard, the cut is direct
-- [ ] An Overlay is ProRes 4444 with alpha and no audio track
-- [ ] No ProRes intermediate is written for a Final
-- [ ] A later edit and Save on the reel doesn't change a render of an earlier version
-- [ ] Overlay is refused for a code-only page that isn't transparent
+- [x] A Final's duration matches the version's pieces
+- [x] A frame at a known time matches the overlay page seeked to that time, within the `engine-compose` tolerance
+- [x] With Smooth, the audio has no sample jump at a cut; with Hard, the cut is direct
+- [x] An Overlay is ProRes 4444 with alpha and no audio track
+- [x] No ProRes intermediate is written for a Final
+- [x] A later edit and Save on the reel doesn't change a render of an earlier version
+- [x] Overlay is refused for a code-only page that isn't transparent
 
 ## T51. The render gate
 

@@ -77,6 +77,18 @@ describe('render.js', () => {
     expect(probe(out)).toMatchObject({ width: 480, height: 270, frames: 1 });
   });
 
+  it('keeps every frame when the page turns from opaque to transparent with a codec given', { timeout: RENDER_TIMEOUT_MS }, () => {
+    const { dir, page } = tinyPage();
+    // An opaque cover for the first half, then nothing: the screenshots change from RGB to RGBA PNGs.
+    writeFileSync(page, TINY_PAGE.replace("style.left=(t*800)+'px';", "style.left=(t*800)+'px';document.getElementById('stage').style.background=t<0.15?'#211b16':'transparent';"));
+    const out = join(dir, 'clear.mov');
+
+    const run = render([page, out, '30', '--codec', 'prores']);
+
+    expect(run.status).toBe(0);
+    expect(probe(out).frames).toBe(9);
+  });
+
   it('exits non-zero when the page has no seek', { timeout: RENDER_TIMEOUT_MS }, () => {
     const { dir, page } = tinyPage();
     writeFileSync(page, TINY_PAGE.replace(/window\.seek=[^;]*;\};seek\(0\);/, ''));

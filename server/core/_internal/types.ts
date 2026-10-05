@@ -157,6 +157,8 @@ export interface RenderRequest {
   reel: string;
   version: number;
   preset: RenderPreset;
+  /** How a footage reel's audio joins at a cut (R9): about 20 ms fades (`smooth`, the default) or none (`hard`). */
+  audio?: 'smooth' | 'hard';
 }
 
 /** One render in the project's queue. Held in memory: a restart forgets it (R8). */
