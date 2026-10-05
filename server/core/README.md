@@ -29,7 +29,7 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `{ type: 'comments-changed', reel, version }` (a saved-comments file changed) and
   `{ type: 'approval-changed', reel, version, approved }` (a version's `approval.json` appeared or went, whoever wrote it). Debounced (150 ms), never repeated,
   `*.tmp` files ignored. It watches the reels folder while anyone is subscribed (recursive `fs.watch`, polling
-  where that is unavailable).
+  where that is unavailable). `transcription-progress` and `render-progress` come from the jobs themselves, not the watcher.
 - `footageFile(slug)` returns the absolute path of the reel's footage file, or null when the reel has none, the file is
   missing, or the path leaves the project folder.
 
@@ -62,6 +62,15 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   with a `warning` naming them. `withdrawApproval(slug, n)` deletes the file and returns `{ approved: false }`; renders
   stay. Both throw `not-found` for an unknown reel or version. Only the HTTP API calls them; the CLI has no approve
   command (R17). A code-only Save never copies `approval.json` into the next version.
+- `render({ reel, version, preset })` queues a render and returns the job (`{ id, reel, version, preset, state, progress,
+  remaining, output?, error? }`) as `queued`. Jobs run one at a time in queue order (`_internal/render-queue.ts`), in
+  memory only; each change raises `{ type: 'render-progress', job }` (progress in whole percents). `renderJobs()` lists
+  the jobs waiting or running; `whenRendered(id)` resolves with the job once it is `done` or `failed`. The engine
+  (`_internal/render.ts`) runs the skill's `render.js` through the runner and writes
+  `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.mp4` under a temp name (`.render-<job>.mp4`), renamed when
+  complete so the same settings replace the file and a failure leaves nothing; `output` is that path relative to the
+  project. For now only a Draft of a code-only reel renders (half size, CRF 28, no motion blur, 30 fps); Final,
+  Overlay and footage reels are `invalid`, and an unknown reel or version is `not-found`.
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles

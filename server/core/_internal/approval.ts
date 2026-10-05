@@ -8,7 +8,7 @@ import { APPROVAL_FILE, readVersion, requireReelDir } from './version.ts';
 /** Only the owner approves for now (R4); `approvedBy` can later name an agent without changing the format. */
 const APPROVED_BY_YOU = 'you';
 
-async function requireVersionDir(projectDir: string, slug: string, number: number): Promise<{ reelDir: string; versionDir: string }> {
+export async function requireVersionDir(projectDir: string, slug: string, number: number): Promise<{ reelDir: string; versionDir: string }> {
   const reelDir = await requireReelDir(projectDir, slug);
   const versionDir = join(reelDir, `v${number}`);
   const found = Number.isInteger(number) && number >= 1 && (await stat(versionDir).then((s) => s.isDirectory(), () => false));

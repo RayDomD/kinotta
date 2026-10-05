@@ -14,6 +14,8 @@ export type {
   ReelListing,
   ReelsState,
   ReelSummary,
+  RenderJob,
+  RenderPreset,
   Section,
   Shot,
   TranscriptionProgress,

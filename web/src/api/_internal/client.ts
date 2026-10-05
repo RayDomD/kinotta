@@ -140,13 +140,32 @@ export interface Approval {
   warning?: string;
 }
 
+export type RenderPreset = 'draft' | 'final' | 'overlay';
+
+/** One render in the project's queue. */
+export interface RenderJob {
+  id: string;
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+  state: 'queued' | 'running' | 'done' | 'failed';
+  /** From 0 to 1. */
+  progress: number;
+  /** Seconds left, an estimate; null until known. */
+  remaining: number | null;
+  /** The finished file, relative to the project folder. */
+  output?: string;
+  error?: string;
+}
+
 /** What the server reports as it happens. */
 export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
   | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
-  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
+  | { type: 'render-progress'; job: RenderJob };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {

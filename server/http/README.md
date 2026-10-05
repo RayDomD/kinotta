@@ -10,7 +10,7 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
 - `GET /api/reels` returns the core's `listReels()` result.
 - `GET /api/reels/<reel>/versions` returns `{ versions: [{ number, isNewest, isStoryboard, approved }] }`, oldest first.
 - `GET /api/events` is a server-sent event stream (`text/event-stream`): each core project event as one JSON
-  `data:` message (`version-added`, `reels-changed`, `comments-changed`, `approval-changed`), plus a comment line every 25 s.
+  `data:` message (`version-added`, `reels-changed`, `comments-changed`, `approval-changed`, `transcription-progress`, `render-progress`), plus a comment line every 25 s.
 - `GET /api/reels/<reel>/versions/<n>` returns the core's `readVersion()` result. An unknown reel or version is
   a 404, an unreadable `shots.json` a 422, both as `{ error }`.
 - `GET /api/reels/<reel>/versions/<n>/comments` returns `{ comments }`, numbered by the core.

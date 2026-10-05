@@ -8,6 +8,8 @@ import { addComment, deleteComment, editComment, listComments, readNote, setNote
 import { footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
 import { listReels } from './_internal/reels.ts';
+import { prepareRender, runRender } from './_internal/render.ts';
+import { createRenderQueue } from './_internal/render-queue.ts';
 import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
 import { checkTools, missingToolsMessage } from './_internal/tools.ts';
 import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
@@ -41,6 +43,9 @@ export type {
   Overlay,
   Project,
   ProjectEvent,
+  RenderJob,
+  RenderPreset,
+  RenderRequest,
   ReelListing,
   ReelsState,
   ReelSummary,
@@ -72,7 +77,9 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const dir = resolve(projectDir);
   const watcher = createWatcher(join(dir, 'reels'));
   const listeners = new Set<(event: ProjectEvent) => void>();
-  const transcriptions = createTranscriptions((event) => listeners.forEach((listener) => listener(event)));
+  const emit = (event: ProjectEvent): void => listeners.forEach((listener) => listener(event));
+  const transcriptions = createTranscriptions(emit);
+  const renders = createRenderQueue(emit);
   return {
     name: basename(dir),
     reelsDir: join(dir, 'reels'),
@@ -111,6 +118,12 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
     approveVersion: (slug, number) => approveVersion(dir, slug, number),
     withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
+    render: async (request) => {
+      const task = await prepareRender(dir, request);
+      return renders.add(request, (job, report) => runRender(dir, task, job, report));
+    },
+    renderJobs: () => renders.jobs(),
+    whenRendered: (jobId) => renders.whenDone(jobId),
   };
 }
 

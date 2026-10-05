@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 /**
- * The one place Kinotta starts the skill's scripts (E3), ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
+ * The one place Kinotta starts the skill's scripts (E3), its renderer, ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
  * The scripts are the repo's own copies under skill/kinotta/.
  */
 
@@ -11,6 +11,7 @@ const SKILL_DIR = resolve(import.meta.dirname, '../../../skill/kinotta');
 const BUILD_SCRIPT = resolve(SKILL_DIR, 'engine/build.py');
 const SHOTS_SCRIPT = resolve(SKILL_DIR, 'scripts/shots.py');
 const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
+const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const BUILD_TIMEOUT_MS = 120_000;
 const PROBE_TIMEOUT_MS = 20_000;
@@ -92,6 +93,79 @@ export function transcribeAudio(videoFile: string, transcriptFile: string, onPro
       else reject(new Error(`${PYTHON} failed: ${errors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`));
     });
   });
+}
+
+export interface PageRender {
+  /** The version page to render. */
+  page: string;
+  /** The file to write; its extension picks the container. */
+  out: string;
+  fps: number;
+  /** The page's device scale factor: 0.5 is half size. */
+  scale: number;
+  crf: number;
+  /** Four samples per frame across a 180° shutter, or one. */
+  blur: boolean;
+  codec: 'h264' | 'prores';
+}
+
+/** What `render.js` reports before its first frame. */
+export interface RenderedPage {
+  width: number;
+  height: number;
+  frames: number;
+}
+
+/** One line of `render.js --progress`: frames done, or the page's size and frame count; null for any other line. */
+function parseRenderLine(line: string): { done: number; frames: number } | RenderedPage | null {
+  try {
+    const parsed = JSON.parse(line) as { frame?: unknown; frames?: unknown; width?: unknown; height?: unknown };
+    if (typeof parsed.frames !== 'number') return null;
+    if (typeof parsed.frame === 'number') return { done: parsed.frame, frames: parsed.frames };
+    if (typeof parsed.width === 'number' && typeof parsed.height === 'number') return { width: parsed.width, height: parsed.height, frames: parsed.frames };
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `render.js` (R14): the page frame by frame into a video. No timeout; a long page takes minutes. `onProgress` gets the
+ * frames done and the total after each frame. Resolves with the page's rendered size; a failure rejects with the reason.
+ */
+export function renderPage(job: PageRender, onProgress?: (done: number, frames: number) => void): Promise<RenderedPage> {
+  const args = [RENDER_SCRIPT, job.page, job.out, String(job.fps), '--scale', String(job.scale), '--crf', String(job.crf), '--codec', job.codec, '--progress'];
+  if (!job.blur) args.push('--no-blur');
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(process.execPath, args, { windowsHide: true });
+    let pending = '';
+    let errors = '';
+    let page: RenderedPage | null = null;
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      const lines = (pending + chunk).split('\n');
+      pending = lines.pop() ?? '';
+      for (const line of lines) {
+        const parsed = parseRenderLine(line);
+        if (parsed === null) continue;
+        if ('done' in parsed) onProgress?.(parsed.done, parsed.frames);
+        else page = parsed;
+      }
+    });
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      errors = (errors + chunk).slice(-ERROR_TAIL_CHARS);
+    });
+    child.on('error', (err) => reject(new Error(`The renderer could not start: ${err.message}`)));
+    child.on('close', (code) => {
+      if (code === 0 && page !== null) resolveRun(page);
+      else reject(new Error(`The render failed: ${renderFailure(errors) || `exit code ${code}`}`));
+    });
+  });
+}
+
+/** What a failed render's error output says went wrong: the first thrown error when there is one, else the last lines. */
+function renderFailure(errors: string): string {
+  const thrown = /\b[A-Z]\w*Error: [^\r\n]*/.exec(errors);
+  return thrown ? thrown[0] : errors.trim().split('\n').slice(-3).join(' ');
 }
 
 /** ffmpeg: an H.264 and AAC copy of a video that browsers play, for HEVC or ProRes originals. The source is only read. */

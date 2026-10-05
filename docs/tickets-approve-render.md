@@ -31,7 +31,7 @@ No `kinotta approve` command.
 - [x] The rail marks approved versions on every tab
 - [x] `kinotta` has no approve command
 
-## T49. Draft render of a code-only reel, from the core and the CLI
+## T49. Draft render of a code-only reel, from the core and the CLI — Done
 
 **What to build:** The skill's `engine/render.js` gains flags (scale, frame range, CRF, motion blur on or off, output
 path) and prints JSON progress lines (R14). Kinotta starts it only through `runner.ts`. A core render module takes a
@@ -45,12 +45,12 @@ single-process half). This slice covers code-only reels and the Draft preset onl
 
 **Model:** top
 
-- [ ] `render.js` accepts the new flags and prints JSON progress lines; its default run is unchanged for the skill
-- [ ] A Draft of a code-only version renders to the named file at half size, CRF 28, no motion blur
-- [ ] Rendering again with the same settings replaces the file
-- [ ] A failed render leaves no file in `renders/`
-- [ ] `kinotta render <reel> v<n> --preset draft` prints progress and the output path, then exits
-- [ ] The render process starts only through `runner.ts` (boundary test passes)
+- [x] `render.js` accepts the new flags and prints JSON progress lines; its default run is unchanged for the skill
+- [x] A Draft of a code-only version renders to the named file at half size, CRF 28, no motion blur
+- [x] Rendering again with the same settings replaces the file
+- [x] A failed render leaves no file in `renders/`
+- [x] `kinotta render <reel> v<n> --preset draft` prints progress and the output path, then exits
+- [x] The render process starts only through `runner.ts` (boundary test passes)
 
 ## T50. Final and Overlay of a footage reel
 

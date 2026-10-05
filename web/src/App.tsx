@@ -502,6 +502,8 @@ export function App() {
         setTranscribed({ slug: event.reel, progress: event.progress });
       } else if (event.type === 'approval-changed') {
         if (event.reel === current.current.slug) setVersionsTick((n) => n + 1);
+      } else if (event.type === 'render-progress') {
+        // Nothing shows renders yet; the queue and the top bar indicator come with Picker.
       } else if (event.reel === current.current.slug && event.version === current.current.version) {
         setCommentsTick((n) => n + 1);
       }

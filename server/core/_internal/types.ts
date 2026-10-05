@@ -150,13 +150,40 @@ export interface Withdrawal {
   approved: false;
 }
 
+/** A render's named defaults (R2): Draft is a quick check of any version, Final and Overlay are the deliverables. */
+export type RenderPreset = 'draft' | 'final' | 'overlay';
+
+export interface RenderRequest {
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+}
+
+/** One render in the project's queue. Held in memory: a restart forgets it (R8). */
+export interface RenderJob {
+  id: string;
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+  state: 'queued' | 'running' | 'done' | 'failed';
+  /** From 0 to 1. */
+  progress: number;
+  /** Seconds left, an estimate; null until there is progress to base it on. */
+  remaining: number | null;
+  /** The finished file, relative to the project folder with `/` separators. Set when `state` is `done`. */
+  output?: string;
+  /** Why it failed, when `state` is `failed`. */
+  error?: string;
+}
+
 /** What `Project.subscribe` reports. */
 export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
   | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
-  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
+  | { type: 'render-progress'; job: RenderJob };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {
@@ -281,6 +308,16 @@ export interface Project {
   approveVersion(slug: string, number: number): Promise<Approval>;
   /** Deletes the version's `approval.json`; renders already made stay. Throws `not-found` for an unknown reel or version. */
   withdrawApproval(slug: string, number: number): Promise<Withdrawal>;
+  /**
+   * Queues a render and returns the job as queued; it runs after the jobs before it, one at a time, and reports through
+   * `render-progress` events. Throws `not-found` for an unknown reel or version, and `invalid` for a render this build
+   * can't make (for now, anything but a Draft of a code-only reel).
+   */
+  render(request: RenderRequest): Promise<RenderJob>;
+  /** The jobs waiting or running, in queue order. */
+  renderJobs(): RenderJob[];
+  /** Resolves with the job once it is done or failed. Throws `not-found` for an unknown job. */
+  whenRendered(jobId: string): Promise<RenderJob>;
 }
 
 /** A reel's unsaved edits: operations on named targets, in the order they were made. */
