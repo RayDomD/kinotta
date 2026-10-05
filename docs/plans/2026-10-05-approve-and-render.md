@@ -31,13 +31,8 @@ spec: docs/specs/2026-10-05-approve-and-render.md (#52)
 - Out of scope: agent approval, codecs beyond the three presets, GPU encoding, WebM, GIF, HLS, resuming an interrupted
   render, uploading or sharing.
 - Open questions:
-  - Five choices made while writing the spec need the owner's confirmation:
-    - `kinotta render` runs a render itself, under a lock file, when the editor isn't running.
-    - The CLI has no approve command.
-    - Playwright's Chromium joins the startup tool check.
-    - Render settings are saved in `reels/<reel>/render-settings.json`.
-    - A render uses the version's own plan.
   - The Picker page layout. No mockup exists yet.
+  - Settled 2026-10-05: the five spec choices and five gaps, as R12 to R18 in `docs/2026-09-30-grilling-decisions.md`.
 
 ## Goal
 
@@ -53,3 +48,6 @@ spec: docs/specs/2026-10-05-approve-and-render.md (#52)
 
 ### 2026-10-05
 - Plan created, Intent only.
+- Grilling settled R12 to R18: one queue with a headless server, plan-less versions refused for Final and Overlay,
+  `render.js` extended, `playwright` a runtime dependency, settings per preset, approval editor-only with a watcher,
+  and five smaller gaps. Spec updated to match.

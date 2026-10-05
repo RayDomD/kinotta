@@ -129,6 +129,13 @@ version), product principle 5, and the Review phase's scope. Mockup:
 | R9 | Audio at a cut between pieces: Smooth or Hard (R3). Longer crossfades are an edit, not a render setting. Review plays no fades. |
 | R10 | A version with contract issues can be approved, with a warning. Final and Overlay refuse it, naming the issues; Draft renders it with its placeholders. |
 | R11 | Picker is the approve-and-render tab: the reel's versions with approval, a player, the render panel, the queue and past renders. The rail marks approved versions; the top bar shows a running render from any tab; a finished render shows a "ready" notice. Code-only reels offer Overlay only when the page is transparent. |
+| R12 | One queue, one process. The running editor writes a port file; `kinotta render` finds it and enqueues over the local HTTP API. When no editor is running, `kinotta render` starts the same server headless (no browser), enqueues, and the server exits when the queue drains. No lock-file queue. |
+| R13 | Final and Overlay refuse a version without its own `plan.json` ("built before plans were kept"), so an approved version can't drift with later edits. Draft uses the plan resolver's fallback. |
+| R14 | The skill's `engine/render.js` stays the one renderer. It gains flags (scale, frame range, CRF, motion blur on or off) and prints JSON progress lines, and Kinotta starts it through `runner.ts`. |
+| R15 | `playwright` moves to `dependencies`. The startup tool check adds Chromium with an install hint, and each missing tool's message gives its own reason (reels from video, or rendering). |
+| R16 | `render-settings.json` holds the four settings per preset (`draft`, `final`, `overlay`). Only Picker's Render saves it; `kinotta render` flags never change it. |
+| R17 | Approval only in the editor; `kinotta` has no approve command. The watcher diffs `approval.json`, so the rail updates when it changes outside the editor. A hand-written file passes the gate; accepted until agent approval exists. |
+| R18 | A footage Final pipes the overlay frames into the ffmpeg overlay step with no ProRes intermediate; only Overlay writes ProRes. Parallel segments work in `renders/.work-<job>/`, removed on finish, cancel or failure. A non-default quality or audio setting is added to the file name. `footageIssues` moves into the core so the HTTP gate sees footage issues. `kinotta render` and `kinotta check` take `--project`. |
 
 ## Deferred
 

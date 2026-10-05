@@ -1,6 +1,6 @@
 # Spec: Approve and Render phase (Picker)
 
-Decisions R1 to R11: `docs/2026-09-30-grilling-decisions.md`. Glossary: `CONTEXT.md`. Builds on the Review and Edit
+Decisions R1 to R18: `docs/2026-09-30-grilling-decisions.md`. Glossary: `CONTEXT.md`. Builds on the Review and Edit
 phase (`docs/specs/2026-10-05-review-edit-phase.md`, #30). Look: none yet; the Picker page needs a `ui-preview` round
 before its tickets are built.
 
@@ -81,8 +81,10 @@ queue, so a render is the same file whoever starts it. Only I approve, for now.
 - **One render engine in the core (R1).** A render module behind the core `Project` takes a reel, a version, a preset
   and settings, and writes the file. The HTTP handler and `kinotta render` both call it. Processes start only through
   `runner.ts` (E3).
-- **Code-only reels:** the version page is the whole picture. The engine runs the skill's `engine/render.js`, the same
-  frame-stepping loop HyperFrames uses, with a 4-subframe motion blur. Overlay is offered only when the page renders
+- **`render.js` is the one renderer (R14).** The skill's `engine/render.js` gains flags (scale, frame range, CRF,
+  motion blur on or off) and prints JSON progress lines, like `transcript.py`. Kinotta starts it through `runner.ts`.
+- **Code-only reels:** the version page is the whole picture. The engine runs `render.js`, the same frame-stepping loop
+  HyperFrames uses, with a 4-subframe motion blur. Overlay is offered only when the page renders
   with a transparent background.
 - **Footage reels:** the version page is a transparent overlay of clips and captions on the reel's timeline, with the
   pieces applied. A render is three steps:
@@ -91,28 +93,38 @@ queue, so a render is the same file whoever starts it. Only I approve, for now.
      (Smooth) or none (Hard).
   3. Overlay step 1 on step 2.
 
-  Overlay stops after step 1. The skill's `composite.py` predates pieces and is replaced by step 2 and step 3.
-- **Pieces come from the version's own plan (E14).** The version's plan resolver supplies the pieces, never the reel's
-  current sources, so a render of a frozen version doesn't change after later edits.
+  Overlay stops after step 1 and writes ProRes. A Final pipes the overlay frames straight into step 3, with no ProRes
+  intermediate (R18). The skill's `composite.py` predates pieces and is replaced by step 2 and step 3.
+- **Pieces come from the version's own plan (E14, R13).** The version's plan resolver supplies the pieces, never the
+  reel's current sources, so a render of a frozen version doesn't change after later edits. Final and Overlay refuse a
+  version without its own `plan.json` ("built before plans were kept"); Draft uses the resolver's fallback.
 - **Presets and settings (R2, R3).** A preset is a named set of defaults: codec, CRF, size, frame rate, motion blur,
   audio. Size scales the page (`deviceScaleFactor`) instead of re-laying it out, and is limited to the source's aspect
-  ratio. The four settings are saved per reel in `reels/<reel>/render-settings.json`.
+  ratio. `reels/<reel>/render-settings.json` keeps the four settings per preset (`draft`, `final`, `overlay`) (R16).
+  Only Picker's Render saves it; `kinotta render` flags never change it.
 - **Speed.** The engine splits the frame range across several Chromium pages, as many as the CPU allows, renders the
-  segments in parallel and joins them. Workers are not a setting.
-- **The renderer's browser.** `render.js` needs Playwright's Chromium at run time, not only in tests. The startup tool
-  check (T44) adds it, with an install hint.
-- **Approval (R4, R5).** `v<n>/approval.json` holds `{ approvedBy: "you", at }`. Writing and deleting it are core calls
-  that only the editor's HTTP API exposes; `kinotta` has no approve command. An `approval-changed` event updates the
-  rail and Picker. The version listing carries `approved`.
-- **Gates (R6, R10).** Final and Overlay check that `approval.json` exists and that the version has no contract issues,
-  the static list `kinotta check` gives. A refusal is a `KinottaError` `invalid` naming the reason. Draft skips both
-  checks.
-- **Output (R7).** Files go to `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.<mp4|mov>`. Each is written to a
-  temp name and renamed when complete, so a cancelled or failed render leaves nothing. A listing of `renders/` gives
-  Picker its past renders.
-- **The queue (R8).** One queue per project, held by the running editor. `kinotta render` enqueues through the
-  editor's local HTTP API when the editor is running, and runs the job itself, taking a lock file in the project, when
-  it isn't. Progress arrives as `render-progress` events. Jobs are not resumed after a restart.
+  segments in parallel and joins them. Workers are not a setting. Segment files live in `renders/.work-<job>/`, which
+  is removed on finish, cancel or failure (R18).
+- **The renderer's browser (R15).** `render.js` needs Playwright's Chromium at run time, not only in tests, so
+  `playwright` moves to `dependencies`. The startup tool check (T44) adds Chromium with an install hint, and each
+  missing tool's message gives its own reason.
+- **Approval (R4, R5, R17).** `v<n>/approval.json` holds `{ approvedBy: "you", at }`. Writing and deleting it are core
+  calls that only the editor's HTTP API exposes; `kinotta` has no approve command. An `approval-changed` event updates
+  the rail and Picker, and the watcher diffs `approval.json` so a change made outside the editor raises it too. The
+  version listing carries `approved`. A hand-written file passes the gate; this is accepted until agent approval.
+- **Gates (R6, R10, R13).** Final and Overlay check that `approval.json` exists, that the version has its own
+  `plan.json`, and that it has no contract issues, the static list `kinotta check` gives. `footageIssues` moves from
+  `cli.ts` into the core so the HTTP gate sees footage issues too (R18). A refusal is a `KinottaError` `invalid` naming
+  the reason. Draft skips these checks.
+- **Output (R7, R18).** Files go to `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.<mp4|mov>`, with a
+  non-default quality or audio setting added to the name (for example `-high`, `-hardcuts`). Each is written to a temp
+  name and renamed when complete, so a cancelled or failed render leaves nothing. A listing of `renders/` gives Picker
+  its past renders.
+- **The queue (R8, R12).** One queue per project, in one server process. The running editor writes a port file in the
+  project; `kinotta render` reads it and enqueues over the local HTTP API. When no editor is running, `kinotta render`
+  starts the same server headless (no browser), enqueues, and the server exits when the queue drains. There is no
+  lock-file queue. Progress arrives as `render-progress` events, which the CLI prints. Jobs are not resumed after a
+  restart. `kinotta render` and `kinotta check` take `--project`, like the editor.
 - **Picker (R11).** A new phase page: the version list with approval, a player (Review's player, read only), the render
   panel (preset, four settings, Render), the queue with progress and cancel, and past renders. The top bar gains a
   render indicator; a finished render raises a "ready" notice like the version one.
@@ -129,7 +141,8 @@ queue, so a render is the same file whoever starts it. Only I approve, for now.
   - Approve, withdraw and list approval.
   - Final and Overlay refused for an unapproved version and for one with contract issues; Draft allowed for both.
   - Output name and replace-on-same-settings.
-  - Cancel and failure leave no file.
+  - Cancel and failure leave no file, including the `.work-<job>/` segment folder.
+  - Final and Overlay refused for a version without its own `plan.json`.
 - **Render fidelity:** a short footage sample with one snip and one clip. The rendered Final's duration matches the
   pieces, a frame at a known time matches the overlay page seeked to that time (pixel compare with a tolerance, like
   `engine-compose`), and the audio has no sample jump at the cut with Smooth.
