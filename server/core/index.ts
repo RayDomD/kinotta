@@ -1,4 +1,5 @@
 import { basename, join, resolve } from 'node:path';
+import { approveVersion, withdrawApproval } from './_internal/approval.ts';
 import { copyBatch } from './_internal/batch.ts';
 import { addOperation, cancelHandoff, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { saveEdits } from './_internal/save.ts';
@@ -22,6 +23,7 @@ export type { NewOperation, Operation, SnipOperation } from './_internal/edit-mo
 export { checkTools, missingToolsMessage };
 export type {
   AddedComment,
+  Approval,
   BatchOptions,
   Comment,
   ContractIssue,
@@ -56,6 +58,7 @@ export type {
   Version,
   VideoEntry,
   VersionEntry,
+  Withdrawal,
   WordPin,
 } from './_internal/types.ts';
 
@@ -105,6 +108,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     cancelHandoff: (slug) => cancelHandoff(dir, slug),
     saveEdits: (slug) => saveEdits(dir, slug),
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
+    approveVersion: (slug, number) => approveVersion(dir, slug, number),
+    withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
   };
 }
 

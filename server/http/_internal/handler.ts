@@ -9,6 +9,7 @@ const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
+const APPROVAL_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/approval$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
@@ -119,6 +120,16 @@ async function handleNote(req: IncomingMessage, res: ServerResponse, project: Pr
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'PUT') sendJson(res, 200, await project.setNote(slug, version, await readTextField(req, 'note')));
   else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { note: await project.readNote(slug, version) });
+  else res.writeHead(405).end();
+}
+
+/** A version's approval: PUT approves, DELETE withdraws (R17: the editor is the only way to approve). */
+async function handleApproval(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const version = Number(route[2]);
+  if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (req.method === 'PUT') sendJson(res, 200, await project.approveVersion(slug, version));
+  else if (req.method === 'DELETE') sendJson(res, 200, await project.withdrawApproval(slug, version));
   else res.writeHead(405).end();
 }
 
@@ -269,6 +280,7 @@ export function createHandler(project: Project, webRoot: string) {
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
       const noteRoute = NOTE_API.exec(pathname);
+      const approvalRoute = APPROVAL_API.exec(pathname);
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
@@ -282,6 +294,8 @@ export function createHandler(project: Project, webRoot: string) {
         await handleComment(req, res, project, commentRoute);
       } else if (noteRoute) {
         await handleNote(req, res, project, noteRoute);
+      } else if (approvalRoute) {
+        await handleApproval(req, res, project, approvalRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
       } else if (editsRoute) {

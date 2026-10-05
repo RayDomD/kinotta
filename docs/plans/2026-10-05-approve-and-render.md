@@ -1,7 +1,7 @@
 ---
 title: Approve and Render phase
 date: 2026-10-05
-status: Approved
+status: In Progress
 summary: Approve final versions and render them (Draft, Final, Overlay) from Picker or kinotta render
 spec: docs/specs/2026-10-05-approve-and-render.md (#52)
 ---

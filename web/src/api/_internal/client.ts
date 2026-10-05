@@ -127,6 +127,15 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version: `you`, or an agent's name. */
   builtBy?: string;
+  /** The version is approved: it is final. */
+  approved: boolean;
+}
+
+/** What approving a version returns. `warning` names the contract issues it still has. */
+export interface Approval {
+  approved: true;
+  at: string;
+  warning?: string;
 }
 
 /** What the server reports as it happens. */
@@ -134,6 +143,7 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
@@ -217,6 +227,12 @@ export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
 export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
   (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;
 export const fetchVersion = (slug: string, number: number): Promise<Version> => getJson(versionPath(slug, number));
+
+/** Marks a version final. The rail hears it as an `approval-changed` event. */
+export const approveVersion = (slug: string, number: number): Promise<Approval> => requestJson(`${versionPath(slug, number)}/approval`, { method: 'PUT' });
+/** Takes a version's approval back; its renders stay. */
+export const withdrawApproval = (slug: string, number: number): Promise<{ approved: false }> =>
+  requestJson(`${versionPath(slug, number)}/approval`, { method: 'DELETE' });
 
 /** A version's comments, in number order. */
 export const fetchComments = (slug: string, number: number): Promise<CommentsOfVersion> =>

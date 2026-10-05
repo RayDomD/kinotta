@@ -1,5 +1,6 @@
-export { addComment, addOperation, cancelHandoff, copyBatch, deleteComment, discardEdits, editComment, fetchComments, fetchEdits, fetchNote, fetchProject, fetchReels, fetchTools, fetchTranscription, fetchVersion, fetchVersions, footageUrl, listVideos, redoEdit, removeOperation, saveEdits, undoEdit, saveNote, startReel, startReelFromBrief, subscribe, versionPageUrl } from './_internal/client.ts';
+export { addComment, addOperation, approveVersion, cancelHandoff, copyBatch, deleteComment, discardEdits, editComment, fetchComments, fetchEdits, fetchNote, fetchProject, fetchReels, fetchTools, fetchTranscription, fetchVersion, fetchVersions, footageUrl, listVideos, redoEdit, removeOperation, saveEdits, undoEdit, saveNote, startReel, startReelFromBrief, subscribe, versionPageUrl, withdrawApproval } from './_internal/client.ts';
 export type {
+  Approval,
   BatchOptions,
   Comment,
   ContractIssue,

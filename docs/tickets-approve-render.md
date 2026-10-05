@@ -11,7 +11,7 @@ alongside.
 
 Status keys: **Done**, **Parked (owner)**, or open.
 
-## T48. Approve and withdraw a version
+## T48. Approve and withdraw a version — Done
 
 **What to build:** Core calls write and delete `v<n>/approval.json` (`{ approvedBy: "you", at }`), exposed only by the
 editor's HTTP API. The version listing carries `approved`. An `approval-changed` event updates the rail, and the
@@ -23,13 +23,13 @@ No `kinotta approve` command.
 
 **Model:** mid
 
-- [ ] Approve writes `approval.json`; withdraw deletes it and leaves `renders/` untouched
-- [ ] More than one version of a reel can be approved
-- [ ] Approving leaves every other file in the version unchanged
-- [ ] The version listing carries `approved`; `approval-changed` fires from the HTTP call and from an outside file change
-- [ ] Approving a version with contract issues returns a warning naming them
-- [ ] The rail marks approved versions on every tab
-- [ ] `kinotta` has no approve command
+- [x] Approve writes `approval.json`; withdraw deletes it and leaves `renders/` untouched
+- [x] More than one version of a reel can be approved
+- [x] Approving leaves every other file in the version unchanged
+- [x] The version listing carries `approved`; `approval-changed` fires from the HTTP call and from an outside file change
+- [x] Approving a version with contract issues returns a warning naming them
+- [x] The rail marks approved versions on every tab
+- [x] `kinotta` has no approve command
 
 ## T49. Draft render of a code-only reel, from the core and the CLI
 

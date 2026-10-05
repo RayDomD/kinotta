@@ -8,9 +8,9 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
 
 - `GET /api/project` returns `{ name }`.
 - `GET /api/reels` returns the core's `listReels()` result.
-- `GET /api/reels/<reel>/versions` returns `{ versions: [{ number, isNewest, isStoryboard }] }`, oldest first.
+- `GET /api/reels/<reel>/versions` returns `{ versions: [{ number, isNewest, isStoryboard, approved }] }`, oldest first.
 - `GET /api/events` is a server-sent event stream (`text/event-stream`): each core project event as one JSON
-  `data:` message (`version-added`, `reels-changed`, `comments-changed`), plus a comment line every 25 s.
+  `data:` message (`version-added`, `reels-changed`, `comments-changed`, `approval-changed`), plus a comment line every 25 s.
 - `GET /api/reels/<reel>/versions/<n>` returns the core's `readVersion()` result. An unknown reel or version is
   a 404, an unreadable `shots.json` a 422, both as `{ error }`.
 - `GET /api/reels/<reel>/versions/<n>/comments` returns `{ comments }`, numbered by the core.
@@ -19,6 +19,9 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
   (empty text, unknown shot) a 422, an unknown reel or version a 404, a version that is not the newest a 409. Other methods are a 405.
 - `POST /api/reels/<reel>/versions/<n>/batch` answers 200 with the core's `{ text, file, count }` after writing the
   batch file. No comments and no note is a 422; an unknown reel or version a 404; a version that is not the newest a 409; other methods a 405.
+- `PUT /api/reels/<reel>/versions/<n>/approval` approves the version and answers 200 with the core's
+  `{ approved, at, warning? }`; `DELETE` on the same path withdraws it (`{ approved: false }`). An unknown reel or
+  version is a 404; other methods a 405. It is the only way to approve.
 - `GET /reels/<reel>/v<n>/<file>` serves a version's files same-origin. Only version folders under `reels/`
   are reachable (no dot folders, no path escapes).
 - `GET /footage/<reel>` serves the reel's footage file (from `reel.json`, confined to the project folder) with byte

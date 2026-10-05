@@ -97,6 +97,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .versions small { font-size: 12px; font-weight: 400; text-shadow: none; }
 .versions button[data-newest] small:first-child { color: var(--light); }
 .versions .ready-mark { color: var(--ink); border: 1.2px solid var(--ink); padding: 0 5px; }
+.versions .approved-mark { color: var(--ink); }
 
 /* sections (sections-transcript mockup, option A) */
 .secs { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; }

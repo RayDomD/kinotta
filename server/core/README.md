@@ -22,11 +22,12 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   (`{ code, shot?, scene?, message }`, rules at the top of `_internal/contract.ts`), a missing or unparsable `shots.json`
   gives zero shots and one issue, and `index.html` is parsed with `node-html-parser`. Nothing here throws for contract problems.
 
-- `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard }`
-  (v1 is the storyboard in this phase). An unknown reel throws `not-found`.
+- `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard, approved }`
+  (v1 is the storyboard in this phase; `approved` when the folder holds an `approval.json`). An unknown reel throws `not-found`.
 - `subscribe(listener)` returns an unsubscribe function. Events: `{ type: 'version-added', reel, version }` (a `v<n>`
   folder with a `shots.json` appeared), `{ type: 'reels-changed' }` (a reel or version appeared or went) and
-  `{ type: 'comments-changed', reel, version }` (a saved-comments file changed). Debounced (150 ms), never repeated,
+  `{ type: 'comments-changed', reel, version }` (a saved-comments file changed) and
+  `{ type: 'approval-changed', reel, version, approved }` (a version's `approval.json` appeared or went, whoever wrote it). Debounced (150 ms), never repeated,
   `*.tmp` files ignored. It watches the reels folder while anyone is subscribed (recursive `fs.watch`, polling
   where that is unavailable).
 - `footageFile(slug)` returns the absolute path of the reel's footage file, or null when the reel has none, the file is
@@ -55,8 +56,12 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   into every batch. Each copy is recorded in the state file as the section's latest hand-off (`handedOff`). No comments and no note throws `KinottaError` `invalid` and writes nothing; a version that is not the newest
   throws `frozen`. With `includeIssues`, the version's issues plus `runtimeIssues` (problems only the browser saw) are
   added once each as a "Contract issues" block after Notes and an `issues` array in the file. It is the only place the editor
-  writes into a version folder.
-
+  writes into a version folder besides the approval below.
+- `approveVersion(slug, n)` writes `v<n>/approval.json` (`{ approvedBy: "you", at }`, atomically) and returns
+  `{ approved: true, at, warning? }`. Approving again keeps the first `at`. A version with contract issues is approved
+  with a `warning` naming them. `withdrawApproval(slug, n)` deletes the file and returns `{ approved: false }`; renders
+  stay. Both throw `not-found` for an unknown reel or version. Only the HTTP API calls them; the CLI has no approve
+  command (R17). A code-only Save never copies `approval.json` into the next version.
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles

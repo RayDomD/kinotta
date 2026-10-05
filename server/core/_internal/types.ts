@@ -133,6 +133,21 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version, as its shots.json says. */
   builtBy?: string;
+  /** The version has an `approval.json`: it is final. */
+  approved: boolean;
+}
+
+/** What approving a version returns. `warning` names the contract issues an approved version still has (R10). */
+export interface Approval {
+  approved: true;
+  /** When the version was first approved, as an ISO time. */
+  at: string;
+  warning?: string;
+}
+
+/** What withdrawing an approval returns. */
+export interface Withdrawal {
+  approved: false;
 }
 
 /** What `Project.subscribe` reports. */
@@ -140,6 +155,7 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
@@ -165,8 +181,8 @@ export interface Project {
   /** A reel's version folders, oldest first. Throws `KinottaError` `not-found` for an unknown reel. */
   listVersions(slug: string): Promise<VersionEntry[]>;
   /**
-   * Calls `listener` when a version with a shots.json appears, a reel appears or goes, or a version's saved
-   * comments change. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
+   * Calls `listener` when a version with a shots.json appears, a reel appears or goes, a version's saved
+   * comments change, or a version's `approval.json` appears or goes. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
   /** Absolute path of the reel's footage file, or null (code-only reel, file missing, or a path outside the project). */
@@ -257,6 +273,14 @@ export interface Project {
    * `KinottaError` `invalid` for an empty title or brief.
    */
   startReelFromBrief(input: NewBriefReel): Promise<StartedBriefReel>;
+  /**
+   * Marks a version final by writing `v<n>/approval.json` (`{ approvedBy: "you", at }`); nothing else in the version changes,
+   * and approving again keeps the first time. A version with contract issues is approved with a `warning` naming them.
+   * Only the editor's HTTP API calls this; `kinotta` has no approve command (R17). Throws `not-found` for an unknown reel or version.
+   */
+  approveVersion(slug: string, number: number): Promise<Approval>;
+  /** Deletes the version's `approval.json`; renders already made stay. Throws `not-found` for an unknown reel or version. */
+  withdrawApproval(slug: string, number: number): Promise<Withdrawal>;
 }
 
 /** A reel's unsaved edits: operations on named targets, in the order they were made. */

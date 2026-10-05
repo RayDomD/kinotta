@@ -142,6 +142,7 @@ function VersionRail({ entries, selected, ready, sectionIds, onOpen }: VersionRa
             </span>
             <span className="tags">
               {versionTag(entry, sectionIds) !== '' && <small className="num">{versionTag(entry, sectionIds)}</small>}
+              {entry.approved && <small className="num approved-mark">✓ approved</small>}
               {ready.has(entry.number) && entry.number !== selected && <small className="num ready-mark">ready</small>}
             </span>
           </button>
@@ -499,6 +500,8 @@ export function App() {
         }
       } else if (event.type === 'transcription-progress') {
         setTranscribed({ slug: event.reel, progress: event.progress });
+      } else if (event.type === 'approval-changed') {
+        if (event.reel === current.current.slug) setVersionsTick((n) => n + 1);
       } else if (event.reel === current.current.slug && event.version === current.current.version) {
         setCommentsTick((n) => n + 1);
       }
