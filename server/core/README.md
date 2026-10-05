@@ -101,9 +101,11 @@ a time per file. Nothing is written into a version folder.
 
 Outside code imports from `index.ts` only.
 
-- `checkTools()` returns `{ tools, missing }`: Python 3, ffmpeg and faster-whisper, each `{ id, name, present, hint }`
-  (`hint` is the install command for the platform). It never throws. `missingToolsMessage(check)` is the startup text
-  naming each missing tool, or null when all are present. The server serves the check at `GET /api/tools`.
+- `checkTools()` returns `{ tools, missing }`: Python 3, ffmpeg, faster-whisper and Chromium, each
+  `{ id, name, present, hint, neededFor }` (`hint` is the install command for the platform; `neededFor` lists `video`,
+  a start from video, and `render`). Chromium is Playwright's browser, found at its executable path. It never throws.
+  `missingToolsMessage(check)` is the startup text naming each missing tool under what needs it, or null when all are
+  present. The server serves the check at `GET /api/tools`.
 
 ## Does not handle
 

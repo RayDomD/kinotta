@@ -53,6 +53,7 @@ export type {
   ToolCheck,
   ToolId,
   ToolStatus,
+  ToolUse,
   TranscriptWord,
   Transcriber,
   Version,

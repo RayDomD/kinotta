@@ -174,7 +174,7 @@ top bar on every tab. A finished render raises a "ready" notice with Play and Sh
 - [ ] A finished render raises a notice with Play and Show in folder
 - [ ] Playwright: start a render, switch tabs, see progress, cancel one
 
-## T57. Chromium in the tool check
+## T57. Chromium in the tool check — Done
 
 **What to build:** `playwright` moves from `devDependencies` to `dependencies`. The startup tool check (T44) adds
 Chromium, found through Playwright's executable path rather than a PATH probe, with the hint
@@ -185,10 +185,10 @@ Chromium, found through Playwright's executable path rather than a PATH probe, w
 
 **Model:** mid
 
-- [ ] `playwright` is a runtime dependency
-- [ ] A missing Chromium is reported with its install hint
-- [ ] The message for a missing render tool names rendering; the one for transcription tools names reels from video
-- [ ] The New reel "Needs on this machine" row still reads correctly
+- [x] `playwright` is a runtime dependency
+- [x] A missing Chromium is reported with its install hint
+- [x] The message for a missing render tool names rendering; the one for transcription tools names reels from video
+- [x] The New reel "Needs on this machine" row still reads correctly
 
 ## T58. Skill and glossary
 

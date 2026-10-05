@@ -17,10 +17,12 @@ export interface ReelListing {
 }
 
 export interface ToolStatus {
-  id: 'python' | 'ffmpeg' | 'faster-whisper';
+  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
   name: string;
   present: boolean;
   hint: string;
+  /** What it is for: starting a reel from a video, or rendering. */
+  neededFor: Array<'video' | 'render'>;
 }
 
 export interface ToolCheck {

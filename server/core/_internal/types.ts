@@ -468,7 +468,10 @@ export interface StartedReel {
 /** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
 export type Transcriber = (videoFile: string, onProgress?: (processedSeconds: number) => void) => Promise<TranscriptWord[]>;
 
-export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper';
+export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
+
+/** What a tool is for: starting a reel from a video, or rendering. */
+export type ToolUse = 'video' | 'render';
 
 export interface ToolStatus {
   id: ToolId;
@@ -476,6 +479,7 @@ export interface ToolStatus {
   present: boolean;
   /** How to install it on this machine. */
   hint: string;
+  neededFor: ToolUse[];
 }
 
 export interface ToolCheck {
