@@ -1,6 +1,6 @@
 // Playwright webServer entry: launches the real Kinotta server against a temp copy of a sample
 // project, with explicit mtimes so the rail order is deterministic.
-import { cpSync, mkdtempSync, readdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { register } from 'tsx/esm/api';
@@ -30,5 +30,34 @@ register();
 // The engine sample's pages are built by the engine at start, so they show what it builds today.
 if (fixtureName === 'engine-project') (await import('../helpers/engine.ts')).buildEngineProject(project);
 if (fixtureName === 'broll-project') (await import('../helpers/engine.ts')).buildBrollProject(project);
-const { main } = await import('../../server/cli.ts');
-await main(['--project', project, '--port', process.env.KINOTTA_E2E_PORT ?? '4399', '--no-open']);
+if (process.env.KINOTTA_E2E_GATED_TRANSCRIBER) {
+  // Reports 4 of the 12 seconds after a pause, then holds the words until the spec creates this file in the project.
+  const { startServer } = await import('../../server/main.ts');
+  const gate = join(project, '.release-transcript');
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const transcriber = async (_video, onProgress) => {
+    await sleep(1500);
+    onProgress?.(4);
+    while (!existsSync(gate)) await sleep(100);
+    onProgress?.(12);
+    return words;
+  };
+  const { url } = await startServer({ projectDir: project, port: Number(process.env.KINOTTA_E2E_PORT), transcriber });
+  console.log(`Kinotta: ${url}`);
+} else if (process.env.KINOTTA_E2E_FAKE_TRANSCRIBER) {
+  // The server that starts reels gets fixed words instead of running the audio transcription.
+  const { startServer } = await import('../../server/main.ts');
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const { url } = await startServer({ projectDir: project, port: Number(process.env.KINOTTA_E2E_PORT), transcriber: async () => words });
+  console.log(`Kinotta: ${url}`);
+} else {
+  const { main } = await import('../../server/cli.ts');
+  await main(['--project', project, '--port', process.env.KINOTTA_E2E_PORT ?? '4399', '--no-open']);
+}

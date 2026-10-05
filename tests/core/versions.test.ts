@@ -28,7 +28,7 @@ function listen(project: ReturnType<typeof openProject>) {
   return { events, unsubscribe, next };
 }
 
-/** A new version folder the way Claude writes one: page first, shots.json last. */
+/** A new version folder the way an agent writes one: page first, shots.json last. */
 function addVersion(dir: string, from: number, to: number): void {
   const source = join(dir, 'reels', REEL, `v${from}`);
   const target = join(dir, 'reels', REEL, `v${to}`);

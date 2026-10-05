@@ -53,10 +53,10 @@ input { font: inherit; color: inherit; cursor: text; }
 .reelname { font-weight: 500; }
 .reelname span { color: var(--muted); font-weight: 400; margin-left: 8px; }
 .modes { display: flex; gap: 2px; margin-left: 8px; }
-.modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
-.modes span[aria-current] { color: var(--ink); border-color: var(--ink); }
+.modes :is(span, button) { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
+.modes :is(span, button)[aria-current] { color: var(--ink); border-color: var(--ink); }
 
-/* copy the comment batch for Claude */
+/* copy the comment batch for your agent */
 .copy { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .copy-error { max-width: 46ch; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
 .btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease); }
@@ -109,7 +109,6 @@ input { font: inherit; color: inherit; cursor: text; }
 .waiting { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); }
 .waiting svg { width: 10px; height: 10px; }
 .head .waiting { margin-left: 4px; }
-.carry-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 14px; font-size: 13px; color: var(--ink-2); }
 .c .carry-state { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .secs button[aria-current] { border-color: var(--light); }
 .secs button[aria-current] .n { color: var(--light); text-shadow: 0 0 10px var(--light-glow); }
@@ -347,3 +346,19 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 
 /* confirmation of the last saved comment in the enlarged sheet */
 .sheet-status { min-height: 1.4em; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+
+/* New reel screen and the Review placeholder (Review and Edit mockup: rv- classes) */
+.rv-pick, .rv-review { max-width: 640px; display: flex; flex-direction: column; gap: 6px; }
+.rv-pick h2, .rv-review h2 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+.rv-lede { color: var(--ink-2); font-size: 14px; }
+.rv-pick ul { list-style: none; display: flex; flex-direction: column; margin-top: 8px; }
+.rv-pick li button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 12px; text-align: left; border-left: 1.6px solid transparent; }
+.rv-pick li button:hover:not(:disabled), .rv-pick li button[aria-pressed="true"] { background: var(--card); border-color: var(--ink); }
+.rv-pick .p { font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.rv-pick .d { font: 700 12px Doto, monospace; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rv-pick .m { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.rv-name { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.rv-name label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 260px; }
+.rv-name input { font-size: 16px; padding: 7px 10px; border: 1.4px solid var(--hairline); background: var(--card); }
+.rv-busy, .rv-problem { flex-basis: 100%; font-size: 13px; color: var(--ink-2); }
+.rv-footage { width: 100%; margin-top: 14px; background: var(--ink); }

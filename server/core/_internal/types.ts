@@ -1,3 +1,6 @@
+import type { CaptionsPlan, ElementOffset, NewOperation, Operation, PlanClip } from './edit-model.ts';
+import type { PlacedPiece } from './pieces.ts';
+
 export interface ReelSummary {
   /** Folder name under reels/. */
   slug: string;
@@ -59,7 +62,7 @@ export interface Section {
   shots: number;
   /** Set on the one section a reel gets when shots.json declares none. */
   implicit?: true;
-  /** Handed off to Claude on this version, or on an earlier one that no version since has changed this section in. */
+  /** Handed off to an agent on this version, or on an earlier one that no version since has changed this section in. */
   waiting?: true;
 }
 
@@ -94,10 +97,23 @@ export interface Version {
   claimMismatch?: string[];
   /** Footage reels only: the footage file named in reel.json, which stays where it is in the project. */
   footage?: { path: string; exists: boolean };
-  /** Footage reels only: the timed words of transcript.json. Absent when it is missing or unreadable. */
+  /** Footage reels only: the pieces of the video the reel plays, in play order, with where each starts on the timeline. One piece over the whole video when the plan has none. */
+  pieces?: PlacedPiece[];
+  /** Footage reels only: the timed words of the version's transcript.json, on the reel's timeline (a word in a snip is gone). Absent when it is missing or unreadable. */
   transcript?: TranscriptWord[];
   /** Footage reels only: why there is no transcript. */
   transcriptProblem?: string;
+  /** Footage reels only: the `captions` of the version's plan (`true`, or the look, colour and caption positions). Absent when captions are off. */
+  captions?: true | CaptionsPlan;
+  /** Footage reels only: the clips of the version's plan, in source seconds, with their `slid` flag. Absent when the version has no plan. */
+  clips?: PlanClip[];
+  /** Who made the version: `you` for one Kinotta built, else an agent's name. Absent on versions that do not say. */
+  builtBy?: string;
+  /**
+   * Code-only reels only (no footage, no plan): the names of the page's scenes, and the element offsets its `kinotta-edits.css`
+   * holds, by scene then element (`@clip` is the scene itself). Only these can be edited.
+   */
+  code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
 }
 
 /** One row of a reel's version rail. */
@@ -108,13 +124,28 @@ export interface VersionEntry {
   isStoryboard: boolean;
   /** Reels with several sections only, from v2 on: the ids of the sections this version changed. */
   changedSections?: string[];
+  /** Who made the version, as its shots.json says. */
+  builtBy?: string;
 }
 
 /** What `Project.subscribe` reports. */
 export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
-  | { type: 'comments-changed'; reel: string; version: number };
+  | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+
+/** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
+export interface TranscriptionProgress {
+  state: 'running' | 'done' | 'failed';
+  /** Seconds of audio in the video. */
+  duration: number;
+  /** Seconds of it transcribed so far. */
+  processed: number;
+  remaining: number | null;
+  /** Why it failed, when `state` is `failed`. */
+  error?: string;
+}
 
 export interface Project {
   /** The project folder's name. */
@@ -158,12 +189,79 @@ export interface Project {
   /**
    * Writes the version's comment batch to `reels/<slug>/v<n>/comments.json` (replacing any earlier copy) and
    * returns the pasteable text. A reel with several sections needs `sectionId`: the batch is then that section's
-   * (`comments-<sectionId>.json`) and the section counts as waiting on Claude. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
+   * (`comments-<sectionId>.json`) and the section counts as waiting on an agent. Throws `KinottaError` `invalid` when there are no comments and no note, and `frozen`
    * for a version that is not the newest.
    */
   copyBatch(slug: string, number: number, options?: BatchOptions): Promise<CopiedBatch>;
-  /** What the version before could not hand over because its section changed, or null when nothing was left behind. */
-  carryNotice(slug: string, number: number): Promise<CarryNotice | null>;
+  /** The project's videos (outside reels/) with length, codec and size. */
+  listVideos(): Promise<VideoEntry[]>;
+  /**
+   * Starts a reel from a video in the project, which stays where it is: writes the reel and its plan and returns at once.
+   * Transcription then runs in the background (see `transcriptionProgress`); when it ends the transcript, the captions and the
+   * sections are written and v1 is built with `builtBy: "you"`. Until then the reel has no version, its footage plays and
+   * edits collect. Throws `KinottaError` `invalid` for a path that is not a video in the project and `not-found` for a missing
+   * file. A transcription or build failure leaves the reel without a version and is reported by `transcriptionProgress`.
+   */
+  startReel(input: NewReel): Promise<StartedReel>;
+  /** How the reel's transcription stands, or null when none has run since the server started. Changes arrive as `transcription-progress` events. */
+  transcriptionProgress(slug: string): TranscriptionProgress | null;
+  /** Resolves when the reel's transcription and v1 build have ended (done or failed); at once when none is running. */
+  whenTranscribed(slug: string): Promise<void>;
+  /** The reel's unsaved edits (empty when there are none). */
+  readEditList(slug: string): Promise<EditList>;
+  /**
+   * Adds an operation to the edit list and writes the list to the reel folder. Throws `invalid` for an operation that does
+   * not apply (a snip outside the footage, one already cut out, one that would remove everything) and `frozen` for a list
+   * made on an older version.
+   */
+  addOperation(slug: string, operation: NewOperation): Promise<EditList>;
+  /**
+   * Drops one operation by id and keeps the later ones (the result is worked out again from the rest). Throws `not-found`
+   * for an unknown id, `invalid` when the remaining operations no longer apply, `frozen` for a stale list.
+   */
+  removeOperation(slug: string, id: string): Promise<EditList>;
+  /**
+   * Steps the edit list back to before its last change (an add or a removal), or forward again with `redoEdit`. Both
+   * histories are kept in `edit-list.json`, so they survive a reload. Throws `invalid` when there is nothing to step to.
+   */
+  undoEdit(slug: string): Promise<EditList>;
+  redoEdit(slug: string): Promise<EditList>;
+  /** Drops the edit list, with its undo and redo history. */
+  discardEdits(slug: string): Promise<EditList>;
+  /** Ends the hand-off a copied batch started, so Save is allowed again. Does nothing when no batch is out. */
+  cancelHandoff(slug: string): Promise<EditList>;
+  /**
+   * Builds the next version from the edit list with no agent: writes the operations into the reel's plan and transcript,
+   * builds `v<n+1>` (with its own plan and transcript, `edits.json`, `changedSections`, `builtBy: "you"`) and clears the
+   * list. Throws `invalid` for an empty list, a batch that is out or a build that fails, in which case there is no new
+   * version, the sources are as they were and the list is kept.
+   */
+  saveEdits(slug: string): Promise<SavedVersion>;
+}
+
+/** A reel's unsaved edits: operations on named targets, in the order they were made. */
+export interface EditList {
+  /** The version the edits are against: the newest when they were made. */
+  base: number;
+  operations: Operation[];
+  /** Undo has a list to step back to. */
+  canUndo: boolean;
+  /** Redo has a list to step forward to (a new change ends it). */
+  canRedo: boolean;
+  /** The list was made on a version that is no longer the newest; it cannot take edits or be saved. */
+  stale?: true;
+  /** A comment batch is out for the newest version: Save is blocked with this reason until the next version or `cancelHandoff`. */
+  handedOff?: { version: number; copiedAt: string; reason: string };
+  /**
+   * Operations that no longer apply to the version they were replayed onto, by id, with the reason. They stay in the list so
+   * the owner can drop or redo them; they are left out of the preview, and Save is blocked while any remain.
+   */
+  flagged?: Record<string, string>;
+}
+
+export interface SavedVersion {
+  /** The number of the version Save built. */
+  version: number;
 }
 
 /** What a batch covers, and what the editor adds to it beyond the comments. */
@@ -176,17 +274,8 @@ export interface BatchOptions {
   runtimeIssues?: string[];
 }
 
-/** Unsent comments that stayed on the version before because their section changed. */
-export interface CarryNotice {
-  /** The version they stayed on. */
-  from: number;
-  count: number;
-  /** Ids of the sections they belong to. */
-  sections: string[];
-}
-
 export interface CopiedBatch {
-  /** What to paste to Claude: reel, version, each comment as shot, time, element: text, notes, saved path. */
+  /** What to paste to an agent: reel, version, each comment as shot, time, element: text, notes, saved path. */
   text: string;
   /** Where the batch was saved, relative to the project root with forward slashes. */
   file: string;
@@ -251,10 +340,16 @@ export interface Comment {
   text: string;
   /** ISO 8601. */
   createdAt: string;
-  /** Copied to Claude in its section's latest batch. */
+  /** Copied to an agent in its section's latest batch. */
   sent?: true;
-  /** Once a newer version has settled: whether this comment moved to it. */
-  carried?: { to: number; moved: boolean };
+  /** Once a newer version has settled: this unsent comment moved on to it. */
+  carried?: { to: number };
+  /**
+   * Set when the comment's moment was snipped out of the footage: its text is kept, its pin sits where the snip closed up,
+   * and it waits to be re-pinned (a new comment) or deleted. `element-removed`: the element it is pinned on is gone from the
+   * version it moved to; it keeps its text and waits the same way. A gone moment is the one shown when both apply.
+   */
+  state?: 'moment-removed' | 'element-removed';
 }
 
 export interface NewComment {
@@ -278,3 +373,32 @@ export interface AddedComment {
   /** Every comment of the version, renumbered. */
   comments: Comment[];
 }
+
+/** One video in the project, as the New reel screen lists it. */
+export interface VideoEntry {
+  /** Relative to the project folder, with forward slashes. */
+  path: string;
+  /** The file name. */
+  name: string;
+  /** A reel title taken from the file name. */
+  suggestedTitle: string;
+  /** Seconds. */
+  duration: number;
+  codec: string;
+  /** Bytes. */
+  size: number;
+}
+
+export interface NewReel {
+  /** Project-relative path of the video. */
+  video: string;
+  /** The reel's name; the video's file name when absent or blank. */
+  title?: string;
+}
+
+export interface StartedReel {
+  slug: string;
+}
+
+/** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
+export type Transcriber = (videoFile: string, onProgress?: (processedSeconds: number) => void) => Promise<TranscriptWord[]>;

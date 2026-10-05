@@ -11,14 +11,12 @@ const NOTE_MAX_LENGTH = 4000;
 /** How far a word pin's time may be from the transcript word's start, in seconds. */
 const WORD_TIME_TOLERANCE = 0.01;
 
-/** What became of a comment: whether it went to Claude in a batch, and whether it moved on to the next version. */
+/** What became of a comment: whether it went to an agent in a batch, and which newer version it moved on to. */
 function statusOf(id: string, state: StateFile): Pick<Comment, 'sent' | 'carried'> {
   const { carriedTo } = state;
-  const moved = carriedTo?.carried.includes(id) ?? false;
-  const left = carriedTo?.notCarried.includes(id) ?? false;
   return {
     ...(isSent(state.handedOff, id) ? { sent: true as const } : {}),
-    ...(carriedTo && (moved || left) ? { carried: { to: carriedTo.version, moved } } : {}),
+    ...(carriedTo?.carried.includes(id) ? { carried: { to: carriedTo.version } } : {}),
   };
 }
 

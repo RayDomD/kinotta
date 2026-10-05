@@ -36,11 +36,8 @@ function afterDraw(win: Window): Promise<void> {
   return Promise.race([frames, fallback]);
 }
 
-/**
- * Jumps a loaded version page to `seconds` with its global `seek`, then waits for the frame to draw.
- * Rejects with a readable reason when the page has no `seek` or it throws.
- */
-export async function seekPage(win: Window | null, seconds: number): Promise<void> {
+/** Calls the page's global `seek` and resolves when it has answered, without waiting for the frame to draw. */
+export async function seekNow(win: Window | null, seconds: number): Promise<void> {
   const page = win as PageWindow | null;
   if (!page || typeof page.seek !== 'function') {
     throw new SeekError('The page has no global seek(seconds) function.', { kind: 'no-seek' });
@@ -51,5 +48,13 @@ export async function seekPage(win: Window | null, seconds: number): Promise<voi
     const detail = err instanceof Error ? err.message : String(err);
     throw new SeekError(`seek(${seconds}) threw: ${detail}`, { kind: 'seek-threw', time: seconds, detail });
   }
-  await afterDraw(page);
+}
+
+/**
+ * Jumps a loaded version page to `seconds` with its global `seek`, then waits for the frame to draw.
+ * Rejects with a readable reason when the page has no `seek` or it throws.
+ */
+export async function seekPage(win: Window | null, seconds: number): Promise<void> {
+  await seekNow(win, seconds);
+  await afterDraw(win!);
 }

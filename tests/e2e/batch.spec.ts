@@ -77,7 +77,7 @@ test('pin a named element, comment, copy: the button confirms, the clipboard and
   await copyButton(page).click();
 
   await expect(copyButton(page)).toHaveText('Copied');
-  await expect(page.locator('.copy [role="status"]')).toHaveText('Copied 1 comment for Claude');
+  await expect(page.locator('.copy [role="status"]')).toHaveText('Copied 1 comment for your agent');
   const clipboard = await page.evaluate(() => navigator.clipboard.readText());
   expect(clipboard).toContain('Kinotta comments: Product showreel, v2');
   expect(clipboard).toContain(`Saved as ${BATCH_FILE}`);

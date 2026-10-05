@@ -1,4 +1,5 @@
 import { parse } from 'node-html-parser';
+import { rulesFor } from './code-edits.ts';
 import type { Section, Shot, Version } from './types.ts';
 
 interface Scene {
@@ -7,14 +8,14 @@ interface Scene {
   html: string;
 }
 
-/** The `data-scene` elements of a version page, each with the span it plays over and its serialized markup. */
-function scenesOf(html: string): Scene[] {
+/** The `data-scene` elements of a version page, each with the span it plays over and its serialized markup, plus the offset rules `css` holds for it. */
+function scenesOf(html: string, css: string): Scene[] {
   return parse(html)
     .querySelectorAll('[data-scene]')
     .map((el) => {
       const start = Number(el.getAttribute('data-start'));
       const duration = Number(el.getAttribute('data-duration'));
-      return { start: Number.isFinite(start) ? start : 0, end: (Number.isFinite(start) ? start : 0) + (Number.isFinite(duration) ? duration : 0), html: el.outerHTML };
+      return { start: Number.isFinite(start) ? start : 0, end: (Number.isFinite(start) ? start : 0) + (Number.isFinite(duration) ? duration : 0), html: el.outerHTML + rulesFor(css, el.getAttribute('data-scene') ?? '') };
     });
 }
 
@@ -48,12 +49,12 @@ function fingerprint(version: Version, scenes: Scene[], section: Section): strin
  * in `claimMismatch` when the contents say otherwise (and the reverse, a claim of "changed" on identical contents).
  */
 export function detectChanges(
-  previous: { version: Version; html: string },
-  next: { version: Version; html: string },
+  previous: { version: Version; html: string; css?: string },
+  next: { version: Version; html: string; css?: string },
 ): { changed: string[]; claimMismatch: string[] } {
   const before = new Map(previous.version.sections.map((s) => [s.id, s]));
-  const beforeScenes = scenesOf(previous.html);
-  const afterScenes = scenesOf(next.html);
+  const beforeScenes = scenesOf(previous.html, previous.css ?? '');
+  const afterScenes = scenesOf(next.html, next.css ?? '');
   const claimed = next.version.changedSections;
 
   const changed: string[] = [];

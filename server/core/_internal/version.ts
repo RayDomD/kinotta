@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { EDITS_CSS, isCodeOnly, readEditsCss } from './code-edits.ts';
 import { checkShotsAgainstPage, checkShotsFile, scanPage } from './contract.ts';
 import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
@@ -31,8 +32,9 @@ async function versionNumbers(reelDir: string): Promise<number[]> {
     .sort((a, b) => a - b);
 }
 
+/** The newest version's number, or 0 for a reel with no version yet (one still being transcribed). */
 export async function newestVersionNumber(reelDir: string): Promise<number> {
-  return Math.max(...(await versionNumbers(reelDir)));
+  return Math.max(0, ...(await versionNumbers(reelDir)));
 }
 
 export async function requireReelDir(projectDir: string, slug: string): Promise<string> {
@@ -49,9 +51,9 @@ export async function listVersions(projectDir: string, slug: string): Promise<Ve
   const newest = numbers[numbers.length - 1];
   return Promise.all(
     numbers.map(async (number): Promise<VersionEntry> => {
-      const entry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION };
-      if (number === STORYBOARD_VERSION) return entry;
       const version = await readVersion(projectDir, slug, number).catch(() => null);
+      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, ...(version?.builtBy ? { builtBy: version.builtBy } : {}) };
+      if (number === STORYBOARD_VERSION) return entry;
       // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
       return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;
     }),
@@ -156,16 +158,17 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
     issues: parsed === null ? fileCheck.issues : [...fileCheck.issues, ...page.issues, ...checkShotsAgainstPage(fileCheck.shots, page.scenes)],
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
-  return addFootage(projectDir, reelDir, version);
+  if (typeof file.builtBy === 'string' && file.builtBy.trim() !== '') version.builtBy = file.builtBy;
+  if (await isCodeOnly(projectDir, reelDir)) version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
+  return addFootage(projectDir, reelDir, versionDir, version);
 }
 
-/** The page of version n as text, or empty when it has none (for comparing two versions). */
-async function readPageText(reelDir: string, number: number): Promise<string> {
-  try {
-    return await readFile(join(reelDir, `v${number}`, PAGE_FILE), 'utf8');
-  } catch {
-    return '';
-  }
+const readOrEmpty = (file: string): Promise<string> => readFile(file, 'utf8').catch(() => '');
+
+/** The page of version n as text and its element-offset stylesheet, each empty when it has none (for comparing two versions). */
+async function readPageText(reelDir: string, number: number): Promise<{ html: string; css: string }> {
+  const dir = join(reelDir, `v${number}`);
+  return { html: await readOrEmpty(join(dir, PAGE_FILE)), css: await readOrEmpty(join(dir, EDITS_CSS)) };
 }
 
 /**
@@ -184,8 +187,8 @@ export async function readVersion(projectDir: string, slug: string, number: numb
     return version;
   }
   const { changed, claimMismatch } = detectChanges(
-    { version: previous, html: await readPageText(reelDir, number - 1) },
-    { version, html: await readPageText(reelDir, number) },
+    { version: previous, ...(await readPageText(reelDir, number - 1)) },
+    { version, ...(await readPageText(reelDir, number)) },
   );
   return { ...version, changedSections: changed, claimMismatch };
 }

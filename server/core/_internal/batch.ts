@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { sectionOfComment, settleNewest } from './carry.ts';
 import { numbered } from './comments.ts';
 import { KinottaError } from './errors.ts';
+import { recordHandoff } from './handoff.ts';
 import { readTitle } from './reels.ts';
 import { readState, serialized, stateFilePath, writeFileAtomic, writeState } from './state.ts';
 import type { BatchOptions, Comment, CopiedBatch, Section, Version } from './types.ts';
@@ -107,6 +108,7 @@ export async function copyBatch(projectDir: string, slug: string, number: number
       ...state,
       handedOff: { ...state.handedOff, [section.id]: { copiedAt, commentIds: comments.map((c) => c.id) } },
     });
+    await recordHandoff(join(projectDir, REELS_DIR, slug), number, copiedAt);
     return { text: pasteableText(heading, file, comments, notes, issues), file, count: comments.length };
   });
 }

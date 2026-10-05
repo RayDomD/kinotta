@@ -15,12 +15,12 @@ test('editor shell lists reels newest change first and opens the newest', async 
   await expect(page.locator('.reelname')).toContainText('B-roll cutdown');
 });
 
-test('phase nav shows Storyboard as current and the other phases as inactive', async ({ page }) => {
+test('phase nav shows Storyboard as current, Review as a tab and Picker as inactive', async ({ page }) => {
   await page.goto('/');
 
   const phases = page.getByRole('navigation', { name: 'Phase' });
-  await expect(phases.getByText('Storyboard')).toHaveAttribute('aria-current', 'page');
-  await expect(phases.getByText('Review')).toHaveAttribute('aria-disabled', 'true');
+  await expect(phases.getByRole('button', { name: 'Storyboard' })).toHaveAttribute('aria-current', 'page');
+  await expect(phases.getByRole('button', { name: 'Review' })).not.toHaveAttribute('aria-current', 'page');
   await expect(phases.getByText('Picker')).toHaveAttribute('aria-disabled', 'true');
   await expect(phases.getByRole('link')).toHaveCount(0);
 });

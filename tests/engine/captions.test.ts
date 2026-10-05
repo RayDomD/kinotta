@@ -90,3 +90,45 @@ describe('captions in a composed plan', () => {
     expect(overlays).toEqual([{ kind: 'CAPTIONS', name: 'Captions', start: 0, end: 5.6 }]);
   });
 });
+
+describe('caption positions', () => {
+  const shifts = (html: ReturnType<typeof parse>): (string | null)[] =>
+    html.querySelectorAll('[data-caption]').map((scene) => /translate:([^;"]+)/.exec(scene.querySelector('.caption')!.getAttribute('style') ?? '')?.[1] ?? null);
+
+  function composedWith(captions: unknown, extra: Record<string, unknown> = {}): ReturnType<typeof parse> {
+    const { dir, plan } = project(captions);
+    writeFileSync(plan, JSON.stringify({ ...JSON.parse(readFileSync(plan, 'utf8')), ...extra }));
+    composePlan(plan, join(dir, 'page.html'));
+    return parse(readFileSync(join(dir, 'page.html'), 'utf8'));
+  }
+
+  it('builds the same page for a plan without positions', () => {
+    const plain = composed(true).toString();
+
+    expect(composed({ look: 'highlight' }).toString()).toBe(plain);
+    expect(composed({ position: { x: 0, y: 0 }, phrases: [] }).toString()).toBe(plain);
+    expect(plain).not.toContain('translate:');
+  });
+
+  it('moves every caption by the reel-wide position, with CSS translate', () => {
+    expect(shifts(composedWith({ position: { x: 40, y: -20 } }))).toEqual(['40px -20px', '40px -20px', '40px -20px']);
+  });
+
+  it('moves one phrase, found by its first word in source seconds, and adds it to the reel-wide position', () => {
+    // The second phrase opens on "a", which starts at 2.5 s.
+    expect(shifts(composedWith({ phrases: [{ at: 2.5, x: 0, y: -100 }] }))).toEqual([null, '0px -100px', null]);
+    expect(shifts(composedWith({ position: { x: 10, y: 10 }, phrases: [{ at: 2.5, x: 5, y: -100 }] }))).toEqual(['10px 10px', '15px -90px', '10px 10px']);
+  });
+
+  it('keeps a phrase at its place when the footage before it is snipped', () => {
+    const pieces = [{ in: 0, out: 0.4 }, { in: 2.4, out: 8 }];
+    const html = composedWith({ phrases: [{ at: 2.5, x: 0, y: -100 }] }, { pieces });
+
+    expect(shifts(html)).toEqual([null, '0px -100px', null]);
+    expect(Number(html.querySelectorAll('[data-caption]')[1]!.getAttribute('data-start'))).toBeCloseTo(0.5, 6);
+  });
+
+  it('ignores a phrase position that no phrase starts at', () => {
+    expect(shifts(composedWith({ phrases: [{ at: 2.9, x: 0, y: -100 }] }))).toEqual([null, null, null]);
+  });
+});

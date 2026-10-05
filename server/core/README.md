@@ -60,8 +60,35 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles
-it once: unsent comments on unchanged sections move up from the version before, the rest stay and are listed by `carryNotice(slug, n)`;
-sent comments never move. Comments say whether they were `sent` and whether they `carried` on.
+it once, whoever built it (a Save or an agent): every unsent comment moves up from the version before at its remapped time, old
+timeline to source time through the old version's pieces and onto the new timeline through the new version's. The pin's shot is
+the new shot playing there; element and word pins keep their element or word. A moment that was snipped keeps the comment's text
+and gives it `state: 'moment-removed'`, pinned where the snip closed up, until it is deleted or re-pinned as a new comment. Sent
+comments never move. Comments say whether they were `sent` and which version they `carried` on to.
+
+- `cancelHandoff(slug)`: a copied batch marks the reel handed off in `reels/<reel>/handoff.json` (the version it was copied from). It ends when
+  a newer version appears or `cancelHandoff` is called. While it holds, `readEditList` carries `handedOff: { version, copiedAt, reason }`,
+  `saveEdits` throws `invalid` with that reason, and operations still collect. When a newer version appears (the watcher's `version-added`,
+  or the next `readEditList`) an unsaved edit list is replayed onto its sources instead of going `stale`: each operation is checked in order,
+  one whose target is gone (clip, word, piece index, element) stays in the list and is reported in `flagged` (id to reason), and the undo
+  history goes. `saveEdits` throws `invalid` while any edit is flagged; remove it (or redo it) first.
+
+- `readEditList(slug)`, `addOperation(slug, op)`, `removeOperation(slug, id)`, `undoEdit(slug)`, `redoEdit(slug)`, `discardEdits(slug)`,
+  `saveEdits(slug)`: the reel's edit list and Save. The
+  list is `{ base, operations, undo, redo }` (the last two are lists of whole lists, up to 100 back, shown to callers as `canUndo` and `canRedo`; any new change, an add or a removal, ends the redo history, and a removal can be undone) at `reels/<reel>/edit-list.json`, outside every version, rewritten atomically on every change;
+  `base` is the newest version when the edits were made, and a list for an older one is `stale` (no edits, no Save, Discard
+  works). An operation is `{ id, kind, ... }`; so far `snip` (`from`, `to`, source seconds). `addOperation` checks it applies on
+  top of the list, else throws `invalid`. `removeOperation` drops one by id and keeps the later ones (operations name things in source
+  time, so the result is worked out again from what remains; `invalid` if it would not apply, `not-found` for an unknown id). `saveEdits` writes the operations into the reel's `plan.json` (and `transcript.json`
+  when an operation changes words), builds `v<n+1>` in `reels/<reel>/.save/` (its own `plan.json` and `transcript.json`,
+  `index.html`, `edits.json`, then `shots.json` last with `builtBy: "you"` and `changedSections`), renames it into place and
+  clears the list. Any failure (a build error, an empty list, a batch that is out) leaves no new version, the sources as they were
+  and the list in place. `_internal/sources.ts` is the one resolver for the plan: the reel folder's `plan.json` (started in Kinotta), else the project's `motion/plan.json` for an agent-built footage reel, whose edits Save writes there; a code-only reel (no footage, no plan) takes `element-offset` only (anything else is `invalid`): each scene of its newest page stands in as a clip, and Save copies `v<n>` to `v<n+1>` plus `kinotta-edits.css` (`_internal/code-edits.ts`), linked from the page, holding the offsets the version already had with the list applied over them; `Version.code` carries its scene names and offsets. A
+  new kind of edit is one member of the `Operation` union and one apply function in `_internal/edit-model.ts`.
+- `server/core/model.ts` re-exports the pure parts (pieces mapping, the operation model) with no file access, for the web editor.
+- A version may hold its own `transcript.json` and `plan.json`; `readVersion` reads them before the reel's (E14), and
+  `builtBy` (from `shots.json`) says who made it. `startReel` and Save both write them.
+- `startReel` returns once the reel and its plan exist; transcription runs in the background (`_internal/transcription.ts`). `transcriptionProgress(slug)` and `transcription-progress` events say how far it is, with an estimate; `whenTranscribed(slug)` resolves when the job ends. When it does, the transcript, the plan's sections (one, or about one per three minutes split at the largest pause) and v1 are written. A reel with no version yet collects edits (base 0) that replay onto v1; Save is refused until it exists. Progress is in memory only.
 
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at

@@ -1,10 +1,10 @@
-export { addComment, copyBatch, deleteComment, editComment, fetchComments, fetchNote, fetchProject, fetchReels, fetchVersion, fetchVersions, footageUrl, saveNote, subscribe, versionPageUrl } from './_internal/client.ts';
+export { addComment, addOperation, cancelHandoff, copyBatch, deleteComment, discardEdits, editComment, fetchComments, fetchEdits, fetchNote, fetchProject, fetchReels, fetchTranscription, fetchVersion, fetchVersions, footageUrl, listVideos, redoEdit, removeOperation, saveEdits, undoEdit, saveNote, startReel, subscribe, versionPageUrl } from './_internal/client.ts';
 export type {
   BatchOptions,
-  CarryNotice,
   Comment,
   ContractIssue,
   CopiedBatch,
+  EditList,
   FramePin,
   NewComment,
   Overlay,
@@ -15,8 +15,11 @@ export type {
   ReelSummary,
   Section,
   Shot,
+  TranscriptionProgress,
   TranscriptWord,
   Version,
   VersionEntry,
+  VersionPiece,
+  VideoEntry,
   WordPin,
 } from './_internal/client.ts';
