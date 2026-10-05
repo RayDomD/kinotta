@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { importVideo, startReel } from './api/index.ts';
+import { importVideo } from './api/index.ts';
 
 interface DropZoneProps {
-  /** Called with the new reel's slug once the dropped video is in footage/ and the reel's first version is built. */
-  onStarted(slug: string): void;
+  /** Called with the video's project path once it is in footage/ (copied, or already there). */
+  onImported(path: string): void;
 }
 
-/** The New reel drop zone: a video dropped or chosen is copied into the project's footage/ folder and a reel starts from it. */
-export function DropZone({ onStarted }: DropZoneProps) {
+/** The New reel drop zone: a video dropped or chosen is copied into the project's footage/ folder, then named like a picked one. */
+export function DropZone({ onImported }: DropZoneProps) {
   const [over, setOver] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -17,18 +17,16 @@ export function DropZone({ onStarted }: DropZoneProps) {
     if (file === undefined || busy) return;
     setProblem(null);
     setStatus('Copying into footage/…');
-    importVideo(file)
-      .then(({ path }) => {
-        setStatus('Transcribing and building v1…');
-        return startReel({ video: path });
-      })
-      .then(
-        ({ slug }) => onStarted(slug),
-        (err: unknown) => {
-          setStatus(null);
-          setProblem(err instanceof Error ? err.message : 'Could not start the reel');
-        },
-      );
+    importVideo(file).then(
+      ({ path }) => {
+        setStatus(null);
+        onImported(path);
+      },
+      (err: unknown) => {
+        setStatus(null);
+        setProblem(err instanceof Error ? err.message : 'Could not copy the video');
+      },
+    );
   };
 
   return (

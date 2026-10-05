@@ -7,6 +7,8 @@ import { Empty } from './Empty.tsx';
 import { MissingTools } from './MissingTools.tsx';
 import { formatClock } from './timecode.ts';
 
+/** Codecs browsers cannot play: Start makes an H.264 copy first, which takes a while on a long video. */
+const NEEDS_PLAYBACK_COPY = new Set(['hevc', 'prores']);
 const BYTES_PER_MB = 1024 * 1024;
 const MB_PER_GB = 1024;
 
@@ -51,6 +53,19 @@ export function NewReel({ project, onStarted, onBriefStarted }: NewReelProps) {
     setProblem(null);
   };
 
+  // A dropped video joins the list and is picked, so it is named and started like any other.
+  const imported = (path: string): void => {
+    listVideos().then(
+      (videos) => {
+        setLoad({ status: 'ready', videos });
+        const video = videos.find((v) => v.path === path);
+        if (video) pick(video);
+        else setProblem(`${path} was copied but is not in the list of videos.`);
+      },
+      (err: unknown) => setProblem(err instanceof Error ? err.message : 'Could not list the videos'),
+    );
+  };
+
   const start = (): void => {
     if (picked === null || busy) return;
     setBusy(true);
@@ -69,7 +84,7 @@ export function NewReel({ project, onStarted, onBriefStarted }: NewReelProps) {
       <section className="rv-pick">
         <h2>New reel</h2>
         <MissingTools />
-        <DropZone onStarted={onStarted} />
+        <DropZone onImported={imported} />
         <p className="rv-lede">Or pick a video already in {project}. It stays where it is.</p>
         {load.status === 'loading' && <div className="state">Loading…</div>}
         {load.status === 'error' && <Empty>{`Could not list the videos. ${load.message}`}</Empty>}
@@ -102,7 +117,11 @@ export function NewReel({ project, onStarted, onBriefStarted }: NewReelProps) {
               <input value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} />
             </label>
             <button type="submit" className="btn" disabled={busy}>Start reel</button>
-            {busy && <span className="rv-busy" role="status">Starting the reel…</span>}
+            {busy && (
+              <span className="rv-busy" role="status">
+                {NEEDS_PLAYBACK_COPY.has(picked.codec) ? 'Making a copy the browser can play, then starting the reel…' : 'Starting the reel…'}
+              </span>
+            )}
             {problem !== null && <span className="rv-problem" role="alert">{problem}</span>}
           </form>
         )}
