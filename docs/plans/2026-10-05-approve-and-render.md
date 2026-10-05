@@ -30,8 +30,8 @@ spec: docs/specs/2026-10-05-approve-and-render.md (#52)
   - A cancelled or failed render leaves no partial file.
 - Out of scope: agent approval, codecs beyond the three presets, GPU encoding, WebM, GIF, HLS, resuming an interrupted
   render, uploading or sharing.
-- Open questions:
-  - The Picker page layout. No mockup exists yet.
+- Open questions: none.
+  - Settled 2026-10-05: the Picker layout, a versions table (`docs/mockups/2026-10-05-picker-layout.html`).
   - Settled 2026-10-05: the five spec choices and five gaps, as R12 to R18 in `docs/2026-09-30-grilling-decisions.md`.
 
 ## Goal
@@ -51,3 +51,5 @@ spec: docs/specs/2026-10-05-approve-and-render.md (#52)
 - Grilling settled R12 to R18: one queue with a headless server, plan-less versions refused for Final and Overlay,
   `render.js` extended, `playwright` a runtime dependency, settings per preset, approval editor-only with a watcher,
   and five smaller gaps. Spec updated to match.
+- Picker layout chosen in a `ui-preview` round: option B, a versions table with the player under it. Saved to
+  `docs/mockups/2026-10-05-picker-layout.html`.

@@ -1,8 +1,8 @@
 # Spec: Approve and Render phase (Picker)
 
 Decisions R1 to R18: `docs/2026-09-30-grilling-decisions.md`. Glossary: `CONTEXT.md`. Builds on the Review and Edit
-phase (`docs/specs/2026-10-05-review-edit-phase.md`, #30). Look: none yet; the Picker page needs a `ui-preview` round
-before its tickets are built.
+phase (`docs/specs/2026-10-05-review-edit-phase.md`, #30). Look: `docs/mockups/2026-10-05-picker-layout.html`
+(layout only, a versions table; the visual world follows DESIGN.md).
 
 ## Problem Statement
 
@@ -125,8 +125,10 @@ queue, so a render is the same file whoever starts it. Only I approve, for now.
   starts the same server headless (no browser), enqueues, and the server exits when the queue drains. There is no
   lock-file queue. Progress arrives as `render-progress` events, which the CLI prints. Jobs are not resumed after a
   restart. `kinotta render` and `kinotta check` take `--project`, like the editor.
-- **Picker (R11).** A new phase page: the version list with approval, a player (Review's player, read only), the render
-  panel (preset, four settings, Render), the queue with progress and cancel, and past renders. The top bar gains a
+- **Picker (R11).** A new phase page in the usual shell, laid out as the saved mockup. The main column holds a versions
+  table, one row per version (built by, comment count, contract status, approval with Approve or Withdraw), and under
+  it a player for the selected row (Review's player, read only). The right column holds the render panel for the
+  selected version (preset, four settings, Render), the queue with progress and cancel, and past renders. The top bar gains a
   render indicator; a finished render raises a "ready" notice like the version one.
 - **The skill (R1).** SKILL.md replaces "no MP4 render" with "render only through `kinotta render`, Final and Overlay
   only of an approved version". It names no approval command, because an agent has none.
