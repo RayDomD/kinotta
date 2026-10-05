@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import type { CarryNotice, Comment } from './api/index.ts';
-import { sectionNumber } from './sections.ts';
+import type { Comment } from './api/index.ts';
+import { NO_SHOT, sectionNumber } from './sections.ts';
 import { Empty } from './Empty.tsx';
 import { readOnlyNote } from './readOnly.ts';
 import { wordLabel } from './Transcript.tsx';
@@ -83,12 +83,12 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
     <li className="c">
       <div className="where">
         <span className="dot">{comment.number}</span>
-        <span className="num">{`Shot ${pin.shot} · ${formatTimecode(pin.time)}s`}</span>
+        <span className="num">{`${pin.shot === NO_SHOT ? '' : `Shot ${pin.shot} · `}${formatTimecode(pin.time)}s`}</span>
         <span className={target ? 'el' : undefined}>{where}</span>
       </div>
-      {(comment.sent || comment.carried) && (
+      {(comment.sent || comment.carried || comment.state) && (
         <div className="carry-state">
-          {[comment.sent ? 'Sent to Claude' : '', comment.carried ? (comment.carried.moved ? `Moved to v${comment.carried.to}` : `Not carried to v${comment.carried.to}`) : '']
+          {[comment.state === 'moment-removed' ? 'Moment removed' : comment.state === 'element-removed' ? 'Element removed' : '', comment.sent ? 'Sent to your agent' : '', comment.carried ? `Moved to v${comment.carried.to}` : '']
             .filter((part) => part !== '')
             .join(' · ')}
         </div>
@@ -118,7 +118,7 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
             ref={openButton}
             type="button"
             className="c-open"
-            aria-label={`Open comment ${comment.number} on shot ${pin.shot}, ${where}`}
+            aria-label={pin.shot === NO_SHOT ? `Open comment ${comment.number}, ${where}` : `Open comment ${comment.number} on shot ${pin.shot}, ${where}`}
             onClick={(e) => onOpen(e.currentTarget)}
           />
           {editable && (
@@ -171,26 +171,10 @@ interface PanelProps {
   onOpenComment(comment: Comment, opener: HTMLElement): void;
   /** On a multi-section reel: the current section's number and the shots it holds; the column lists only its comments. */
   section?: { number: string; shots: ReadonlySet<string> } | null;
-  /** The open version's section ids in order on a multi-section reel, so the notice can number them; null on a one-section reel. */
-  sectionIds?: string[] | null;
-  onOpenVersion(number: number): void;
-}
-
-/** What the comments column says about the version before: the unsent comments it kept because their section changed. */
-function CarryLine({ notice, sectionIds, onOpen }: { notice: CarryNotice; sectionIds: string[] | null; onOpen(number: number): void }) {
-  const { count, from, sections } = notice;
-  const numbers = sections.map((id) => (sectionIds?.includes(id) ? sectionNumber(sectionIds.indexOf(id)) : id));
-  const why = sectionIds === null ? 'the reel changed' : `${sections.length === 1 ? 'section' : 'sections'} ${numbers.join(', ')} changed`;
-  return (
-    <p className="carry-line">
-      <span>{`${count} ${count === 1 ? 'comment' : 'comments'} on v${from} ${count === 1 ? 'was' : 'were'} not carried because ${why}.`}</span>
-      <button type="button" className="c-act strong" onClick={() => onOpen(from)}>{`Open v${from}`}</button>
-    </p>
-  );
 }
 
 /** The comments column: a card per pin (open, edit, delete with undo), and the note on the whole reel. */
-export function CommentsPanel({ version, newest, state, note, onOpenComment, onOpenVersion, section = null, sectionIds = null }: PanelProps) {
+export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null }: PanelProps) {
   const { error } = state;
   const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
   const readOnly = version !== undefined && newest !== undefined && version !== newest;
@@ -256,7 +240,6 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, onO
           </>
         )}
       </div>
-      {state.notCarried && <CarryLine notice={state.notCarried} sectionIds={sectionIds} onOpen={onOpenVersion} />}
       {problem && <p role="alert" className="c-error">{problem}</p>}
       {error ? (
         <Empty>{`Could not read the comments. ${error}`}</Empty>

@@ -10,9 +10,17 @@ interfere. Both sit inside the scene, so Kinotta sees a clip whose motion alone 
 A clip's fragment is the plan clip's "clip" path, else clips/<id>-*.html or <id>-*.html beside the
 plan. The page lasts the plan's "duration" (the video's length), else until the last clip's out-point.
 With "captions" (true, or { "look": "highlight" | "phrase" | "words", "color" }) and "transcript" (its path from
-the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word."""
+the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word.
+Captions can be moved: "position" { x, y } offsets every caption and "phrases" [{ at, x, y }] one more, the phrase
+whose first word starts at source second "at" (within CAPTION_AT); px of the 1920x1080 page, CSS translate on the caption.
+A clip can carry "offsets" { "<element>": { x, y, scale } } (CSS px, a factor about the element's centre; "@clip" is the clip's
+root): written as CSS translate and scale on that element in that scene, which stack on the clip's own transform, left and top.
+With "pieces" ([{ "in", "out" }], see pieces.py) the plan's source times are mapped to the reel's timeline: a clip in a
+snipped stretch is dropped, one straddling a snip is trimmed to its edge, and words in a snip get no caption."""
 import base64, html, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(E))
+from pieces import timeline_plan, timeline_words
 b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
 CURSOR = '<svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>'
 # A composed page draws only the scenes running at t, over the footage: transparent wherever no clip paints.
@@ -24,6 +32,18 @@ def name_parts(html):
         if 'data-el=' in tag or re.search(r'(?<![\w-])class="(?:[^"]*\s)?L(?:\s[^"]*)?"', tag): return tag
         return tag.replace(f'id="{id_}"', f'id="{id_}" data-el="{id_}"', 1)
     return ID_TAG.sub(add, html)
+CLIP_ROOT = '@clip'
+def offsets_style(sel, offsets):
+    """A style tag moving and scaling a clip's elements, or '' when none is off its home (0, 0 at scale 1). The properties are
+    CSS individual translate and scale, so they compose with the clip's own animated transform instead of replacing it."""
+    rules = []
+    for name, o in (offsets or {}).items():
+        if not name or re.search(r'["\\<>\s]', name): sys.exit(f'offsets: "{name}" is not an element name')
+        x, y, k = o.get('x', 0), o.get('y', 0), o.get('scale', 1)
+        if x == 0 and y == 0 and k == 1: continue
+        props = (f'translate:{x:g}px {y:g}px;' if x or y else '') + (f'scale:{k:g};' if k != 1 else '')
+        rules.append(f'{sel if name == CLIP_ROOT else sel + " [data-el=" + chr(34) + name + chr(34) + "]"}{{{props}}}')
+    return f'<style>{"".join(rules)}</style>' if rules else ''
 def clip_length(src, js):
     m = re.search(r'M\.scene\(\s*\{.*?\bT\s*:\s*([0-9]*\.?[0-9]+)', js, re.S)
     if not m: sys.exit(f'{src}: M.scene has no T (clip length in seconds)')
@@ -53,6 +73,7 @@ CAPTION_LOOKS = ('highlight', 'phrase', 'words')
 CAPTION_COLOR = '#FF5A1F'   # the engine's accent
 CAPTION_WORDS = 6           # a phrase's usual cap; it runs up to two over to reach a clause end
 CAPTION_PAUSE = 0.3         # a gap between words this long ends a phrase
+CAPTION_AT = 0.005          # a phrase position names its first word's source start to within this
 CAPTION_HOLD = 0.6          # a phrase stays up until the next starts when the gap is shorter than this
 # Bottom centre, clear of left-side panels; the scene lets clicks through to the clips under it, the caption takes them.
 CAPTION_CSS = ('[data-caption]{pointer-events:none}'
@@ -68,6 +89,14 @@ def caption_style(value):
     look = opts.get('look', 'highlight')
     if look not in CAPTION_LOOKS: sys.exit(f'captions look must be one of {", ".join(CAPTION_LOOKS)}')
     return look, opts.get('color', CAPTION_COLOR)
+def caption_shift(value, first):
+    """The offset (x, y) of the phrase whose first word starts at source second `first`: the reel-wide position plus
+    that phrase's own, or None when it is not moved."""
+    opts = {} if value is True else value
+    pos = opts.get('position') or {}
+    own = min((e for e in opts.get('phrases') or [] if abs(e['at'] - first) <= CAPTION_AT), key=lambda e: abs(e['at'] - first), default={})
+    x, y = pos.get('x', 0) + own.get('x', 0), pos.get('y', 0) + own.get('y', 0)
+    return None if x == 0 and y == 0 else (x, y)
 def phrases(words):
     """Caption phrases: a break at a pause, at a clause end once the phrase has 3 words, or at the cap (up to two
     words over it when that reaches a clause end)."""
@@ -78,34 +107,38 @@ def phrases(words):
         nxt = words[i + 1] if i + 1 < len(words) else None
         reach = any(ends(x) for x in words[i + 1:i + 1 + CAPTION_WORDS + 2 - len(cur)])
         full = len(cur) >= CAPTION_WORDS and (not reach or len(cur) >= CAPTION_WORDS + 2)
-        if not nxt or full or nxt['start'] - w['end'] > CAPTION_PAUSE or (ends(w) and len(cur) >= 3):
+        if not nxt or full or nxt.get('piece') != w.get('piece') or nxt['start'] - w['end'] > CAPTION_PAUSE or (ends(w) and len(cur) >= 3):
             out.append({'start': cur[0]['start'], 'end': cur[-1]['end'], 'words': cur}); cur = []
     for a, b in zip(out, out[1:]):
         if b['start'] - a['end'] < CAPTION_HOLD: a['end'] = b['start']
     return out
-def caption_scenes(plan_dir, P):
+def caption_scenes(plan_dir, P, pieces=None):
     if not P.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
     look, color = caption_style(P['captions'])
-    words = json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']
+    words = [{**w, 'at': w['start']} for w in json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']]
+    if pieces: words = timeline_words(words, pieces)
     scenes = []
     for n, ph in enumerate(phrases(words), 1):
         spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}">{html.escape(w["text"])}</span>' for w in ph['words'])
+        shift = caption_shift(P['captions'], ph['words'][0]['at'])
+        moved = f';translate:{shift[0]:g}px {shift[1]:g}px' if shift else ''
         scenes.append(f'<section data-scene="cap-{n:03d}" data-caption data-start="{ph["start"]}" data-duration="{round(ph["end"] - ph["start"], 6)}">'
-                      f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}"><span class="ph">{spans}</span></div></section>')
+                      f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}{moved}"><span class="ph">{spans}</span></div></section>')
     return scenes
 def compose(plan_path, dst):
-    plan_dir = pathlib.Path(plan_path).resolve().parent; P = json.load(open(plan_path, encoding='utf-8'))
+    plan_dir = pathlib.Path(plan_path).resolve().parent; source = json.load(open(plan_path, encoding='utf-8')); P = timeline_plan(source)
     # The engine loads before the scenes, so each clip's style and script can sit inside its own scene: Kinotta
     # compares scene markup between versions, and a clip whose motion alone changed must count as changed.
     body = []
     for c in P['clips']:
         p = parts(clip_source(plan_dir, c)); sel = f'[data-scene="{p["name"]}"]'
         style = f'<style>{sel}{{{p["css"]}}}</style>' if p['css'].strip() else ''
+        style += offsets_style(sel, c.get('offsets'))
         script = f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>'
         body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
     captions = P.get('captions')
-    if captions: body += caption_scenes(plan_dir, P)
-    duration = P.get('duration', max(c['out'] for c in P['clips']))
+    if captions: body += caption_scenes(plan_dir, P, source.get('pieces'))
+    duration = P['duration'] if 'duration' in P else max(c['out'] for c in P['clips'])
     pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
     open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else ''),'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
 if __name__ == '__main__':

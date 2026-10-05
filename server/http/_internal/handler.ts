@@ -2,8 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
-import { KinottaError } from '../../core/index.ts';
-import type { BatchOptions, NewComment, Project } from '../../core/index.ts';
+import { KinottaError, checkTools } from '../../core/index.ts';
+import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -11,6 +11,10 @@ const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
+const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
+const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
+const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
+const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -87,8 +91,7 @@ async function handleComments(req: IncomingMessage, res: ServerResponse, project
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'POST') sendJson(res, 201, await project.addComment(slug, version, (await readJsonBody(req)) as NewComment));
   else if (req.method === 'GET' || req.method === 'HEAD') {
-    const comments = await project.listComments(slug, version);
-    sendJson(res, 200, { comments, notCarried: await project.carryNotice(slug, version) });
+    sendJson(res, 200, { comments: await project.listComments(slug, version) });
   } else res.writeHead(405).end();
 }
 
@@ -126,6 +129,25 @@ async function handleBatch(req: IncomingMessage, res: ServerResponse, project: P
     const section = new URL(req.url ?? '/', 'http://localhost').searchParams.get('section') ?? undefined;
     sendJson(res, 200, await project.copyBatch(slug, Number(route[2]), { ...(await readBatchOptions(req)), section }));
   }
+  else res.writeHead(405).end();
+}
+
+/** The reel's edit list: read it, add an operation, remove one (`/edits/<id>`), undo or redo (`/edits/undo`), or drop it. */
+async function handleEdits(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (route[2] === 'undo' || route[2] === 'redo') {
+    if (req.method !== 'POST') res.writeHead(405).end();
+    else sendJson(res, 200, route[2] === 'undo' ? await project.undoEdit(slug) : await project.redoEdit(slug));
+  } else if (route[2] !== undefined) {
+    const id = safeDecode(route[2]);
+    if (id === null) sendJson(res, 404, { error: 'Not found' });
+    else if (req.method === 'DELETE') sendJson(res, 200, await project.removeOperation(slug, id));
+    else res.writeHead(405).end();
+  }
+  else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, await project.readEditList(slug));
+  else if (req.method === 'POST') sendJson(res, 201, await project.addOperation(slug, (await readJsonBody(req)) as NewOperation));
+  else if (req.method === 'DELETE') sendJson(res, 200, await project.discardEdits(slug));
   else res.writeHead(405).end();
 }
 
@@ -250,6 +272,10 @@ export function createHandler(project: Project, webRoot: string) {
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
+      const editsRoute = EDITS_API.exec(pathname);
+      const saveRoute = SAVE_API.exec(pathname);
+      const handoffRoute = HANDOFF_API.exec(pathname);
+      const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -258,12 +284,39 @@ export function createHandler(project: Project, webRoot: string) {
         await handleNote(req, res, project, noteRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
+      } else if (editsRoute) {
+        await handleEdits(req, res, project, editsRoute);
+      } else if (saveRoute && req.method === 'POST') {
+        const slug = safeDecode(saveRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.saveEdits(slug));
+      } else if (handoffRoute && req.method === 'DELETE') {
+        const slug = safeDecode(handoffRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.cancelHandoff(slug));
+      } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
+        sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
+      } else if (pathname === '/api/reels' && req.method === 'POST') {
+        sendJson(res, 201, await project.startReel((await readJsonBody(req)) as NewReel));
+      } else if (pathname === '/api/footage' && req.method === 'POST') {
+        // The body is the video itself, streamed to disk: no size limit and never held in memory.
+        const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
+        const imported = await project.importVideo(name, req);
+        sendJson(res, imported.copied ? 201 : 200, imported);
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });
+      } else if (transcriptionRoute) {
+        const slug = safeDecode(transcriptionRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
+      } else if (pathname === '/api/videos') {
+        sendJson(res, 200, { videos: await project.listVideos() });
+      } else if (pathname === '/api/tools') {
+        sendJson(res, 200, await checkTools());
       } else if (pathname === '/api/reels') {
         sendJson(res, 200, await project.listReels());
       } else if (pathname === '/api/events') {

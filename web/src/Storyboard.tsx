@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { footageUrl, versionPageUrl } from './api/index.ts';
 import type { Comment, NewComment, Shot, Version } from './api/index.ts';
+import { EmptyStoryboard } from './EmptyStoryboard.tsx';
 import { IssueList } from './IssueList.tsx';
 import type { VersionIssues } from './issues.ts';
 import { Lanes } from './Lanes.tsx';
@@ -145,12 +146,13 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
         ) : (
           <>
             <h1>Storyboard, v{version.number}</h1>
-            <span className="meta">{readOnly ? 'Click a shot to enlarge it' : 'Click a shot to enlarge it and pin comments'}</span>
+            {version.shots.length > 0 && <span className="meta">{readOnly ? 'Click a shot to enlarge it' : 'Click a shot to enlarge it and pin comments'}</span>}
           </>
         )}
       </div>
       {readOnly && <p className="readonly-note">{readOnlyNote(version.number, newest)}</p>}
       <IssueList issues={issues.messages} />
+      {version.shots.length === 0 && <EmptyStoryboard version={version} comments={comments} readOnly={readOnly} save={save} />}
       <div className="grid">
         {shots.map((shot, i) => (
           <ShotCard

@@ -46,7 +46,7 @@ The timed words spoken in a reel's footage, saved with the reel and copied into 
 _Avoid_: Subtitles, SRT
 
 **Captions**:
-The transcript shown on a footage reel's page, a phrase at a time, each phrase its own scene with an element named caption.
+The transcript shown on a footage reel's page, a phrase at a time, each phrase its own scene with an element named caption. They can be moved: every caption together, or one phrase on its own, kept by its first word's time in the source (a caption position).
 _Avoid_: Subtitles, burn-ins
 
 **Overlay**:

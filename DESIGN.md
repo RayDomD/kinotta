@@ -124,6 +124,7 @@ A neutral warm-grey ramp with a single cold accent; the accent is a light, not a
 - **Title** (500, 15px): shot titles, the reel name in the top bar, card titles.
 - **Body** (400, 15px, 1.5): comment text, descriptions in the sheet, the note.
 - **Meta** (400, 12 to 13px): labels, spans, counts in words, hints. Muted or soft ink.
+- **Review meta** (Outfit 400, 11 to 14px): the Review tab is denser than the storyboard. Lane text is 11 to 12.5px (phrases, words, piece labels), tool and tab labels 13 to 14px, the Edits hint and Save note 12 to 13px. All sit on the meta step; none is smaller than 11px and none is body text.
 - **Numeral** (Doto 800, 10 to 14px, tabular): shot numbers, timecodes (700), pin numbers inside hexes, section numbers, the copy count.
 
 ### Named Rules
@@ -184,6 +185,19 @@ Under a footage shot's frame, the spoken words sit in a row at full ink with a f
 
 ### Time lanes
 Shots, Pins and Overlays share one axis. A shot segment's width is its duration; pins sit at their time side by side; overlays sit at their span; an empty Overlays lane reads "None" over dot terrain. On a multi-section reel a Sections lane of bands sits on top, the current band lit.
+
+### Review tab (operate mode, `web/src/review/review.css`, mockup `docs/mockups/2026-10-05-review-edit.html`)
+The Review tab keeps the shell and swaps the grid for a player over time lanes, with Edits and Comments tabs in the right column. Its components are all `rv-`:
+- **Player** (`rv-well`, `rv-frame`, `rv-video`, `rv-page`, `rv-problem`): the Gate well around a 16:9 frame at 36vh. The footage or the version page fills the frame; `rv-problem` is a centred message inside it only. `rv-caphandle` and `rv-caphint` are the draggable caption with its hover tag.
+- **Transport and tools** (`rv-transport`, `rv-play`, `rv-tc`, `rv-zoom`, `rv-tools`, `rv-tool`, `rv-tools-note`, `rv-snip-go`): play, the Doto timecode, Select (V), Blade (B) and Snip (S) as a toolbar with `aria-pressed`, the lit tool in Tally. With Snip on, a note says how to choose a stretch. `rv-snip-go` is the one filled Tally button, which breaks the One Light Rule on purpose: it is the single action that removes footage.
+- **Lanes** (`rv-lanes`, `rv-zoomed`, `rv-plane`, `rv-over`, `rv-win`, `rv-ph`): an overview of the whole reel with a window, then the zoomed lanes sharing one Tally playhead. Footage pieces (`rv-piece`, `rv-joint`), captions (`rv-caps`, `rv-phrase`), words (`rv-words`, `rv-w`, `rv-grip`, `rv-w-edit`), clips (`.ov.editable`, `rv-cgrip`, `rv-off`), the selected stretch (`rv-sel`) and transcription progress (`rv-progress`).
+- **Element layer** (`rv-elayer`, `rv-elbox`, `rv-elghost`, `rv-elgrip`, `rv-eltag`): the outline, dashed ghost of the home position, corner grip and name tag with the offset, drawn over the frame. A click selects, a drag moves, the grip scales, and the arrow keys nudge (Shift: 10).
+- **Right column** (`rv-side`, `rv-tabs`, `rv-panelbody`, `rv-hint`, `rv-save`, `rv-undo`, `rv-handoff`, `rv-who`): Edits and Comments tabs, the edit cards with a Remove that shows on hover or focus, the Undo and Redo row, and the Save row. `rv-who` in the rail says who made a version.
+
+Keyboard: Space plays, arrows and Shift+arrows step a frame or a second, Home and End jump, S, B and V pick a tool, `[` and `]` mark a stretch at the playhead, Enter snips or cuts, Escape drops the selection, Ctrl+Z and Ctrl+Y undo and redo, and every control above is reachable by Tab. Motion follows the chrome speeds above; nothing on the Review tab animates over 380ms and reduced motion zeroes all of it.
+
+### New reel (operate mode, `web/src/NewReel.tsx`, `web/src/styles.css`)
+A single 640px column: heading, a lede, the list of videos in the project (`rv-pick`; each row is a button with the path, the Doto duration and the codec and size, the picked row has an ink left border and paper), then the name form (`rv-name`: label, field, ink Start reel button, and `rv-busy` or `rv-problem` text). Not yet built here: the drop zone (T42) and the brief form (T45); both need the same finish pass once merged.
 
 ## Do's and Don'ts
 

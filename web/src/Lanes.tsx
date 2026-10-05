@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { Comment, Overlay, Section, Shot } from './api/index.ts';
+import { NO_SHOT } from './sections.ts';
 import { hasSections, sectionNumber } from './sections.ts';
 import { formatAxisTime, formatDuration, formatTimecode } from './timecode.ts';
 
@@ -57,8 +58,8 @@ export function Lanes({ duration, shots, comments, overlays, sections, currentSe
   const perMoment = new Map<number, number>();
   const pins = comments.flatMap((comment) => {
     const shot = shotByNumber.get(comment.pin.shot);
-    if (shot === undefined) return [];
-    pinCount.set(shot.number, (pinCount.get(shot.number) ?? 0) + 1);
+    if (shot === undefined && comment.pin.shot !== NO_SHOT) return [];
+    if (shot !== undefined) pinCount.set(shot.number, (pinCount.get(shot.number) ?? 0) + 1);
     const k = perMoment.get(comment.pin.time) ?? 0;
     perMoment.set(comment.pin.time, k + 1);
     return [{ comment, shot, k }];
@@ -113,22 +114,39 @@ export function Lanes({ duration, shots, comments, overlays, sections, currentSe
       </div>
       <span>Pins</span>
       <div className="lane pins-lane">
-        {pins.map(({ comment, shot, k }) => (
-          <button
-            key={comment.id}
-            type="button"
-            className="lpin"
-            style={{ left: `calc(${pct(comment.pin.time, duration)} + ${PIN_OFFSET_START + k * PIN_OFFSET_STEP}px)` }}
-            title={`${comment.number}. ${comment.text}`}
-            aria-label={`Pin ${comment.number}, shot ${shot.number}: ${comment.text}`}
-            onClick={(e) => onOpen(shot, e.currentTarget)}
-          >
-            <svg viewBox="0 0 28 28" aria-hidden="true">
-              <path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="2.2" strokeLinejoin="round" />
-            </svg>
-            <b aria-hidden="true">{comment.number}</b>
-          </button>
-        ))}
+        {pins.map(({ comment, shot, k }) => {
+          const style = { left: `calc(${pct(comment.pin.time, duration)} + ${PIN_OFFSET_START + k * PIN_OFFSET_STEP}px)` };
+          const glyph = (
+            <>
+              <svg viewBox="0 0 28 28" aria-hidden="true">
+                <path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="2.2" strokeLinejoin="round" />
+              </svg>
+              <b aria-hidden="true">{comment.number}</b>
+            </>
+          );
+          // A pin on a word of a reel with no shots has no shot to open.
+          if (shot === undefined) {
+            const word = comment.pin.kind === 'word' ? ` on word “${comment.pin.word}”` : '';
+            return (
+              <span key={comment.id} className="lpin" role="img" style={style} title={`${comment.number}. ${comment.text}`} aria-label={`Pin ${comment.number}${word}: ${comment.text}`}>
+                {glyph}
+              </span>
+            );
+          }
+          return (
+            <button
+              key={comment.id}
+              type="button"
+              className="lpin"
+              style={style}
+              title={`${comment.number}. ${comment.text}`}
+              aria-label={`Pin ${comment.number}, shot ${shot.number}: ${comment.text}`}
+              onClick={(e) => onOpen(shot, e.currentTarget)}
+            >
+              {glyph}
+            </button>
+          );
+        })}
       </div>
       <span>Overlays</span>
       <div className="lane ov-lane">

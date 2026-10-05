@@ -49,6 +49,17 @@ describe('transcript.py', () => {
   });
 });
 
+describe('transcript.py --audio', () => {
+  it('gives no words, and a first progress line, for a video with no audio track', () => {
+    const out = join(temp(), 'transcript.json');
+    const r = spawnSync(PYTHON, [join(SCRIPTS, 'transcript.py'), '--audio', join(SAMPLE, 'media', 'talk.mp4'), out], { encoding: 'utf8' });
+
+    expect(r.status).toBe(0);
+    expect(json(out)).toEqual({ words: [] });
+    expect(JSON.parse(r.stdout.split('\n')[0]!)).toEqual({ progress: 0, duration: 0 });
+  });
+});
+
 describe('shots.py', () => {
   it('writes the footage sample\'s shot list from its plan, as committed', () => {
     const out = join(temp(), 'shots.json');
@@ -76,6 +87,16 @@ describe('shots.py', () => {
     expect(file.changedSections).toEqual(['intro']);
     expect(file.shots[0]).toMatchObject({ number: '01', start: 3, type: 'cutaway', description: 'Long clip', line: { start: 2, end: 8 } });
     expect(file.shots[1]).toMatchObject({ number: '02', start: 10.5, type: 'panel', description: 'A pill pops in.', section: 'intro' });
+  });
+
+  it('writes the agent name as builtBy before the changed sections', () => {
+    const dir = temp();
+    const plan = { duration: 20, sections: [{ id: 'intro', name: 'Intro', start: 0, end: 20 }], clips: [{ id: '01', title: 'A', in: 2, out: 8, kind: 'full', section: 'intro' }] };
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+
+    expect(run('shots.py', [join(dir, 'plan.json'), join(dir, 'shots.json'), '--built-by', 'claude', 'intro']).status).toBe(0);
+
+    expect(json(join(dir, 'shots.json'))).toMatchObject({ builtBy: 'claude', changedSections: ['intro'] });
   });
 
   it('lists shots in time order when a later-numbered clip comes earlier, as a batch adds them', () => {

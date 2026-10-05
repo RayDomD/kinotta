@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { copyFixture } from '../helpers/project.ts';
 
@@ -66,5 +66,28 @@ describe('launcher', () => {
     } finally {
       busy.close();
     }
+  });
+
+  it('names the tools a start from video needs when they are missing', async () => {
+    const dir = copyFixture('showreel-project');
+    const bare = dirname(process.execPath);
+    const child = spawn(process.execPath, [LAUNCHER, '--project', dir, '--port', '0', '--no-open'], {
+      env: { ...process.env, PATH: bare, Path: bare },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    children.push(child);
+    let err = '';
+    child.stderr.on('data', (chunk) => (err += chunk));
+    await new Promise<void>((done, reject) => {
+      const timer = setTimeout(() => reject(new Error(`no warning. stderr: ${err}`)), LAUNCH_TIMEOUT_MS);
+      child.stderr.on('data', () => {
+        if (err.includes('faster-whisper')) {
+          clearTimeout(timer);
+          done();
+        }
+      });
+    });
+    expect(err).toContain('Python 3:');
+    expect(err).toContain('ffmpeg:');
   });
 });

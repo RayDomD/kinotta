@@ -17,3 +17,11 @@ different logos. The taste list is global, with an optional per-project addition
 - The Claude-side rules live in the skill, not in each project, so updating the skill updates every project.
 - Amended 2026-10-05 (E11): a video dropped into Kinotta is copied into `<project>/footage/`, so the
   project, not the editor, owns it. A video picked from the project is not copied.
+- Amended 2026-10-05 (T42): the drop is streamed to `footage/` and hashed as it is written; a file already in
+  `footage/` with the same content is reused instead of copied again, and a different file with the same name
+  gets `-2`, `-3`. For HEVC or ProRes the editor also writes an H.264 copy of that file to `footage/.playback/`
+  so browsers can play it. The original is never altered, `reel.json` keeps pointing at it, and the copy is
+  served in its place. These copies are the only files the editor adds outside `reels/`.
+- Amended 2026-10-05 (story 8): a picked HEVC or ProRes video gets the same copy when its reel starts, also in
+  `footage/.playback/`, named from its project path (`media/talk.mov` gives `media--talk.mp4`). The picked video
+  itself stays where it is, unaltered, and nothing is written beside it.

@@ -3,22 +3,22 @@ import { isSent, readVersion, settleNewest } from './carry.ts';
 import { KinottaError } from './errors.ts';
 import { readState, serialized, stateFilePath, writeState } from './state.ts';
 import type { StateFile, StoredComment } from './state.ts';
-import type { AddedComment, Comment, CommentList, FramePin, NewComment, NewWordPin, NoteSaved, Shot, WordPin } from './types.ts';
+import type { AddedComment, Comment, CommentList, FramePin, NewComment, NewWordPin, NoteSaved, Shot, Version, WordPin } from './types.ts';
 import { assertTakesComments } from './version.ts';
 
+/** The shot a word pin carries on a version with no shots: it belongs to the transcript. */
+export const NO_SHOT = '';
 const POSITION_DECIMALS = 1000;
 const NOTE_MAX_LENGTH = 4000;
 /** How far a word pin's time may be from the transcript word's start, in seconds. */
 const WORD_TIME_TOLERANCE = 0.01;
 
-/** What became of a comment: whether it went to Claude in a batch, and whether it moved on to the next version. */
+/** What became of a comment: whether it went to an agent in a batch, and which newer version it moved on to. */
 function statusOf(id: string, state: StateFile): Pick<Comment, 'sent' | 'carried'> {
   const { carriedTo } = state;
-  const moved = carriedTo?.carried.includes(id) ?? false;
-  const left = carriedTo?.notCarried.includes(id) ?? false;
   return {
     ...(isSent(state.handedOff, id) ? { sent: true as const } : {}),
-    ...(carriedTo && (moved || left) ? { carried: { to: carriedTo.version, moved } } : {}),
+    ...(carriedTo?.carried.includes(id) ? { carried: { to: carriedTo.version } } : {}),
   };
 }
 
@@ -53,19 +53,30 @@ function buildWordPin(raw: NewWordPin, version: number, shot: Shot): WordPin {
   return { kind: 'word', version, section: shot.section ?? null, shot: shot.number, time: found.start, word: found.text };
 }
 
-function buildPin(input: NewComment, version: number, shots: Shot[]): FramePin | WordPin {
+/** A word of the transcript of a version with no shots, which is where that version's word pins go. */
+function buildTranscriptWordPin(raw: NewWordPin, version: Version): WordPin {
+  const found = version.transcript?.find((w) => Math.abs(w.start - raw.time) <= WORD_TIME_TOLERANCE && w.text === raw.word);
+  if (!found) {
+    throw new KinottaError('invalid', `The transcript has no word "${String(raw.word)}" at ${String(raw.time)}s.`);
+  }
+  return { kind: 'word', version: version.number, section: null, shot: NO_SHOT, time: found.start, word: found.text };
+}
+
+function buildPin(input: NewComment, version: Version): FramePin | WordPin {
   const raw = input?.pin;
   if (raw === null || typeof raw !== 'object') throw new KinottaError('invalid', 'A comment needs a pin.');
+  const shots = version.shots;
+  if (raw.kind === 'word' && shots.length === 0 && raw.shot === NO_SHOT) return buildTranscriptWordPin(raw, version);
   const shot = shots.find((s) => s.number === raw.shot);
-  if (!shot) throw new KinottaError('invalid', `Version ${version} has no shot "${String(raw.shot)}".`);
-  if (raw.kind === 'word') return buildWordPin(raw, version, shot);
+  if (!shot) throw new KinottaError('invalid', `Version ${version.number} has no shot "${String(raw.shot)}".`);
+  if (raw.kind === 'word') return buildWordPin(raw, version.number, shot);
   const element = raw.element ?? null;
   if (element !== null && (typeof element !== 'string' || element === '')) {
     throw new KinottaError('invalid', "The pin's element must be a name or null.");
   }
   return {
     kind: 'frame',
-    version,
+    version: version.number,
     section: shot.section ?? null,
     shot: shot.number,
     time: shot.start,
@@ -89,7 +100,7 @@ async function takesComments(projectDir: string, slug: string, number: number) {
 
 export async function addComment(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
   const version = await takesComments(projectDir, slug, number);
-  const pin = buildPin(input, number, version.shots);
+  const pin = buildPin(input, version);
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
 

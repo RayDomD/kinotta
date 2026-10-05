@@ -1,0 +1,514 @@
+import { KinottaError } from './errors.ts';
+import { pieceMap } from './pieces.ts';
+import type { Piece } from './pieces.ts';
+import type { TranscriptWord } from './types.ts';
+
+/**
+ * The edit list's model: what an operation is, and what each kind does to a reel's sources. Pure, with no file or
+ * browser access, so Save (in core) and the editor's preview (in the web app, through `server/core/model.ts`) run the
+ * same code. A new kind of edit is one member of `Operation`, one `apply` function, and a line in each `switch` below.
+ */
+
+/** An offset in pixels of the 1920x1080 page, from where captions sit by default. */
+export interface CaptionOffset {
+  x: number;
+  y: number;
+}
+
+/** A phrase's own offset, keyed by its first word's start in source seconds. It adds to the reel-wide one. */
+export interface PhrasePosition extends CaptionOffset {
+  at: number;
+}
+
+/** The plan's `captions` once it is more than `true`: the look and colour pass through. */
+export interface CaptionsPlan {
+  look?: string;
+  color?: string;
+  position?: CaptionOffset;
+  phrases?: PhrasePosition[];
+}
+
+/** One state of a clip that changes (`stills`): `from` is clip-local seconds, `still` seconds into the state. */
+export interface ClipState {
+  from: number;
+  title?: string;
+  still?: number;
+  [key: string]: unknown;
+}
+
+/** Where an element sits against where the clip puts it: CSS px of its parent's space, and a scale factor about its centre. */
+export interface ElementOffset {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+/** The reserved element name for a clip's root: moving it moves the whole clip. */
+export const CLIP_ROOT = '@clip';
+/** The `builtBy` of a version Kinotta built from the owner's edits, not an agent. */
+export const BUILT_BY_YOU = 'you';
+
+/** A b-roll clip of the plan: `in` and `out` are source seconds; `slid` marks one moved off the words it was placed on. */
+export interface PlanClip {
+  id: string;
+  title?: string;
+  in: number;
+  out: number;
+  /** Seconds into the clip the shot's still is drawn, for a clip with one state. */
+  still?: number;
+  stills?: ClipState[];
+  slid?: boolean;
+  /** Offsets by element name (a `data-el`, or `@clip` for the clip's root). the engine applies them with CSS `translate` and `scale`. */
+  offsets?: Record<string, ElementOffset>;
+  [key: string]: unknown;
+}
+
+/** The plan a reel's sources hold. Only the fields an operation touches are named; the rest passes through. */
+export interface Plan {
+  /** Source seconds of the video. */
+  duration?: number;
+  pieces?: Piece[];
+  clips?: PlanClip[];
+  captions?: boolean | CaptionsPlan;
+  sections?: { id: string; name: string; start: number; end: number }[];
+  [key: string]: unknown;
+}
+
+/** What operations change: the reel's plan and transcript words. */
+export interface Sources {
+  plan: Plan;
+  words: TranscriptWord[];
+}
+
+/** Removes a stretch of the footage (source seconds); the timeline closes over it. */
+export interface SnipOperation {
+  id: string;
+  kind: 'snip';
+  from: number;
+  to: number;
+}
+
+/** Splits the piece holding a source time into two at it. Removes nothing. */
+export interface CutOperation {
+  id: string;
+  kind: 'cut';
+  at: number;
+}
+
+/** Moves the piece at index `from` of the current play order to index `to` (its place in the order after the move). */
+export interface MovePieceOperation {
+  id: string;
+  kind: 'move-piece';
+  from: number;
+  to: number;
+}
+
+/** Changes the text of the word that starts at a source time. `was` is what it read, kept only to word the edit in the panel. */
+export interface WordTextOperation {
+  id: string;
+  kind: 'word-text';
+  at: number;
+  text: string;
+  was?: string;
+}
+
+/** Re-times the word that starts at a source time: its new start and end, in source seconds. Phrase breaks stay automatic. */
+export interface WordTimingOperation {
+  id: string;
+  kind: 'word-timing';
+  at: number;
+  start: number;
+  end: number;
+}
+
+/** Moves every caption: the reel-wide offset (`captions.position`). A new one replaces the last. */
+export interface CaptionPositionOperation {
+  id: string;
+  kind: 'caption-position';
+  x: number;
+  y: number;
+}
+
+/** Moves one caption phrase: its own offset, on top of the reel-wide one, keyed by its first word's start in source seconds. */
+export interface CaptionPhrasePositionOperation {
+  id: string;
+  kind: 'caption-phrase-position';
+  at: number;
+  x: number;
+  y: number;
+}
+
+/** Trims a clip: its new `in` and `out`, in source seconds. */
+export interface ClipTrimOperation {
+  id: string;
+  kind: 'clip-trim';
+  clip: string;
+  in: number;
+  out: number;
+}
+
+/** Slides a clip along the footage by `delta` seconds (negative is earlier) and marks it `slid`: off the words it was placed on. */
+export interface ClipSlideOperation {
+  id: string;
+  kind: 'clip-slide';
+  clip: string;
+  delta: number;
+}
+
+/** Moves and scales one element of a clip: its new offset, replacing the last one. An offset of 0, 0 at scale 1 puts it back. */
+export interface ElementOffsetOperation {
+  id: string;
+  kind: 'element-offset';
+  clip: string;
+  element: string;
+  x: number;
+  y: number;
+  scale: number;
+}
+
+/** Everything the edit list can hold. */
+export type Operation =
+  | SnipOperation
+  | CutOperation
+  | MovePieceOperation
+  | WordTextOperation
+  | WordTimingOperation
+  | CaptionPositionOperation
+  | CaptionPhrasePositionOperation
+  | ClipTrimOperation
+  | ClipSlideOperation
+  | ElementOffsetOperation;
+
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+/** An operation as the caller sends it: the core gives it an id. */
+export type NewOperation = DistributiveOmit<Operation, 'id'>;
+
+/** Less than this of footage is not a snip. */
+export const MIN_SNIP = 0.005;
+/** A clip is never trimmed shorter than this (seconds). */
+export const MIN_CLIP = 0.2;
+/** An element is scaled within these factors. */
+export const MIN_SCALE = 0.1;
+export const MAX_SCALE = 10;
+const MICROSECOND = 1e6;
+const SECONDS_PER_MINUTE = 60;
+const HUNDREDTHS = 100;
+const PERCENT = 100;
+
+const round = (seconds: number): number => Math.round(seconds * MICROSECOND) / MICROSECOND;
+
+/** The plan's pieces, or one piece over the whole video when it has none. */
+export function planPieces(plan: Plan): Piece[] {
+  if (plan.pieces && plan.pieces.length > 0) return plan.pieces;
+  if (typeof plan.duration !== 'number') throw new KinottaError('invalid', 'The plan has no pieces and no duration, so there is nothing to edit.');
+  return [{ in: 0, out: plan.duration }];
+}
+
+/** Pieces with a source range taken out: a piece it covers goes, one it crosses is trimmed, one it sits inside is split in two. */
+export function snipPieces(pieces: readonly Piece[], from: number, to: number): Piece[] {
+  const kept: Piece[] = [];
+  let removed = false;
+  for (const piece of pieces) {
+    const lo = Math.max(from, piece.in);
+    const hi = Math.min(to, piece.out);
+    if (hi - lo <= MIN_SNIP) {
+      kept.push({ in: piece.in, out: piece.out });
+      continue;
+    }
+    removed = true;
+    if (lo - piece.in > MIN_SNIP) kept.push({ in: piece.in, out: round(lo) });
+    if (piece.out - hi > MIN_SNIP) kept.push({ in: round(hi), out: piece.out });
+  }
+  if (!removed) throw new KinottaError('invalid', 'That stretch is already cut out of the reel.');
+  if (kept.length === 0) throw new KinottaError('invalid', 'That would remove the whole reel.');
+  return kept;
+}
+
+function applySnip(sources: Sources, op: SnipOperation): Sources {
+  if (!Number.isFinite(op.from) || !Number.isFinite(op.to) || op.from < 0 || op.to - op.from <= MIN_SNIP) {
+    throw new KinottaError('invalid', 'A snip needs a stretch of footage, "from" before "to", in seconds.');
+  }
+  return { ...sources, plan: { ...sources.plan, pieces: snipPieces(planPieces(sources.plan), op.from, op.to) } };
+}
+
+function applyCut(sources: Sources, op: CutOperation): Sources {
+  if (!Number.isFinite(op.at) || op.at < 0) throw new KinottaError('invalid', 'A cut needs a time in the footage, in seconds.');
+  const pieces = planPieces(sources.plan);
+  const index = pieces.findIndex((p) => op.at - p.in > MIN_SNIP && p.out - op.at > MIN_SNIP);
+  if (index < 0 && pieces.some((p) => Math.abs(op.at - p.in) <= MIN_SNIP || Math.abs(op.at - p.out) <= MIN_SNIP)) throw new KinottaError('invalid', 'There is already a cut there.');
+  if (index < 0) throw new KinottaError('invalid', 'That time is not inside the footage that is in the reel.');
+  const piece = pieces[index]!;
+  const at = round(op.at);
+  const next = [...pieces.slice(0, index), { in: piece.in, out: at }, { in: at, out: piece.out }, ...pieces.slice(index + 1)];
+  return { ...sources, plan: { ...sources.plan, pieces: next } };
+}
+
+/** How many separate stretches of the timeline the source range `start` to `end` plays in: 1 when it is contiguous. */
+function sectionRuns(pieces: readonly Piece[], start: number, end: number): number {
+  let runs = 0;
+  let at = 0;
+  let runEnd = Number.NaN;
+  for (const p of pieces) {
+    const lo = Math.max(start, p.in);
+    const hi = Math.min(end, p.out);
+    if (hi - lo > MIN_SNIP) {
+      const from = at + lo - p.in;
+      if (!(Math.abs(from - runEnd) < MIN_SNIP)) runs += 1;
+      runEnd = at + hi - p.in;
+    }
+    at += p.out - p.in;
+  }
+  return runs;
+}
+
+function applyMovePiece(sources: Sources, op: MovePieceOperation): Sources {
+  const pieces = planPieces(sources.plan);
+  const valid = (n: number): boolean => Number.isInteger(n) && n >= 0 && n < pieces.length;
+  if (!valid(op.from) || !valid(op.to)) throw new KinottaError('invalid', 'That piece, or the place to move it to, is not in the reel.');
+  if (op.from === op.to) throw new KinottaError('invalid', 'The piece is already there.');
+  const next = [...pieces];
+  next.splice(op.to, 0, next.splice(op.from, 1)[0]!);
+  // Sections stay contiguous: a move that would cut a section's footage in two on the timeline is refused.
+  const split = (sources.plan.sections ?? []).find((s) => sectionRuns(next, s.start, s.end) > 1);
+  if (split) throw new KinottaError('invalid', `That would split the section "${split.name}". Cut at the section's edge first, or move the whole section.`);
+  return { ...sources, plan: { ...sources.plan, pieces: next } };
+}
+
+/** Index of the word that starts at a source time (within a hair of it), or throws `invalid`. */
+export function wordIndexAt(words: readonly TranscriptWord[], at: number): number {
+  if (!Number.isFinite(at)) throw new KinottaError('invalid', 'A word edit needs the time the word starts at, in seconds.');
+  let best = -1;
+  words.forEach((w, i) => {
+    if (Math.abs(w.start - at) <= MIN_SNIP && (best < 0 || Math.abs(w.start - at) < Math.abs(words[best]!.start - at))) best = i;
+  });
+  if (best < 0) throw new KinottaError('invalid', 'There is no word that starts there. An earlier edit may have moved it.');
+  return best;
+}
+
+function applyWordText(sources: Sources, op: WordTextOperation): Sources {
+  const text = typeof op.text === 'string' ? op.text.trim() : '';
+  if (text === '') throw new KinottaError('invalid', 'A word cannot be empty.');
+  const index = wordIndexAt(sources.words, op.at);
+  const words = sources.words.map((w, i) => (i === index ? { ...w, text } : w));
+  return { ...sources, words };
+}
+
+/** The plan's captions as an object to change, or `invalid` when captions are off. */
+function captionsOf(plan: Plan): CaptionsPlan {
+  if (plan.captions === true) return {};
+  if (plan.captions && typeof plan.captions === 'object') return plan.captions;
+  throw new KinottaError('invalid', 'Captions are off for this reel, so there is nothing to move.');
+}
+
+/** The plan with these captions: `position` and `phrases` left out when empty, and `true` kept when nothing else is set. */
+function withCaptions(plan: Plan, captions: CaptionsPlan): Plan {
+  const { position, phrases, ...rest } = captions;
+  const next: CaptionsPlan = { ...rest, ...(position ? { position } : {}), ...(phrases && phrases.length > 0 ? { phrases } : {}) };
+  return { ...plan, captions: Object.keys(next).length === 0 && plan.captions === true ? true : next };
+}
+
+function offsetOf(op: { x: number; y: number }): CaptionOffset {
+  if (!Number.isFinite(op.x) || !Number.isFinite(op.y)) throw new KinottaError('invalid', 'A caption position needs x and y as numbers, in pixels.');
+  return { x: round(op.x), y: round(op.y) };
+}
+
+const isOrigin = (offset: CaptionOffset): boolean => offset.x === 0 && offset.y === 0;
+
+function applyCaptionPosition(sources: Sources, op: CaptionPositionOperation): Sources {
+  const { position: _was, ...captions } = captionsOf(sources.plan);
+  const offset = offsetOf(op);
+  return { ...sources, plan: withCaptions(sources.plan, isOrigin(offset) ? captions : { ...captions, position: offset }) };
+}
+
+function applyCaptionPhrasePosition(sources: Sources, op: CaptionPhrasePositionOperation): Sources {
+  const captions = captionsOf(sources.plan);
+  const offset = offsetOf(op);
+  const at = sources.words[wordIndexAt(sources.words, op.at)]!.start;
+  const others = (captions.phrases ?? []).filter((p) => Math.abs(p.at - at) > MIN_SNIP);
+  return { ...sources, plan: withCaptions(sources.plan, { ...captions, phrases: isOrigin(offset) ? others : [...others, { at, ...offset }].sort((a, b) => a.at - b.at) }) };
+}
+
+/** A phrase position follows its first word when that word is re-timed: it is keyed by the word's start. */
+function followWord(plan: Plan, from: number, to: number): Plan {
+  const captions = plan.captions;
+  if (!captions || typeof captions !== 'object' || !captions.phrases?.some((p) => Math.abs(p.at - from) <= MIN_SNIP)) return plan;
+  const moved = captions.phrases.map((p) => (Math.abs(p.at - from) <= MIN_SNIP ? { ...p, at: to } : p));
+  const unique = moved.filter((p, i) => moved.findIndex((q) => Math.abs(q.at - p.at) <= MIN_SNIP) === i);
+  return { ...plan, captions: { ...captions, phrases: unique.sort((a, b) => a.at - b.at) } };
+}
+
+function applyWordTiming(sources: Sources, op: WordTimingOperation): Sources {
+  if (!Number.isFinite(op.start) || !Number.isFinite(op.end) || op.start < 0 || op.end - op.start <= MIN_SNIP) {
+    throw new KinottaError('invalid', 'A word needs a start before its end, in seconds.');
+  }
+  const index = wordIndexAt(sources.words, op.at);
+  const start = round(op.start);
+  const end = round(op.end);
+  if (sources.words.some((w, i) => i !== index && w.start < end - MIN_SNIP && w.end > start + MIN_SNIP)) {
+    throw new KinottaError('invalid', 'That would run the word over the one next to it.');
+  }
+  const was = sources.words[index]!.start;
+  return { ...sources, plan: followWord(sources.plan, was, start), words: sources.words.map((w, i) => (i === index ? { ...w, start, end } : w)) };
+}
+
+function clipIndex(plan: Plan, id: string): number {
+  const index = (plan.clips ?? []).findIndex((c) => c.id === id);
+  if (index < 0) throw new KinottaError('invalid', `There is no clip "${id}" in the plan.`);
+  return index;
+}
+
+const withClip = (plan: Plan, index: number, clip: PlanClip): Plan => ({ ...plan, clips: plan.clips!.map((c, i) => (i === index ? clip : c)) });
+
+/** A clip's states kept to those that begin inside its (trimmed) length, and a `still` that no longer falls inside its state dropped. */
+function fitStates(clip: PlanClip): PlanClip {
+  const length = clip.out - clip.in;
+  const { stills, still, ...rest } = clip;
+  const kept = stills?.filter((s) => s.from < length - MIN_SNIP);
+  const spanOf = (i: number): number => (kept![i + 1]?.from ?? length) - kept![i]!.from;
+  const states = kept?.map(({ still: at, ...state }, i) => (at !== undefined && at < spanOf(i) ? { ...state, still: at } : state));
+  const firstSpan = states ? spanOf(0) : length;
+  return { ...rest, ...(states ? { stills: states } : {}), ...(still !== undefined && still < firstSpan ? { still } : {}) };
+}
+
+function applyClipTrim(sources: Sources, op: ClipTrimOperation): Sources {
+  const index = clipIndex(sources.plan, op.clip);
+  const clip = sources.plan.clips![index]!;
+  const from = round(op.in);
+  const to = round(op.out);
+  if (!Number.isFinite(op.in) || !Number.isFinite(op.out) || from < 0 || to - from < MIN_CLIP) {
+    throw new KinottaError('invalid', `A clip needs to be at least ${MIN_CLIP} s long, starting at 0 s or later.`);
+  }
+  if (typeof sources.plan.duration === 'number' && to > sources.plan.duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot run past the end of the footage.');
+  if (Math.abs(from - clip.in) <= MIN_SNIP && Math.abs(to - clip.out) <= MIN_SNIP) throw new KinottaError('invalid', `Clip ${op.clip} already runs there.`);
+  return { ...sources, plan: withClip(sources.plan, index, fitStates({ ...clip, in: from, out: to })) };
+}
+
+function applyClipSlide(sources: Sources, op: ClipSlideOperation): Sources {
+  const index = clipIndex(sources.plan, op.clip);
+  const clip = sources.plan.clips![index]!;
+  if (!Number.isFinite(op.delta) || Math.abs(op.delta) <= MIN_SNIP) throw new KinottaError('invalid', 'A slide needs a distance, in seconds.');
+  const from = round(clip.in + op.delta);
+  const to = round(clip.out + op.delta);
+  if (from < 0) throw new KinottaError('invalid', 'A clip cannot slide before the start of the footage.');
+  if (typeof sources.plan.duration === 'number' && to > sources.plan.duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot slide past the end of the footage.');
+  return { ...sources, plan: withClip(sources.plan, index, { ...clip, in: from, out: to, slid: true }) };
+}
+
+function applyElementOffset(sources: Sources, op: ElementOffsetOperation): Sources {
+  const index = clipIndex(sources.plan, op.clip);
+  const clip = sources.plan.clips![index]!;
+  // The name goes into a CSS attribute selector in the built page.
+  if (typeof op.element !== 'string' || op.element === '' || /["\\<>\s]/.test(op.element)) throw new KinottaError('invalid', 'The element needs a name without spaces or quotes.');
+  if (!Number.isFinite(op.x) || !Number.isFinite(op.y) || !Number.isFinite(op.scale)) throw new KinottaError('invalid', 'An offset needs x, y and scale as numbers.');
+  if (op.scale < MIN_SCALE || op.scale > MAX_SCALE) throw new KinottaError('invalid', `The scale needs to be between ${MIN_SCALE} and ${MAX_SCALE}.`);
+  const offset: ElementOffset = { x: round(op.x), y: round(op.y), scale: round(op.scale) };
+  const { offsets: was, ...rest } = clip;
+  const { [op.element]: _replaced, ...others } = was ?? {};
+  const home = offset.x === 0 && offset.y === 0 && offset.scale === 1;
+  const offsets = home ? others : { ...others, [op.element]: offset };
+  return { ...sources, plan: withClip(sources.plan, index, Object.keys(offsets).length > 0 ? { ...rest, offsets } : rest) };
+}
+
+/** The sources with one operation written into them. Throws `invalid` for an operation that cannot apply. */
+export function applyOperation(sources: Sources, op: Operation): Sources {
+  switch (op.kind) {
+    case 'snip':
+      return applySnip(sources, op);
+    case 'cut':
+      return applyCut(sources, op);
+    case 'move-piece':
+      return applyMovePiece(sources, op);
+    case 'word-text':
+      return applyWordText(sources, op);
+    case 'word-timing':
+      return applyWordTiming(sources, op);
+    case 'caption-position':
+      return applyCaptionPosition(sources, op);
+    case 'caption-phrase-position':
+      return applyCaptionPhrasePosition(sources, op);
+    case 'clip-trim':
+      return applyClipTrim(sources, op);
+    case 'clip-slide':
+      return applyClipSlide(sources, op);
+    case 'element-offset':
+      return applyElementOffset(sources, op);
+  }
+}
+
+/** The sources with every operation applied in order. */
+export function applyOperations(sources: Sources, ops: readonly Operation[]): Sources {
+  return ops.reduce(applyOperation, sources);
+}
+
+/** Whether an operation changes what a section (a span of source seconds) shows, beyond moving it on the timeline. */
+export function operationTouches(op: Operation, section: { start: number; end: number }): boolean {
+  switch (op.kind) {
+    case 'snip':
+      return op.from < section.end && op.to > section.start;
+    case 'cut':
+      return false;
+    // Which sections a move changes depends on the pieces; Save compares each section's order on the timeline instead.
+    case 'move-piece':
+      return false;
+    // A word edit changes the captions and spoken line of the section the word is in (before or after a re-time).
+    case 'word-text':
+      return op.at >= section.start && op.at < section.end;
+    case 'word-timing':
+      return (op.at >= section.start && op.at < section.end) || (op.start < section.end && op.end > section.start);
+    // Every caption moves, so every section's captions change.
+    case 'caption-position':
+      return true;
+    case 'caption-phrase-position':
+      return op.at >= section.start && op.at < section.end;
+    // A clip belongs to a section by its own `section`, which an operation does not carry: Save compares the plan's clips.
+    case 'clip-trim':
+    case 'clip-slide':
+    case 'element-offset':
+      return false;
+  }
+}
+
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/** Piece letters: A, B, C, then AA, AB. */
+export function pieceLetter(index: number): string {
+  return index < LETTERS.length ? LETTERS[index]! : `${LETTERS[Math.floor(index / LETTERS.length) - 1]}${LETTERS[index % LETTERS.length]}`;
+}
+
+const clock = (seconds: number): string => {
+  const hundredths = Math.round(Math.max(0, seconds) * HUNDREDTHS);
+  const whole = Math.floor(hundredths / HUNDREDTHS);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${pad(Math.floor(whole / SECONDS_PER_MINUTE))}:${pad(whole % SECONDS_PER_MINUTE)}.${pad(hundredths % HUNDREDTHS)}`;
+};
+
+/** What the Edits panel shows for an operation: the part of the reel it is about, and what it did, in plain words. */
+export function describeOperation(op: Operation): { target: string; text: string } {
+  switch (op.kind) {
+    case 'snip':
+      return { target: 'Footage', text: `Snipped ${(op.to - op.from).toFixed(1)}s (${clock(op.from)} to ${clock(op.to)})` };
+    case 'cut':
+      return { target: 'Footage', text: `Cut into two pieces at ${clock(op.at)}` };
+    case 'move-piece':
+      return { target: 'Footage', text: `Moved piece ${pieceLetter(op.from)} to place ${op.to + 1}` };
+    case 'word-text':
+      return { target: 'Word', text: op.was ? `Changed “${op.was}” to “${op.text}”` : `Changed the word to “${op.text}”` };
+    case 'word-timing':
+      return { target: 'Word', text: `Re-timed to ${clock(op.start)} to ${clock(op.end)}` };
+    case 'caption-position':
+      return { target: 'Captions', text: `Moved all captions to ${op.x}, ${op.y}` };
+    case 'caption-phrase-position':
+      return { target: 'Captions', text: `Moved one caption to ${op.x}, ${op.y}` };
+    case 'clip-trim':
+      return { target: `Clip ${op.clip}`, text: `Trimmed to ${clock(op.in)} to ${clock(op.out)}` };
+    case 'clip-slide':
+      return { target: `Clip ${op.clip}`, text: `Slid ${op.delta > 0 ? '+' : '−'}${Math.abs(op.delta).toFixed(1)}s` };
+    case 'element-offset':
+      return { target: `Clip ${op.clip}`, text: `Moved ${op.element === CLIP_ROOT ? 'the whole clip' : op.element} by ${op.x}, ${op.y} at ${Math.round(op.scale * PERCENT)}%` };
+  }
+}
+
+/** The pieces on the timeline after the operations, with where each starts. */
+export function editedPieces(plan: Plan, ops: readonly Operation[]) {
+  return pieceMap(applyOperations({ plan, words: [] }, ops).plan.pieces, plan.duration ?? 0);
+}

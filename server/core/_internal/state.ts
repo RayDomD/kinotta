@@ -11,14 +11,20 @@ const BUSY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
 const RENAME_ATTEMPTS = 8;
 const RENAME_BACKOFF_MS = 25;
 
+/** A comment whose moment was snipped out of the footage: it keeps its text, and waits to be re-pinned or deleted. */
+export const MOMENT_REMOVED = 'moment-removed';
+/** A comment pinned on an element the newer version no longer has: it keeps its text and waits to be re-pinned or deleted. */
+export const ELEMENT_REMOVED = 'element-removed';
+
 export interface StoredComment {
   id: string;
   pin: FramePin | WordPin;
   text: string;
   createdAt: string;
+  state?: typeof MOMENT_REMOVED | typeof ELEMENT_REMOVED;
 }
 
-/** What one copy handed to Claude for a section: the comments it held. A later copy of the section replaces it. */
+/** What one copy handed to an agent for a section: the comments it held. A later copy of the section replaces it. */
 export interface HandOff {
   copiedAt: string;
   commentIds: string[];
@@ -30,12 +36,12 @@ export interface StateFile {
   note: string;
   /** Section id to its latest hand-off. */
   handedOff?: Record<string, HandOff>;
-  /** Sections still waiting on Claude when this version appeared: handed off on the version before and unchanged since. */
+  /** Sections still waiting on an agent when this version appeared: handed off on the version before and unchanged since. */
   waiting?: string[];
   /** Set once this version has taken the carried comments of the one before it (settling is done). `ids` are the new comment ids. */
   carriedFrom?: { version: number; ids: string[] };
-  /** Set on the older version once the next one settled: where its unsent comments went. */
-  carriedTo?: { version: number; carried: string[]; notCarried: string[] };
+  /** Set on the older version once the next one settled: the ids of its unsent comments that went on to it. */
+  carriedTo?: { version: number; carried: string[] };
 }
 
 /** Writes to one state file run one at a time, so two saves never overwrite each other. */

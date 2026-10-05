@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addComment, deleteComment, editComment, fetchComments } from './api/index.ts';
-import type { CarryNotice, Comment, NewComment } from './api/index.ts';
+import type { Comment, NewComment } from './api/index.ts';
 
 export interface CommentsState {
   comments: Comment[];
-  /** Unsent comments the version before kept back because their section changed; null when there are none. */
-  notCarried: CarryNotice | null;
   /** Set when the saved comments could not be read. */
   error: string | null;
   /** Saves a comment. Rejects with a readable message when the server refuses it. */
@@ -19,7 +17,6 @@ export interface CommentsState {
 interface Loaded {
   key: string;
   comments: Comment[];
-  notCarried: CarryNotice | null;
   error: string | null;
 }
 
@@ -35,19 +32,19 @@ export function useComments(slug: string | undefined, number: number | undefined
     if (key === null || slug === undefined || number === undefined) return;
     let current = true;
     fetchComments(slug, number).then(
-      ({ comments, notCarried }) => current && setLoaded({ key, comments, notCarried, error: null }),
+      ({ comments }) => current && setLoaded({ key, comments, error: null }),
       (err: unknown) =>
-        current && setLoaded({ key, comments: [], notCarried: null, error: err instanceof Error ? err.message : 'Could not reach the server' }),
+        current && setLoaded({ key, comments: [], error: err instanceof Error ? err.message : 'Could not reach the server' }),
     );
     return () => {
       current = false;
     };
   }, [key, slug, number, refresh]);
 
-  /** A save answers with the version's comments; what was left behind by the version before does not change with them. */
+  /** A save answers with the version's comments. */
   const replaceComments = useCallback(
     (forKey: string, comments: Comment[]) =>
-      setLoaded((prev) => ({ key: forKey, comments, notCarried: prev?.key === forKey ? prev.notCarried : null, error: null })),
+      setLoaded({ key: forKey, comments, error: null }),
     [],
   );
 
@@ -78,5 +75,5 @@ export function useComments(slug: string | undefined, number: number | undefined
   );
 
   const mine = loaded !== null && loaded.key === key ? loaded : null;
-  return { comments: mine?.comments ?? [], notCarried: mine?.notCarried ?? null, error: mine?.error ?? null, save, edit, remove };
+  return { comments: mine?.comments ?? [], error: mine?.error ?? null, save, edit, remove };
 }

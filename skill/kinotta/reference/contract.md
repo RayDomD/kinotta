@@ -23,6 +23,18 @@ reels/
         └── answers.md       your answers to the v1 batch
 ```
 
+Files you may find or write inside a version folder, besides the page and `shots.json`:
+
+| File | Who writes it | Meaning |
+|---|---|---|
+| `transcript.json`, `plan.json` | whoever built the version | The transcript and the plan it was built from. Every footage version keeps its own copy (copy them in when you build one; see `SKILL.md` section 6). |
+| `kinotta-edits.css` | Kinotta | A code-only reel's moved and scaled elements. Copy it into your next version and keep the `<link>` to it in the page. |
+| `edits.json` | Kinotta | The operations a Kinotta save applied. Never copy it into a new version. |
+| `answers.md`, `comments*.json` | you, the editor | As above. |
+
+At the reel level, `edit-list.json` (the owner's unsaved edits), `handoff.json` (a batch is out) and
+`.save/` are Kinotta's. Never read, write or delete them.
+
 `reels/.kinotta/` is the editor's working state. Never read or write it.
 
 ## The page
@@ -87,6 +99,8 @@ window.seek(0);
 }
 ```
 
+- `builtBy` (optional but write it): the name of the agent that built the version, lowercase (`claude`).
+  Kinotta's own saves write `you`.
 - `contract` is `1`. `duration` is a number in seconds.
 - Each shot has a unique `number` (two-digit string), a numeric `start`, a `title` and a
   `description` of what happens, including the motion the storyboard doesn't show yet.

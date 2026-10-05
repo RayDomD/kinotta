@@ -53,10 +53,10 @@ input { font: inherit; color: inherit; cursor: text; }
 .reelname { font-weight: 500; }
 .reelname span { color: var(--muted); font-weight: 400; margin-left: 8px; }
 .modes { display: flex; gap: 2px; margin-left: 8px; }
-.modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
-.modes span[aria-current] { color: var(--ink); border-color: var(--ink); }
+.modes :is(span, button) { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
+.modes :is(span, button)[aria-current] { color: var(--ink); border-color: var(--ink); }
 
-/* copy the comment batch for Claude */
+/* copy the comment batch for your agent */
 .copy { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .copy-error { max-width: 46ch; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
 .btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease); }
@@ -109,7 +109,6 @@ input { font: inherit; color: inherit; cursor: text; }
 .waiting { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); }
 .waiting svg { width: 10px; height: 10px; }
 .head .waiting { margin-left: 4px; }
-.carry-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 14px; font-size: 13px; color: var(--ink-2); }
 .c .carry-state { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .secs button[aria-current] { border-color: var(--light); }
 .secs button[aria-current] .n { color: var(--light); text-shadow: 0 0 10px var(--light-glow); }
@@ -347,3 +346,68 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 
 /* confirmation of the last saved comment in the enlarged sheet */
 .sheet-status { min-height: 1.4em; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+
+/* New reel screen and the Review placeholder (Review and Edit mockup: rv- classes) */
+.rv-pick, .rv-review { max-width: 640px; display: flex; flex-direction: column; gap: 6px; }
+.rv-pick h2, .rv-review h2 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+.rv-lede { color: var(--ink-2); font-size: 14px; }
+.rv-pick ul { list-style: none; display: flex; flex-direction: column; margin-top: 8px; }
+.rv-pick li button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 12px; text-align: left; border-left: 1.6px solid transparent; }
+.rv-pick li button:hover:not(:disabled), .rv-pick li button[aria-pressed="true"] { background: var(--card); border-color: var(--ink); }
+.rv-pick .p { font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.rv-pick .d { font: 700 12px Doto, monospace; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rv-pick .m { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.rv-name { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.rv-name label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 260px; }
+.rv-name input { font-size: 16px; padding: 7px 10px; border: 1.4px solid var(--hairline); background: var(--card); }
+.rv-busy, .rv-problem { flex-basis: 100%; font-size: 13px; color: var(--ink-2); }
+.rv-footage { width: 100%; margin-top: 14px; background: var(--ink); }
+
+/* the New reel drop state (mockup 2026-10-05-review-edit, state 1): the drop zone beside the project's videos */
+.rv-drop { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: start; max-width: 1080px; }
+.rv-drop .rv-pick { max-width: none; }
+.rv-drop .rv-pick h2 { font-size: 15px; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }
+.rv-dropwrap { display: flex; flex-direction: column; gap: 6px; }
+/* the dashed edge is the drop affordance; the whole zone is the label of a hidden file input */
+.rv-dropzone { position: relative; min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 28px; text-align: center; border: 1.6px dashed var(--hairline); cursor: pointer; overflow: hidden; transition: border-color var(--t-color) var(--ease), background var(--t-color) var(--ease); }
+.rv-dropzone:hover, .rv-dropzone[data-over="true"], .rv-dropzone:focus-within { border-color: var(--light); background: var(--light-wash); }
+.rv-dropzone strong { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+.rv-dropzone .rv-drop-note { color: var(--ink-2); font-size: 14px; max-width: 44ch; }
+.rv-dropzone .rv-drop-note b { font-weight: 500; color: var(--ink); }
+.btn.quiet { background: none; color: var(--ink-2); border: 1.4px solid var(--hairline); box-shadow: none; font-weight: 500; }
+.btn.quiet:hover, .rv-dropzone:hover .btn.quiet, .rv-dropzone:focus-within .btn.quiet { color: var(--ink); border-color: var(--ink); transform: none; }
+.rv-dropzone .rv-choose { margin-top: 8px; }
+.rv-dropzone .rv-drop-status { min-height: 1.4em; color: var(--ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+.rv-dropzone .rv-problem { max-width: 44ch; color: var(--ink); }
+.rv-dropzone[data-busy="true"] { cursor: progress; border-color: var(--light); background: var(--light-wash); }
+.rv-dropzone[data-busy="true"] .rv-choose { visibility: hidden; }
+.rv-dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.terrain { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; pointer-events: none; background: radial-gradient(circle, color-mix(in oklch, var(--ink) 22%, transparent) 1px, transparent 1.4px) 0 0 / 10px 10px; -webkit-mask: linear-gradient(transparent, #000); mask: linear-gradient(transparent, #000); }
+.rv-needs { margin-top: 22px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.rv-needs b { color: var(--ink-2); font-weight: 500; }
+.rv-needs-missing { color: var(--ink); }
+.rv-needs ul { list-style: none; margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+.rv-needs li { color: var(--ink-2); overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .rv-drop { grid-template-columns: 1fr; }
+  .rv-dropzone { min-height: 220px; }
+}
+
+/* Start from a brief, the waiting page, and the empty Storyboard (T45) */
+/* the brief block shares the drop state's columns, so its rule spans both and its form sits under the drop zone */
+.rv-brief { max-width: 1080px; display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 28px; row-gap: 6px; align-items: start; margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--rule); }
+.rv-brief > * { grid-column: 1; }
+.rv-brief .rv-lede { max-width: 65ch; }
+.rv-next { padding-left: 18px; line-height: 1.7; }
+@media (max-width: 900px) {
+  .rv-brief { grid-template-columns: 1fr; }
+}
+.rv-brief h2 { font-size: 16px; font-weight: 500; }
+.rv-brief .rv-brief-text { flex-basis: 100%; }
+.rv-brief textarea, .copy-request textarea { font-size: 16px; padding: 7px 10px; border: 1.4px solid var(--hairline); background: var(--card); resize: vertical; }
+.rv-brief-quote { margin: 10px 0 14px; padding-left: 12px; border-left: 1.6px solid var(--hairline); color: var(--ink-2); font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy-request { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.copy-request textarea { width: 100%; }
+.reels .waiting { margin-left: 8px; }
+.empty-board { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.empty-board .copy-request { align-items: center; }

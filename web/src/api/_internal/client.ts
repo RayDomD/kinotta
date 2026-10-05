@@ -1,8 +1,12 @@
+import type { CaptionsPlan, ElementOffset, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
+
 export interface ReelSummary {
   slug: string;
   title: string;
   newestVersion: number | null;
   lastChange: number;
+  /** A reel started from a brief: the brief and the request copied for building it. Waiting while `newestVersion` is null. */
+  brief?: { text: string; request: string };
 }
 
 export type ReelsState = 'ok' | 'no-reels-folder' | 'no-reels';
@@ -10,6 +14,18 @@ export type ReelsState = 'ok' | 'no-reels-folder' | 'no-reels';
 export interface ReelListing {
   state: ReelsState;
   reels: ReelSummary[];
+}
+
+export interface ToolStatus {
+  id: 'python' | 'ffmpeg' | 'faster-whisper';
+  name: string;
+  present: boolean;
+  hint: string;
+}
+
+export interface ToolCheck {
+  tools: ToolStatus[];
+  missing: ToolStatus[];
 }
 
 export interface ProjectInfo {
@@ -28,7 +44,7 @@ export interface Shot {
   line?: { start: number; end: number };
   /** Set when the shot is one state of a clip that changes (05a, 05b, …): the clip's number. */
   clip?: string;
-  /** Footage reels with a transcript: the words spoken over the shot, and the same words joined. */
+  /** Footage reels with a transcript: the words spoken over the shot (on the timeline), and the same words joined. */
   words?: TranscriptWord[];
   spoken?: string;
 }
@@ -37,6 +53,13 @@ export interface TranscriptWord {
   text: string;
   start: number;
   end: number;
+}
+
+/** A stretch of the source video (seconds) kept in the reel, and where it starts on the reel's timeline. */
+export interface VersionPiece {
+  in: number;
+  out: number;
+  at: number;
 }
 
 export interface Overlay {
@@ -53,7 +76,7 @@ export interface Section {
   end: number;
   shots: number;
   implicit?: true;
-  /** Handed off to Claude, with no newer version having changed the section yet. */
+  /** Handed off to an agent, with no newer version having changed the section yet. */
   waiting?: true;
 }
 
@@ -79,8 +102,19 @@ export interface Version {
   claimMismatch?: string[];
   /** Footage reels only. */
   footage?: { path: string; exists: boolean };
+  /** Footage reels only: the stretches of the video the reel plays, in play order, with where each starts on the timeline. */
+  pieces?: VersionPiece[];
   transcript?: TranscriptWord[];
   transcriptProblem?: string;
+  /** Footage reels only: the plan's `captions` (`true`, or the look, colour and caption positions). Absent when captions are off. */
+  captions?: true | CaptionsPlan;
+  /** Footage reels only: the plan's clips in source seconds, with their `slid` flag. */
+  clips?: PlanClip[];
+  builtBy?: string;
+  /** Code-only reels only: the page's scene names and the element offsets its `kinotta-edits.css` holds, by scene then element. */
+  code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
+  /** Set when the version has no shots: the request to copy for b-roll. */
+  brollRequest?: string;
 }
 
 /** One row of a reel's version rail. */
@@ -91,13 +125,27 @@ export interface VersionEntry {
   isStoryboard: boolean;
   /** Reels with several sections only: the ids of the sections this version changed. */
   changedSections?: string[];
+  /** Who made the version: `you`, or an agent's name. */
+  builtBy?: string;
 }
 
 /** What the server reports as it happens. */
 export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
-  | { type: 'comments-changed'; reel: string; version: number };
+  | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+
+/** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
+export interface TranscriptionProgress {
+  state: 'running' | 'done' | 'failed';
+  /** Seconds of audio in the video. */
+  duration: number;
+  /** Seconds of it transcribed so far. */
+  processed: number;
+  remaining: number | null;
+  error?: string;
+}
 
 export interface FramePin {
   kind: 'frame';
@@ -131,24 +179,17 @@ export interface Comment {
   pin: FramePin | WordPin;
   text: string;
   createdAt: string;
-  /** Copied to Claude in its section's latest batch. */
+  /** Copied to an agent in its section's latest batch. */
   sent?: true;
-  /** Once a newer version has settled: whether this comment moved to it. */
-  carried?: { to: number; moved: boolean };
-}
-
-/** Unsent comments that stayed on the version before because their section changed. */
-export interface CarryNotice {
-  from: number;
-  count: number;
-  /** Ids of their sections. */
-  sections: string[];
+  /** Once a newer version has settled: this unsent comment moved on to it. */
+  carried?: { to: number };
+  /** The comment's moment was snipped out of the footage: it keeps its text and waits to be re-pinned or deleted. */
+  /** The comment's element is gone from the version it moved to: it keeps its text and waits to be re-pinned or deleted. */
+  state?: 'moment-removed' | 'element-removed';
 }
 
 export interface CommentsOfVersion {
   comments: Comment[];
-  /** Set on a version whose predecessor kept some comments back. */
-  notCarried: CarryNotice | null;
 }
 
 export interface NewComment {
@@ -170,6 +211,8 @@ const versionPath = (slug: string, number: number): string => `/api/reels/${enco
 
 export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
 export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
+/** Whether Python 3, ffmpeg and faster-whisper are installed, which starting a reel from a video needs. */
+export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
 /** A reel's versions, oldest first. */
 export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
   (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;
@@ -211,7 +254,7 @@ export const saveNote = async (slug: string, number: number, note: string): Prom
   (await requestJson<{ note: string }>(`${versionPath(slug, number)}/note`, jsonBody('PUT', { note }))).note;
 
 export interface CopiedBatch {
-  /** The pasteable text for Claude. */
+  /** The pasteable text for your agent. */
   text: string;
   /** Where the batch was saved, relative to the project root. */
   file: string;
@@ -256,3 +299,83 @@ export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
 
 /** Same-origin URL of a footage reel's footage file (served with byte ranges so video can seek). */
 export const footageUrl = (slug: string): string => `/footage/${encodeURIComponent(slug)}`;
+
+/** A video in the project, as the New reel screen lists it. */
+export interface VideoEntry {
+  /** Relative to the project folder. */
+  path: string;
+  name: string;
+  /** A reel name taken from the file name. */
+  suggestedTitle: string;
+  /** Seconds. */
+  duration: number;
+  codec: string;
+  /** Bytes. */
+  size: number;
+}
+
+/** The project's videos, for the New reel screen. */
+export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ videos: VideoEntry[] }>('/api/videos')).videos;
+
+/** Starts a reel from a short brief. It has no version until one is built; `request` is what to hand to whoever builds it. */
+export const startReelFromBrief = (input: { title: string; brief: string }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
+
+/** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
+export const startReel = (input: { video: string; title?: string }): Promise<{ slug: string }> =>
+  requestJson('/api/reels', jsonBody('POST', input));
+
+/** How the reel's transcription stands, or null when none has run since the server started. */
+export const fetchTranscription = async (slug: string): Promise<TranscriptionProgress | null> =>
+  (await getJson<{ progress: TranscriptionProgress | null }>(`/api/reels/${encodeURIComponent(slug)}/transcription`)).progress;
+
+/** A reel's unsaved edits. A `stale` list was made on a version that is no longer the newest. */
+export interface EditList {
+  base: number;
+  operations: Operation[];
+  canUndo: boolean;
+  canRedo: boolean;
+  stale?: true;
+  /** A comment batch is out: Save is blocked with this reason until the next version appears or the hand-off is cancelled. */
+  handedOff?: { version: number; copiedAt: string; reason: string };
+  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and block Save. */
+  flagged?: Record<string, string>;
+}
+
+const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
+
+export const fetchEdits = (slug: string): Promise<EditList> => getJson(editsPath(slug));
+export const addOperation = (slug: string, operation: NewOperation): Promise<EditList> => requestJson(editsPath(slug), jsonBody('POST', operation));
+/** Drops one operation and keeps the later ones. */
+export const removeOperation = (slug: string, id: string): Promise<EditList> => requestJson(`${editsPath(slug)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const undoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/undo`, { method: 'POST' });
+export const redoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/redo`, { method: 'POST' });
+export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
+/** Ends the hand-off a copied batch started, so Save is allowed again. */
+export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/handoff`, { method: 'DELETE' });
+/** Builds the next version from the edits. Resolves with its number. */
+export const saveEdits = async (slug: string): Promise<number> =>
+  (await requestJson<{ version: number }>(`/api/reels/${encodeURIComponent(slug)}/save`, { method: 'POST' })).version;
+
+/**
+ * Sends a dropped video into the project's footage/ folder, reporting the share sent so far (0 to 1). XHR rather than
+ * fetch, because fetch reports no upload progress and a video can take a while to send.
+ */
+export const importVideo = (file: File, onProgress?: (sent: number) => void): Promise<{ path: string; copied: boolean }> =>
+  new Promise((resolve, reject) => {
+    const path = `/api/footage?name=${encodeURIComponent(file.name)}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', path);
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+    xhr.responseType = 'json';
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      const body = xhr.response as { path: string; copied: boolean; error?: string } | null;
+      if (xhr.status >= 200 && xhr.status < 300 && body !== null) resolve(body);
+      else reject(new Error(body?.error ?? `Request to ${path} failed (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error('Could not reach the Kinotta server'));
+    xhr.send(file);
+  });
