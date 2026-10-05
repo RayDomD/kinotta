@@ -47,3 +47,13 @@ The six findings closed, one test group each in `tests/core/save-review-fixes.te
 ### 2026-10-05
 - Plan created.
 - Done. See the session summary.
+
+## Round 2 (2026-10-05)
+
+Three follow-ups from the second code review, test-first at the core seam (`tests/core/save-review-fixes.test.ts`).
+
+- P3 order: `footage.ts` now has one `resolvePlan` that pieces, captions and clips all read: own plan, else (newest version) the reel's current plan, else (older version) the nearest earlier own plan, else none. Before, the nearest-earlier scan ran ahead of the reel plan for the newest version too, so after an owner Save and an agent build the pieces showed the Save's plan while clips used the reel's.
+- P6 journal: `save-intent.json` also holds the ids of the operations the Save applies. `recoverSave` counts the Save as committed only when `v<n>` exists, its `shots.json` `builtBy` is `you`, and its `edits.json` operation ids equal the journaled ones. Otherwise the sources are rolled back and the list is kept, to replay onto the agent's version by the T41 path.
+- P9 flags: an element pin is flagged `element-removed` only when a scene with valid timing plays at the pin's carried moment and `data-el="name"` appears nowhere in the new page's HTML (script string literals, escaped quotes included). An unreadable page, or no valid scene at that moment, flags nothing.
+
+Checks: typecheck clean; `npm test` 332 passed, 1 skipped (33 files; 6 new tests, 4 failing before the fixes); scoped e2e 58 passed.
