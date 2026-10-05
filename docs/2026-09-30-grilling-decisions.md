@@ -114,6 +114,22 @@ version), product principle 5, and the Review phase's scope. Mockup:
 | E19 | One "New reel" choice. From a video: built in place, opens in Review. From a brief: Kinotta copies a request for an agent, and the reel waits for its `shots.json`, then opens in Storyboard. A reel opens in the tab you last used for it. |
 | E20 | AI-agnostic: formats and app wording name no agent, and `shots.json` gains `builtBy` (`you`, `claude`, …). Claude is the one tested agent; other agents are a later ticket. |
 
+## Approval and render (2026-10-05)
+
+| # | Decision |
+|---|---|
+| R1 | Kinotta renders. One render engine in the core, reached by the Render button and by `kinotta render <reel> v<n>`, so a render by you and one by an agent are the same file. The skill's "no MP4 render" becomes "render only through `kinotta render`". |
+| R2 | Three presets: Draft (H.264, half size, CRF 28, no motion blur), Final (H.264, source size and rate, CRF 16, motion blur, captions burned in, original audio) and Overlay (ProRes 4444 with alpha, clips and captions only, no audio). |
+| R3 | Four settings, prefilled by the preset and remembered per reel: frame rate (source, 24, 25, 30, 60), size (source, 1080p, 4K; the page is scaled, not re-laid out), quality (Standard, High) and audio at cuts (Smooth, about 20 ms fades, the default; Hard). No bitrate, codec, GPU or worker settings; workers follow the CPU. |
+| R4 | Only the owner approves, for now. The record says who approved (`approvedBy`, like `builtBy`), so agent approval can be allowed later without a format change. |
+| R5 | Approval is `v<n>/approval.json` (`approvedBy`, `at`) beside the frozen files. Any number of versions can be approved; withdrawing deletes the file and keeps renders. An approved version still takes comments. |
+| R6 | Final and Overlay need an approved version, for you and an agent alike; Draft needs none. |
+| R7 | Renders go to `reels/<reel>/renders/<reel>-v<n>-<preset>-<size>p<fps>.<ext>`. The same settings replace the file; different settings make a new one. |
+| R8 | Renders run in the background, one at a time in one queue shared with the agent's `kinotta render`, with progress, an estimate and cancel. A cancelled or failed render leaves no file. An interrupted render is not resumed. |
+| R9 | Audio at a cut between pieces: Smooth or Hard (R3). Longer crossfades are an edit, not a render setting. Review plays no fades. |
+| R10 | A version with contract issues can be approved, with a warning. Final and Overlay refuse it, naming the issues; Draft renders it with its placeholders. |
+| R11 | Picker is the approve-and-render tab: the reel's versions with approval, a player, the render panel, the queue and past renders. The rail marks approved versions; the top bar shows a running render from any tab; a finished render shows a "ready" notice. Code-only reels offer Overlay only when the page is transparent. |
+
 ## Deferred
 
 Audio comments, trimming, the MP4 render and the element library format belong to the Review and
