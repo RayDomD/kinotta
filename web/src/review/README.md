@@ -25,7 +25,8 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
   the Undo and Redo buttons sit above the cards, and each card has a Remove button. The unsaved operations are applied over the version's pieces with the core's own model, so the player,
   the Footage lane (SNIP joints with their length), clips, captions, words and pins show the edited reel; the page is the saved
   version's, seeked to the matching saved time. Select (V) and Snip (S) tools: with Snip on, dragging the lanes selects a
-  stretch, then Snip (or Enter) adds the operation. `ReviewSide` is the right column: Edits (numbered cards, Save as
+  stretch, then Snip (or Enter) adds the operation. Until then the selection plays as if snipped: the picture pauses on its end (the
+  frame the snip would join to), and Play or Space starts 2 s before it and goes straight on past it (`usePlayback`'s `skip`). `ReviewSide` is the right column: Edits (numbered cards, Save as
   v<n+1>, Discard) and Comments (the comments panel, passed in).
 - Captions in the frame: double-click the caption on show (or Enter on its handle) to retype the whole phrase, adding or
   removing words; Enter adds a `phrase-text` operation. Word fixes and retyped phrases show in the page, the Captions lane

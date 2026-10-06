@@ -36,6 +36,8 @@ const NO_PHRASES: CaptionPhrase[] = [];
 const NO_OPERATIONS: readonly Operation[] = [];
 /** One list for "no pieces", so a reel without footage maps its timeline to itself (two empty lists would be mapped as pieces of no length). */
 const NO_PIECES: readonly Piece[] = [];
+/** Seconds played before a selected stretch when its snip is previewed. */
+const SNIP_LEAD_IN = 2;
 const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
@@ -98,7 +100,11 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   // What the reel plays and shows is the version with the unsaved edits applied over it.
   const pieces = useMemo(() => (savedPieces ? (editedList(savedPieces, operations) as readonly Piece[]) : null), [savedPieces, operations]);
   const total = operations.length > 0 && pieces ? timelineLength(pieces) : savedTotal;
-  const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo);
+  const [toolName, setTool] = useState<Tool>('select');
+  const [selection, setSelection] = useState<Span | null>(null);
+  // A stretch selected with the Snip tool plays as if snipped, before Snip makes it an edit.
+  const previewSnip = editable && toolName === 'snip' ? selection : null;
+  const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo, previewSnip);
   const { time } = playback;
   const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
@@ -188,8 +194,6 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     shownSection.current = section?.id;
   }, [section, total]);
 
-  const [toolName, setTool] = useState<Tool>('select');
-  const [selection, setSelection] = useState<Span | null>(null);
   const live = useRef({ playback, win, total, time, selection, pieces, editable, moveable, edits, clips });
   live.current = { playback, win, total, time, selection, pieces, editable, moveable, edits, clips };
   const tool = useRef(toolName);
@@ -208,6 +212,21 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     afterSnip.current = null;
     live.current.playback.seek(Math.min(target, live.current.total));
   }, [operationCount]);
+
+  // The picture follows a selection as it changes: paused on its end, the frame the snip would join to.
+  useEffect(() => {
+    if (!previewSnip) return;
+    live.current.playback.pause();
+    live.current.playback.seek(Math.min(previewSnip.end, live.current.total));
+  }, [previewSnip]);
+  /** Plays or pauses; with a stretch selected for a snip, playing starts a lead-in before it, so the join is heard. */
+  const togglePlay = (): void => {
+    const { playback: player, selection: chosen, editable: allowed } = live.current;
+    if (!player.playing && chosen && allowed && tool.current === 'snip') player.seek(Math.max(0, chosen.start - SNIP_LEAD_IN));
+    player.toggle();
+  };
+  const togglePlayRef = useRef(togglePlay);
+  togglePlayRef.current = togglePlay;
 
   const snip = async (): Promise<void> => {
     const { selection: chosen, pieces: shown, editable: allowed, edits: changes } = live.current;
@@ -350,7 +369,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       if (ignoresKey(e)) return;
       const { playback: player, total: length, editable: allowed, selection: chosen } = live.current;
       const frames = e.shiftKey ? FRAME_RATE : 1;
-      if (e.key === ' ') player.toggle();
+      if (e.key === ' ') togglePlayRef.current();
       else if (e.key === 'ArrowRight') player.step(frames);
       else if (e.key === 'ArrowLeft') player.step(-frames);
       else if (e.key === 'Home') player.seek(0);
@@ -423,7 +442,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
             />
           ) : undefined
         }
-        onToggle={playback.toggle}
+        onToggle={togglePlay}
         onZoom={zoom}
         onPhrases={setPhrases}
         captionShifts={editable ? placements : null}

@@ -25,17 +25,18 @@ export interface Playback {
 /**
  * Plays a reel. With a footage `video` the video's clock drives the timeline: the pieces are followed in order and
  * snipped stretches are jumped over. Without one (a code-only reel, or footage that will not load) a clock does.
- * `time` is updated on every animation frame while playing.
+ * `time` is updated on every animation frame while playing. `skip`, a stretch of the timeline, is jumped over too:
+ * a snip before it is made.
  */
-export function usePlayback(video: RefObject<HTMLVideoElement | null>, pieces: readonly Piece[], length: number, hasVideo: boolean): Playback {
+export function usePlayback(video: RefObject<HTMLVideoElement | null>, pieces: readonly Piece[], length: number, hasVideo: boolean, skip: { start: number; end: number } | null = null): Playback {
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const piece = useRef(0);
   const frame = useRef(0);
   /** The source second a started jump is heading for, until the video has landed there. */
   const landing = useRef<number | null>(null);
-  const latest = useRef({ time, pieces, length, hasVideo });
-  latest.current = { time, pieces, length, hasVideo };
+  const latest = useRef({ time, pieces, length, hasVideo, skip });
+  latest.current = { time, pieces, length, hasVideo, skip };
 
   const stopLoop = useCallback(() => {
     cancelAnimationFrame(frame.current);
@@ -63,9 +64,18 @@ export function usePlayback(video: RefObject<HTMLVideoElement | null>, pieces: r
     stopLoop();
     let last = performance.now();
     const tick = (now: number): void => {
-      const { time: current, pieces: list, length: total, hasVideo: withVideo } = latest.current;
+      const { time: current, pieces: list, length: total, hasVideo: withVideo, skip: skipped } = latest.current;
       const el = video.current;
       let ended = false;
+      // Reaching a stretch to skip goes straight to its end, as reaching a snip does.
+      if (skipped && current >= skipped.start && current < skipped.end) {
+        latest.current.time = skipped.end;
+        setTime(skipped.end);
+        jump(skipped.end);
+        last = now;
+        frame.current = requestAnimationFrame(tick);
+        return;
+      }
       if (withVideo && el) {
         if (landing.current !== null && (el.seeking || Math.abs(el.currentTime - landing.current) > LANDED)) {
           // The jump has not landed: keep the time the jump set rather than the old clock.
@@ -99,7 +109,7 @@ export function usePlayback(video: RefObject<HTMLVideoElement | null>, pieces: r
       }
     };
     frame.current = requestAnimationFrame(tick);
-  }, [stopLoop, video]);
+  }, [stopLoop, video, jump]);
 
   const play = useCallback(() => {
     const { time: current, length: total, hasVideo: withVideo } = latest.current;
