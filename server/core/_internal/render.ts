@@ -8,7 +8,7 @@ import { versionIssues } from './footage-issues.ts';
 import { readRenderSettings, requestSettings } from './render-settings.ts';
 import { joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
 import type { RenderJob, RenderPreset, RenderRequest, RenderSettings } from './types.ts';
-import { APPROVAL_FILE, readVersion } from './version.ts';
+import { readVersion } from './version.ts';
 
 /** Where a reel's renders go, beside its versions (R7). */
 export const RENDERS_DIR = 'renders';
@@ -57,15 +57,17 @@ export interface RenderTask {
 const exists = (path: string): Promise<boolean> => access(path).then(() => true, () => false);
 
 /**
- * Why a version can't be a deliverable (R6, R10, R13): it isn't approved; a footage version has no plan of its own, so its
- * pieces could drift with later edits; or it has contract issues, footage ones included. Empty when it can.
+ * Why a version can't be a deliverable (R10, R13, R19): an older footage version has no plan of its own, so its pieces
+ * would come from a later plan; or it has contract issues, footage ones included. Empty when it can. Approval is not a
+ * reason: pressing Render is the decision (R19).
  */
 async function gateReasons(projectDir: string, request: RenderRequest, versionDir: string, codeOnly: boolean): Promise<string[]> {
   const reasons: string[] = [];
-  if (!(await exists(join(versionDir, APPROVAL_FILE)))) reasons.push("it isn't approved (the owner approves it in Kinotta)");
-  // A code-only reel has no plan: its page is the whole picture, frozen with the version.
-  if (!codeOnly && !(await exists(join(versionDir, VERSION_PLAN_FILE)))) reasons.push('it was built before plans were kept');
-  const issues = versionIssues(await readVersion(projectDir, request.reel, request.version));
+  const version = await readVersion(projectDir, request.reel, request.version);
+  // A code-only reel has no plan: its page is the whole picture, frozen with the version. The newest footage version
+  // without a plan plays the reel's current plan, which is its own.
+  if (!codeOnly && !version.isNewest && !(await exists(join(versionDir, VERSION_PLAN_FILE)))) reasons.push('it was built before plans were kept');
+  const issues = versionIssues(version);
   if (issues.length > 0) {
     reasons.push(`it has ${issues.length} contract ${issues.length === 1 ? 'issue' : 'issues'}: ${issues.map((issue) => issue.message).join('; ')}`);
   }

@@ -136,17 +136,17 @@ describe('the renders API', () => {
     expect(filesIn(rendersDir(dir, SHOWREEL))).toEqual([]);
   });
 
-  it('refuses a malformed request, an unapproved Final and an unknown job', async () => {
+  it('refuses a malformed request, an Overlay the gate refuses and an unknown job', async () => {
     const { url } = await serve(project());
     const post = (body: unknown): Promise<Response> => fetch(`${url}/api/renders`, { method: 'POST', body: JSON.stringify(body) });
 
     const malformed = await post({ reel: TINY, version: 'one', preset: 'draft' });
-    const unapproved = await post({ reel: TINY, version: 1, preset: 'final' });
+    const opaque = await post({ reel: TINY, version: 1, preset: 'overlay' });
     const unknown = await fetch(`${url}/api/renders/nope`, { method: 'DELETE' });
 
     expect(malformed.status).toBe(422);
-    expect(unapproved.status).toBe(422);
-    expect(((await unapproved.json()) as { error: string }).error).toMatch(/isn't approved/);
+    expect(opaque.status).toBe(422);
+    expect(((await opaque.json()) as { error: string }).error).toMatch(/can't be rendered as an Overlay/);
     expect(unknown.status).toBe(404);
   });
 });

@@ -112,12 +112,6 @@ function parseRenderArgs(args: string[]): RenderRequest | null {
   return request;
 }
 
-/** Whether a version is approved; false when the reel or version can't be listed. */
-async function isApproved(project: Project, reel: string, version: number): Promise<boolean> {
-  const versions = await project.listVersions(reel).catch(() => []);
-  return versions.find((entry) => entry.number === version)?.approved ?? false;
-}
-
 /** Resolves once the server's queue is empty, so jobs that joined a server this process started finish before it closes. */
 function drained(project: Project): Promise<void> {
   return new Promise((done) => {
@@ -171,9 +165,6 @@ async function render(args: string[]): Promise<number> {
     return 0;
   } catch (err) {
     console.error((err as Error).message);
-    if (request.preset !== 'draft' && !(await isApproved(openProject(projectDir), request.reel, request.version))) {
-      console.error(`Only the owner approves. Ask them to approve v${request.version} in Kinotta, then render again.`);
-    }
     return 1;
   } finally {
     if (hosted !== null) {

@@ -192,8 +192,8 @@ Chromium, found through Playwright's executable path rather than a PATH probe, w
 
 ## T58. Skill and glossary
 
-**What to build:** SKILL.md replaces "no MP4 render" with "render only through `kinotta render`, Final and Overlay
-only of an approved version" and names no approval command (R1). References to `composite.py` go. CONTEXT.md updates
+**What to build:** SKILL.md replaces "no MP4 render" with "render only through `kinotta render`" and names no approval
+command (R1; since R19, Final and Overlay don't need approval). References to `composite.py` go. CONTEXT.md updates
 "Approval" and adds "Render" and "Preset".
 
 **Blocked by:** T51, T52

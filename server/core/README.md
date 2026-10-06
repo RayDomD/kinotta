@@ -93,10 +93,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   ffmpeg, which cuts the original footage by the version's own pieces (through the plan resolver, never the reel's
   current plan), joins the audio with 20 ms fades at each cut (`audio: 'smooth'`, the default) or none (`'hard'`,
   named `-hardcuts`), and lays the frames on top. No intermediate file is written. An unknown reel or version is
-  `not-found`. Final and Overlay pass a gate first (R6, R10, R13): the version must have `approval.json`, a footage
-  version its own `plan.json`, and no issues from `versionIssues`; otherwise `invalid` naming every reason, as in
-  `v2 can't be rendered as a Final: it isn't approved (the owner approves it in Kinotta); it has 1 contract issue: …`.
-  A Draft skips the gate.
+  `not-found`. Final and Overlay pass a gate first (R10, R13, R19): an older footage version must have its own
+  `plan.json` (the newest plays the reel's current plan, which is its own), and the version must have no issues from
+  `versionIssues`; otherwise `invalid` naming every reason, as in `v1 can't be rendered as a Final: it was built before
+  plans were kept; it has 1 contract issue: …`. Approval is not checked: pressing Render is the decision (R19). A Draft
+  skips the gate.
 - `listRenders(slug)` lists `reels/<reel>/renders/` newest first, skipping dot names (temp files, work folders): `{ file,
   version, preset, bytes, at }`, the version and preset read from the file name. `renderFile(slug, file)` is a finished
   render's path, for serving it, and `revealRender(slug, file)` shows it in the system's file manager through the runner

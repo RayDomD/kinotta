@@ -93,7 +93,7 @@ async function snippedReel(): Promise<Reel> {
   writeFileSync(join(reelDir, 'plan.json'), JSON.stringify(plan));
   await project.addOperation(slug, { kind: 'snip', ...SNIP });
   await project.saveEdits(slug);
-  // Final and Overlay pass the render gate only for an approved version.
+  // Approved as the owner would; the render gate no longer asks for it (R19), and the warning shows the version is clean.
   const { warning } = await project.approveVersion(slug, 2);
   expect(warning).toBeUndefined();
   return { dir, reelDir, slug, project };
@@ -275,7 +275,7 @@ describe('Final and Overlay of a code-only reel', () => {
     writeFileSync(join(reelDir, 'reel.json'), JSON.stringify({ title: 'Tiny' }));
     writeFileSync(join(reelDir, 'v1', 'index.html'), PAGE(alpha));
     writeFileSync(join(reelDir, 'v1', 'shots.json'), JSON.stringify({ contract: 1, duration: 0.5, shots: [{ number: '01', start: 0, title: 'Box', description: 'A box.' }] }));
-    // Final and Overlay pass the render gate only for an approved version.
+    // Approved as the owner would; the render gate no longer asks for it (R19).
     writeFileSync(join(reelDir, 'v1', 'approval.json'), JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00.000Z' }));
     return { dir, project: openProject(dir) };
   }

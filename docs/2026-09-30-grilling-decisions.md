@@ -135,6 +135,7 @@ version), product principle 5, and the Review phase's scope. Mockup:
 | R15 | `playwright` moves to `dependencies`. The startup tool check adds Chromium with an install hint, and each missing tool's message gives its own reason (reels from video, or rendering). |
 | R16 | `render-settings.json` holds the four settings per preset (`draft`, `final`, `overlay`). Only Picker's Render saves it; `kinotta render` flags never change it. |
 | R17 | Approval only in the editor; `kinotta` has no approve command. The watcher diffs `approval.json`, so the rail updates when it changes outside the editor. A hand-written file passes the gate; accepted until agent approval exists. |
+| R19 | (2026-10-06, replaces R6 and narrows R13.) Final and Overlay don't need approval, from Picker or `kinotta render`: pressing Render is the decision, and asking for an approval first was a redundant step. Approval stays as an optional mark in the rail and Picker. R13's plan check applies only to an older footage version; the newest without its own `plan.json` plays the reel's current plan, which is its own. |
 | R18 | A footage Final pipes the overlay frames into the ffmpeg overlay step with no ProRes intermediate; only Overlay writes ProRes. Parallel segments work in `renders/.work-<job>/`, removed on finish, cancel or failure. A non-default quality or audio setting is added to the file name. `footageIssues` moves into the core so the HTTP gate sees footage issues. `kinotta render` and `kinotta check` take `--project`. |
 
 ## Deferred

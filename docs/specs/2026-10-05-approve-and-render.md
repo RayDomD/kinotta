@@ -16,7 +16,7 @@ since the Storyboard phase without a meaning.
 
 Picker becomes the third phase. In it I see a reel's versions, approve the ones that are final, and render them. A
 render is a background job in one queue, with progress and cancel. Draft gives a quick check of any version; Final and
-Overlay, the deliverables, need an approved version with no contract issues. Final is an H.264 MP4 of the whole reel
+Overlay, the deliverables, need a version with no contract issues (approval was dropped from the gate on 2026-10-06, R19). Final is an H.264 MP4 of the whole reel
 with its captions, clips and audio; Overlay is a transparent ProRes file of the clips and captions for finishing in
 another editor. Four settings (frame rate, size, quality, audio at cuts) are prefilled by the preset. Renders land in
 the reel's `renders/` folder. An agent renders through `kinotta render`, which uses the same engine and the same

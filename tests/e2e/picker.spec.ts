@@ -49,15 +49,16 @@ test('selecting a row plays that version, and the rail follows', async ({ page }
   await expect(panel(page).getByRole('heading', { name: 'Render v1' })).toBeVisible();
 });
 
-test('a refused Final shows its reasons; a Draft renders and the finished file plays', async ({ page }) => {
+test('a refused render shows its reason; a Draft renders and the finished file plays', async ({ page }) => {
   test.setTimeout(RENDER_WAIT_MS + 30_000);
   await openPicker(page);
   await expect(panel(page).getByRole('heading', { name: 'Render v2' })).toBeVisible();
 
-  await panel(page).getByRole('radio', { name: 'Final' }).check();
+  // The showreel's pages are opaque, so they have no Overlay.
+  await panel(page).getByRole('radio', { name: 'Overlay' }).check();
   await expect(panel(page).getByLabel('Size')).toHaveValue('source');
   await panel(page).getByRole('button', { name: 'Render', exact: true }).click();
-  await expect(panel(page).getByRole('alert')).toContainText("isn't approved");
+  await expect(panel(page).getByRole('alert')).toContainText('no transparent background');
 
   await panel(page).getByRole('radio', { name: 'Draft' }).check();
   await expect(panel(page).getByLabel('Size')).toHaveValue('half');

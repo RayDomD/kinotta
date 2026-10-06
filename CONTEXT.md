@@ -103,7 +103,7 @@ It can be copied again, with changes, until the next version exists. Only a hand
 _Avoid_: Feedback round, export
 
 **Approval**:
-Your mark that a version is final. Only an approved version gets a Final or Overlay render. Several versions of a reel can be approved.
+Your mark that a version is final. It is a label only: rendering doesn't need it. Several versions of a reel can be approved.
 _Avoid_: Sign-off, lock
 
 **Render**:
