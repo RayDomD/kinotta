@@ -100,6 +100,8 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   const tag = review(page).getByTestId('element-tag');
 
   // Four seconds in, clip 02's counter panel is on show. A click on it selects it: tag, outline and grip, all outside the page.
+  await expect(frame.locator('section[data-scene]').first()).toBeAttached();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).focus();
   await page.keyboard.press('Home');
   for (let i = 0; i < FOUR_SECONDS; i += 1) await page.keyboard.press('Shift+ArrowRight');
   await expect(review(page).getByLabel('Timecode')).toHaveText(/^00:04\.\d\d/);

@@ -1,7 +1,7 @@
 ---
 title: Review and Picker in one tab
 date: 2026-10-06
-status: In Progress
+status: Done
 summary: Picker folds into Review (option C): Approve and a Render popover by the reel title, the queue and past renders in the top-bar render menu, finished renders playing in Review's player.
 spec: docs/specs/2026-10-05-approve-and-render.md
 ---
@@ -46,3 +46,9 @@ The phase nav has Storyboard and Review only. Review's header has Approve or Wit
 ### 2026-10-06
 - Plan created after the owner chose option C; In Progress.
 - Built and committed. Passed: typecheck, `picker.spec.ts` 2/2, `smoke.spec.ts` 2/2. Not yet run (stopped by Claude Code for low memory): `renders.spec.ts`, full vitest and Playwright, `/impeccable critique` and `audit`. Stays In Progress until those pass.
+
+### 2026-10-07
+- Finished the pending checks and UI review. The full unit suite passed (441 passed, 1 skipped), and the final full Playwright suite passed (110). Typecheck and the Impeccable detector were clean.
+- Fixed review findings: render status is announced to screen readers; switching reels clears the previous render settings and past renders; failed settings or render-list requests show their error instead of an empty or disabled form with no reason. Added a reel-switch browser test.
+- Stabilized two keyboard tests by waiting for the page and focusing Review before sending seek keys. The rewritten merge specs were not run red first; `.pop` became `.popover` because `.pop` already names the pin popover. The reel-switch test was run red before its fix.
+- PR #53 was already merged when this handoff resumed, so its body and draft state were not changed.

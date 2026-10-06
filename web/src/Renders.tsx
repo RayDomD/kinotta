@@ -50,9 +50,10 @@ const when = (iso: string): string => new Date(iso).toLocaleString(undefined, { 
  * A button that opens a panel under it: Escape or a press outside closes it and gives focus back to the button. The
  * panel is a dialog named `label`, its first control focused on open.
  */
-function Popover({ label, button, className, buttonClass, children, open, onOpen }: {
+function Popover({ label, button, buttonDescriptionId, className, buttonClass, children, open, onOpen }: {
   label: string;
   button: ReactNode;
+  buttonDescriptionId?: string;
   className: string;
   buttonClass: string;
   children: ReactNode;
@@ -87,7 +88,7 @@ function Popover({ label, button, className, buttonClass, children, open, onOpen
   }, [open, onOpen]);
   return (
     <span className="popover-anchor">
-      <button ref={trigger} type="button" className={buttonClass} aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
+      <button ref={trigger} type="button" className={buttonClass} aria-label={label} aria-describedby={buttonDescriptionId} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
         {button}
       </button>
       {open && (
@@ -135,7 +136,7 @@ export function VersionActions({ slug, entry, footage }: VersionActionsProps) {
       ) : (
         <button type="button" className="btn quiet" aria-label={number === undefined ? 'Approve' : `Approve v${number}`} disabled={busy || number === undefined} onClick={() => change(true)}>Approve</button>
       )}
-      <RenderPopover slug={slug} version={number} footage={footage} />
+      <RenderPopover key={`${slug}/${number ?? 'loading'}`} slug={slug} version={number} footage={footage} />
     </div>
   );
 }
@@ -188,6 +189,7 @@ function RenderPopover({ slug, version, footage }: { slug: string; version: numb
   const [sending, setSending] = useState(false);
   const [refusal, setRefusal] = useState('');
   const [status, setStatus] = useState('');
+  const [settingsError, setSettingsError] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -197,7 +199,9 @@ function RenderPopover({ slug, version, footage }: { slug: string; version: numb
         setSaved({ slug, settings: loaded });
         setSettings(loaded[preset]);
       },
-      () => undefined,
+      (err: unknown) => {
+        if (live) setSettingsError(err instanceof Error ? err.message : 'Could not load render settings');
+      },
     );
     return () => {
       live = false;
@@ -248,6 +252,8 @@ function RenderPopover({ slug, version, footage }: { slug: string; version: numb
           {footage && <Choice label="Audio at cuts" value={settings.audio} options={AUDIO_OPTIONS} onChange={set('audio')} />}
         </div>
       )}
+      {settings === null && settingsError === '' && <p className="pk-message" role="status">Loading render settings…</p>}
+      {settingsError !== '' && <p className="pk-refusal" role="alert">{settingsError}</p>}
       <button type="button" className="btn" disabled={version === undefined || settings === null || sending} onClick={render}>
         Render
       </button>
@@ -271,25 +277,46 @@ export interface RenderMenuProps {
   onPlay(file: string): void;
 }
 
+interface PastRendersState {
+  slug: string;
+  tick: number;
+  state: 'loading' | 'ready' | 'error';
+  renders: RenderFile[];
+  error?: string;
+}
+
 /** `Rendering v2 Draft 42% · 1 waiting`, or Renders: the top bar's button, on every tab, opening the queue and past renders. */
 export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }: RenderMenuProps) {
+  const statusId = useId();
   const [open, setOpen] = useState(false);
-  const [renders, setRenders] = useState<RenderFile[]>([]);
+  const [past, setPast] = useState<PastRendersState | null>(null);
   const [revealError, setRevealError] = useState('');
   const [cancelError, setCancelError] = useState('');
 
   useEffect(() => {
     if (slug === undefined || !open) return;
     let live = true;
-    fetchRenders(slug).then((list) => live && setRenders(list), () => undefined);
+    setPast({ slug, tick: rendersTick, state: 'loading', renders: [] });
+    fetchRenders(slug).then(
+      (renders) => {
+        if (live) setPast({ slug, tick: rendersTick, state: 'ready', renders });
+      },
+      (err: unknown) => {
+        if (live) setPast({ slug, tick: rendersTick, state: 'error', renders: [], error: err instanceof Error ? err.message : 'Could not load past renders' });
+      },
+    );
     return () => {
       live = false;
     };
   }, [slug, rendersTick, open]);
+  const currentPast = past !== null && past.slug === slug && past.tick === rendersTick ? past : null;
 
   const running = jobs.find((job) => job.state === 'running');
   const waiting = jobs.filter((job) => job.state === 'queued').length;
   const jobName = (job: RenderJob): string => `${job.reel === slug ? '' : `${titles.get(job.reel) ?? job.reel} `}v${job.version} ${presetName(job.preset)}`;
+  const status = running !== undefined
+    ? `Rendering ${jobName(running)}.${waiting > 0 ? ` ${waiting} waiting.` : ''}`
+    : waiting > 0 ? `${waiting} waiting to render.` : failure !== null ? 'Render failed.' : 'No renders in progress.';
   const cancel = (job: RenderJob): void => {
     setCancelError('');
     // The job leaves the queue when its render-progress event says it is cancelled.
@@ -315,7 +342,9 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
   );
 
   return (
-    <Popover label="Renders" button={summary} buttonClass="tb-menu" className="tb-pop" open={open} onOpen={setOpen}>
+    <>
+      <span id={statusId} className="sr-only" role="status" aria-label="Render status">{status}</span>
+      <Popover label="Renders" button={summary} buttonDescriptionId={statusId} buttonClass="tb-menu" className="tb-pop" open={open} onOpen={setOpen}>
       <section className="pk-queue" aria-label="Queue">
         <h2>Queue</h2>
         {jobs.length === 0 ? (
@@ -345,11 +374,15 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
       {slug !== undefined && (
         <section className="pk-past" aria-label="Past renders">
           <h2>Past renders</h2>
-          {renders.length === 0 ? (
+          {currentPast === null || currentPast.state === 'loading' ? (
+            <p className="meta" role="status">Loading past renders…</p>
+          ) : currentPast.state === 'error' ? (
+            <p className="pk-refusal" role="alert">{currentPast.error}</p>
+          ) : currentPast.renders.length === 0 ? (
             <p className="meta">None yet.</p>
           ) : (
             <ul className="pk-renders" aria-label="Past renders">
-              {renders.map((r) => (
+              {currentPast.renders.map((r) => (
                 <li key={r.file}>
                   <span className="pk-file">{r.file}</span>
                   <span className="meta">{`${presetName(r.preset)} · ${when(r.at)}`}</span>
@@ -375,6 +408,7 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
           {revealError !== '' && <p className="pk-refusal" role="alert">{revealError}</p>}
         </section>
       )}
-    </Popover>
+      </Popover>
+    </>
   );
 }

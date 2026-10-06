@@ -35,6 +35,8 @@ test('renders run in the background: progress on every tab, a queue with cancel,
   await phases(page).getByRole('button', { name: 'Storyboard' }).click();
   await expect(menuButton(page)).toContainText(/Rendering v2 Draft \d+%/);
   await expect(menuButton(page)).toContainText('1 waiting');
+  await expect(page.getByRole('status', { name: 'Render status' })).toHaveText('Rendering v2 Draft. 1 waiting.');
+  await expect(menuButton(page)).toHaveAttribute('aria-describedby', /.+/);
   await phases(page).getByRole('button', { name: 'Review' }).click();
   await expect(menuButton(page)).toContainText('Rendering v2 Draft');
 
@@ -69,4 +71,35 @@ test('renders run in the background: progress on every tab, a queue with cancel,
   await menuButton(page).click();
   await expect(menu(page).getByRole('list', { name: 'Past renders' }).getByRole('listitem')).toHaveCount(1);
   await expect(menu(page)).toContainText('Nothing rendering.');
+});
+
+test('a reel switch does not show another reel’s settings or past renders when loading fails', async ({ page }) => {
+  await page.route('**/api/reels/product-showreel/renders', (route) => route.fulfill({ json: {
+    renders: [{ file: 'product-showreel-v2-draft.mp4', version: 2, preset: 'draft', bytes: 100, at: '2026-10-06T00:00:00Z' }],
+  } }));
+  await page.route('**/api/reels/broll-cutdown/renders', (route) => route.fulfill({ status: 503, json: { error: 'Render list unavailable' } }));
+  await page.route('**/api/reels/broll-cutdown/render-settings', (route) => route.fulfill({ status: 503, json: { error: 'Settings unavailable' } }));
+
+  await page.goto('/');
+  const reels = page.getByRole('navigation', { name: 'Reels' });
+  await reels.getByRole('button', { name: /Product showreel/ }).click();
+  await phases(page).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render v2' }).click();
+  await expect(page.getByRole('dialog', { name: 'Render v2' }).getByLabel('Size')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await menuButton(page).click();
+  await expect(menu(page)).toContainText('product-showreel-v2-draft.mp4');
+  await page.keyboard.press('Escape');
+
+  await reels.getByRole('button', { name: /B-roll cutdown/ }).click();
+  await menuButton(page).click();
+  await expect(menu(page).getByRole('alert')).toContainText('Render list unavailable');
+  await expect(menu(page)).not.toContainText('product-showreel-v2-draft.mp4');
+  await page.keyboard.press('Escape');
+  await phases(page).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render v1' }).click();
+  const form = page.getByRole('dialog', { name: 'Render v1' });
+  await expect(form.getByRole('alert')).toContainText('Settings unavailable');
+  await expect(form.getByLabel('Size')).toHaveCount(0);
+  await expect(form.getByRole('button', { name: 'Render', exact: true })).toBeDisabled();
 });

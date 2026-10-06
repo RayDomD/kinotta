@@ -389,6 +389,9 @@ test('a caption is retyped in the frame, with a word added, and the page shows i
   const handle = review(page).getByRole('button', { name: /^Move captions/ });
   const caption = page.frameLocator('iframe[title="Retype talk page"]').locator('.caption').first();
 
+  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect(caption).toBeAttached();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).focus();
   await page.keyboard.press('Shift+ArrowRight');
   await expect(handle).toBeVisible();
   await expect(caption).toHaveText('hello there');
