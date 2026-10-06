@@ -1,7 +1,7 @@
 const KEY_PREFIX = 'kinotta.tab.';
 
-export type Tab = 'Storyboard' | 'Review';
-const TABS: readonly Tab[] = ['Storyboard', 'Review'];
+export type Tab = 'Storyboard' | 'Review' | 'Picker';
+const TABS: readonly Tab[] = ['Storyboard', 'Review', 'Picker'];
 
 /** The tab last used for a reel, or null when none was or the browser keeps nothing. Per viewer, so browser storage is enough. */
 export function lastTab(slug: string): Tab | null {

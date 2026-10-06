@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
 import type { Comment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
@@ -51,6 +52,10 @@ export interface ReviewProps {
   edits?: EditsState;
   /** The reel's transcription, while its v1 waits for it. */
   transcription?: TranscriptionProgress | null;
+  /** The page's name for the main region: `Review` unless another tab shows the player (Picker). */
+  label?: string;
+  /** Shown above the player, inside the same main region: Picker's versions table. */
+  above?: ReactNode;
 }
 
 /** Keys the player owns. Typing in a field and a focused button's own Space are left alone. */
@@ -69,7 +74,7 @@ function remapped<T extends Span>(items: readonly T[], map: Remap): T[] {
   });
 }
 
-function Playing({ reel, state, version, comments, section = null, edits, transcription }: ReviewProps) {
+function Playing({ reel, state, version, comments, section = null, edits, transcription, label = 'Review', above }: ReviewProps) {
   const video = useRef<HTMLVideoElement>(null);
   const [videoLength, setVideoLength] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -326,7 +331,8 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const playable = total > 0 && win.length > 0;
 
   return (
-    <main className="main rv-main" aria-label="Review">
+    <main className="main rv-main" aria-label={label}>
+      {above}
       <div className="head">
         <h1>{reel.title}</h1>
         <span className="meta">
@@ -345,7 +351,8 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         playing={playback.playing}
         win={win}
         tools={
-          editable || codeOnly ? (
+          // Without an edit list (Picker's read-only player) there are no tools at all.
+          editable || (codeOnly && edits !== undefined) ? (
             <Tools
               unavailable={codeOnly ? CODE_ONLY_REASON : undefined}
               tool={toolName}
@@ -403,9 +410,9 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
 /** The Review tab: the reel in the Gate well, playing, with the lanes under it. */
 export function Review(props: ReviewProps) {
-  const { state, message, reel } = props;
-  if (state === 'loading') return <main className="main" aria-label="Review"><div className="state">Loading…</div></main>;
-  if (state === 'error') return <main className="main" aria-label="Review"><Empty>{`Could not read the reel. ${message ?? ''}`.trim()}</Empty></main>;
+  const { state, message, reel, label = 'Review', above } = props;
+  if (state === 'loading') return <main className="main" aria-label={label}>{above}<div className="state">Loading…</div></main>;
+  if (state === 'error') return <main className="main" aria-label={label}>{above}<Empty>{`Could not read the reel. ${message ?? ''}`.trim()}</Empty></main>;
   // A new reel or version starts from the top, with its own window and its own page.
   return <Playing key={`${reel.slug}/${props.version?.number ?? 'footage'}`} {...props} />;
 }

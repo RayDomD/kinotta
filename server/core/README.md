@@ -22,7 +22,7 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   (`{ code, shot?, scene?, message }`, rules at the top of `_internal/contract.ts`), a missing or unparsable `shots.json`
   gives zero shots and one issue, and `index.html` is parsed with `node-html-parser`. Nothing here throws for contract problems.
 
-- `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard, approved }`
+- `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard, approved, comments, issues }` (`comments` is the version's comment count, `issues` the count of `versionIssues`, the list the render gate refuses on)
   (v1 is the storyboard in this phase; `approved` when the folder holds an `approval.json`). An unknown reel throws `not-found`.
 - `subscribe(listener)` returns an unsubscribe function. Events: `{ type: 'version-added', reel, version }` (a `v<n>`
   folder with a `shots.json` appeared), `{ type: 'reels-changed' }` (a reel or version appeared or went) and
@@ -97,6 +97,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   version its own `plan.json`, and no issues from `versionIssues`; otherwise `invalid` naming every reason, as in
   `v2 can't be rendered as a Final: it isn't approved (the owner approves it in Kinotta); it has 1 contract issue: …`.
   A Draft skips the gate.
+- `listRenders(slug)` lists `reels/<reel>/renders/` newest first, skipping dot names (temp files, work folders): `{ file,
+  version, preset, bytes, at }`, the version and preset read from the file name. `renderFile(slug, file)` is a finished
+  render's path, for serving it, and `revealRender(slug, file)` shows it in the system's file manager through the runner
+  (`explorer /select,` on Windows, `open -R` on macOS, `xdg-open` on the folder elsewhere). Both throw `not-found` for an
+  unknown reel or file, or a name that isn't a finished render.
 - `versionIssues(version)` is every static issue of a version: its contract issues, then a footage reel's footage
   problems (`footage-missing`, `transcript`, `shot-type`, `no-spoken-line`). `kinotta check` prints this list, the
   render gate refuses on it, and the approval warning names it.

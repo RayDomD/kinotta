@@ -8,6 +8,8 @@ import { SAFE_SLUG, addFootage } from './footage.ts';
 import { readTitle } from './reels.ts';
 import { brollRequest } from './requests.ts';
 import { readSections } from './sections.ts';
+import { readState, stateFilePath } from './state.ts';
+import { versionIssues } from './footage-issues.ts';
 import type { Overlay, Shot, Version, VersionEntry } from './types.ts';
 
 const REELS_DIR = 'reels';
@@ -59,7 +61,9 @@ export async function listVersions(projectDir: string, slug: string): Promise<Ve
     numbers.map(async (number): Promise<VersionEntry> => {
       const version = await readVersion(projectDir, slug, number).catch(() => null);
       const approved = await isFile(join(reelDir, `v${number}`, APPROVAL_FILE));
-      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, approved, ...(version?.builtBy ? { builtBy: version.builtBy } : {}) };
+      const comments = (await readState(stateFilePath(projectDir, slug, number), number).catch(() => ({ comments: [] }))).comments.length;
+      const issues = version === null ? 0 : versionIssues(version).length;
+      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, approved, comments, issues, ...(version?.builtBy ? { builtBy: version.builtBy } : {}) };
       if (number === STORYBOARD_VERSION) return entry;
       // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
       return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;

@@ -4,7 +4,10 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
 
 ## Public interface
 
-`index.ts` exports `Review({ reel, state, message?, version?, comments, section? })`.
+`index.ts` exports `Review({ reel, state, message?, version?, comments, section?, edits?, transcription?, label?, above? })`.
+
+- Without `edits` the reel plays read only, with no edit tools: Picker shows it this way, naming the region with `label`
+  and putting its versions table in `above`, inside the same `<main>`.
 
 - `state` is `loading`, `error`, `none` (the reel has no version, so its footage plays alone) or `ready` (then `version` is set).
 - The player stacks the footage `<video>` under the version page (`stage`'s `PagePlayer`). The video's clock drives the

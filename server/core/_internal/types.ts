@@ -135,6 +135,21 @@ export interface VersionEntry {
   builtBy?: string;
   /** The version has an `approval.json`: it is final. */
   approved: boolean;
+  /** How many comments the version holds. */
+  comments: number;
+  /** How many static contract issues it has (`versionIssues`): the ones Final and Overlay refuse on. */
+  issues: number;
+}
+
+/** A finished render in a reel's renders/ folder. */
+export interface RenderFile {
+  /** The file name. */
+  file: string;
+  version: number;
+  preset: RenderPreset;
+  bytes: number;
+  /** When it was written, as an ISO time. */
+  at: string;
 }
 
 /** What approving a version returns. `warning` names the contract issues an approved version still has (R10). */
@@ -332,6 +347,12 @@ export interface Project {
   render(request: RenderRequest): Promise<RenderJob>;
   /** The jobs waiting or running, in queue order. */
   renderJobs(): RenderJob[];
+  /** The reel's finished renders, newest first. Throws `not-found` for an unknown reel. */
+  listRenders(slug: string): Promise<RenderFile[]>;
+  /** Shows a finished render in the system's file manager. Throws `not-found` for an unknown reel or render. */
+  revealRender(slug: string, file: string): Promise<void>;
+  /** The path of a finished render, for serving it. Throws `not-found` for an unknown reel or render. */
+  renderFile(slug: string, file: string): Promise<string>;
   /** Each preset's four settings for a reel: the ones saved by a remembered render, else R2's defaults. Throws `not-found` for an unknown reel. */
   renderSettings(slug: string): Promise<Record<RenderPreset, RenderSettings>>;
   /** Resolves with the job once it is done, failed or cancelled. Throws `not-found` for an unknown job. */

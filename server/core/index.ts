@@ -10,6 +10,7 @@ import { importVideo } from './_internal/import.ts';
 import { listReels } from './_internal/reels.ts';
 import { prepareRender, runRender } from './_internal/render.ts';
 import { readRenderSettings, saveRenderSettings } from './_internal/render-settings.ts';
+import { listRenders, renderPath, revealRender } from './_internal/past-renders.ts';
 import { createRenderQueue } from './_internal/render-queue.ts';
 import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
 import { checkTools, missingToolsMessage } from './_internal/tools.ts';
@@ -47,6 +48,7 @@ export type {
   ProjectEvent,
   RenderJob,
   RenderPreset,
+  RenderFile,
   RenderRequest,
   RenderSettings,
   ReelListing,
@@ -130,6 +132,9 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     },
     renderJobs: () => renders.jobs(),
     renderSettings: (slug) => readRenderSettings(dir, slug),
+    listRenders: (slug) => listRenders(dir, slug),
+    revealRender: (slug, file) => revealRender(dir, slug, file),
+    renderFile: (slug, file) => renderPath(dir, slug, file),
     whenRendered: (jobId) => renders.whenDone(jobId),
     cancelRender: (jobId) => renders.cancel(jobId),
   };

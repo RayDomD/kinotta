@@ -66,6 +66,9 @@ const DROP_VIDEO_PORT = 4388;
 const BRIEF_REEL_PORT = 4387;
 const BRIEF_REEL_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-brief-reel-project.txt');
 
+/** An eighteenth for picker.spec.ts: the showreel sample, whose versions are approved and rendered. */
+const PICKER_PORT = 4380;
+
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
 export default defineConfig({
@@ -212,6 +215,13 @@ export default defineConfig({
         KINOTTA_E2E_FAKE_TRANSCRIBER: '1',
         KINOTTA_E2E_PROJECT_FILE: BRIEF_REEL_PROJECT_FILE,
       },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${PICKER_PORT}`,
+      env: { ...serverEnv(PICKER_PORT), KINOTTA_E2E_FIXTURE: 'showreel-project' },
       timeout: 120_000,
       reuseExistingServer: false,
     },

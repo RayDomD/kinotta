@@ -139,7 +139,7 @@ time estimate. Workers are not a setting.
 - [x] Progress events carry a combined percentage and an estimate
 - [x] `.work-<job>/` is removed on finish, cancel and failure
 
-## T55. Picker page
+## T55. Picker page — Done
 
 **What to build:** Picker becomes the third phase page, built to `docs/mockups/2026-10-05-picker-layout.html` in the
 DESIGN.md visual world. The main column holds the versions table (version, built by, comment count, contract status,
@@ -151,13 +151,13 @@ and the reel's past renders with Play and Show in folder. Final and Overlay show
 
 **Model:** top
 
-- [ ] The Picker tab lists the reel's versions with built by, comments, contract status and approval
-- [ ] Approve and Withdraw work from the table and the rail follows
-- [ ] Selecting a row plays that version
-- [ ] The render panel prefills from the preset and saved settings and starts a render
-- [ ] A refused Final or Overlay shows the reasons in the panel
-- [ ] Past renders list with Play and Show in folder
-- [ ] Playwright: approve a version, see the rail mark, render a Draft, play the finished file
+- [x] The Picker tab lists the reel's versions with built by, comments, contract status and approval
+- [x] Approve and Withdraw work from the table and the rail follows
+- [x] Selecting a row plays that version
+- [x] The render panel prefills from the preset and saved settings and starts a render
+- [x] A refused Final or Overlay shows the reasons in the panel
+- [x] Past renders list with Play and Show in folder
+- [x] Playwright: approve a version, see the rail mark, render a Draft, play the finished file
 
 ## T56. Renders in the background, everywhere
 

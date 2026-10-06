@@ -42,8 +42,8 @@ describe('versions', () => {
     const project = openProject(copyFixture('showreel-project'));
 
     expect(await project.listVersions(REEL)).toEqual([
-      { number: 1, isNewest: false, isStoryboard: true, approved: false },
-      { number: 2, isNewest: true, isStoryboard: false, approved: false },
+      { number: 1, isNewest: false, isStoryboard: true, approved: false, comments: 0, issues: 0 },
+      { number: 2, isNewest: true, isStoryboard: false, approved: false, comments: 0, issues: 0 },
     ]);
   });
 

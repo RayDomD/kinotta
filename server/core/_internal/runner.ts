@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 /**
@@ -417,6 +417,22 @@ export function joinSegments(list: string, out: string, audio: JoinAudio | null,
 function renderFailure(errors: string): string {
   const thrown = /\b(?:[A-Z]\w*)?Error: [^\r\n]*/.exec(errors);
   return thrown ? thrown[0] : errors.trim().split('\n').slice(-3).join(' ');
+}
+
+/**
+ * Shows a file in the system's file manager: selected in Explorer or Finder, its folder elsewhere. It doesn't wait for
+ * the window, and a file manager that can't start is ignored.
+ */
+export function revealInFolder(file: string): void {
+  const child =
+    process.platform === 'win32'
+      ? // Explorer reads `/select,` and the quoted path as one argument, so it is passed as written.
+        spawn('explorer.exe', [`/select,"${file}"`], { stdio: 'ignore', detached: true, windowsVerbatimArguments: true })
+      : process.platform === 'darwin'
+        ? spawn('open', ['-R', file], { stdio: 'ignore', detached: true })
+        : spawn('xdg-open', [dirname(file)], { stdio: 'ignore', detached: true });
+  child.on('error', () => undefined);
+  child.unref();
 }
 
 /** ffmpeg: an H.264 and AAC copy of a video that browsers play, for HEVC or ProRes originals. The source is only read. */

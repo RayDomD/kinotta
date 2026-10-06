@@ -18,6 +18,10 @@ const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
 const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
 const RENDER_API = /^\/api\/renders\/([^/]+)$/;
 const RENDER_SETTINGS_API = /^\/api\/reels\/([^/]+)\/render-settings$/;
+const RENDERS_LIST_API = /^\/api\/reels\/([^/]+)\/renders$/;
+const REVEAL_API = /^\/api\/reels\/([^/]+)\/renders\/([^/]+)\/reveal$/;
+const RENDER_FILE_ROUTE = /^\/renders\/([^/]+)\/([^/]+)$/;
+const HTTP_NO_CONTENT = 204;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -51,6 +55,7 @@ const CONTENT_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
 };
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -240,6 +245,15 @@ async function sendRanged(req: IncomingMessage, res: ServerResponse, file: strin
   else createReadStream(file, range ?? undefined).pipe(res);
 }
 
+/** A finished render, with byte ranges so it can be played and sought. Anything but a finished render is a 404. */
+async function serveRender(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const file = safeDecode(route[2]!);
+  const path = slug === null || file === null ? null : await project.renderFile(slug, file).catch(() => null);
+  if (path) await sendRanged(req, res, path);
+  else sendNotFound(res);
+}
+
 async function serveFootage(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   const file = slug === null ? null : await project.footageFile(slug);
@@ -305,6 +319,9 @@ export function createHandler(project: Project, webRoot: string) {
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
       const renderRoute = RENDER_API.exec(pathname);
       const renderSettingsRoute = RENDER_SETTINGS_API.exec(pathname);
+      const rendersListRoute = RENDERS_LIST_API.exec(pathname);
+      const revealRoute = REVEAL_API.exec(pathname);
+      const renderFileRoute = RENDER_FILE_ROUTE.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -331,6 +348,14 @@ export function createHandler(project: Project, webRoot: string) {
         const id = safeDecode(renderRoute[1]!);
         if (id === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelRender(id));
+      } else if (revealRoute && req.method === 'POST') {
+        const slug = safeDecode(revealRoute[1]!);
+        const file = safeDecode(revealRoute[2]!);
+        if (slug === null || file === null) sendJson(res, 404, { error: 'Not found' });
+        else {
+          await project.revealRender(slug, file);
+          res.writeHead(HTTP_NO_CONTENT).end();
+        }
       } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
         sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
@@ -344,6 +369,8 @@ export function createHandler(project: Project, webRoot: string) {
         res.writeHead(405).end();
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
+      } else if (renderFileRoute) {
+        await serveRender(req, res, project, renderFileRoute);
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });
       } else if (transcriptionRoute) {
@@ -352,6 +379,10 @@ export function createHandler(project: Project, webRoot: string) {
         else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
       } else if (pathname === '/api/renders') {
         sendJson(res, 200, { jobs: project.renderJobs() });
+      } else if (rendersListRoute) {
+        const slug = safeDecode(rendersListRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { renders: await project.listRenders(slug) });
       } else if (renderSettingsRoute) {
         const slug = safeDecode(renderSettingsRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });

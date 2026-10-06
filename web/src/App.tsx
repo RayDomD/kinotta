@@ -8,6 +8,7 @@ import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
 import { NewReel, NewReelSide } from './NewReel.tsx';
+import { PickerSide, RenderPlayer, VersionsTable } from './Picker.tsx';
 import { Review, ReviewSide, useEdits } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
@@ -35,7 +36,7 @@ type VersionLoad =
   | { status: 'ready'; slug: string; version: Version };
 
 const PHASES = ['Storyboard', 'Review', 'Picker'] as const;
-type Phase = 'Storyboard' | 'Review';
+type Phase = (typeof PHASES)[number];
 
 function HexMark() {
   return (
@@ -73,15 +74,11 @@ function TopBar(props: {
         {version && !creating && <span className="num">{formatDuration(version.duration)}</span>}
       </div>
       <nav className="modes" aria-label="Phase">
-        {PHASES.map((name) =>
-          name === 'Storyboard' || name === 'Review' ? (
-            <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} onClick={() => onPhase?.(name)}>
-              {name}
-            </button>
-          ) : (
-            <span key={name} aria-disabled="true" title="Not built yet">{name}</span>
-          ),
-        )}
+        {PHASES.map((name) => (
+          <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} onClick={() => onPhase?.(name)}>
+            {name}
+          </button>
+        ))}
       </nav>
       {reel && version && !creating && (
         <CopyButton
@@ -264,10 +261,15 @@ interface MainProps {
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
   onBriefStarted(slug: string): void;
+  /** The reel's versions, for Picker's table. */
+  entries: VersionEntry[];
+  /** The finished render Picker is playing instead of the version, if any. */
+  playingRender: string | null;
+  onStopRender(): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted, entries, playingRender, onStopRender } = props;
   if (creating) return <NewReel project={project} onStarted={onStarted} onBriefStarted={onBriefStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
@@ -276,6 +278,31 @@ function Main(props: MainProps) {
     return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask your agent for a storyboard to add one.`}</Empty></main>;
   }
   if (reel.brief !== undefined && reel.newestVersion === null) return <BriefWaiting reel={{ ...reel, brief: reel.brief }} />;
+  if (phase === 'Picker') {
+    const selected = version.status === 'ready' ? version.version.number : undefined;
+    const table = <VersionsTable slug={reel.slug} entries={entries} selected={selected} onSelect={onOpenVersion} />;
+    if (playingRender !== null) {
+      return (
+        <main className="main rv-main" aria-label="Picker">
+          {table}
+          <RenderPlayer slug={reel.slug} file={playingRender} version={selected} onBack={onStopRender} />
+        </main>
+      );
+    }
+    // Review's player, read only: no edit list, so nothing on it can be changed.
+    return (
+      <Review
+        label="Picker"
+        above={table}
+        reel={reel}
+        state={version.status}
+        message={version.status === 'error' ? version.message : undefined}
+        version={version.status === 'ready' ? version.version : undefined}
+        comments={comments.comments}
+        transcription={transcription}
+      />
+    );
+  }
   if (phase === 'Review') {
     return (
       <Review
@@ -400,17 +427,22 @@ export function App() {
 
   const [phase, setPhase] = useState<Phase>('Storyboard');
   const [creating, setCreating] = useState(false);
+  /** The finished render Picker plays in place of the version; cleared when another reel or version opens. */
+  const [playingRender, setPlayingRender] = useState<string | null>(null);
+  const [rendersTick, setRendersTick] = useState(0);
 
   const openReel = useCallback((slug: string) => {
     setCreating(false);
     setSelected(slug);
     setChosen(undefined);
+    setPlayingRender(null);
     setReady(new Set());
     setPhase(lastTab(slug) ?? 'Storyboard');
   }, []);
 
   const openVersionNumber = useCallback((number: number) => {
     setChosen(number);
+    setPlayingRender(null);
     setReady((prev) => new Set([...prev].filter((n) => n > number)));
   }, []);
 
@@ -503,7 +535,8 @@ export function App() {
       } else if (event.type === 'approval-changed') {
         if (event.reel === current.current.slug) setVersionsTick((n) => n + 1);
       } else if (event.type === 'render-progress') {
-        // Nothing shows renders yet; the queue and the top bar indicator come with Picker.
+        // A finished render of the open reel joins Picker's past renders.
+        if (event.job.state === 'done' && event.job.reel === current.current.slug) setRendersTick((n) => n + 1);
       } else if (event.reel === current.current.slug && event.version === current.current.version) {
         setCommentsTick((n) => n + 1);
       }
@@ -600,9 +633,20 @@ export function App() {
           edits={edits}
           transcription={transcription}
           onBriefStarted={briefStarted}
+          entries={entries ?? []}
+          playingRender={playingRender}
+          onStopRender={() => setPlayingRender(null)}
         />
         {creating ? (
           <NewReelSide />
+        ) : phase === 'Picker' && reel !== undefined ? (
+          <PickerSide
+            slug={reel.slug}
+            version={openVersion?.number}
+            footage={openVersion?.footage !== undefined}
+            rendersTick={rendersTick}
+            onPlay={setPlayingRender}
+          />
         ) : phase === 'Review' ? (
           <ReviewSide
             edits={edits}

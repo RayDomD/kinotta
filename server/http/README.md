@@ -8,7 +8,7 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
 
 - `GET /api/project` returns `{ name }`.
 - `GET /api/reels` returns the core's `listReels()` result.
-- `GET /api/reels/<reel>/versions` returns `{ versions: [{ number, isNewest, isStoryboard, approved }] }`, oldest first.
+- `GET /api/reels/<reel>/versions` returns `{ versions: [{ number, isNewest, isStoryboard, approved, comments, issues }] }`, oldest first.
 - `GET /api/events` is a server-sent event stream (`text/event-stream`): each core project event as one JSON
   `data:` message (`version-added`, `reels-changed`, `comments-changed`, `approval-changed`, `transcription-progress`, `render-progress`), plus a comment line every 25 s.
 - `GET /api/reels/<reel>/versions/<n>` returns the core's `readVersion()` result. An unknown reel or version is
@@ -29,6 +29,9 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
   or version a 404. `GET /api/renders` returns `{ jobs }`, the jobs waiting or running. `DELETE /api/renders/<id>`
   cancels a job and answers 200 once it has stopped, with the job (`cancelled`, or unchanged if it had finished); an
   unknown job is a 404. Progress comes as `render-progress` events on `/api/events`.
+- `GET /api/reels/<reel>/renders` returns `{ renders }`, the reel's finished renders newest first. `GET /renders/<reel>/<file>`
+  serves one with byte ranges; temp files, path tricks and unknown files are a 404. `POST
+  /api/reels/<reel>/renders/<file>/reveal` shows it in the system's file manager and answers 204, or 404 for an unknown file.
 - `GET /reels/<reel>/v<n>/<file>` serves a version's files same-origin. Only version folders under `reels/`
   are reachable (no dot folders, no path escapes).
 - `GET /footage/<reel>` serves the reel's footage file (from `reel.json`, confined to the project folder) with byte

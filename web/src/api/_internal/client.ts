@@ -131,6 +131,10 @@ export interface VersionEntry {
   builtBy?: string;
   /** The version is approved: it is final. */
   approved: boolean;
+  /** How many comments it holds. */
+  comments: number;
+  /** How many contract issues it has: the ones Final and Overlay refuse on. */
+  issues: number;
 }
 
 /** What approving a version returns. `warning` names the contract issues it still has. */
@@ -141,6 +145,24 @@ export interface Approval {
 }
 
 export type RenderPreset = 'draft' | 'final' | 'overlay';
+
+/** The four settings on top of a preset (R3). Size is the short side; the long side keeps the source's aspect ratio. */
+export interface RenderSettings {
+  fps: 'source' | 24 | 25 | 30 | 60;
+  size: 'half' | 'source' | '1080p' | '4k';
+  quality: 'standard' | 'high';
+  audio: 'smooth' | 'hard';
+}
+
+/** A finished render in a reel's renders/ folder. */
+export interface RenderFile {
+  file: string;
+  version: number;
+  preset: RenderPreset;
+  bytes: number;
+  /** When it was written, as an ISO time. */
+  at: string;
+}
 
 /** One render in the project's queue. */
 export interface RenderJob {
@@ -254,6 +276,27 @@ export const approveVersion = (slug: string, number: number): Promise<Approval> 
 /** Takes a version's approval back; its renders stay. */
 export const withdrawApproval = (slug: string, number: number): Promise<{ approved: false }> =>
   requestJson(`${versionPath(slug, number)}/approval`, { method: 'DELETE' });
+
+/** Each preset's settings for a reel: the ones the last Render from Picker saved, else the preset's defaults. */
+export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPreset, RenderSettings>> =>
+  (await getJson<{ settings: Record<RenderPreset, RenderSettings> }>(`/api/reels/${encodeURIComponent(slug)}/render-settings`)).settings;
+/**
+ * Queues a render with these settings and saves them as the reel's for the preset (R16). A refusal (the gate, an Overlay
+ * of an opaque page) throws with the reason.
+ */
+export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings): Promise<RenderJob> =>
+  requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true }) });
+/** A reel's finished renders, newest first. */
+export const fetchRenders = async (slug: string): Promise<RenderFile[]> =>
+  (await getJson<{ renders: RenderFile[] }>(`/api/reels/${encodeURIComponent(slug)}/renders`)).renders;
+/** Where a finished render is served, for playing it. */
+export const renderFileUrl = (slug: string, file: string): string => `/renders/${encodeURIComponent(slug)}/${encodeURIComponent(file)}`;
+/** Shows a finished render in the system's file manager, on the machine running Kinotta. */
+export async function revealRender(slug: string, file: string): Promise<void> {
+  const path = `/api/reels/${encodeURIComponent(slug)}/renders/${encodeURIComponent(file)}/reveal`;
+  const res = await fetch(path, { method: 'POST' });
+  if (!res.ok) throw new Error(((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? `Request to ${path} failed (${res.status})`);
+}
 
 /** A version's comments, in number order. */
 export const fetchComments = (slug: string, number: number): Promise<CommentsOfVersion> =>
