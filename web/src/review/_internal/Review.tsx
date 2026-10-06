@@ -4,13 +4,13 @@ import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
 import type { Comment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
-import type { CaptionMove, CaptionPhrase, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase, CaptionText, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
 import type { ClipPreview, PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
-import { captionShifts, clipIdForScene, codeClips, clipOffsets, editedClips, editedList, remap, sourceStretches } from './edited.ts';
+import { captionShifts, clipIdForScene, codeClips, clipOffsets, editedClips, editedList, phraseTexts, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
 import type { Span } from './model.ts';
@@ -118,22 +118,26 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       return start === null ? [] : [{ text: w.text, start, end: start + (w.end - w.start) }];
     });
   }, [version, savedPieces]);
-  const shownWords = useMemo(() => {
+  const editedWords = useMemo(() => {
     if (!sourceWords) return null;
-    const now = pieceMap(pieces ?? [], 0);
-    const source = sourceWords;
-    let edited = source;
     try {
-      edited = applyOperations({ plan: {}, words: source }, operations.filter((op) => op.kind === 'word-text' || op.kind === 'word-timing')).words;
+      return applyOperations({ plan: {}, words: sourceWords }, operations.filter((op) => op.kind === 'word-text' || op.kind === 'word-timing' || op.kind === 'phrase-text')).words;
     } catch {
       // The list no longer applies to these words; the saved words show.
+      return sourceWords;
     }
-    return edited.flatMap((w, i) => {
+  }, [sourceWords, operations]);
+  const shownWords = useMemo(() => {
+    if (!sourceWords || !editedWords) return null;
+    const now = pieceMap(pieces ?? [], 0);
+    // A retyped caption can change how many words there are; then a word is matched to the saved one starting with it.
+    const counted = editedWords.length === sourceWords.length;
+    return editedWords.flatMap((w, i) => {
       const span = toTimelineSpan(now, w.start, w.end);
-      const before = source[i]!;
-      return span ? [{ text: w.text, ...span, fixed: w.text !== before.text, retimed: w.start !== before.start || w.end !== before.end, source: w }] : [];
+      const before = counted ? sourceWords[i] : sourceWords.find((s) => Math.abs(s.start - w.start) < SAME_SECOND);
+      return span ? [{ text: w.text, ...span, fixed: w.text !== before?.text, retimed: before === undefined || w.start !== before.start || w.end !== before.end, source: w }] : [];
     });
-  }, [sourceWords, pieces, operations]);
+  }, [sourceWords, editedWords, pieces]);
   const words: WordCell[] | null = shownWords;
   // Caption positions: the saved ones with the unsaved moves over them, per phrase of the saved page.
   const placements = useMemo(() => {
@@ -141,7 +145,22 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     const was = pieceMap(savedPieces, 0);
     return captionShifts(version?.captions, operations, sourceWords, phrases.map((p) => toSource(was, p.start) ?? Number.NaN));
   }, [version, sourceWords, savedPieces, operations, phrases]);
-  const shownPhrases = useMemo(() => remapped<PhraseCell>(phrases.map((p, i) => ({ ...p, own: placements?.[i]?.own })), moved), [phrases, placements, moved]);
+  // Caption words: each phrase's words with the unsaved word and caption edits, shown in the page and on the Captions lane.
+  const captions = useMemo(() => {
+    if (!sourceWords || !editedWords || !savedPieces) return null;
+    const was = pieceMap(savedPieces, 0);
+    const spans = phrases.map((p) => {
+      const from = p.spoken ? toSource(was, p.spoken.start) : null;
+      const to = p.spoken ? toSource(was, p.spoken.end - SAME_SECOND) : null;
+      return from === null || to === null ? { from: Number.NaN, to: Number.NaN } : { from, to: to + SAME_SECOND };
+    });
+    return phraseTexts(spans, sourceWords, editedWords, savedPieces);
+  }, [sourceWords, editedWords, savedPieces, phrases]);
+  const captionWords = useMemo(() => (captions?.some((c) => c.page !== null) ? captions.map((c) => c.page) : null), [captions]);
+  const shownPhrases = useMemo(
+    () => remapped<PhraseCell>(phrases.map((p, i) => ({ ...p, own: placements?.[i]?.own, text: captions?.[i]?.page ? captions[i]!.page!.map((w) => w.text).join(' ') : p.text })), moved),
+    [phrases, placements, captions, moved],
+  );
   const shownComments = useMemo(
     () =>
       comments.flatMap((c) => {
@@ -254,6 +273,15 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       return;
     }
     await changes.add({ kind: 'caption-phrase-position', at: placed.key, x: placed.x - placed.wide.x + dx, y: placed.y - placed.wide.y + dy });
+  };
+  const captionsRef = useRef(captions);
+  captionsRef.current = captions;
+  /** The caption on show retyped in the frame: its words, from the first's start to the last's end, become the new text. */
+  const retypeCaption = async ({ index, text }: CaptionText): Promise<void> => {
+    const { editable: allowed, edits: changes } = live.current;
+    const words = captionsRef.current?.[index]?.words;
+    if (!allowed || !changes || changes.busy || !words || words.length === 0) return;
+    await changes.add({ kind: 'phrase-text', from: words[0]!.start, to: words[words.length - 1]!.end, text, was: words.map((w) => w.text).join(' ') });
   };
   const changeElement = async ({ clip, element, x, y, scale }: ElementChange): Promise<void> => {
     const { moveable: allowed, edits: changes } = live.current;
@@ -400,6 +428,8 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         onPhrases={setPhrases}
         captionShifts={editable ? placements : null}
         onCaptionMove={editable && placements ? moveCaption : undefined}
+        captionWords={captionWords}
+        onCaptionText={editable && captions ? retypeCaption : undefined}
         elements={elements}
         clipTiming={clipTiming}
         onVideoMetadata={setVideoLength}

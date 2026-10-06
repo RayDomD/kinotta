@@ -45,7 +45,7 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
     return formatTransport(from === undefined ? 0 : (toTimeline(before, from) ?? 0));
   }
   const at =
-    op.kind === 'snip'
+    op.kind === 'snip' || op.kind === 'phrase-text'
       ? toTimelineSpan(before, op.from, op.to)?.start
       : op.kind === 'move-piece'
         ? before.pieces[op.from]?.at

@@ -121,6 +121,20 @@ export interface WordTimingOperation {
   end: number;
 }
 
+/**
+ * Retypes a caption phrase: the words from `from` to `to` (a first word's start and a last word's end, in source seconds)
+ * become the words of `text`. The same count keeps each word's timing; another count spreads the new words over the old
+ * span by their length. Empty text removes the words. `was` is what the phrase read, kept only to word the edit in the panel.
+ */
+export interface PhraseTextOperation {
+  id: string;
+  kind: 'phrase-text';
+  from: number;
+  to: number;
+  text: string;
+  was?: string;
+}
+
 /** Moves every caption: the reel-wide offset (`captions.position`). A new one replaces the last. */
 export interface CaptionPositionOperation {
   id: string;
@@ -173,6 +187,7 @@ export type Operation =
   | MovePieceOperation
   | WordTextOperation
   | WordTimingOperation
+  | PhraseTextOperation
   | CaptionPositionOperation
   | CaptionPhrasePositionOperation
   | ClipTrimOperation
@@ -291,6 +306,35 @@ function applyWordText(sources: Sources, op: WordTextOperation): Sources {
   const index = wordIndexAt(sources.words, op.at);
   const words = sources.words.map((w, i) => (i === index ? { ...w, text } : w));
   return { ...sources, words };
+}
+
+/** A word's share of a retyped phrase's span: its letters plus one for the gap after it. */
+const wordWeight = (text: string): number => text.length + 1;
+
+function applyPhraseText(sources: Sources, op: PhraseTextOperation): Sources {
+  if (!Number.isFinite(op.from) || !Number.isFinite(op.to) || op.to <= op.from) throw new KinottaError('invalid', 'A caption edit needs the span of its words, "from" before "to", in seconds.');
+  const inside = (w: TranscriptWord): boolean => w.start >= op.from - MIN_SNIP && w.end <= op.to + MIN_SNIP;
+  const first = sources.words.findIndex(inside);
+  if (first < 0) throw new KinottaError('invalid', 'There are no words there. An earlier edit may have moved them.');
+  let last = first;
+  while (last + 1 < sources.words.length && inside(sources.words[last + 1]!)) last += 1;
+  const old = sources.words.slice(first, last + 1);
+  const texts = typeof op.text === 'string' ? op.text.split(/\s+/).filter((t) => t !== '') : [];
+  if (texts.join(' ') === old.map((w) => w.text).join(' ')) throw new KinottaError('invalid', 'The caption already reads that.');
+  let next: TranscriptWord[];
+  if (texts.length === old.length) next = old.map((w, i) => ({ ...w, text: texts[i]! }));
+  else {
+    const start = old[0]!.start;
+    const span = old[old.length - 1]!.end - start;
+    const total = texts.reduce((sum, t) => sum + wordWeight(t), 0);
+    let at = 0;
+    next = texts.map((text) => {
+      const from = round(start + (span * at) / total);
+      at += wordWeight(text);
+      return { text, start: from, end: round(start + (span * at) / total) };
+    });
+  }
+  return { ...sources, words: [...sources.words.slice(0, first), ...next, ...sources.words.slice(last + 1)] };
 }
 
 /** The plan's captions as an object to change, or `invalid` when captions are off. */
@@ -422,6 +466,8 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyWordText(sources, op);
     case 'word-timing':
       return applyWordTiming(sources, op);
+    case 'phrase-text':
+      return applyPhraseText(sources, op);
     case 'caption-position':
       return applyCaptionPosition(sources, op);
     case 'caption-phrase-position':
@@ -455,6 +501,8 @@ export function operationTouches(op: Operation, section: { start: number; end: n
       return op.at >= section.start && op.at < section.end;
     case 'word-timing':
       return (op.at >= section.start && op.at < section.end) || (op.start < section.end && op.end > section.start);
+    case 'phrase-text':
+      return op.from < section.end && op.to > section.start;
     // Every caption moves, so every section's captions change.
     case 'caption-position':
       return true;
@@ -495,6 +543,11 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: 'Word', text: op.was ? `Changed “${op.was}” to “${op.text}”` : `Changed the word to “${op.text}”` };
     case 'word-timing':
       return { target: 'Word', text: `Re-timed to ${clock(op.start)} to ${clock(op.end)}` };
+    case 'phrase-text': {
+      const text = op.text.trim().replace(/\s+/g, ' ');
+      if (text === '') return { target: 'Caption', text: op.was ? `Removed “${op.was}”` : 'Removed the caption' };
+      return { target: 'Caption', text: op.was ? `Changed “${op.was}” to “${text}”` : `Changed the caption to “${text}”` };
+    }
     case 'caption-position':
       return { target: 'Captions', text: `Moved all captions to ${op.x}, ${op.y}` };
     case 'caption-phrase-position':

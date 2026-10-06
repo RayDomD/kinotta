@@ -173,3 +173,31 @@ export function clipIdForScene(scene: string, clips: readonly PlanClip[]): strin
   const exact = clips.find((c) => typeof c.clip === 'string' && stemOf(c.clip) === scene);
   return (exact ?? clips.find((c) => scene === c.id || scene.startsWith(`${c.id}-`)))?.id;
 }
+
+/** One caption phrase's words with the unsaved word and caption edits applied. */
+export interface PhraseText {
+  /** Its words now, in source seconds: what a caption edit names. */
+  words: TranscriptWord[];
+  /** The same words in the saved page's seconds when they differ from the built phrase; null when it is as built. */
+  page: TranscriptWord[] | null;
+}
+
+/**
+ * Each caption phrase's words before and after the unsaved edits. `spans` are the phrases' source spans (first word's
+ * start to last word's end), `saved` and `edited` the words in source seconds before and after the edits, and `was` the
+ * saved version's pieces, which place the words on the page. A word belongs to the phrase its start falls in.
+ */
+export function phraseTexts(spans: readonly { from: number; to: number }[], saved: readonly TranscriptWord[], edited: readonly TranscriptWord[], was: readonly Piece[]): PhraseText[] {
+  const map = pieceMap(was, 0);
+  const inside = (list: readonly TranscriptWord[], span: { from: number; to: number }): TranscriptWord[] => list.filter((w) => w.start >= span.from - MIN_SNIP && w.start < span.to - MIN_SNIP);
+  const key = (list: readonly TranscriptWord[]): string => list.map((w) => `${w.text}@${w.start}-${w.end}`).join(' ');
+  return spans.map((span) => {
+    const words = inside(edited, span);
+    if (key(words) === key(inside(saved, span))) return { words, page: null };
+    const page = words.flatMap((w) => {
+      const placed = toTimelineSpan(map, w.start, w.end);
+      return placed ? [{ text: w.text, ...placed }] : [];
+    });
+    return { words, page };
+  });
+}

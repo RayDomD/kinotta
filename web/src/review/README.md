@@ -27,6 +27,9 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
   version's, seeked to the matching saved time. Select (V) and Snip (S) tools: with Snip on, dragging the lanes selects a
   stretch, then Snip (or Enter) adds the operation. `ReviewSide` is the right column: Edits (numbered cards, Save as
   v<n+1>, Discard) and Comments (the comments panel, passed in).
+- Captions in the frame: double-click the caption on show (or Enter on its handle) to retype the whole phrase, adding or
+  removing words; Enter adds a `phrase-text` operation. Word fixes and retyped phrases show in the page, the Captions lane
+  and the Words lane before Save (`phraseTexts` works out each phrase's words; `PagePlayer` swaps them in).
 
 ## Does not handle
 

@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from 'react';
 import { PagePlayer } from '../../stage/index.ts';
-import type { CaptionMove, CaptionPhrase, CaptionShift, ClipTiming, ElementEditing } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase, CaptionShift, CaptionText, CaptionWord, ClipTiming, ElementEditing } from '../../stage/index.ts';
 import { formatClock } from '../../timecode.ts';
 import { formatTransport } from './clock.ts';
 import type { TimeWindow } from './timeline.ts';
@@ -33,6 +33,10 @@ export interface PlayerProps {
   elements?: ElementEditing;
   /** Clips slid or trimmed before Save (or being dragged), played at their new times. Absent: as built. */
   clipTiming?: ClipTiming | null;
+  /** Captions retyped or with words fixed before Save, shown in place of the built words. Absent: as built. */
+  captionWords?: readonly (readonly CaptionWord[] | null)[] | null;
+  /** A caption was retyped in the frame; absent when captions cannot be edited. */
+  onCaptionText?(edit: CaptionText): void | Promise<unknown>;
   onVideoMetadata(duration: number): void;
   onVideoError(): void;
 }
@@ -51,7 +55,7 @@ function PlayMark({ playing }: { playing: boolean }) {
 
 /** The Gate well: the reel's frame (footage under the version page) and the transport under it. */
 export function Player(props: PlayerProps) {
-  const { title, footageSrc, video, pageUrl, problem, time, pageTime, total, playing, win, tools, onToggle, onZoom, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, onVideoMetadata, onVideoError } = props;
+  const { title, footageSrc, video, pageUrl, problem, time, pageTime, total, playing, win, tools, onToggle, onZoom, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, onCaptionText, onVideoMetadata, onVideoError } = props;
   return (
     <div className="well rv-well">
       <div className="rv-frame" aria-label={`${title} frame`}>
@@ -68,7 +72,7 @@ export function Player(props: PlayerProps) {
             onError={onVideoError}
           />
         )}
-        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} captionShifts={captionShifts} onCaptionMove={onCaptionMove} elements={elements} clipTiming={clipTiming} />}
+        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} captionShifts={captionShifts} onCaptionMove={onCaptionMove} elements={elements} clipTiming={clipTiming} captionWords={captionWords} onCaptionText={onCaptionText} />}
         {problem !== null && <div className="rv-problem" role="status">{problem}</div>}
       </div>
       <div className="rv-transport">

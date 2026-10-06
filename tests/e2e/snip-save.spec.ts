@@ -260,6 +260,8 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await page.keyboard.press('Enter');
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText('Changed “there” to “where”');
+  // The caption in the picture reads the fix before Save.
+  await expect(page.frameLocator('iframe[title="Words talk page"]').locator('.caption').first()).toHaveText('hello where');
   await expect(word(1)).toHaveText('where');
   await expect(word(1)).toHaveClass(/fixed/);
 
@@ -348,6 +350,43 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   // The new version's page already holds the positions; the editor shows them without any unsaved edit.
   await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
   await expect(cards).toHaveCount(0);
+});
+
+test('a caption is retyped in the frame, with a word added, and the page shows it before Save; undo puts it back', async ({ page }) => {
+  await startReel(page, 'Retype talk');
+  const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
+  const handle = review(page).getByRole('button', { name: /^Move captions/ });
+  const caption = page.frameLocator('iframe[title="Retype talk page"]').locator('.caption').first();
+
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(handle).toBeVisible();
+  await expect(caption).toHaveText('hello there');
+
+  // Double-clicking the caption opens its whole text; Enter keeps the new text.
+  await handle.dblclick();
+  const field = review(page).getByLabel('Caption text');
+  await expect(field).toHaveValue('hello there');
+  await field.fill('hello out there');
+  await page.keyboard.press('Enter');
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('Changed “hello there” to “hello out there”');
+
+  // The picture, the Captions lane and the Words lane show it with no rebuild.
+  await expect(caption).toHaveText('hello out there');
+  await expect(caption.locator('[data-t]')).toHaveCount(3);
+  await expect(review(page).locator('.rv-phrase').first()).toHaveText('hello out there');
+  await expect(review(page).locator('.rv-w')).toHaveText(['hello', 'out', 'there']);
+
+  // Escape leaves a caption as it was.
+  await handle.dblclick();
+  await review(page).getByLabel('Caption text').fill('nothing');
+  await page.keyboard.press('Escape');
+  await expect(cards).toHaveCount(1);
+
+  await page.keyboard.press('Control+z');
+  await expect(cards).toHaveCount(0);
+  await expect(caption).toHaveText('hello there');
+  await expect(caption.locator('[data-t]')).toHaveCount(2);
 });
 
 /** Tabs forward, at most this many times, until the focused element matches; fails if focus never gets there (a trap or an unreachable control). */

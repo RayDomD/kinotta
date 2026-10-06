@@ -12,6 +12,7 @@
 .rv-caphandle[data-dragging] { cursor: grabbing; }
 .rv-caphint { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); font-size: 12px; color: var(--ink); background: oklch(.12 .003 106 / .8); border: 1px solid var(--hairline); padding: 2px 8px; white-space: nowrap; opacity: 0; pointer-events: none; }
 .rv-caphandle:hover .rv-caphint, .rv-caphandle:focus-visible .rv-caphint { opacity: 1; }
+.rv-captext { position: absolute; pointer-events: auto; box-sizing: border-box; background: var(--ground-deep); border: 1.4px solid var(--light); color: var(--ink); font: 16px Outfit, sans-serif; padding: 3px 8px; text-align: center; }
 .rv-frame .rv-problem { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: 14px; color: var(--ink-2); }
 
 /* transport */
