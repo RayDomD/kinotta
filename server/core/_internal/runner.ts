@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -21,6 +21,7 @@ const TRANSCODE_CRF = '20';
 const TOOL_PROBE_TIMEOUT_MS = 10_000;
 /** `render.js --info` starts a browser and loads the page, which a large page makes slow. */
 const PAGE_INFO_TIMEOUT_MS = 60_000;
+const CANCELLED = 'The render was cancelled.';
 
 const exec = promisify(execFile);
 
@@ -195,6 +196,26 @@ function renderArgs(job: Omit<PageRender, 'out' | 'codec'>, out: string, codec: 
   return args;
 }
 
+/**
+ * Stops a process and everything it started, resolving once they are gone. On Windows a killed Node leaves its Chromium and
+ * ffmpeg running, so the whole tree goes; elsewhere SIGTERM lets Playwright close its browser.
+ */
+function killTree(child: ChildProcess): Promise<void> {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  if (process.platform !== 'win32') {
+    child.kill('SIGTERM');
+    return Promise.resolve();
+  }
+  return new Promise((done) => {
+    const killer = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    killer.on('error', () => {
+      child.kill();
+      done();
+    });
+    killer.on('close', () => done());
+  });
+}
+
 /** Collects one render's progress and errors from its text output. */
 function renderListener(onProgress?: (done: number, frames: number) => void) {
   const state = { errors: '', page: null as RenderedPage | null };
@@ -210,16 +231,23 @@ function renderListener(onProgress?: (done: number, frames: number) => void) {
 /**
  * `render.js` (R14): the page frame by frame into a video. No timeout; a long page takes minutes. `onProgress` gets the
  * frames done and the total after each frame. Resolves with the page's rendered size; a failure rejects with the reason.
+ * When `signal` aborts, the renderer and everything it started are stopped, and it rejects once they are gone.
  */
-export function renderPage(job: PageRender, onProgress?: (done: number, frames: number) => void): Promise<RenderedPage> {
+export function renderPage(job: PageRender, onProgress?: (done: number, frames: number) => void, signal?: AbortSignal): Promise<RenderedPage> {
   return new Promise((resolveRun, reject) => {
     const child = spawn(process.execPath, renderArgs(job, job.out, job.codec, job.codec === 'h264'), { windowsHide: true });
     const { state, onLine } = renderListener(onProgress);
     eachLine(child.stdout, onLine);
     eachLine(child.stderr, onLine);
+    let stopped: Promise<void> = Promise.resolve();
+    const stop = (): void => void (stopped = killTree(child));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener('abort', stop, { once: true });
     child.on('error', (err) => reject(new Error(`The renderer could not start: ${err.message}`)));
     child.on('close', (code) => {
-      if (code === 0 && state.page !== null) resolveRun(state.page);
+      signal?.removeEventListener('abort', stop);
+      if (signal?.aborted) void stopped.then(() => reject(new Error(CANCELLED)));
+      else if (code === 0 && state.page !== null) resolveRun(state.page);
       else reject(new Error(`The render failed: ${renderFailure(state.errors) || `exit code ${code}`}`));
     });
   });
@@ -277,9 +305,9 @@ export function compositeArgs(job: FootageComposite): string[] {
 /**
  * A footage render (R13, R18): `render.js` draws the overlay page as RGBA frames on its stdout, piped straight into
  * ffmpeg, which cuts the footage by its pieces and lays the frames on top. No intermediate file. When either process
- * fails, the other is stopped and the promise rejects with the reason.
+ * fails, or `signal` aborts, both are stopped with everything they started and the promise rejects with the reason.
  */
-export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, composite: FootageComposite, onProgress?: (done: number, frames: number) => void): Promise<RenderedPage> {
+export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, composite: FootageComposite, onProgress?: (done: number, frames: number) => void, signal?: AbortSignal): Promise<RenderedPage> {
   return new Promise((resolveRun, reject) => {
     const renderer = spawn(process.execPath, renderArgs(page, '-', 'rgba', false), { windowsHide: true });
     const encoder = spawn('ffmpeg', compositeArgs(composite), { windowsHide: true });
@@ -293,11 +321,15 @@ export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, compo
       encoderErrors = (encoderErrors + chunk).slice(-ERROR_TAIL_CHARS);
     });
     let failure: string | null = null;
+    let stopped: Promise<unknown> = Promise.resolve();
     const fail = (reason: string): void => {
-      failure ??= reason;
-      renderer.kill();
-      encoder.kill();
+      if (failure !== null) return;
+      failure = reason;
+      stopped = Promise.all([killTree(renderer), killTree(encoder)]);
     };
+    const cancel = (): void => fail(CANCELLED);
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener('abort', cancel, { once: true });
     renderer.on('error', (err) => fail(`The renderer could not start: ${err.message}`));
     encoder.on('error', (err: NodeJS.ErrnoException) => fail(err.code === 'ENOENT' ? 'ffmpeg is not installed or not on the PATH.' : `ffmpeg failed: ${err.message}`));
     const rendered = new Promise<void>((done) =>
@@ -312,7 +344,9 @@ export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, compo
         done();
       }),
     );
-    void Promise.all([rendered, encoded]).then(() => {
+    void Promise.all([rendered, encoded]).then(async () => {
+      signal?.removeEventListener('abort', cancel);
+      await stopped;
       if (failure !== null) reject(new Error(failure));
       else if (state.page === null) reject(new Error('The render failed: the renderer reported no frames.'));
       else resolveRun(state.page);

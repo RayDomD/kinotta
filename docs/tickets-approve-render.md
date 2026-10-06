@@ -90,7 +90,7 @@ refusal tells an agent to ask the owner to approve in Kinotta.
 - [x] `kinotta check` output is unchanged after `footageIssues` moves to the core
 - [x] `kinotta render` refuses an unapproved Final with the "approve it in Kinotta" message
 
-## T52. One queue across processes, and cancel
+## T52. One queue across processes, and cancel — Done
 
 **What to build:** The running editor writes a port file in the project and removes it on exit. `kinotta render`
 reads it and enqueues over the local HTTP API, printing the `render-progress` events; without a live editor it hosts
@@ -101,11 +101,11 @@ the job and removes the temp output and `renders/.work-<job>/`. `kinotta render`
 
 **Model:** top
 
-- [ ] With the editor running, `kinotta render` joins its queue and waits behind a render the editor started
-- [ ] Without the editor, `kinotta render` renders on its own and exits
-- [ ] A stale port file doesn't block a render
-- [ ] Cancel leaves no output file and no `.work-<job>/` folder
-- [ ] `kinotta render --project <dir>` and `kinotta check --project <dir>` act on that project
+- [x] With the editor running, `kinotta render` joins its queue and waits behind a render the editor started
+- [x] Without the editor, `kinotta render` renders on its own and exits
+- [x] A stale port file doesn't block a render
+- [x] Cancel leaves no output file and no `.work-<job>/` folder
+- [x] `kinotta render --project <dir>` and `kinotta check --project <dir>` act on that project
 
 ## T53. Presets and the four settings
 

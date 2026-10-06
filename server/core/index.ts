@@ -121,10 +121,11 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
     render: async (request) => {
       const task = await prepareRender(dir, request);
-      return renders.add(request, (job, report) => runRender(dir, task, job, report));
+      return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal));
     },
     renderJobs: () => renders.jobs(),
     whenRendered: (jobId) => renders.whenDone(jobId),
+    cancelRender: (jobId) => renders.cancel(jobId),
   };
 }
 

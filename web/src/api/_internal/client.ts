@@ -148,7 +148,7 @@ export interface RenderJob {
   reel: string;
   version: number;
   preset: RenderPreset;
-  state: 'queued' | 'running' | 'done' | 'failed';
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
   /** From 0 to 1. */
   progress: number;
   /** Seconds left, an estimate; null until known. */

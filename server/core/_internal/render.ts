@@ -15,6 +15,9 @@ const PAGE_FILE = 'index.html';
 const VERSION_PLAN_FILE = 'plan.json';
 const PRESET_NAMES: Record<RenderPreset, string> = { draft: 'a Draft', final: 'a Final', overlay: 'an Overlay' };
 const PRESETS: readonly RenderPreset[] = ['draft', 'final', 'overlay'];
+/** Windows holds a killed process's files for a moment, so removing a cancelled render's files retries. */
+const CLEANUP_RETRIES = 10;
+const CLEANUP_RETRY_MS = 100;
 /** A code-only page has no source to take a frame rate from, so this is its source rate. */
 const CODE_ONLY_FPS = '30';
 
@@ -87,9 +90,10 @@ function renderName({ reel, version, preset, audio }: RenderRequest, height: num
 
 /**
  * Renders a checked request into the reel's renders/ folder and returns the file, relative to the project. It is written
- * under a temp name and renamed when complete, replacing a render with the same settings; a failure leaves nothing.
+ * under a temp name and renamed when complete, replacing a render with the same settings. A failure, or `signal` aborting,
+ * stops the render's processes and leaves nothing: no temp file and no `.work-<job>/` folder.
  */
-export async function runRender(projectDir: string, task: RenderTask, job: RenderJob, report: (done: number, frames: number) => void): Promise<string> {
+export async function runRender(projectDir: string, task: RenderTask, job: RenderJob, report: (done: number, frames: number) => void, signal: AbortSignal): Promise<string> {
   const { request, versionDir } = task;
   const defaults = PRESET_DEFAULTS[request.preset];
   const ext = request.preset === 'overlay' ? 'mov' : 'mp4';
@@ -99,29 +103,31 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
   try {
     const page = join(versionDir, PAGE_FILE);
     const info = await pageInfo(page);
+    signal.throwIfAborted();
     let fps = CODE_ONLY_FPS;
     let rendered: RenderedPage;
     if (task.codeOnly) {
       const height = even(info.height * defaults.size);
       const codec = request.preset === 'overlay' ? 'prores' : 'h264';
-      rendered = await renderPage({ page, out: temp, fps, scale: height / info.height, crf: defaults.crf, blur: defaults.blur, codec }, report);
+      rendered = await renderPage({ page, out: temp, fps, scale: height / info.height, crf: defaults.crf, blur: defaults.blur, codec }, report, signal);
     } else {
       // The original, not the browser's playback copy of an HEVC or ProRes file.
       const footage = (await readReelFootage(projectDir, task.reelDir))?.file ?? null;
       if (footage === null || !(await exists(footage))) throw new Error("The reel's footage file is missing.");
       const source = await probeFootage(footage);
+      signal.throwIfAborted();
       fps = source.fps;
       const height = even(source.height * defaults.size);
       const pageJob = { page, fps, scale: height / info.height, crf: defaults.crf, blur: defaults.blur };
       if (request.preset === 'overlay') {
-        rendered = await renderPage({ ...pageJob, out: temp, codec: 'prores' }, report);
+        rendered = await renderPage({ ...pageJob, out: temp, codec: 'prores' }, report, signal);
       } else {
         // The version's own pieces through the plan resolver (E14, R13), never the reel's current sources.
         const { pieces = [] } = await readVersion(projectDir, request.reel, request.version);
         if (pieces.length === 0) throw new Error(`v${request.version} has no pieces of the footage to render.`);
         const width = even(source.width * defaults.size);
         const audio = source.audio ? (request.audio ?? 'smooth') : null;
-        rendered = await renderOverFootage(pageJob, { footage, pieces, fps, width, height, crf: defaults.crf, audio, out: temp }, report);
+        rendered = await renderOverFootage(pageJob, { footage, pieces, fps, width, height, crf: defaults.crf, audio, out: temp }, report, signal);
         rendered = { ...rendered, height };
       }
     }
@@ -129,7 +135,9 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
     await rename(temp, file);
     return relative(projectDir, file).split(sep).join('/');
   } catch (err) {
-    await rm(temp, { force: true });
+    const cleanup = { force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS };
+    await rm(temp, cleanup);
+    await rm(join(dir, `.work-${job.id}`), { ...cleanup, recursive: true });
     throw err;
   }
 }

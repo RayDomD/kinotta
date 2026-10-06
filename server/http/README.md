@@ -22,6 +22,11 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
 - `PUT /api/reels/<reel>/versions/<n>/approval` approves the version and answers 200 with the core's
   `{ approved, at, warning? }`; `DELETE` on the same path withdraws it (`{ approved: false }`). An unknown reel or
   version is a 404; other methods a 405. It is the only way to approve.
+- `POST /api/renders` with `{ reel, version, preset, audio? }` queues a render and answers 201 with the queued job.
+  A malformed body or a render the core refuses (unknown preset, the gate) is a 422 naming the reason; an unknown reel
+  or version a 404. `GET /api/renders` returns `{ jobs }`, the jobs waiting or running. `DELETE /api/renders/<id>`
+  cancels a job and answers 200 once it has stopped, with the job (`cancelled`, or unchanged if it had finished); an
+  unknown job is a 404. Progress comes as `render-progress` events on `/api/events`.
 - `GET /reels/<reel>/v<n>/<file>` serves a version's files same-origin. Only version folders under `reels/`
   are reachable (no dot folders, no path escapes).
 - `GET /footage/<reel>` serves the reel's footage file (from `reel.json`, confined to the project folder) with byte

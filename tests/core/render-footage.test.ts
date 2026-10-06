@@ -211,6 +211,25 @@ describe('Final and Overlay of a footage reel', () => {
       expect(meanDifference(frameAt(after, second * FPS), frameAt(before, second * FPS))).toBeLessThan(FRAME_TOLERANCE);
     }
   });
+
+  it('cancels a Final mid-render, stopping the renderer and ffmpeg and leaving no temp file', { timeout: SLOW_MS }, async () => {
+    const renders = join(reel.reelDir, 'renders');
+    const listing = (): string[] => (existsSync(renders) ? readdirSync(renders).sort() : []);
+    const before = listing();
+    const started = new Promise<string>((resolveId) => {
+      const stop = reel.project.subscribe((event) => {
+        if (event.type !== 'render-progress' || event.job.state !== 'running' || event.job.progress === 0) return;
+        stop();
+        resolveId(event.job.id);
+      });
+    });
+
+    await reel.project.render({ reel: reel.slug, version: 2, preset: 'final' });
+    const job = await reel.project.cancelRender(await started);
+
+    expect(job.state).toBe('cancelled');
+    expect(listing()).toEqual(before);
+  });
 });
 
 describe('Final and Overlay of a code-only reel', () => {

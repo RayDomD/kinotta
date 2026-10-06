@@ -167,7 +167,7 @@ export interface RenderJob {
   reel: string;
   version: number;
   preset: RenderPreset;
-  state: 'queued' | 'running' | 'done' | 'failed';
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
   /** From 0 to 1. */
   progress: number;
   /** Seconds left, an estimate; null until there is progress to base it on. */
@@ -318,8 +318,14 @@ export interface Project {
   render(request: RenderRequest): Promise<RenderJob>;
   /** The jobs waiting or running, in queue order. */
   renderJobs(): RenderJob[];
-  /** Resolves with the job once it is done or failed. Throws `not-found` for an unknown job. */
+  /** Resolves with the job once it is done, failed or cancelled. Throws `not-found` for an unknown job. */
   whenRendered(jobId: string): Promise<RenderJob>;
+  /**
+   * Cancels a render (R8): a queued job is dropped at once; a running one has its processes stopped and its temp output and
+   * `renders/.work-<job>/` removed, and this resolves once they are gone. A finished job comes back unchanged. Throws
+   * `not-found` for an unknown job.
+   */
+  cancelRender(jobId: string): Promise<RenderJob>;
 }
 
 /** A reel's unsaved edits: operations on named targets, in the order they were made. */

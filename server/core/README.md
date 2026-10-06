@@ -65,7 +65,11 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
 - `render({ reel, version, preset, audio? })` queues a render and returns the job (`{ id, reel, version, preset, state, progress,
   remaining, output?, error? }`) as `queued`. Jobs run one at a time in queue order (`_internal/render-queue.ts`), in
   memory only; each change raises `{ type: 'render-progress', job }` (progress in whole percents). `renderJobs()` lists
-  the jobs waiting or running; `whenRendered(id)` resolves with the job once it is `done` or `failed`. The engine
+  the jobs waiting or running; `whenRendered(id)` resolves with the job once it is `done`, `failed` or `cancelled`.
+  `cancelRender(id)` (R8) marks a queued job `cancelled` at once, so it never runs; for a running job it aborts the
+  job's signal, which kills the render's whole process tree (`taskkill /T /F` on Windows, SIGTERM elsewhere), removes
+  `.render-<job>.*` and `renders/.work-<job>/`, and resolves once that is done. A finished job comes back unchanged; an
+  unknown one is `not-found`. The engine
   (`_internal/render.ts`) runs the skill's `render.js` through the runner and writes
   `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.mp4` under a temp name (`.render-<job>.mp4`), renamed when
   complete so the same settings replace the file and a failure leaves nothing; `output` is that path relative to the

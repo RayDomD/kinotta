@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools } from '../../core/index.ts';
-import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project } from '../../core/index.ts';
+import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -16,6 +16,7 @@ const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
 const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
 const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
+const RENDER_API = /^\/api\/renders\/([^/]+)$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -162,6 +163,16 @@ async function handleEdits(req: IncomingMessage, res: ServerResponse, project: P
   else res.writeHead(405).end();
 }
 
+/** A render request's body: `{ reel, version, preset, audio? }`. The core checks the preset and the rest. */
+async function readRenderRequest(req: IncomingMessage): Promise<RenderRequest> {
+  const body = await readJsonBody(req);
+  const { reel, version, preset, audio } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  if (typeof reel !== 'string' || !Number.isInteger(version) || typeof preset !== 'string' || (audio !== undefined && audio !== 'smooth' && audio !== 'hard')) {
+    throw new KinottaError('invalid', 'A render needs a "reel", a whole-number "version" and a "preset", and "audio" is "smooth" or "hard".');
+  }
+  return { reel, version: version as number, preset: preset as RenderRequest['preset'], ...(audio === undefined ? {} : { audio }) };
+}
+
 /** The optional body of a batch request: `{ includeIssues, runtimeIssues }`. An empty body means the plain batch. */
 async function readBatchOptions(req: IncomingMessage): Promise<BatchOptions> {
   const body = await readJsonBody(req, {});
@@ -288,6 +299,7 @@ export function createHandler(project: Project, webRoot: string) {
       const saveRoute = SAVE_API.exec(pathname);
       const handoffRoute = HANDOFF_API.exec(pathname);
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
+      const renderRoute = RENDER_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -308,6 +320,12 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(handoffRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelHandoff(slug));
+      } else if (pathname === '/api/renders' && req.method === 'POST') {
+        sendJson(res, 201, await project.render(await readRenderRequest(req)));
+      } else if (renderRoute && req.method === 'DELETE') {
+        const id = safeDecode(renderRoute[1]!);
+        if (id === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.cancelRender(id));
       } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
         sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
@@ -327,6 +345,8 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(transcriptionRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
+      } else if (pathname === '/api/renders') {
+        sendJson(res, 200, { jobs: project.renderJobs() });
       } else if (pathname === '/api/videos') {
         sendJson(res, 200, { videos: await project.listVideos() });
       } else if (pathname === '/api/tools') {
