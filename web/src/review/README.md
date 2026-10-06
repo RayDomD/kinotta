@@ -4,10 +4,12 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
 
 ## Public interface
 
-`index.ts` exports `Review({ reel, state, message?, version?, comments, section?, edits?, transcription?, label?, above? })`.
+`index.ts` exports `Review({ reel, state, message?, version?, comments, section?, edits?, transcription?, actions? })`.
 
-- Without `edits` the reel plays read only, with no edit tools: Picker shows it this way, naming the region with `label`
-  and putting its versions table in `above`, inside the same `<main>`.
+- Without `edits` the reel plays read only, with no edit tools.
+- `actions` sits at the end of the heading row: the app puts Approve or Withdraw and Render ▾ for the version on show
+  there (`web/src/Renders.tsx`, mockup `docs/mockups/2026-10-06-review-picker-merge.html` option C). Picker is part of
+  Review: the queue and past renders are in the top bar's render menu, and a finished render plays in Review's place.
 
 - `state` is `loading`, `error`, `none` (the reel has no version, so its footage plays alone) or `ready` (then `version` is set).
 - The player stacks the footage `<video>` under the version page (`stage`'s `PagePlayer`). The video's clock drives the

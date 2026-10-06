@@ -8,7 +8,8 @@ import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
 import { NewReel, NewReelSide } from './NewReel.tsx';
-import { PickerSide, RenderPlayer, VersionsTable, outputFile, percent, presetName } from './Picker.tsx';
+import { RenderMenu, RenderPlayer, VersionActions, outputFile, presetName } from './Renders.tsx';
+import type { RenderMenuProps } from './Renders.tsx';
 import { Review, ReviewSide, useEdits } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
@@ -35,7 +36,7 @@ type VersionLoad =
   | { status: 'error'; message: string }
   | { status: 'ready'; slug: string; version: Version };
 
-const PHASES = ['Storyboard', 'Review', 'Picker'] as const;
+const PHASES = ['Storyboard', 'Review'] as const;
 type Phase = (typeof PHASES)[number];
 
 function HexMark() {
@@ -64,10 +65,10 @@ function TopBar(props: {
   onPhase?(phase: Phase): void;
   /** The New reel screen is open: the bar names it instead of the reel left behind, and offers no batch to copy. */
   creating?: boolean;
-  /** The project's render queue, shown on every tab while it has jobs. */
-  jobs?: RenderJob[];
+  /** The render menu: the project's queue and the open reel's past renders, on every tab. Absent while loading. */
+  renders?: RenderMenuProps;
 }) {
-  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false, jobs = [] } = props;
+  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false, renders } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -82,7 +83,7 @@ function TopBar(props: {
           </button>
         ))}
       </nav>
-      <RenderIndicator jobs={jobs} reel={reel?.slug} />
+      {renders && <RenderMenu {...renders} />}
       {reel && version && !creating && (
         <CopyButton
           slug={reel.slug}
@@ -97,24 +98,6 @@ function TopBar(props: {
         />
       )}
     </header>
-  );
-}
-
-/** `Rendering v2 Draft 42% · 1 waiting`: the queue in the top bar, on every tab, while it has jobs (R11). */
-function RenderIndicator({ jobs, reel }: { jobs: RenderJob[]; reel: string | undefined }) {
-  if (jobs.length === 0) return null;
-  const running = jobs.find((job) => job.state === 'running');
-  const waiting = jobs.filter((job) => job.state === 'queued').length;
-  return (
-    <span className="tb-render" role="status" aria-label="Render">
-      {running !== undefined && (
-        <span>
-          {`Rendering ${running.reel === reel ? '' : `${running.reel} `}v${running.version} ${presetName(running.preset)} `}
-          <span className="dot">{percent(running)}</span>
-        </span>
-      )}
-      {waiting > 0 && <span className="meta">{running === undefined ? `${waiting} waiting to render` : `${waiting} waiting`}</span>}
-    </span>
   );
 }
 
@@ -305,9 +288,9 @@ interface MainProps {
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
   onBriefStarted(slug: string): void;
-  /** The reel's versions, for Picker's table. */
+  /** The reel's versions: the one on show carries its approval. */
   entries: VersionEntry[];
-  /** The finished render Picker is playing instead of the version, if any. */
+  /** The finished render Review is playing instead of the version, if any. */
   playingRender: string | null;
   onStopRender(): void;
 }
@@ -322,34 +305,19 @@ function Main(props: MainProps) {
     return <main className="main"><Empty>{`The reels folder in ${project} has no reels yet. Ask your agent for a storyboard to add one.`}</Empty></main>;
   }
   if (reel.brief !== undefined && reel.newestVersion === null) return <BriefWaiting reel={{ ...reel, brief: reel.brief }} />;
-  if (phase === 'Picker') {
-    const selected = version.status === 'ready' ? version.version.number : undefined;
-    const table = <VersionsTable slug={reel.slug} entries={entries} selected={selected} onSelect={onOpenVersion} />;
+  if (phase === 'Review') {
+    const shown = version.status === 'ready' ? version.version : undefined;
+    // A finished render plays in place of the version, with a way back to it.
     if (playingRender !== null) {
       return (
-        <main className="main rv-main" aria-label="Picker">
-          {table}
-          <RenderPlayer slug={reel.slug} file={playingRender} version={selected} onBack={onStopRender} />
+        <main className="main rv-main" aria-label="Review">
+          <RenderPlayer slug={reel.slug} file={playingRender} version={shown?.number} onBack={onStopRender} />
         </main>
       );
     }
-    // Review's player, read only: no edit list, so nothing on it can be changed.
     return (
       <Review
-        label="Picker"
-        above={table}
-        reel={reel}
-        state={version.status}
-        message={version.status === 'error' ? version.message : undefined}
-        version={version.status === 'ready' ? version.version : undefined}
-        comments={comments.comments}
-        transcription={transcription}
-      />
-    );
-  }
-  if (phase === 'Review') {
-    return (
-      <Review
+        actions={shown && <VersionActions slug={reel.slug} entry={entries.find((e) => e.number === shown.number)} footage={shown.footage !== undefined} />}
         reel={reel}
         state={version.status}
         message={version.status === 'error' ? version.message : undefined}
@@ -471,14 +439,14 @@ export function App() {
 
   const [phase, setPhase] = useState<Phase>('Storyboard');
   const [creating, setCreating] = useState(false);
-  /** The finished render Picker plays in place of the version; cleared when another reel or version opens. */
+  /** The finished render Review plays in place of the version; cleared when another reel or version opens. */
   const [playingRender, setPlayingRender] = useState<string | null>(null);
   const [rendersTick, setRendersTick] = useState(0);
   /** The project's render queue, in order: loaded once, then kept from render-progress events. */
   const [jobs, setJobs] = useState<RenderJob[]>([]);
   /** The render that finished last, for the ready notice, until dismissed. */
   const [readyRender, setReadyRender] = useState<RenderJob | null>(null);
-  /** The render that failed last, shown in Picker's queue until another is queued. */
+  /** The render that failed last, shown in the render menu until another is queued. */
   const [renderFailure, setRenderFailure] = useState<RenderJob | null>(null);
 
   const openReel = useCallback((slug: string) => {
@@ -601,7 +569,7 @@ export function App() {
         if (job.state === 'failed') setRenderFailure(job);
         if (job.state === 'done') {
           setReadyRender(job);
-          // A finished render of the open reel joins Picker's past renders.
+          // A finished render of the open reel joins the render menu's past renders.
           if (job.reel === current.current.slug) setRendersTick((n) => n + 1);
         }
       } else if (event.reel === current.current.slug && event.version === current.current.version) {
@@ -663,7 +631,18 @@ export function App() {
           if (reel) rememberTab(reel.slug, next);
         }}
         section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
-        jobs={jobs}
+        renders={{
+          slug: creating ? undefined : reel?.slug,
+          jobs,
+          titles: new Map(load.listing.reels.map((r) => [r.slug, r.title])),
+          failure: renderFailure,
+          rendersTick,
+          onPlay: (file) => {
+            setPhase('Review');
+            if (reel) rememberTab(reel.slug, 'Review');
+            setPlayingRender(file);
+          },
+        }}
       />
       <div className="body">
         <Rail
@@ -707,17 +686,6 @@ export function App() {
         />
         {creating ? (
           <NewReelSide />
-        ) : phase === 'Picker' && reel !== undefined ? (
-          <PickerSide
-            slug={reel.slug}
-            version={openVersion?.number}
-            footage={openVersion?.footage !== undefined}
-            rendersTick={rendersTick}
-            onPlay={setPlayingRender}
-            jobs={jobs}
-            titles={new Map(load.listing.reels.map((r) => [r.slug, r.title]))}
-            failure={renderFailure}
-          />
         ) : phase === 'Review' ? (
           <ReviewSide
             edits={edits}
@@ -743,8 +711,8 @@ export function App() {
           onPlay={(file) => {
             if (readyRender.reel !== reel?.slug) openReel(readyRender.reel);
             setCreating(false);
-            setPhase('Picker');
-            rememberTab(readyRender.reel, 'Picker');
+            setPhase('Review');
+            rememberTab(readyRender.reel, 'Review');
             setPlayingRender(file);
             setReadyRender(null);
           }}
