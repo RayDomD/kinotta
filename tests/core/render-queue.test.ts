@@ -92,9 +92,9 @@ describe('cancelling a render', () => {
 
     const queued = await proj.render({ reel: SHOWREEL, version: 1, preset: 'draft' });
     await started;
-    // Parallel segments (T54) work here; a cancel removes the folder whatever is in it.
+    // Parallel segments work here; a cancel removes the folder whatever is in it.
     const work = join(rendersDir(dir, SHOWREEL), `.work-${queued.id}`);
-    mkdirSync(work);
+    mkdirSync(work, { recursive: true });
     writeFileSync(join(work, 'segment-0.mp4'), 'partial');
     const asked = Date.now();
     const job = await proj.cancelRender(queued.id);

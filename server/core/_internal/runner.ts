@@ -157,6 +157,8 @@ export interface PageRender {
   codec: 'h264' | 'prores';
   /** ProRes only: `render.js --prores-profile`, 4 (4444) unless given. */
   proresProfile?: string;
+  /** Only these frames, `[from, to)`: one segment of a parallel render. */
+  frames?: readonly [number, number];
 }
 
 /** What `render.js` reports before its first frame. */
@@ -196,6 +198,7 @@ function renderArgs(job: Omit<PageRender, 'out' | 'codec'>, out: string, codec: 
   if (crf) args.push('--crf', String(job.crf));
   if (!job.blur) args.push('--no-blur');
   if (codec === 'prores' && job.proresProfile !== undefined) args.push('--prores-profile', job.proresProfile);
+  if (job.frames !== undefined) args.push('--frames', `${job.frames[0]}:${job.frames[1]}`);
   return args;
 }
 
@@ -272,9 +275,29 @@ export interface FootageComposite {
   /** How the audio joins at a cut, or null when the footage has no sound. */
   audio: 'smooth' | 'hard' | null;
   out: string;
+  /** Stops after this many frames: a segment's stretch of footage can round to one frame more than its overlay. */
+  frames?: number;
 }
 
 const seconds = (value: number): string => String(Math.round(value * 1e6) / 1e6);
+
+/**
+ * The audio filter graph for the footage's pieces from input `input`, labelled `[a]`: each piece trimmed, with a short fade
+ * either side of each cut (Smooth) or none (Hard), then joined.
+ */
+function audioGraph(pieces: FootageComposite['pieces'], audio: 'smooth' | 'hard', input: string): string[] {
+  const count = pieces.length;
+  const labels = pieces.map((_, i) => `[a${i}]`).join('');
+  const graph = [`[${input}]asplit=${count}${pieces.map((_, i) => `[t${i}]`).join('')}`];
+  pieces.forEach((piece, i) => {
+    const fades: string[] = [];
+    if (audio === 'smooth' && i > 0) fades.push(`afade=t=in:st=0:d=${CUT_FADE_SECONDS}`);
+    if (audio === 'smooth' && i < count - 1) fades.push(`afade=t=out:st=${seconds(piece.out - piece.in - CUT_FADE_SECONDS)}:d=${CUT_FADE_SECONDS}`);
+    graph.push(`[t${i}]atrim=start=${seconds(piece.in)}:end=${seconds(piece.out)},asetpts=PTS-STARTPTS${fades.map((fade) => `,${fade}`).join('')}[a${i}]`);
+  });
+  graph.push(`${labels}concat=n=${count}:v=0:a=1[a]`);
+  return graph;
+}
 
 /**
  * ffmpeg arguments that cut the footage into its pieces and lay the overlay frames read from stdin (NUT) over them: video
@@ -287,20 +310,12 @@ export function compositeArgs(job: FootageComposite): string[] {
   job.pieces.forEach((piece, i) => graph.push(`[s${i}]trim=start=${seconds(piece.in)}:end=${seconds(piece.out)},setpts=PTS-STARTPTS[v${i}]`));
   graph.push(`${labels('v')}concat=n=${count}:v=1:a=0,fps=${job.fps},scale=${job.width}:${job.height},setsar=1[base]`);
   graph.push('[base][1:v]overlay=(W-w)/2:(H-h)/2:format=auto,format=yuv420p[v]');
-  if (job.audio !== null) {
-    graph.push(`[0:a]asplit=${count}${labels('t')}`);
-    job.pieces.forEach((piece, i) => {
-      const fades: string[] = [];
-      if (job.audio === 'smooth' && i > 0) fades.push(`afade=t=in:st=0:d=${CUT_FADE_SECONDS}`);
-      if (job.audio === 'smooth' && i < count - 1) fades.push(`afade=t=out:st=${seconds(piece.out - piece.in - CUT_FADE_SECONDS)}:d=${CUT_FADE_SECONDS}`);
-      graph.push(`[t${i}]atrim=start=${seconds(piece.in)}:end=${seconds(piece.out)},asetpts=PTS-STARTPTS${fades.map((fade) => `,${fade}`).join('')}[a${i}]`);
-    });
-    graph.push(`${labels('a')}concat=n=${count}:v=0:a=1[a]`);
-  }
+  if (job.audio !== null) graph.push(...audioGraph(job.pieces, job.audio, '0:a'));
   const audio = job.audio === null ? [] : ['-map', '[a]', '-c:a', 'aac', '-b:a', AUDIO_BITRATE];
   return [
     '-loglevel', 'error', '-y', '-i', job.footage, '-f', 'nut', '-i', 'pipe:0',
     '-filter_complex', graph.join(';'), '-map', '[v]', ...audio,
+    ...(job.frames === undefined ? [] : ['-frames:v', String(job.frames)]),
     '-c:v', 'libx264', '-crf', String(job.crf), '-preset', 'medium', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', job.out,
   ];
 }
@@ -357,9 +372,50 @@ export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, compo
   });
 }
 
+/** The footage's sound for a joined render: the pieces, cut as `audio` says. */
+export interface JoinAudio {
+  footage: string;
+  pieces: FootageComposite['pieces'];
+  audio: 'smooth' | 'hard';
+}
+
+/**
+ * ffmpeg arguments that join the segments a concat list names into `out` without re-encoding them. With `audio`, the
+ * footage's sound is encoded once over all its pieces, as a single-page render does, and laid under the joined video.
+ */
+export function joinArgs(list: string, out: string, audio: JoinAudio | null): string[] {
+  const inputs = ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list];
+  const faststart = out.endsWith('.mp4') ? ['-movflags', '+faststart'] : [];
+  if (audio === null) return [...inputs, '-c', 'copy', ...faststart, out];
+  return [
+    ...inputs, '-i', audio.footage, '-filter_complex', audioGraph(audio.pieces, audio.audio, '1:a').join(';'),
+    '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', AUDIO_BITRATE, ...faststart, out,
+  ];
+}
+
+/** ffmpeg joining a parallel render's segments (see `joinArgs`). When `signal` aborts, ffmpeg is stopped and it rejects. */
+export function joinSegments(list: string, out: string, audio: JoinAudio | null, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn('ffmpeg', joinArgs(list, out, audio), { windowsHide: true });
+    let errors = '';
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (errors = (errors + chunk).slice(-ERROR_TAIL_CHARS)));
+    let stopped: Promise<void> = Promise.resolve();
+    const stop = (): void => void (stopped = killTree(child));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener('abort', stop, { once: true });
+    child.on('error', (err: NodeJS.ErrnoException) => reject(new Error(err.code === 'ENOENT' ? 'ffmpeg is not installed or not on the PATH.' : `ffmpeg failed: ${err.message}`)));
+    child.on('close', (code) => {
+      signal?.removeEventListener('abort', stop);
+      if (signal?.aborted) void stopped.then(() => reject(new Error(CANCELLED)));
+      else if (code === 0) resolveRun();
+      else reject(new Error(`ffmpeg could not join the segments: ${errors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`));
+    });
+  });
+}
+
 /** What a failed render's error output says went wrong: the first thrown error when there is one, else the last lines. */
 function renderFailure(errors: string): string {
-  const thrown = /\b[A-Z]\w*Error: [^\r\n]*/.exec(errors);
+  const thrown = /\b(?:[A-Z]\w*)?Error: [^\r\n]*/.exec(errors);
   return thrown ? thrown[0] : errors.trim().split('\n').slice(-3).join(' ');
 }
 

@@ -1,11 +1,12 @@
-import { access, mkdir, rename, rm } from 'node:fs/promises';
+import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { availableParallelism } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { requireVersionDir } from './approval.ts';
 import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
 import { versionIssues } from './footage-issues.ts';
 import { readRenderSettings, requestSettings } from './render-settings.ts';
-import { pageInfo, probeFootage, renderOverFootage, renderPage, type RenderedPage } from './runner.ts';
+import { joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
 import type { RenderJob, RenderPreset, RenderRequest, RenderSettings } from './types.ts';
 import { APPROVAL_FILE, readVersion } from './version.ts';
 
@@ -19,6 +20,12 @@ const PRESETS: readonly RenderPreset[] = ['draft', 'final', 'overlay'];
 /** Windows holds a killed process's files for a moment, so removing a cancelled render's files retries. */
 const CLEANUP_RETRIES = 10;
 const CLEANUP_RETRY_MS = 100;
+/** Each segment is a Chromium page plus an ffmpeg encoder, so a worker gets two cores. */
+const CORES_PER_WORKER = 2;
+/** A shorter render stays in one page: starting more browsers would cost more than it saves. */
+const MIN_SEGMENT_FRAMES = 60;
+/** The concat list that joins a parallel render's segments, inside its `.work-<job>/` folder. */
+const SEGMENT_LIST = 'segments.txt';
 /** A code-only page has no source to take a frame rate from, so this is its source rate. */
 const CODE_ONLY_FPS = '30';
 
@@ -110,12 +117,87 @@ function renderName({ reel, version, preset }: RenderRequest, settings: RenderSe
   return `${reel}-v${version}-${preset}-${height}p${fpsLabel(fps)}${high}${hard}.${ext}`;
 }
 
+/** A whole render's frame range split into `count` contiguous, near-equal `[from, to)` ranges. */
+function frameRanges(frames: number, count: number): Array<[number, number]> {
+  return Array.from({ length: count }, (_, i) => [Math.round((i * frames) / count), Math.round(((i + 1) * frames) / count)]);
+}
+
+/**
+ * How many segments a render of `frames` frames runs in: one per worker the CPU allows, each at least
+ * `MIN_SEGMENT_FRAMES` long, so a short render stays in one page. `pinned` (tests) sets the count.
+ */
+function segmentCount(frames: number, pinned: number | undefined): number {
+  if (pinned !== undefined) return Math.max(1, Math.min(pinned, frames));
+  const workers = Math.max(1, Math.floor(availableParallelism() / CORES_PER_WORKER));
+  return Math.max(1, Math.min(workers, Math.floor(frames / MIN_SEGMENT_FRAMES)));
+}
+
+/** Frames a second as a number, from `30` or `30000/1001`. */
+function fpsValue(fps: string): number {
+  const [num, den = '1'] = fps.split('/');
+  return Number(num) / Number(den);
+}
+
+/** The parts of the footage's pieces that play between two timeline times, in source seconds. */
+function piecesBetween(pieces: ReadonlyArray<{ in: number; out: number }>, from: number, to: number): Array<{ in: number; out: number }> {
+  const between: Array<{ in: number; out: number }> = [];
+  let at = 0;
+  for (const piece of pieces) {
+    const length = piece.out - piece.in;
+    const start = Math.max(from, at);
+    const end = Math.min(to, at + length);
+    if (end > start) between.push({ in: piece.in + (start - at), out: piece.in + (end - at) });
+    at += length;
+  }
+  return between;
+}
+
+/** Renders one segment's frames into `out`, reporting that segment's frames done. */
+type SegmentRun = (range: readonly [number, number], out: string, onProgress: (done: number) => void, signal: AbortSignal) => Promise<RenderedPage>;
+
+/**
+ * Runs a render's segments at once in `work`, reporting their frames summed against the total, and writes the concat
+ * list that joins them in order. One failing stops the others, and it rejects with the first reason once all have stopped.
+ */
+async function renderSegments(work: string, ext: string, ranges: Array<[number, number]>, report: (done: number, frames: number) => void, signal: AbortSignal, run: SegmentRun): Promise<{ page: RenderedPage; list: string }> {
+  await mkdir(work, { recursive: true });
+  const frames = ranges.at(-1)![1];
+  const done = ranges.map(() => 0);
+  const stopAll = new AbortController();
+  const stop = (): void => stopAll.abort();
+  signal.addEventListener('abort', stop, { once: true });
+  let firstFailure: unknown = null;
+  const names = ranges.map((_, i) => `segment-${i}.${ext}`);
+  try {
+    const results = await Promise.allSettled(
+      ranges.map((range, i) =>
+        run(range, join(work, names[i]!), (count) => {
+          done[i] = count;
+          report(done.reduce((sum, n) => sum + n, 0), frames);
+        }, stopAll.signal).catch((err: unknown) => {
+          firstFailure ??= err;
+          stopAll.abort();
+          throw err;
+        }),
+      ),
+    );
+    if (firstFailure !== null) throw firstFailure;
+    const first = (results[0] as PromiseFulfilledResult<RenderedPage>).value;
+    const list = join(work, SEGMENT_LIST);
+    await writeFile(list, names.map((name) => `file '${name}'`).join('\n') + '\n');
+    return { page: { ...first, frames }, list };
+  } finally {
+    signal.removeEventListener('abort', stop);
+  }
+}
+
 /**
  * Renders a checked request into the reel's renders/ folder and returns the file, relative to the project. It is written
- * under a temp name and renamed when complete, replacing a render with the same settings. A failure, or `signal` aborting,
- * stops the render's processes and leaves nothing: no temp file and no `.work-<job>/` folder.
+ * under a temp name and renamed when complete, replacing a render with the same settings. A long render runs in parallel
+ * segments in `renders/.work-<job>/`, joined without re-encoding the video and removed afterwards. A failure, or `signal`
+ * aborting, stops the render's processes and leaves nothing: no temp file and no `.work-<job>/` folder.
  */
-export async function runRender(projectDir: string, task: RenderTask, job: RenderJob, report: (done: number, frames: number) => void, signal: AbortSignal): Promise<string> {
+export async function runRender(projectDir: string, task: RenderTask, job: RenderJob, report: (done: number, frames: number) => void, signal: AbortSignal, segments?: number): Promise<string> {
   const { request, versionDir, settings } = task;
   const encoding = PRESET_ENCODING[request.preset];
   const crf = encoding.crf[settings.quality];
@@ -124,6 +206,8 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
   const dir = join(task.reelDir, RENDERS_DIR);
   await mkdir(dir, { recursive: true });
   const temp = join(dir, `.render-${job.id}.${ext}`);
+  const work = join(dir, `.work-${job.id}`);
+  const cleanup = { force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS };
   try {
     const page = join(versionDir, PAGE_FILE);
     const info = await pageInfo(page);
@@ -131,10 +215,21 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
     let fps = settings.fps === 'source' ? CODE_ONLY_FPS : String(settings.fps);
     let sound = false;
     let rendered: RenderedPage;
+    // Parallel segments of a page render: each the renderer over its frames, joined by copying.
+    const pageInSegments = async (job: Omit<PageRender, 'out'>, count: number): Promise<RenderedPage> => {
+      const ranges = frameRanges(Math.round(info.duration * fpsValue(job.fps)), count);
+      const { page: whole, list } = await renderSegments(work, ext, ranges, report, signal, (frames, out, onProgress, stop) =>
+        renderPage({ ...job, out, frames }, (done) => onProgress(done), stop),
+      );
+      await joinSegments(list, temp, null, signal);
+      return whole;
+    };
     if (task.codeOnly) {
       const { height } = targetSize(info, settings.size);
       const codec = request.preset === 'overlay' ? 'prores' : 'h264';
-      rendered = await renderPage({ page, out: temp, fps, scale: height / info.height, crf, blur: encoding.blur, codec, proresProfile }, report, signal);
+      const pageJob = { page, fps, scale: height / info.height, crf, blur: encoding.blur, codec, proresProfile } as const;
+      const count = segmentCount(Math.round(info.duration * fpsValue(fps)), segments);
+      rendered = count === 1 ? await renderPage({ ...pageJob, out: temp }, report, signal) : await pageInSegments(pageJob, count);
     } else {
       // The original, not the browser's playback copy of an HEVC or ProRes file.
       const footage = (await readReelFootage(projectDir, task.reelDir))?.file ?? null;
@@ -144,15 +239,33 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
       if (settings.fps === 'source') fps = source.fps;
       const { width, height } = targetSize(source, settings.size);
       const pageJob = { page, fps, scale: height / info.height, crf, blur: encoding.blur, proresProfile };
+      const frames = Math.round(info.duration * fpsValue(fps));
+      const count = segmentCount(frames, segments);
       if (request.preset === 'overlay') {
-        rendered = await renderPage({ ...pageJob, out: temp, codec: 'prores' }, report, signal);
+        rendered = count === 1 ? await renderPage({ ...pageJob, out: temp, codec: 'prores' }, report, signal) : await pageInSegments({ ...pageJob, codec: 'prores' }, count);
       } else {
         // The version's own pieces through the plan resolver (E14, R13), never the reel's current sources.
         const { pieces = [] } = await readVersion(projectDir, request.reel, request.version);
         if (pieces.length === 0) throw new Error(`v${request.version} has no pieces of the footage to render.`);
         const audio = source.audio ? settings.audio : null;
         sound = audio !== null;
-        rendered = await renderOverFootage(pageJob, { footage, pieces, fps, width, height, crf, audio, out: temp }, report, signal);
+        const composite = { footage, pieces, fps, width, height, crf, audio, out: temp };
+        if (count === 1) {
+          rendered = await renderOverFootage(pageJob, composite, report, signal);
+        } else {
+          // Each segment composites its own stretch of the footage, video only; the sound is encoded once at the join,
+          // over all the pieces, so the fades at the cuts land where a single-page render puts them.
+          const ranges = frameRanges(frames, count);
+          const rate = fpsValue(fps);
+          const { page: whole, list } = await renderSegments(work, ext, ranges, report, signal, ([from, to], out, onProgress, stop) => {
+            // The last segment runs to the end of the pieces, as a single-page render does.
+            const last = to === frames;
+            const stretch = { ...composite, pieces: piecesBetween(pieces, from / rate, last ? Infinity : to / rate), audio: null, out, frames: last ? undefined : to - from };
+            return renderOverFootage({ ...pageJob, frames: [from, to] }, stretch, (done) => onProgress(done), stop);
+          });
+          await joinSegments(list, temp, audio === null ? null : { footage, pieces, audio }, signal);
+          rendered = whole;
+        }
         rendered = { ...rendered, height };
       }
     }
@@ -160,9 +273,9 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
     await rename(temp, file);
     return relative(projectDir, file).split(sep).join('/');
   } catch (err) {
-    const cleanup = { force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS };
     await rm(temp, cleanup);
-    await rm(join(dir, `.work-${job.id}`), { ...cleanup, recursive: true });
     throw err;
+  } finally {
+    await rm(work, { ...cleanup, recursive: true });
   }
 }

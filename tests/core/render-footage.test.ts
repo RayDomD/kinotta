@@ -221,6 +221,28 @@ describe('Final and Overlay of a footage reel', () => {
     }
   });
 
+  it('renders a Final in segments to the same frames and sound as one page', { timeout: SLOW_MS }, async () => {
+    const segmented = async (segments: number): Promise<string> => {
+      const project = openProject(reel.dir, { transcriber: fakeTranscriber, renderSegments: segments });
+      const job = await project.whenRendered((await project.render({ reel: reel.slug, version: 2, preset: 'final' })).id);
+      expect(job.error).toBeUndefined();
+      const kept = join(reel.dir, `segments-${segments}.mp4`);
+      cpSync(join(reel.dir, job.output!), kept);
+      return kept;
+    };
+    const one = await segmented(1);
+    const three = await segmented(3);
+
+    const frames = Math.round(TIMELINE_SECONDS * FPS);
+    expect(probe(three).duration).toBeCloseTo(probe(one).duration, 1);
+    // The first and last frames, both sides of each segment boundary, and a frame inside the clip.
+    for (const index of [0, 15, Math.round(frames / 3) - 1, Math.round(frames / 3), Math.round((2 * frames) / 3) - 1, Math.round((2 * frames) / 3), frames - 1]) {
+      expect(meanDifference(frameAt(three, index), frameAt(one, index))).toBeLessThan(FRAME_TOLERANCE);
+    }
+    const cut = SNIP.from * SAMPLE_RATE;
+    expect(loudestNear(samples(three), cut)).toBeLessThan(0.05);
+  });
+
   it('cancels a Final mid-render, stopping the renderer and ffmpeg and leaving no temp file', { timeout: SLOW_MS }, async () => {
     const renders = join(reel.reelDir, 'renders');
     const listing = (): string[] => (existsSync(renders) ? readdirSync(renders).sort() : []);

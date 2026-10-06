@@ -66,6 +66,12 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   remaining, output?, error? }`) as `queued`. Jobs run one at a time in queue order (`_internal/render-queue.ts`), in
   memory only; each change raises `{ type: 'render-progress', job }` (progress in whole percents). `renderJobs()` lists
   the jobs waiting or running; `whenRendered(id)` resolves with the job once it is `done`, `failed` or `cancelled`.
+  A render of 60 frames or more runs in parallel segments, one per two logical cores and at least 60 frames each
+  (`openProject(dir, { renderSegments })` pins the count for tests; it is not a user setting). Each segment renders its
+  frame range (`render.js --frames`) into `renders/.work-<job>/`; a footage Draft or Final composites each segment over
+  its own stretch of the pieces, video only. ffmpeg's concat demuxer joins them with `-c copy`, encoding a footage
+  render's sound once over all the pieces. Progress sums the segments. One failing segment stops the others, and
+  `.work-<job>/` is removed on finish, failure and cancel.
   `cancelRender(id)` (R8) marks a queued job `cancelled` at once, so it never runs; for a running job it aborts the
   job's signal, which kills the render's whole process tree (`taskkill /T /F` on Windows, SIGTERM elsewhere), removes
   `.render-<job>.*` and `renders/.work-<job>/`, and resolves once that is done. A finished job comes back unchanged; an

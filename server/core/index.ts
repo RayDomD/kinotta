@@ -74,6 +74,8 @@ export type {
 export interface ProjectOptions {
   /** Turns a video into timed words when a reel starts. Defaults to the skill's audio transcription. */
   transcriber?: Transcriber;
+  /** How many parallel segments every render runs in; tests pin it. Otherwise the CPU and the render's length decide. */
+  renderSegments?: number;
 }
 
 export function openProject(projectDir: string, options: ProjectOptions = {}): Project {
@@ -124,7 +126,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     render: async (request) => {
       const task = await prepareRender(dir, request);
       if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
-      return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal));
+      return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
     },
     renderJobs: () => renders.jobs(),
     renderSettings: (slug) => readRenderSettings(dir, slug),

@@ -125,7 +125,7 @@ it, and `kinotta render` flags never change it (R16). The CLI takes the four set
 - [x] Settings saved from the HTTP call come back per preset for the next render of that reel
 - [x] A `kinotta render` with flags leaves `render-settings.json` unchanged
 
-## T54. Parallel segments and the estimate
+## T54. Parallel segments and the estimate — Done
 
 **What to build:** The engine splits a render's frame range across several Chromium pages, as many as the CPU allows,
 renders the segments in parallel in `renders/.work-<job>/` and joins them. Progress combines the segments and gives a
@@ -135,9 +135,9 @@ time estimate. Workers are not a setting.
 
 **Model:** top
 
-- [ ] A render split into segments matches the single-page render frame for frame, within tolerance
-- [ ] Progress events carry a combined percentage and an estimate
-- [ ] `.work-<job>/` is removed on finish, cancel and failure
+- [x] A render split into segments matches the single-page render frame for frame, within tolerance
+- [x] Progress events carry a combined percentage and an estimate
+- [x] `.work-<job>/` is removed on finish, cancel and failure
 
 ## T55. Picker page
 
