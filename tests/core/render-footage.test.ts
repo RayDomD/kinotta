@@ -77,7 +77,7 @@ interface Reel {
   project: Project;
 }
 
-/** The footage sample with a tone for sound, started as a reel with one clip, then snipped and saved as v2. */
+/** The footage sample with a tone for sound, started as a reel with one clip, then snipped, saved as v2 and approved. */
 async function snippedReel(): Promise<Reel> {
   const dir = copyFixture('footage-project');
   const source = ['-f', 'lavfi', '-i', `testsrc2=size=640x360:rate=${FPS}:duration=${VIDEO_SECONDS}`, '-f', 'lavfi', '-i', `aevalsrc=${TONE}:s=${SAMPLE_RATE}:d=${VIDEO_SECONDS}`];
@@ -93,6 +93,9 @@ async function snippedReel(): Promise<Reel> {
   writeFileSync(join(reelDir, 'plan.json'), JSON.stringify(plan));
   await project.addOperation(slug, { kind: 'snip', ...SNIP });
   await project.saveEdits(slug);
+  // Final and Overlay pass the render gate only for an approved version.
+  const { warning } = await project.approveVersion(slug, 2);
+  expect(warning).toBeUndefined();
   return { dir, reelDir, slug, project };
 }
 
@@ -213,7 +216,7 @@ describe('Final and Overlay of a footage reel', () => {
 describe('Final and Overlay of a code-only reel', () => {
   const PAGE = (alpha: boolean): string => `<!DOCTYPE html><html${alpha ? ' class="alpha"' : ''}><head><style>html,body{margin:0;background:${alpha ? 'transparent' : '#211b16'}}
 #box{position:absolute;top:40%;width:10vh;height:10vh;background:#e8741c}</style></head>
-<body><div id="box"></div><script>window.DURATION=0.5;window.seek=function(t){document.getElementById('box').style.left=(t*80)+'vw';};seek(0);</script></body></html>`;
+<body><section data-scene="box" data-start="0" data-duration="0.5"><div id="box" data-el="box"></div></section><script>window.DURATION=0.5;window.seek=function(t){document.getElementById('box').style.left=(t*80)+'vw';};seek(0);</script></body></html>`;
 
   function codeOnly(alpha: boolean): { dir: string; project: Project } {
     const dir = copyFixture('showreel-project');
@@ -221,7 +224,9 @@ describe('Final and Overlay of a code-only reel', () => {
     mkdirSync(join(reelDir, 'v1'), { recursive: true });
     writeFileSync(join(reelDir, 'reel.json'), JSON.stringify({ title: 'Tiny' }));
     writeFileSync(join(reelDir, 'v1', 'index.html'), PAGE(alpha));
-    writeFileSync(join(reelDir, 'v1', 'shots.json'), JSON.stringify({ contract: 1, duration: 0.5, shots: [{ number: '01', start: 0, title: 'Box' }] }));
+    writeFileSync(join(reelDir, 'v1', 'shots.json'), JSON.stringify({ contract: 1, duration: 0.5, shots: [{ number: '01', start: 0, title: 'Box', description: 'A box.' }] }));
+    // Final and Overlay pass the render gate only for an approved version.
+    writeFileSync(join(reelDir, 'v1', 'approval.json'), JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00.000Z' }));
     return { dir, project: openProject(dir) };
   }
 

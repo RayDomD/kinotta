@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { checkTools, missingToolsMessage, openProject, type ContractIssue, type RenderPreset, type Version } from './core/index.ts';
+import { checkTools, missingToolsMessage, openProject, versionIssues, type Project, type RenderPreset } from './core/index.ts';
 import { DEFAULT_PORT, startServer } from './main.ts';
 
 const CHECK_COMMAND = 'kinotta check <reel> [version]';
@@ -43,34 +43,6 @@ function openBrowser(url: string): void {
   child.unref();
 }
 
-const SHOT_TYPES = ['cutaway', 'panel'];
-
-/**
- * What a footage reel needs beyond the timing contract (T22), with the `code` each reports under:
- *
- *   footage-missing  the footage file reel.json names is not in the project
- *   transcript       transcript.json is missing or not valid
- *   shot-type        a shot's type is not cutaway or panel
- *   no-spoken-line   a shot has no line, or its line holds no transcript words
- */
-function footageIssues(version: Version): ContractIssue[] {
-  if (!version.footage) return [];
-  const issues: ContractIssue[] = [];
-  if (!version.footage.exists) {
-    issues.push({ code: 'footage-missing', message: `footage file ${version.footage.path} not found` });
-  }
-  if (version.transcriptProblem) issues.push({ code: 'transcript', message: version.transcriptProblem });
-  for (const shot of version.shots) {
-    if (!SHOT_TYPES.includes(shot.type ?? '')) {
-      issues.push({ code: 'shot-type', shot: shot.number, message: `shots.json: shot ${shot.number} has no type (${SHOT_TYPES.join(' or ')})` });
-    }
-    // With no transcript, only a missing line can be told apart; the transcript issue covers the rest.
-    const silent = !shot.line || (version.transcript !== undefined && !shot.spoken);
-    if (silent) issues.push({ code: 'no-spoken-line', shot: shot.number, message: `shots.json: shot ${shot.number} has no spoken line` });
-  }
-  return issues;
-}
-
 /** `kinotta check <reel> [version]` (K7): prints a version's static contract issues, then a footage reel's footage problems, one per line. Exit 1 on any. */
 async function check(args: string[]): Promise<number> {
   const [slug, versionArg, ...extra] = args;
@@ -84,7 +56,7 @@ async function check(args: string[]): Promise<number> {
     const number = asked ?? (await project.listVersions(slug)).at(-1)?.number;
     if (number === undefined) throw new Error(`Reel "${slug}" has no versions yet.`);
     const version = await project.readVersion(slug, number);
-    const issues = [...version.issues, ...footageIssues(version)];
+    const issues = versionIssues(version);
     if (issues.length === 0) {
       console.log(`${slug} v${number}: no contract issues`);
       return 0;
@@ -111,6 +83,12 @@ function parseRenderArgs(args: string[]): { reel: string; version: number; prese
   if (positional.length !== 2 || reel === undefined || !Number.isInteger(version) || version < 1) return null;
   if (!RENDER_PRESETS.includes(preset as RenderPreset)) return null;
   return { reel, version, preset: preset as RenderPreset };
+}
+
+/** Whether a version is approved; false when the reel or version can't be listed. */
+async function isApproved(project: Project, reel: string, version: number): Promise<boolean> {
+  const versions = await project.listVersions(reel).catch(() => []);
+  return versions.find((entry) => entry.number === version)?.approved ?? false;
 }
 
 /**
@@ -146,6 +124,9 @@ async function render(args: string[]): Promise<number> {
     return 0;
   } catch (err) {
     console.error((err as Error).message);
+    if (request.preset !== 'draft' && !(await isApproved(project, request.reel, request.version))) {
+      console.error(`Only the owner approves. Ask them to approve v${request.version} in Kinotta, then render again.`);
+    }
     return 1;
   } finally {
     unsubscribe();

@@ -72,7 +72,7 @@ code-only reel offers Overlay only when its page renders with a transparent back
 - [x] A later edit and Save on the reel doesn't change a render of an earlier version
 - [x] Overlay is refused for a code-only page that isn't transparent
 
-## T51. The render gate
+## T51. The render gate — Done
 
 **What to build:** Final and Overlay check that the version is approved, has its own `plan.json` and has no contract
 issues (R6, R10, R13). `footageIssues` moves from `cli.ts` into the core, so the HTTP path and `kinotta check` share
@@ -83,12 +83,12 @@ refusal tells an agent to ask the owner to approve in Kinotta.
 
 **Model:** mid
 
-- [ ] Final and Overlay are refused for an unapproved version, naming the reason
-- [ ] Final and Overlay are refused for a version without its own `plan.json` ("built before plans were kept")
-- [ ] Final and Overlay are refused for a version with contract issues, naming them, including footage issues
-- [ ] Draft renders in all three cases
-- [ ] `kinotta check` output is unchanged after `footageIssues` moves to the core
-- [ ] `kinotta render` refuses an unapproved Final with the "approve it in Kinotta" message
+- [x] Final and Overlay are refused for an unapproved version, naming the reason
+- [x] Final and Overlay are refused for a version without its own `plan.json` ("built before plans were kept")
+- [x] Final and Overlay are refused for a version with contract issues, naming them, including footage issues
+- [x] Draft renders in all three cases
+- [x] `kinotta check` output is unchanged after `footageIssues` moves to the core
+- [x] `kinotta render` refuses an unapproved Final with the "approve it in Kinotta" message
 
 ## T52. One queue across processes, and cancel
 

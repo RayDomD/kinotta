@@ -2,6 +2,7 @@ import { readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeJsonAtomic, withReelLock } from './edit-list.ts';
 import { KinottaError } from './errors.ts';
+import { versionIssues } from './footage-issues.ts';
 import type { Approval, Withdrawal } from './types.ts';
 import { APPROVAL_FILE, readVersion, requireReelDir } from './version.ts';
 
@@ -38,7 +39,7 @@ async function readApprovedAt(versionDir: string): Promise<string | null> {
  */
 export async function approveVersion(projectDir: string, slug: string, number: number): Promise<Approval> {
   const { reelDir, versionDir } = await requireVersionDir(projectDir, slug, number);
-  const { issues } = await readVersion(projectDir, slug, number);
+  const issues = versionIssues(await readVersion(projectDir, slug, number));
   const at = await withReelLock(reelDir, async () => {
     const existing = await readApprovedAt(versionDir);
     if (existing !== null) return existing;

@@ -23,6 +23,7 @@ export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from '.
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
 export { checkTools, missingToolsMessage };
+export { versionIssues } from './_internal/footage-issues.ts';
 export type {
   AddedComment,
   Approval,

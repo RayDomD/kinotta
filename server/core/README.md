@@ -76,7 +76,13 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   ffmpeg, which cuts the original footage by the version's own pieces (through the plan resolver, never the reel's
   current plan), joins the audio with 20 ms fades at each cut (`audio: 'smooth'`, the default) or none (`'hard'`,
   named `-hardcuts`), and lays the frames on top. No intermediate file is written. An unknown reel or version is
-  `not-found`.
+  `not-found`. Final and Overlay pass a gate first (R6, R10, R13): the version must have `approval.json`, a footage
+  version its own `plan.json`, and no issues from `versionIssues`; otherwise `invalid` naming every reason, as in
+  `v2 can't be rendered as a Final: it isn't approved (the owner approves it in Kinotta); it has 1 contract issue: …`.
+  A Draft skips the gate.
+- `versionIssues(version)` is every static issue of a version: its contract issues, then a footage reel's footage
+  problems (`footage-missing`, `transcript`, `shot-type`, `no-spoken-line`). `kinotta check` prints this list, the
+  render gate refuses on it, and the approval warning names it.
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles
