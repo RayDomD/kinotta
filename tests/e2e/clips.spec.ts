@@ -162,3 +162,40 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   expect(v3).toContain('[data-el="conflict-panel"]{translate:');
   expect(readFileSync(join(project, 'reels', 'founder-talk', 'v2', 'index.html'), 'utf8')).not.toContain('[data-el="conflict-panel"]{translate:');
 });
+
+test('a clip follows a slide in the picture while it is dragged, and stays there before Save', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await expect(review(page).locator('.ov')).toHaveCount(4);
+  const perSecond = ((await review(page).locator('.rv-plane').boundingBox())!.width) / SAMPLE_SECONDS;
+  // Clip 01 is the page's first clip scene; its data-start is where the page plays it, in seconds.
+  const scene = page.frameLocator('iframe[title$=" page"]').locator('section[data-scene]:not([data-caption])').first();
+  await expect(scene).toHaveAttribute('data-start', /\d/);
+  const savedStart = Number(await scene.getAttribute('data-start'));
+
+  await clip(page, '01').scrollIntoViewIfNeeded();
+  const body = (await clip(page, '01').boundingBox())!;
+  const x = body.x + body.width / 2;
+  const y = body.y + body.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + (SLIDE_SECONDS * perSecond) / 2, y, { steps: 4 });
+  await page.mouse.move(x + SLIDE_SECONDS * perSecond, y, { steps: 4 });
+
+  // Mid-drag: the page plays the clip later already, and the playhead sits at its new start.
+  await expect.poll(async () => Number(await scene.getAttribute('data-start'))).toBeGreaterThan(savedStart + 0.4);
+  const playhead = await review(page).getByLabel('Timecode').textContent();
+  expect(playhead).toMatch(/^00:0\d\.\d\d/);
+
+  await page.mouse.up();
+  const edits = page.getByRole('list', { name: 'Edits' });
+  await expect(edits.getByRole('listitem')).toHaveCount(1);
+  // After the drop, with no Save, the page still plays it there.
+  await expect.poll(async () => Number(await scene.getAttribute('data-start'))).toBeGreaterThan(savedStart + 0.4);
+
+  // Undo puts it back where the version has it.
+  await page.keyboard.press('Control+z');
+  await expect(edits.getByRole('listitem')).toHaveCount(0);
+  await expect.poll(async () => Number(await scene.getAttribute('data-start'))).toBeCloseTo(savedStart, 2);
+});

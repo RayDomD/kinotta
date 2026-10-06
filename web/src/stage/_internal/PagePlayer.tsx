@@ -27,6 +27,20 @@ export interface CaptionMove {
   dy: number;
 }
 
+/**
+ * Clips played at other times than the page has them, before Save: a slid or trimmed clip, or one being dragged. The
+ * page's engine reads each scene's `data-start` and `data-duration` on every seek, so rewriting them moves the clip with
+ * no rebuild; the clip still plays from its own first frame, as a rebuilt page would.
+ */
+export interface ClipTiming {
+  /** The clip a scene belongs to, from its `data-scene` name. */
+  clipOf(scene: string): string | undefined;
+  /** Where each moved clip now plays, by clip id, in the reel's seconds. Clips not listed play as built. */
+  spans: ReadonlyMap<string, { start: number; end: number }>;
+  /** Page seconds minus reel seconds at the moment shown, where unsaved cuts make the two differ. */
+  offset: number;
+}
+
 export interface PagePlayerProps {
   /** Same-origin URL of the version page, without `?render` (the stage adds it). */
   pageUrl: string;
@@ -44,6 +58,8 @@ export interface PagePlayerProps {
   onCaptionMove?(move: CaptionMove): void | Promise<unknown>;
   /** Element offsets previewed in the page; with `onChange` set, a click picks an element, a drag moves it and its corner grip scales it. Absent: the page as built. */
   elements?: ElementEditing;
+  /** Clips moved before Save, played at their new times. Absent or null: every clip as built. */
+  clipTiming?: ClipTiming | null;
 }
 
 interface Handle {
@@ -63,6 +79,25 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
 
 const captionScenes = (frame: HTMLIFrameElement | null): HTMLElement[] => [...(frame?.contentDocument?.querySelectorAll<HTMLElement>('[data-caption]') ?? [])];
 
+/** The page's built timing for a scene, kept so a clip that is no longer moved gets it back. */
+const BUILT_START = 'builtStart';
+const BUILT_DURATION = 'builtDuration';
+
+/** Sets each moved clip's scene to its new times and every other clip scene back to its built ones. */
+function applyClipTiming(frame: HTMLIFrameElement | null, timing: ClipTiming | null | undefined): void {
+  for (const scene of frame?.contentDocument?.querySelectorAll<HTMLElement>('[data-scene]:not([data-caption])') ?? []) {
+    const { dataset } = scene;
+    if (dataset[BUILT_START] === undefined) {
+      dataset[BUILT_START] = dataset.start ?? '0';
+      dataset[BUILT_DURATION] = dataset.duration ?? '0';
+    }
+    const id = timing?.clipOf(dataset.scene ?? '');
+    const span = id === undefined ? undefined : timing?.spans.get(id);
+    dataset.start = span ? String(span.start + timing!.offset) : dataset[BUILT_START];
+    dataset.duration = span ? String(span.end - span.start) : dataset[BUILT_DURATION];
+  }
+}
+
 function readPhrases(doc: Document | null): CaptionPhrase[] {
   if (!doc) return [];
   return [...doc.querySelectorAll<HTMLElement>('[data-caption]')].map((scene) => {
@@ -75,7 +110,7 @@ function readPhrases(doc: Document | null): CaptionPhrase[] {
  * The version page playing: a same-origin frame at 1920x1080 scaled to its box, seeked to `time` each time that
  * changes. Not interactive. The page's background is transparent, so footage stacked under the box shows through.
  */
-export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements }: PagePlayerProps) {
+export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming }: PagePlayerProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -104,6 +139,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
 
   useEffect(() => {
     if (!loaded) return;
+    applyClipTiming(frame.current, clipTiming);
     seekNow(frame.current?.contentWindow ?? null, time).then(
       () => {
         report(null);
@@ -111,7 +147,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
       },
       (err: unknown) => report(err),
     );
-  }, [loaded, time]);
+  }, [loaded, time, clipTiming]);
 
   // The page's captions take the previewed positions (CSS translate, as the build writes them); a drag in progress adds to them.
   useEffect(() => {

@@ -4,10 +4,10 @@ import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
 import type { Comment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
-import type { CaptionMove, CaptionPhrase, ElementChange, ElementEditing } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
-import type { PhraseCell, WordCell } from './Lanes.tsx';
+import type { ClipPreview, PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
 import { captionShifts, clipIdForScene, codeClips, clipOffsets, editedClips, editedList, remap, sourceStretches } from './edited.ts';
@@ -269,6 +269,34 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     () => (planClips && offsets ? { offsets, clipOf: (scene) => clipIdForScene(scene, planClips), onChange: dragElements ? (change) => changeElementRef.current(change) : undefined } : undefined),
     [planClips, offsets, dragElements],
   );
+  // Clips slid or trimmed before Save, and the one being dragged, play at their new times in the picture: the page's
+  // engine reads each scene's timing on every seek, so no rebuild is needed.
+  const [clipDrag, setClipDrag] = useState<ClipPreview | null>(null);
+  const pageOffset = moved.page(time) - time;
+  const clipTiming = useMemo<ClipTiming | null>(() => {
+    if (!planClips || codeOnly) return null;
+    const ids = new Set(operations.flatMap((op) => (op.kind === 'clip-slide' || op.kind === 'clip-trim' ? [op.clip] : [])));
+    if (clipDrag) ids.add(clipDrag.id);
+    if (ids.size === 0) return null;
+    const spans = new Map<string, { start: number; end: number }>();
+    for (const clip of clips) {
+      if (!ids.has(clip.id)) continue;
+      const by = clipDrag?.id === clip.id ? clipDrag.by : 0;
+      const mode = clipDrag?.id === clip.id ? clipDrag.mode : null;
+      spans.set(clip.id, { start: clip.start + (mode === 'slide' || mode === 'start' ? by : 0), end: clip.end + (mode === 'slide' || mode === 'end' ? by : 0) });
+    }
+    return { clipOf: (scene) => clipIdForScene(scene, planClips), spans, offset: pageOffset };
+  }, [planClips, codeOnly, operations, clipDrag, clips, pageOffset]);
+  /** A clip drag as it goes: the picture follows it, with the playhead on the edge being moved. */
+  const previewClip = (preview: ClipPreview | null): void => {
+    if (preview !== null && clipDrag === null && playback.playing) playback.pause();
+    setClipDrag(preview);
+    const clip = preview && clips.find((c) => c.id === preview.id);
+    if (!preview || !clip) return;
+    // The end edge shows the clip's last frame, a frame inside its new end.
+    const edge = preview.mode === 'end' ? clip.end + preview.by - 1 / FRAME_RATE : clip.start + preview.by;
+    playback.seek(Math.max(0, edge));
+  };
   const snipRef = useRef(snip);
   snipRef.current = snip;
   const zoom = (factor: number): void => {
@@ -373,6 +401,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         captionShifts={editable ? placements : null}
         onCaptionMove={editable && placements ? moveCaption : undefined}
         elements={elements}
+        clipTiming={clipTiming}
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
@@ -392,6 +421,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
           onRetimeWord={editable && words ? retimeWord : undefined}
           onSlideClip={editable && toolName === 'select' && planClips ? slideClip : undefined}
           onTrimClip={editable && toolName === 'select' && planClips ? trimClip : undefined}
+          onPreviewClip={editable && toolName === 'select' && planClips ? previewClip : undefined}
           comments={shownComments}
           overview={overview}
           onWindow={setRaw}

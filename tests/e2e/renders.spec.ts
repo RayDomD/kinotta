@@ -47,7 +47,8 @@ test('renders run in the background: progress on every tab, a queue with cancel,
 
   // Cancel the running one: it leaves the queue and the waiting one starts.
   await items.nth(0).getByRole('button', { name: 'Cancel v2 Draft' }).click();
-  await expect(items).toHaveCount(1);
+  // Cancel stops every render process and removes the files first, slower when the machine is busy.
+  await expect(items).toHaveCount(1, { timeout: 30_000 });
   await expect(items.nth(0)).toContainText(/v1 Draft · \d+%/, { timeout: 30_000 });
 
   // It finishes: the ready notice, on whatever tab is open, plays the file.

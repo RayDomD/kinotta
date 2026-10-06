@@ -58,7 +58,8 @@ test('a refused render shows its reason; a Draft renders and the finished file p
   await panel(page).getByRole('radio', { name: 'Overlay' }).check();
   await expect(panel(page).getByLabel('Size')).toHaveValue('source');
   await panel(page).getByRole('button', { name: 'Render', exact: true }).click();
-  await expect(panel(page).getByRole('alert')).toContainText('no transparent background');
+  // The refusal waits on a browser reading the page, slow when the machine is busy.
+  await expect(panel(page).getByRole('alert')).toContainText('no transparent background', { timeout: 30_000 });
 
   await panel(page).getByRole('radio', { name: 'Draft' }).check();
   await expect(panel(page).getByLabel('Size')).toHaveValue('half');

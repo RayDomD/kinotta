@@ -45,6 +45,10 @@ through the page's global `seek(seconds)` (ADR 0001, D9).
   caller can drive it once per animation frame. Seek problems are reported like a still's. On load it reports the
   caption phrases the page holds (`{ start, end, text }` from its `[data-caption]` scenes), so the editor shows the
   engine's own phrase breaks. The page is only read. The caller sizes the box (`className`); the frame fills it.
+- `PagePlayer` also takes `clipTiming` (`ClipTiming`: `clipOf(scene)`, `spans` by clip id in reel seconds, `offset` of page
+  seconds over reel seconds). Before each seek it sets each listed clip's scene `data-start` and `data-duration` to its
+  new times and puts every other clip scene back to its built ones. The engine reads those on every seek, so a clip slid
+  or trimmed before Save, or being dragged, plays at its new time with no rebuild.
 - `PagePlayer` also takes `elements` (`ElementEditing`: `offsets` by clip id and element name, `clipOf(scene)`, optional `onChange`). The offsets are applied to the page as inline CSS `translate` and `scale` (the page is changed only by that, like the caption preview). With `onChange` set, a click on an element selects it (Alt: the whole clip, `CLIP_ROOT`), a drag moves it, the corner grip scales it about its centre, and `onChange({ clip, element, x, y, scale })` reports the result. The outline, grip, name tag and ghost of the original place are drawn over the frame, never in the page. Offsets are in the element's parent px (a drag is divided by the ancestors' scale, so a camera zoom does not skew it).
 - `useSeekProblems(pageUrl)`, the runtime contract issues seen while driving that page (`{ kind: 'no-seek' }` or
   `{ kind: 'seek-threw', time, detail }`), each once however many stills hit it. Stills and frames report their seeks here.
