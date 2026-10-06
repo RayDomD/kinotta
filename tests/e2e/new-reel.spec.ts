@@ -2,9 +2,20 @@ import { expect, test } from '@playwright/test';
 
 // Building v1 runs the real build, so the first wait after Start is longer than the default.
 const BUILD_WAIT_MS = 30_000;
+// The tool check starts Python and ffmpeg probes, which are slow under the full suite's load.
+const TOOL_CHECK_WAIT_MS = 20_000;
 
 // The footage-project sample with a fake transcriber (playwright.config.ts); a reel is started in it.
 test.use({ baseURL: 'http://localhost:4389' });
+
+test('the Needs row names what a start from video needs, and not the render browser', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New reel' }).click();
+
+  const needs = page.getByText('Needs on this machine:');
+  await expect(needs).toContainText('Python 3, ffmpeg, faster-whisper.', { timeout: TOOL_CHECK_WAIT_MS });
+  await expect(needs).not.toContainText('Chromium');
+});
 
 test('a video picked on New reel becomes a reel that opens in Review', async ({ page }) => {
   await page.goto('/');

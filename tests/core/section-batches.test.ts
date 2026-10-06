@@ -211,8 +211,8 @@ describe('change detection', () => {
     const entries = await openProject(dir).listVersions(REEL);
 
     expect(entries).toEqual([
-      { number: 1, isNewest: false, isStoryboard: true },
-      { number: 2, isNewest: true, isStoryboard: false, changedSections: [SYNC] },
+      { number: 1, isNewest: false, isStoryboard: true, approved: false, comments: expect.any(Number), issues: expect.any(Number) },
+      { number: 2, isNewest: true, isStoryboard: false, approved: false, comments: expect.any(Number), issues: expect.any(Number), changedSections: [SYNC] },
     ]);
   });
 });

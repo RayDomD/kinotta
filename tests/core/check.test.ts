@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { copyFixture } from '../helpers/project.ts';
+import { copyFixture, emptyProject } from '../helpers/project.ts';
 
 const LAUNCHER = resolve(import.meta.dirname, '../../bin/kinotta.mjs');
 const CHECK_TIMEOUT_MS = 20_000;
@@ -17,6 +17,15 @@ describe('kinotta check', () => {
     const dir = copyFixture('showreel-project');
 
     const run = check(dir, ['product-showreel']);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('product-showreel v2: no contract issues');
+  });
+
+  it('checks the project given with --project, from any folder', () => {
+    const dir = copyFixture('showreel-project');
+
+    const run = check(emptyProject(), ['product-showreel', '--project', dir]);
 
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('product-showreel v2: no contract issues');

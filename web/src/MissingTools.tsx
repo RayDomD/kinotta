@@ -8,7 +8,7 @@ export function MissingTools() {
   useEffect(() => {
     let live = true;
     fetchTools()
-      .then((check) => live && setTools(check.tools))
+      .then((check) => live && setTools(check.tools.filter((tool) => tool.neededFor.includes('video'))))
       .catch(() => {});
     return () => {
       live = false;

@@ -103,8 +103,16 @@ It can be copied again, with changes, until the next version exists. Only a hand
 _Avoid_: Feedback round, export
 
 **Approval**:
-Your mark that a version is final. Only an approved version gets rendered.
+Your mark that a version is final. It is a label only: rendering doesn't need it. Several versions of a reel can be approved.
 _Avoid_: Sign-off, lock
+
+**Render**:
+A video file made from a version: Draft (a quick check of any version), Final (the whole reel as an MP4) or Overlay (the clips and captions with transparency).
+_Avoid_: Export, bounce
+
+**Preset**:
+The kind of render (Draft, Final or Overlay), which fills in its settings: frame rate, size, quality and audio at cuts.
+_Avoid_: Profile, template
 
 ### Brand and taste
 

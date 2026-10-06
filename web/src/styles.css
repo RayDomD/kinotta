@@ -97,6 +97,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .versions small { font-size: 12px; font-weight: 400; text-shadow: none; }
 .versions button[data-newest] small:first-child { color: var(--light); }
 .versions .ready-mark { color: var(--ink); border: 1.2px solid var(--ink); padding: 0 5px; }
+.versions .approved-mark { color: var(--ink); }
 
 /* sections (sections-transcript mockup, option A) */
 .secs { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; }
@@ -411,3 +412,51 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .reels .waiting { margin-left: 8px; }
 .empty-board { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .empty-board .copy-request { align-items: center; }
+
+/* Picker (picker-layout mockup, option B): the versions table, the player under it, Render and past renders on the right */
+.pk-message:not(:empty), .pk-refusal { font-size: 13px; color: var(--ink-2); margin-top: 6px; max-width: 60ch; }
+.pk-refusal { padding: 8px 10px; border: 1px solid var(--hairline); color: var(--ink); }
+.pk-video { display: block; width: min(100%, calc(36vh * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: var(--still-ground); }
+.pk-render, .pk-past { display: flex; flex-direction: column; gap: 12px; }
+.pk-past { border-top: 1px solid var(--rule); padding-top: 14px; }
+.pk-render h2, .pk-past h2 { font-size: 16px; font-weight: 600; }
+.pk-presets { border: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.pk-presets legend { width: 100%; margin-bottom: 4px; }
+.pk-preset { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ink-2); cursor: var(--cur-hex-fill), pointer; }
+.pk-preset input { accent-color: var(--ink); cursor: inherit; }
+.pk-preset:has(input:checked) { color: var(--ink); }
+.pk-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.pk-field { display: flex; flex-direction: column; gap: 4px; }
+.pk-field select { font: 14px Outfit, sans-serif; color: var(--ink); background: var(--ground-deep); border: 1.4px solid var(--hairline); padding: 6px 8px; cursor: var(--cur-hex-fill), pointer; }
+.pk-field select:focus-visible { outline: none; border-color: var(--light); }
+.pk-render .btn { align-self: flex-start; }
+.pk-renders { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.pk-renders li { display: flex; flex-direction: column; gap: 2px; }
+.pk-file { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+.pk-actions { display: flex; gap: 14px; }
+
+/* renders in the background (T56): the top bar's render menu (queue and past renders) and the ready notice over any tab */
+.tb-render { display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.tb-render .dot { color: var(--light); font-size: 13px; text-shadow: 0 0 10px var(--light-glow); }
+.pk-queue { display: flex; flex-direction: column; gap: 12px; }
+.pk-queue h2 { font-size: 16px; font-weight: 600; }
+.pk-jobs { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.pk-jobs li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.pk-job { font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.pk-bar { display: block; width: 100%; height: 3px; background: var(--rule); }
+.pk-bar span { display: block; height: 100%; background: var(--light); transform-origin: left; }
+.render-ready { position: fixed; left: 244px; bottom: 22px; z-index: 8; max-width: 72ch; }
+.render-ready .pk-actions { align-items: baseline; }
+
+/* Review's header actions and the popovers on them and on the top bar's render menu (mockup 2026-10-06 option C) */
+.rv-actions { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.rv-actions .btn { padding: 6px 14px; }
+.rv-approved { font-size: 14px; color: var(--light); text-shadow: 0 0 10px var(--light-glow); }
+.popover-anchor { position: relative; display: inline-flex; }
+.popover { position: absolute; top: calc(100% + 8px); right: 0; z-index: 9; width: 320px; max-height: calc(100vh - 120px); overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); transform-origin: top right; animation: popover-in 160ms cubic-bezier(.16, 1, .3, 1); }
+@keyframes popover-in { from { opacity: 0; transform: scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .popover { animation: none; } }
+.popover h2 { font-size: 16px; font-weight: 600; }
+.tb-menu { padding: 6px 10px; border: 1px solid transparent; transition: border-color var(--t-color) var(--ease); }
+.tb-menu:hover, .tb-menu[aria-expanded="true"] { border-color: var(--hairline); }
+.tb-pop .pk-past { border-top: 1px solid var(--rule); padding-top: 14px; }

@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -61,10 +61,35 @@ test('the server refuses a comment on v1 with 409 and still lists versions and r
   expect((await request.get(`/api/reels/${REEL}/versions/1/comments`)).status()).toBe(200);
   expect(await (await request.get(`/api/reels/${REEL}/versions`)).json()).toEqual({
     versions: [
-      { number: 1, isNewest: false, isStoryboard: true },
-      { number: 2, isNewest: true, isStoryboard: false },
+      { number: 1, isNewest: false, isStoryboard: true, approved: false, comments: expect.any(Number), issues: 0 },
+      { number: 2, isNewest: true, isStoryboard: false, approved: false, comments: expect.any(Number), issues: 0 },
     ],
   });
+});
+
+test('the rail marks a version approved in the editor or on disk, on every tab, and drops the mark on withdraw', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(heading(page)).toHaveText('Storyboard, v2');
+  const v1 = rail(page).getByRole('button', { name: /^v1/ });
+  const v2 = rail(page).getByRole('button', { name: /^v2/ });
+
+  expect((await request.put(`/api/reels/${REEL}/versions/2/approval`)).status()).toBe(200);
+  await expect(v2).toContainText('✓ approved');
+  await expect(v1).not.toContainText('approved');
+
+  const approvalFile = join(readFileSync(PROJECT_PATH_FILE, 'utf8'), 'reels', REEL, 'v1', 'approval.json');
+  writeFileSync(approvalFile, JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00.000Z' }));
+  await expect(v1).toContainText('✓ approved');
+
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await expect(v1).toContainText('✓ approved');
+  await expect(v2).toContainText('✓ approved');
+
+  rmSync(approvalFile);
+  expect((await request.delete(`/api/reels/${REEL}/versions/2/approval`)).status()).toBe(200);
+  await expect(v1).not.toContainText('approved');
+  await expect(v2).not.toContainText('approved');
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Storyboard' }).click();
 });
 
 test('a new version on disk shows a ready notice without reload, and opens only on a click', async ({ page }) => {

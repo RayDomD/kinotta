@@ -22,13 +22,14 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   (`{ code, shot?, scene?, message }`, rules at the top of `_internal/contract.ts`), a missing or unparsable `shots.json`
   gives zero shots and one issue, and `index.html` is parsed with `node-html-parser`. Nothing here throws for contract problems.
 
-- `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard }`
-  (v1 is the storyboard in this phase). An unknown reel throws `not-found`.
+- `listVersions(slug)` returns the reel's version folders oldest first, each `{ number, isNewest, isStoryboard, approved, comments, issues }` (`comments` is the version's comment count, `issues` the count of `versionIssues`, the list the render gate refuses on)
+  (v1 is the storyboard in this phase; `approved` when the folder holds an `approval.json`). An unknown reel throws `not-found`.
 - `subscribe(listener)` returns an unsubscribe function. Events: `{ type: 'version-added', reel, version }` (a `v<n>`
   folder with a `shots.json` appeared), `{ type: 'reels-changed' }` (a reel or version appeared or went) and
-  `{ type: 'comments-changed', reel, version }` (a saved-comments file changed). Debounced (150 ms), never repeated,
+  `{ type: 'comments-changed', reel, version }` (a saved-comments file changed) and
+  `{ type: 'approval-changed', reel, version, approved }` (a version's `approval.json` appeared or went, whoever wrote it). Debounced (150 ms), never repeated,
   `*.tmp` files ignored. It watches the reels folder while anyone is subscribed (recursive `fs.watch`, polling
-  where that is unavailable).
+  where that is unavailable). `transcription-progress` and `render-progress` come from the jobs themselves, not the watcher.
 - `footageFile(slug)` returns the absolute path of the reel's footage file, or null when the reel has none, the file is
   missing, or the path leaves the project folder.
 
@@ -55,8 +56,56 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   into every batch. Each copy is recorded in the state file as the section's latest hand-off (`handedOff`). No comments and no note throws `KinottaError` `invalid` and writes nothing; a version that is not the newest
   throws `frozen`. With `includeIssues`, the version's issues plus `runtimeIssues` (problems only the browser saw) are
   added once each as a "Contract issues" block after Notes and an `issues` array in the file. It is the only place the editor
-  writes into a version folder.
-
+  writes into a version folder besides the approval below.
+- `approveVersion(slug, n)` writes `v<n>/approval.json` (`{ approvedBy: "you", at }`, atomically) and returns
+  `{ approved: true, at, warning? }`. Approving again keeps the first `at`. A version with contract issues is approved
+  with a `warning` naming them. `withdrawApproval(slug, n)` deletes the file and returns `{ approved: false }`; renders
+  stay. Both throw `not-found` for an unknown reel or version. Only the HTTP API calls them; the CLI has no approve
+  command (R17). A code-only Save never copies `approval.json` into the next version.
+- `render({ reel, version, preset, audio? })` queues a render and returns the job (`{ id, reel, version, preset, state, progress,
+  remaining, output?, error? }`) as `queued`. Jobs run one at a time in queue order (`_internal/render-queue.ts`), in
+  memory only; each change raises `{ type: 'render-progress', job }` (progress in whole percents). `renderJobs()` lists
+  the jobs waiting or running; `whenRendered(id)` resolves with the job once it is `done`, `failed` or `cancelled`.
+  A render of 60 frames or more runs in parallel segments, one per two logical cores and at least 60 frames each
+  (`openProject(dir, { renderSegments })` pins the count for tests; it is not a user setting). Each segment renders its
+  frame range (`render.js --frames`) into `renders/.work-<job>/`; a footage Draft or Final composites each segment over
+  its own stretch of the pieces, video only. ffmpeg's concat demuxer joins them with `-c copy`, encoding a footage
+  render's sound once over all the pieces. Progress sums the segments. One failing segment stops the others, and
+  `.work-<job>/` is removed on finish, failure and cancel.
+  `cancelRender(id)` (R8) marks a queued job `cancelled` at once, so it never runs; for a running job it aborts the
+  job's signal, which kills the render's whole process tree (`taskkill /T /F` on Windows, SIGTERM elsewhere), removes
+  `.render-<job>.*` and `renders/.work-<job>/`, and resolves once that is done. A finished job comes back unchanged; an
+  unknown one is `not-found`. The engine
+  (`_internal/render.ts`) runs the skill's `render.js` through the runner and writes
+  `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.mp4` under a temp name (`.render-<job>.mp4`), renamed when
+  complete so the same settings replace the file and a failure leaves nothing; `output` is that path relative to the
+  project. Presets (R2): Draft is half size, CRF 28, no motion blur; Final is full size, CRF 16, with motion blur;
+  Overlay is ProRes 4444 with alpha in a `.mov`, the page alone with no sound. Four settings (R3) go on top, each
+  optional in the request: `fps` (`'source'`, 24, 25, 30, 60), `size` (`'half'`, `'source'`, `'1080p'`, `'4k'`: the
+  short side, the long side keeping the source's aspect ratio, the page scaled through `deviceScaleFactor`), `quality`
+  (`'standard'`, `'high'`: CRF 20 for Draft and 10 for Final, ProRes 4444 XQ for Overlay) and `audio`. A render uses the
+  request's settings over the reel's saved ones for its preset over R2's defaults; an unknown value is `invalid`. High
+  adds `-high` to the file name, and Hard cuts in a render with sound add `-hardcuts` (R18). With `remember: true` (only
+  Picker's render sets it) the settings used are saved to `reels/<reel>/render-settings.json` (`{ draft, final,
+  overlay }`) for that preset (R16). `renderSettings(slug)` returns all three presets' settings with defaults filled in. A code-only reel renders its page at the
+  page's size and 30 fps, and has an Overlay only when the page is transparent (`invalid` otherwise). A footage reel
+  renders at the footage's size and frame rate: `render.js` draws the overlay page as RGBA frames piped straight into
+  ffmpeg, which cuts the original footage by the version's own pieces (through the plan resolver, never the reel's
+  current plan), joins the audio with 20 ms fades at each cut (`audio: 'smooth'`, the default) or none (`'hard'`,
+  named `-hardcuts`), and lays the frames on top. No intermediate file is written. An unknown reel or version is
+  `not-found`. Final and Overlay pass a gate first (R10, R13, R19): an older footage version must have its own
+  `plan.json` (the newest plays the reel's current plan, which is its own), and the version must have no issues from
+  `versionIssues`; otherwise `invalid` naming every reason, as in `v1 can't be rendered as a Final: it was built before
+  plans were kept; it has 1 contract issue: …`. Approval is not checked: pressing Render is the decision (R19). A Draft
+  skips the gate.
+- `listRenders(slug)` lists `reels/<reel>/renders/` newest first, skipping dot names (temp files, work folders): `{ file,
+  version, preset, bytes, at }`, the version and preset read from the file name. `renderFile(slug, file)` is a finished
+  render's path, for serving it, and `revealRender(slug, file)` shows it in the system's file manager through the runner
+  (`explorer /select,` on Windows, `open -R` on macOS, `xdg-open` on the folder elsewhere). Both throw `not-found` for an
+  unknown reel or file, or a name that isn't a finished render.
+- `versionIssues(version)` is every static issue of a version: its contract issues, then a footage reel's footage
+  problems (`footage-missing`, `transcript`, `shot-type`, `no-spoken-line`). `kinotta check` prints this list, the
+  render gate refuses on it, and the approval warning names it.
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles
@@ -96,9 +145,11 @@ a time per file. Nothing is written into a version folder.
 
 Outside code imports from `index.ts` only.
 
-- `checkTools()` returns `{ tools, missing }`: Python 3, ffmpeg and faster-whisper, each `{ id, name, present, hint }`
-  (`hint` is the install command for the platform). It never throws. `missingToolsMessage(check)` is the startup text
-  naming each missing tool, or null when all are present. The server serves the check at `GET /api/tools`.
+- `checkTools()` returns `{ tools, missing }`: Python 3, ffmpeg, faster-whisper and Chromium, each
+  `{ id, name, present, hint, neededFor }` (`hint` is the install command for the platform; `neededFor` lists `video`,
+  a start from video, and `render`). Chromium is Playwright's browser, found at its executable path. It never throws.
+  `missingToolsMessage(check)` is the startup text naming each missing tool under what needs it, or null when all are
+  present. The server serves the check at `GET /api/tools`.
 
 ## Does not handle
 

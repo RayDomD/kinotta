@@ -109,6 +109,49 @@ describe('word-text and word-timing', () => {
   });
 });
 
+describe('phrase-text', () => {
+  const words = [
+    { text: 'so', start: 0, end: 0.3 },
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.5 },
+    { text: 'next', start: 2, end: 2.4 },
+  ];
+  const sources = { plan: {}, words };
+  const phrase = (text: string, from = 0.5, to = 1.5) => ({ id: 'p', kind: 'phrase-text' as const, from, to, text });
+
+  it('keeps each word timing when the count stays the same', () => {
+    expect(applyOperation(sources, phrase(' hi  you ')).words).toEqual([words[0], { text: 'hi', start: 0.5, end: 0.9 }, { text: 'you', start: 1, end: 1.5 }, words[3]]);
+  });
+
+  it('spreads a new count of words over the old span by their length, and leaves the words around it', () => {
+    const next = applyOperation(sources, phrase('a bb ccc')).words;
+    expect(next.map((w) => w.text)).toEqual(['so', 'a', 'bb', 'ccc', 'next']);
+    // Weights 2, 3, 4 over 0.5 to 1.5.
+    expect(next.slice(1, 4)).toEqual([
+      { text: 'a', start: 0.5, end: 0.722222 },
+      { text: 'bb', start: 0.722222, end: 1.055556 },
+      { text: 'ccc', start: 1.055556, end: 1.5 },
+    ]);
+    expect(applyOperation(sources, phrase('hey')).words.slice(1, 3)).toEqual([{ text: 'hey', start: 0.5, end: 1.5 }, words[3]]);
+  });
+
+  it('removes the words when the text is empty', () => {
+    expect(applyOperation(sources, phrase('  ')).words).toEqual([words[0], words[3]]);
+  });
+
+  it('refuses a span with no words and text that is unchanged', () => {
+    expect(() => applyOperation(sources, phrase('x', 3, 4))).toThrow(/no words/);
+    expect(() => applyOperation(sources, phrase('hello  there'))).toThrow(/already reads/);
+  });
+
+  it('says what it did, and touches the sections it overlaps', () => {
+    expect(describeOperation({ ...phrase('hi you'), was: 'hello there' })).toEqual({ target: 'Caption', text: 'Changed “hello there” to “hi you”' });
+    expect(describeOperation({ ...phrase(''), was: 'hello there' }).text).toBe('Removed “hello there”');
+    expect(operationTouches(phrase('x'), { start: 1, end: 3 })).toBe(true);
+    expect(operationTouches(phrase('x'), { start: 2, end: 3 })).toBe(false);
+  });
+});
+
 describe('caption-position and caption-phrase-position', () => {
   const words = [
     { text: 'hello', start: 0.5, end: 0.9 },

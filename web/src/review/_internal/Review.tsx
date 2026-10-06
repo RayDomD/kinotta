@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Operation } from '../../../../server/core/model.ts';
 import { footageUrl, versionPageUrl } from '../../api/index.ts';
 import type { Comment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
-import type { CaptionMove, CaptionPhrase, ElementChange, ElementEditing } from '../../stage/index.ts';
+import type { CaptionMove, CaptionPhrase, CaptionText, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
-import type { PhraseCell, WordCell } from './Lanes.tsx';
+import type { ClipPreview, PhraseCell, WordCell } from './Lanes.tsx';
 import { Player } from './Player.tsx';
 import { applyOperations, pieceMap, toSource, toTimelineSpan } from '../../../../server/core/model.ts';
-import { captionShifts, clipIdForScene, codeClips, clipOffsets, editedClips, editedList, remap, sourceStretches } from './edited.ts';
+import { captionShifts, clipIdForScene, codeClips, clipOffsets, editedClips, editedList, phraseTexts, remap, sourceStretches } from './edited.ts';
 import type { Remap } from './edited.ts';
 import { clipSpans, indexAt } from './model.ts';
 import type { Span } from './model.ts';
@@ -35,6 +36,8 @@ const NO_PHRASES: CaptionPhrase[] = [];
 const NO_OPERATIONS: readonly Operation[] = [];
 /** One list for "no pieces", so a reel without footage maps its timeline to itself (two empty lists would be mapped as pieces of no length). */
 const NO_PIECES: readonly Piece[] = [];
+/** Seconds played before a selected stretch when its snip is previewed. */
+const SNIP_LEAD_IN = 2;
 const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
@@ -51,6 +54,8 @@ export interface ReviewProps {
   edits?: EditsState;
   /** The reel's transcription, while its v1 waits for it. */
   transcription?: TranscriptionProgress | null;
+  /** At the end of the heading row: Approve and Render for the version on show. */
+  actions?: ReactNode;
 }
 
 /** Keys the player owns. Typing in a field and a focused button's own Space are left alone. */
@@ -69,7 +74,7 @@ function remapped<T extends Span>(items: readonly T[], map: Remap): T[] {
   });
 }
 
-function Playing({ reel, state, version, comments, section = null, edits, transcription }: ReviewProps) {
+function Playing({ reel, state, version, comments, section = null, edits, transcription, actions }: ReviewProps) {
   const video = useRef<HTMLVideoElement>(null);
   const [videoLength, setVideoLength] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -93,7 +98,11 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   // What the reel plays and shows is the version with the unsaved edits applied over it.
   const pieces = useMemo(() => (savedPieces ? (editedList(savedPieces, operations) as readonly Piece[]) : null), [savedPieces, operations]);
   const total = operations.length > 0 && pieces ? timelineLength(pieces) : savedTotal;
-  const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo);
+  const [toolName, setTool] = useState<Tool>('select');
+  const [selection, setSelection] = useState<Span | null>(null);
+  // A stretch selected with the Snip tool plays as if snipped, before Snip makes it an edit.
+  const previewSnip = editable && toolName === 'snip' ? selection : null;
+  const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo, previewSnip);
   const { time } = playback;
   const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
@@ -113,22 +122,26 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       return start === null ? [] : [{ text: w.text, start, end: start + (w.end - w.start) }];
     });
   }, [version, savedPieces]);
-  const shownWords = useMemo(() => {
+  const editedWords = useMemo(() => {
     if (!sourceWords) return null;
-    const now = pieceMap(pieces ?? [], 0);
-    const source = sourceWords;
-    let edited = source;
     try {
-      edited = applyOperations({ plan: {}, words: source }, operations.filter((op) => op.kind === 'word-text' || op.kind === 'word-timing')).words;
+      return applyOperations({ plan: {}, words: sourceWords }, operations.filter((op) => op.kind === 'word-text' || op.kind === 'word-timing' || op.kind === 'phrase-text')).words;
     } catch {
       // The list no longer applies to these words; the saved words show.
+      return sourceWords;
     }
-    return edited.flatMap((w, i) => {
+  }, [sourceWords, operations]);
+  const shownWords = useMemo(() => {
+    if (!sourceWords || !editedWords) return null;
+    const now = pieceMap(pieces ?? [], 0);
+    // A retyped caption can change how many words there are; then a word is matched to the saved one starting with it.
+    const counted = editedWords.length === sourceWords.length;
+    return editedWords.flatMap((w, i) => {
       const span = toTimelineSpan(now, w.start, w.end);
-      const before = source[i]!;
-      return span ? [{ text: w.text, ...span, fixed: w.text !== before.text, retimed: w.start !== before.start || w.end !== before.end, source: w }] : [];
+      const before = counted ? sourceWords[i] : sourceWords.find((s) => Math.abs(s.start - w.start) < SAME_SECOND);
+      return span ? [{ text: w.text, ...span, fixed: w.text !== before?.text, retimed: before === undefined || w.start !== before.start || w.end !== before.end, source: w }] : [];
     });
-  }, [sourceWords, pieces, operations]);
+  }, [sourceWords, editedWords, pieces]);
   const words: WordCell[] | null = shownWords;
   // Caption positions: the saved ones with the unsaved moves over them, per phrase of the saved page.
   const placements = useMemo(() => {
@@ -136,7 +149,22 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     const was = pieceMap(savedPieces, 0);
     return captionShifts(version?.captions, operations, sourceWords, phrases.map((p) => toSource(was, p.start) ?? Number.NaN));
   }, [version, sourceWords, savedPieces, operations, phrases]);
-  const shownPhrases = useMemo(() => remapped<PhraseCell>(phrases.map((p, i) => ({ ...p, own: placements?.[i]?.own })), moved), [phrases, placements, moved]);
+  // Caption words: each phrase's words with the unsaved word and caption edits, shown in the page and on the Captions lane.
+  const captions = useMemo(() => {
+    if (!sourceWords || !editedWords || !savedPieces) return null;
+    const was = pieceMap(savedPieces, 0);
+    const spans = phrases.map((p) => {
+      const from = p.spoken ? toSource(was, p.spoken.start) : null;
+      const to = p.spoken ? toSource(was, p.spoken.end - SAME_SECOND) : null;
+      return from === null || to === null ? { from: Number.NaN, to: Number.NaN } : { from, to: to + SAME_SECOND };
+    });
+    return phraseTexts(spans, sourceWords, editedWords, savedPieces);
+  }, [sourceWords, editedWords, savedPieces, phrases]);
+  const captionWords = useMemo(() => (captions?.some((c) => c.page !== null) ? captions.map((c) => c.page) : null), [captions]);
+  const shownPhrases = useMemo(
+    () => remapped<PhraseCell>(phrases.map((p, i) => ({ ...p, own: placements?.[i]?.own, text: captions?.[i]?.page ? captions[i]!.page!.map((w) => w.text).join(' ') : p.text })), moved),
+    [phrases, placements, captions, moved],
+  );
   const shownComments = useMemo(
     () =>
       comments.flatMap((c) => {
@@ -164,8 +192,6 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     shownSection.current = section?.id;
   }, [section, total]);
 
-  const [toolName, setTool] = useState<Tool>('select');
-  const [selection, setSelection] = useState<Span | null>(null);
   const live = useRef({ playback, win, total, time, selection, pieces, editable, moveable, edits, clips });
   live.current = { playback, win, total, time, selection, pieces, editable, moveable, edits, clips };
   const tool = useRef(toolName);
@@ -184,6 +210,21 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     afterSnip.current = null;
     live.current.playback.seek(Math.min(target, live.current.total));
   }, [operationCount]);
+
+  // The picture follows a selection as it changes: paused on its end, the frame the snip would join to.
+  useEffect(() => {
+    if (!previewSnip) return;
+    live.current.playback.pause();
+    live.current.playback.seek(Math.min(previewSnip.end, live.current.total));
+  }, [previewSnip]);
+  /** Plays or pauses; with a stretch selected for a snip, playing starts a lead-in before it, so the join is heard. */
+  const togglePlay = (): void => {
+    const { playback: player, selection: chosen, editable: allowed } = live.current;
+    if (!player.playing && chosen && allowed && tool.current === 'snip') player.seek(Math.max(0, chosen.start - SNIP_LEAD_IN));
+    player.toggle();
+  };
+  const togglePlayRef = useRef(togglePlay);
+  togglePlayRef.current = togglePlay;
 
   const snip = async (): Promise<void> => {
     const { selection: chosen, pieces: shown, editable: allowed, edits: changes } = live.current;
@@ -250,6 +291,15 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     }
     await changes.add({ kind: 'caption-phrase-position', at: placed.key, x: placed.x - placed.wide.x + dx, y: placed.y - placed.wide.y + dy });
   };
+  const captionsRef = useRef(captions);
+  captionsRef.current = captions;
+  /** The caption on show retyped in the frame: its words, from the first's start to the last's end, become the new text. */
+  const retypeCaption = async ({ index, text }: CaptionText): Promise<void> => {
+    const { editable: allowed, edits: changes } = live.current;
+    const words = captionsRef.current?.[index]?.words;
+    if (!allowed || !changes || changes.busy || !words || words.length === 0) return;
+    await changes.add({ kind: 'phrase-text', from: words[0]!.start, to: words[words.length - 1]!.end, text, was: words.map((w) => w.text).join(' ') });
+  };
   const changeElement = async ({ clip, element, x, y, scale }: ElementChange): Promise<void> => {
     const { moveable: allowed, edits: changes } = live.current;
     if (!allowed || !changes || changes.busy) return;
@@ -264,6 +314,34 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
     () => (planClips && offsets ? { offsets, clipOf: (scene) => clipIdForScene(scene, planClips), onChange: dragElements ? (change) => changeElementRef.current(change) : undefined } : undefined),
     [planClips, offsets, dragElements],
   );
+  // Clips slid or trimmed before Save, and the one being dragged, play at their new times in the picture: the page's
+  // engine reads each scene's timing on every seek, so no rebuild is needed.
+  const [clipDrag, setClipDrag] = useState<ClipPreview | null>(null);
+  const pageOffset = moved.page(time) - time;
+  const clipTiming = useMemo<ClipTiming | null>(() => {
+    if (!planClips || codeOnly) return null;
+    const ids = new Set(operations.flatMap((op) => (op.kind === 'clip-slide' || op.kind === 'clip-trim' ? [op.clip] : [])));
+    if (clipDrag) ids.add(clipDrag.id);
+    if (ids.size === 0) return null;
+    const spans = new Map<string, { start: number; end: number }>();
+    for (const clip of clips) {
+      if (!ids.has(clip.id)) continue;
+      const by = clipDrag?.id === clip.id ? clipDrag.by : 0;
+      const mode = clipDrag?.id === clip.id ? clipDrag.mode : null;
+      spans.set(clip.id, { start: clip.start + (mode === 'slide' || mode === 'start' ? by : 0), end: clip.end + (mode === 'slide' || mode === 'end' ? by : 0) });
+    }
+    return { clipOf: (scene) => clipIdForScene(scene, planClips), spans, offset: pageOffset };
+  }, [planClips, codeOnly, operations, clipDrag, clips, pageOffset]);
+  /** A clip drag as it goes: the picture follows it, with the playhead on the edge being moved. */
+  const previewClip = (preview: ClipPreview | null): void => {
+    if (preview !== null && clipDrag === null && playback.playing) playback.pause();
+    setClipDrag(preview);
+    const clip = preview && clips.find((c) => c.id === preview.id);
+    if (!preview || !clip) return;
+    // The end edge shows the clip's last frame, a frame inside its new end.
+    const edge = preview.mode === 'end' ? clip.end + preview.by - 1 / FRAME_RATE : clip.start + preview.by;
+    playback.seek(Math.max(0, edge));
+  };
   const snipRef = useRef(snip);
   snipRef.current = snip;
   const zoom = (factor: number): void => {
@@ -289,7 +367,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       if (ignoresKey(e)) return;
       const { playback: player, total: length, editable: allowed, selection: chosen } = live.current;
       const frames = e.shiftKey ? FRAME_RATE : 1;
-      if (e.key === ' ') player.toggle();
+      if (e.key === ' ') togglePlayRef.current();
       else if (e.key === 'ArrowRight') player.step(frames);
       else if (e.key === 'ArrowLeft') player.step(-frames);
       else if (e.key === 'Home') player.seek(0);
@@ -332,6 +410,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         <span className="meta">
           {version ? `v${version.number} · ${formatDuration(total)}${operations.length > 0 ? ' · unsaved edits' : ''}` : transcription?.state === 'running' ? 'No version yet. v1 is built when the words are in.' : 'No version yet. The footage plays alone.'}
         </span>
+        {actions}
       </div>
       <Player
         title={reel.title}
@@ -345,7 +424,8 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         playing={playback.playing}
         win={win}
         tools={
-          editable || codeOnly ? (
+          // Without an edit list there are no tools at all.
+          editable || (codeOnly && edits !== undefined) ? (
             <Tools
               unavailable={codeOnly ? CODE_ONLY_REASON : undefined}
               tool={toolName}
@@ -360,12 +440,15 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
             />
           ) : undefined
         }
-        onToggle={playback.toggle}
+        onToggle={togglePlay}
         onZoom={zoom}
         onPhrases={setPhrases}
         captionShifts={editable ? placements : null}
         onCaptionMove={editable && placements ? moveCaption : undefined}
+        captionWords={captionWords}
+        onCaptionText={editable && captions ? retypeCaption : undefined}
         elements={elements}
+        clipTiming={clipTiming}
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
@@ -385,6 +468,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
           onRetimeWord={editable && words ? retimeWord : undefined}
           onSlideClip={editable && toolName === 'select' && planClips ? slideClip : undefined}
           onTrimClip={editable && toolName === 'select' && planClips ? trimClip : undefined}
+          onPreviewClip={editable && toolName === 'select' && planClips ? previewClip : undefined}
           comments={shownComments}
           overview={overview}
           onWindow={setRaw}

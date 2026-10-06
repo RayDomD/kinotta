@@ -17,10 +17,12 @@ export interface ReelListing {
 }
 
 export interface ToolStatus {
-  id: 'python' | 'ffmpeg' | 'faster-whisper';
+  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
   name: string;
   present: boolean;
   hint: string;
+  /** What it is for: starting a reel from a video, or rendering. */
+  neededFor: Array<'video' | 'render'>;
 }
 
 export interface ToolCheck {
@@ -127,6 +129,55 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version: `you`, or an agent's name. */
   builtBy?: string;
+  /** The version is approved: it is final. */
+  approved: boolean;
+  /** How many comments it holds. */
+  comments: number;
+  /** How many contract issues it has: the ones Final and Overlay refuse on. */
+  issues: number;
+}
+
+/** What approving a version returns. `warning` names the contract issues it still has. */
+export interface Approval {
+  approved: true;
+  at: string;
+  warning?: string;
+}
+
+export type RenderPreset = 'draft' | 'final' | 'overlay';
+
+/** The four settings on top of a preset (R3). Size is the short side; the long side keeps the source's aspect ratio. */
+export interface RenderSettings {
+  fps: 'source' | 24 | 25 | 30 | 60;
+  size: 'half' | 'source' | '1080p' | '4k';
+  quality: 'standard' | 'high';
+  audio: 'smooth' | 'hard';
+}
+
+/** A finished render in a reel's renders/ folder. */
+export interface RenderFile {
+  file: string;
+  version: number;
+  preset: RenderPreset;
+  bytes: number;
+  /** When it was written, as an ISO time. */
+  at: string;
+}
+
+/** One render in the project's queue. */
+export interface RenderJob {
+  id: string;
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+  /** From 0 to 1. */
+  progress: number;
+  /** Seconds left, an estimate; null until known. */
+  remaining: number | null;
+  /** The finished file, relative to the project folder. */
+  output?: string;
+  error?: string;
 }
 
 /** What the server reports as it happens. */
@@ -134,7 +185,9 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
-  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
+  | { type: 'render-progress'; job: RenderJob };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {
@@ -217,6 +270,37 @@ export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
 export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
   (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;
 export const fetchVersion = (slug: string, number: number): Promise<Version> => getJson(versionPath(slug, number));
+
+/** Marks a version final. The rail hears it as an `approval-changed` event. */
+export const approveVersion = (slug: string, number: number): Promise<Approval> => requestJson(`${versionPath(slug, number)}/approval`, { method: 'PUT' });
+/** Takes a version's approval back; its renders stay. */
+export const withdrawApproval = (slug: string, number: number): Promise<{ approved: false }> =>
+  requestJson(`${versionPath(slug, number)}/approval`, { method: 'DELETE' });
+
+/** Each preset's settings for a reel: the ones the last Render from Picker saved, else the preset's defaults. */
+export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPreset, RenderSettings>> =>
+  (await getJson<{ settings: Record<RenderPreset, RenderSettings> }>(`/api/reels/${encodeURIComponent(slug)}/render-settings`)).settings;
+/**
+ * Queues a render with these settings and saves them as the reel's for the preset (R16). A refusal (the gate, an Overlay
+ * of an opaque page) throws with the reason.
+ */
+export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings): Promise<RenderJob> =>
+  requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true }) });
+/** The project's render queue: the jobs waiting or running, in order. Changes arrive as `render-progress` events. */
+export const fetchRenderJobs = async (): Promise<RenderJob[]> => (await getJson<{ jobs: RenderJob[] }>('/api/renders')).jobs;
+/** Cancels a render: a waiting one is dropped, a running one stopped. Either way it leaves no file. */
+export const cancelRender = (id: string): Promise<RenderJob> => requestJson(`/api/renders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/** A reel's finished renders, newest first. */
+export const fetchRenders = async (slug: string): Promise<RenderFile[]> =>
+  (await getJson<{ renders: RenderFile[] }>(`/api/reels/${encodeURIComponent(slug)}/renders`)).renders;
+/** Where a finished render is served, for playing it. */
+export const renderFileUrl = (slug: string, file: string): string => `/renders/${encodeURIComponent(slug)}/${encodeURIComponent(file)}`;
+/** Shows a finished render in the system's file manager, on the machine running Kinotta. */
+export async function revealRender(slug: string, file: string): Promise<void> {
+  const path = `/api/reels/${encodeURIComponent(slug)}/renders/${encodeURIComponent(file)}/reveal`;
+  const res = await fetch(path, { method: 'POST' });
+  if (!res.ok) throw new Error(((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? `Request to ${path} failed (${res.status})`);
+}
 
 /** A version's comments, in number order. */
 export const fetchComments = (slug: string, number: number): Promise<CommentsOfVersion> =>

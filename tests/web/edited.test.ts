@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
-import { captionShifts, clipIdForScene, clipOffsets, codeClips, editedClips, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
+import { captionShifts, clipIdForScene, clipOffsets, codeClips, editedClips, phraseTexts, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
 /** Seconds 3 to 5 snipped. */
@@ -177,5 +177,35 @@ describe('codeClips', () => {
   it('lets the unsaved moves apply over the saved offsets', () => {
     const move = { id: 'a', kind: 'element-offset' as const, clip: 'cube-lands', element: 'cube', x: 5, y: 6, scale: 1 };
     expect(clipOffsets(clips, [move])).toEqual({ 'cube-lands': { cube: { x: 5, y: 6, scale: 1 } }, cta: { '@clip': { x: 0, y: 12, scale: 1 } } });
+  });
+});
+
+describe('phraseTexts', () => {
+  const saved = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+    { text: 'later', start: 6, end: 6.5 },
+  ];
+  const spans = [{ from: 0.5, to: 1.4 }, { from: 6, to: 6.5 }];
+
+  it('leaves a phrase the edits do not touch as built', () => {
+    expect(phraseTexts(spans, saved, saved, SAVED)).toEqual([
+      { words: saved.slice(0, 2), page: null },
+      { words: saved.slice(2), page: null },
+    ]);
+  });
+
+  it('gives a retyped phrase its words now, placed on the saved page', () => {
+    const edited = [{ text: 'hi', start: 0.5, end: 0.8 }, { text: 'all', start: 0.8, end: 1.4 }, saved[2]!];
+    // On a page built with 3 to 5 snipped, source 6 is page 4.
+    const [first, second] = phraseTexts(spans, saved, edited, EDITED);
+    expect(first).toEqual({ words: edited.slice(0, 2), page: edited.slice(0, 2) });
+    expect(second!.page).toBeNull();
+    const fixed = [saved[0]!, saved[1]!, { text: 'soon', start: 6, end: 6.5 }];
+    expect(phraseTexts(spans, saved, fixed, EDITED)[1]!.page).toEqual([{ text: 'soon', start: 4, end: 4.5 }]);
+  });
+
+  it('gives an emptied phrase no words', () => {
+    expect(phraseTexts(spans, saved, saved.slice(2), SAVED)[0]).toEqual({ words: [], page: [] });
   });
 });

@@ -54,6 +54,9 @@ Then, inside any project:
 - `kinotta` opens the editor on the project's `reels/` folder.
 - `kinotta check <reel> [version]` prints a version's contract issues and exits non-zero when there
   are any. Claude runs it before saying a version is ready.
+- `kinotta render <reel> v<n> --preset draft|final|overlay` renders a version. With the editor open it joins the
+  editor's render queue; otherwise it renders on its own and exits. `--fps`, `--size`, `--quality` and `--audio`
+  change one render without changing the settings the editor remembers. `check` and `render` take `--project <dir>`.
 
 ## Screens
 

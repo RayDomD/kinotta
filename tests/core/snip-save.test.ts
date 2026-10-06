@@ -370,6 +370,20 @@ describe('word-text and word-timing on Save', () => {
     expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain('folks.');
   });
 
+  it('writes a retyped caption phrase with a word added into v<n+1>', { timeout: SLOW_MS }, async () => {
+    const { reelDir, slug, project } = await startedReel();
+    await project.addOperation(slug, { kind: 'phrase-text', from: 0.5, to: 1.4, text: 'hello out there', was: 'hello there' });
+
+    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+
+    const v2 = await project.readVersion(slug, 2);
+    expect(v2.transcript?.map((w) => w.text)).toEqual(['hello', 'out', 'there', 'friends.', 'later']);
+    expect(v2.transcript?.[0]?.start).toBe(0.5);
+    expect(v2.transcript?.[2]?.end).toBe(1.4);
+    expect(readJson(join(reelDir, 'v1', 'transcript.json')).words).toEqual(WORDS);
+    expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain('>out<');
+  });
+
   it('refuses a word that is not there, an empty word, and a re-time over the next word; removing the fix a re-time depends on is refused', { timeout: SLOW_MS }, async () => {
     const { slug, project } = await startedReel();
     await expect(project.addOperation(slug, { kind: 'word-text', at: 4, text: 'x' })).rejects.toMatchObject({ code: 'invalid' });

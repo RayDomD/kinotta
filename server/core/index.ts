@@ -1,4 +1,5 @@
 import { basename, join, resolve } from 'node:path';
+import { approveVersion, withdrawApproval } from './_internal/approval.ts';
 import { copyBatch } from './_internal/batch.ts';
 import { addOperation, cancelHandoff, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { saveEdits } from './_internal/save.ts';
@@ -7,6 +8,10 @@ import { addComment, deleteComment, editComment, listComments, readNote, setNote
 import { footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
 import { listReels } from './_internal/reels.ts';
+import { prepareRender, runRender } from './_internal/render.ts';
+import { readRenderSettings, saveRenderSettings } from './_internal/render-settings.ts';
+import { listRenders, renderPath, revealRender } from './_internal/past-renders.ts';
+import { createRenderQueue } from './_internal/render-queue.ts';
 import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
 import { checkTools, missingToolsMessage } from './_internal/tools.ts';
 import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
@@ -20,8 +25,10 @@ export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from '.
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
 export { checkTools, missingToolsMessage };
+export { versionIssues } from './_internal/footage-issues.ts';
 export type {
   AddedComment,
+  Approval,
   BatchOptions,
   Comment,
   ContractIssue,
@@ -39,6 +46,11 @@ export type {
   Overlay,
   Project,
   ProjectEvent,
+  RenderJob,
+  RenderPreset,
+  RenderFile,
+  RenderRequest,
+  RenderSettings,
   ReelListing,
   ReelsState,
   ReelSummary,
@@ -51,24 +63,30 @@ export type {
   ToolCheck,
   ToolId,
   ToolStatus,
+  ToolUse,
   TranscriptWord,
   Transcriber,
   Version,
   VideoEntry,
   VersionEntry,
+  Withdrawal,
   WordPin,
 } from './_internal/types.ts';
 
 export interface ProjectOptions {
   /** Turns a video into timed words when a reel starts. Defaults to the skill's audio transcription. */
   transcriber?: Transcriber;
+  /** How many parallel segments every render runs in; tests pin it. Otherwise the CPU and the render's length decide. */
+  renderSegments?: number;
 }
 
 export function openProject(projectDir: string, options: ProjectOptions = {}): Project {
   const dir = resolve(projectDir);
   const watcher = createWatcher(join(dir, 'reels'));
   const listeners = new Set<(event: ProjectEvent) => void>();
-  const transcriptions = createTranscriptions((event) => listeners.forEach((listener) => listener(event)));
+  const emit = (event: ProjectEvent): void => listeners.forEach((listener) => listener(event));
+  const transcriptions = createTranscriptions(emit);
+  const renders = createRenderQueue(emit);
   return {
     name: basename(dir),
     reelsDir: join(dir, 'reels'),
@@ -105,6 +123,20 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     cancelHandoff: (slug) => cancelHandoff(dir, slug),
     saveEdits: (slug) => saveEdits(dir, slug),
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
+    approveVersion: (slug, number) => approveVersion(dir, slug, number),
+    withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
+    render: async (request) => {
+      const task = await prepareRender(dir, request);
+      if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
+      return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
+    },
+    renderJobs: () => renders.jobs(),
+    renderSettings: (slug) => readRenderSettings(dir, slug),
+    listRenders: (slug) => listRenders(dir, slug),
+    revealRender: (slug, file) => revealRender(dir, slug, file),
+    renderFile: (slug, file) => renderPath(dir, slug, file),
+    whenRendered: (jobId) => renders.whenDone(jobId),
+    cancelRender: (jobId) => renders.cancel(jobId),
   };
 }
 

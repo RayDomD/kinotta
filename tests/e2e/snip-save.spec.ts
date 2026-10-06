@@ -87,6 +87,37 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
 });
 
+test('a selected stretch previews the snip: the picture is past it, and playing skips it before Snip', async ({ page }) => {
+  await startReel(page, 'Preview talk');
+  const footage = (): Promise<number> => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime);
+
+  // The selection runs from a quarter to a half of 12 s: about 3 s to 6 s. The picture shows the frame after the join.
+  await selectStretch(page);
+  await expect.poll(footage).toBeGreaterThan(5.5);
+  await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(0);
+
+  // Space plays a lead-in before the stretch and goes straight on to its end.
+  await page.keyboard.press('Space');
+  const seen = await review(page).locator('video').evaluate(
+    (el: HTMLVideoElement) =>
+      new Promise<number[]>((done) => {
+        const times: number[] = [];
+        const end = performance.now() + 4000;
+        const tick = (): void => {
+          if (!el.seeking) times.push(el.currentTime);
+          if (performance.now() < end) requestAnimationFrame(tick);
+          else done(times);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  await page.keyboard.press('Space');
+  expect(Math.min(...seen)).toBeLessThan(2.5);
+  expect(Math.max(...seen)).toBeGreaterThan(6.1);
+  expect(seen.filter((t) => t > 3.4 && t < 5.6)).toEqual([]);
+  await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(0);
+});
+
 test('Discard drops the edit list and the reel plays whole again', async ({ page }) => {
   await startReel(page, 'Discard talk');
   await selectStretch(page);
@@ -260,6 +291,8 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await page.keyboard.press('Enter');
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText('Changed “there” to “where”');
+  // The caption in the picture reads the fix before Save.
+  await expect(page.frameLocator('iframe[title="Words talk page"]').locator('.caption').first()).toHaveText('hello where');
   await expect(word(1)).toHaveText('where');
   await expect(word(1)).toHaveClass(/fixed/);
 
@@ -348,6 +381,43 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   // The new version's page already holds the positions; the editor shows them without any unsaved edit.
   await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
   await expect(cards).toHaveCount(0);
+});
+
+test('a caption is retyped in the frame, with a word added, and the page shows it before Save; undo puts it back', async ({ page }) => {
+  await startReel(page, 'Retype talk');
+  const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
+  const handle = review(page).getByRole('button', { name: /^Move captions/ });
+  const caption = page.frameLocator('iframe[title="Retype talk page"]').locator('.caption').first();
+
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(handle).toBeVisible();
+  await expect(caption).toHaveText('hello there');
+
+  // Double-clicking the caption opens its whole text; Enter keeps the new text.
+  await handle.dblclick();
+  const field = review(page).getByLabel('Caption text');
+  await expect(field).toHaveValue('hello there');
+  await field.fill('hello out there');
+  await page.keyboard.press('Enter');
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('Changed “hello there” to “hello out there”');
+
+  // The picture, the Captions lane and the Words lane show it with no rebuild.
+  await expect(caption).toHaveText('hello out there');
+  await expect(caption.locator('[data-t]')).toHaveCount(3);
+  await expect(review(page).locator('.rv-phrase').first()).toHaveText('hello out there');
+  await expect(review(page).locator('.rv-w')).toHaveText(['hello', 'out', 'there']);
+
+  // Escape leaves a caption as it was.
+  await handle.dblclick();
+  await review(page).getByLabel('Caption text').fill('nothing');
+  await page.keyboard.press('Escape');
+  await expect(cards).toHaveCount(1);
+
+  await page.keyboard.press('Control+z');
+  await expect(cards).toHaveCount(0);
+  await expect(caption).toHaveText('hello there');
+  await expect(caption.locator('[data-t]')).toHaveCount(2);
 });
 
 /** Tabs forward, at most this many times, until the focused element matches; fails if focus never gets there (a trap or an unreachable control). */

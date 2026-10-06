@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchProject, fetchReels, fetchTranscription, fetchVersion, fetchVersions, subscribe, versionPageUrl } from './api/index.ts';
-import type { Comment, ProjectEvent, ReelListing, ReelSummary, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
+import { fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
+import type { Comment, ProjectEvent, ReelListing, ReelSummary, RenderJob, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
 import { BUILT_BY_YOU } from '../../server/core/model.ts';
 import { BriefWaiting } from './BriefReel.tsx';
 import { CommentsPanel } from './CommentsPanel.tsx';
@@ -8,6 +8,8 @@ import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
 import { NewReel, NewReelSide } from './NewReel.tsx';
+import { RenderMenu, RenderPlayer, VersionActions, outputFile, presetName } from './Renders.tsx';
+import type { RenderMenuProps } from './Renders.tsx';
 import { Review, ReviewSide, useEdits } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
@@ -34,8 +36,8 @@ type VersionLoad =
   | { status: 'error'; message: string }
   | { status: 'ready'; slug: string; version: Version };
 
-const PHASES = ['Storyboard', 'Review', 'Picker'] as const;
-type Phase = 'Storyboard' | 'Review';
+const PHASES = ['Storyboard', 'Review'] as const;
+type Phase = (typeof PHASES)[number];
 
 function HexMark() {
   return (
@@ -63,8 +65,10 @@ function TopBar(props: {
   onPhase?(phase: Phase): void;
   /** The New reel screen is open: the bar names it instead of the reel left behind, and offers no batch to copy. */
   creating?: boolean;
+  /** The render menu: the project's queue and the open reel's past renders, on every tab. Absent while loading. */
+  renders?: RenderMenuProps;
 }) {
-  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false } = props;
+  const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false, renders } = props;
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -73,16 +77,13 @@ function TopBar(props: {
         {version && !creating && <span className="num">{formatDuration(version.duration)}</span>}
       </div>
       <nav className="modes" aria-label="Phase">
-        {PHASES.map((name) =>
-          name === 'Storyboard' || name === 'Review' ? (
-            <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} onClick={() => onPhase?.(name)}>
-              {name}
-            </button>
-          ) : (
-            <span key={name} aria-disabled="true" title="Not built yet">{name}</span>
-          ),
-        )}
+        {PHASES.map((name) => (
+          <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} onClick={() => onPhase?.(name)}>
+            {name}
+          </button>
+        ))}
       </nav>
+      {renders && <RenderMenu {...renders} />}
       {reel && version && !creating && (
         <CopyButton
           slug={reel.slug}
@@ -97,6 +98,29 @@ function TopBar(props: {
         />
       )}
     </header>
+  );
+}
+
+/** A render finished: like the version notice, with Play and Show in folder, over any tab until dismissed. */
+function RenderReadyNotice({ job, title, onPlay, onDismiss }: { job: RenderJob; title: string; onPlay(file: string): void; onDismiss(): void }) {
+  const file = outputFile(job);
+  const [problem, setProblem] = useState('');
+  return (
+    <div className="notice render-ready" role="status" aria-label="Render ready">
+      <span>{`${title} v${job.version} ${presetName(job.preset)} is ready.`}</span>
+      {problem !== '' && <span className="meta">{problem}</span>}
+      <span className="pk-actions">
+        {file !== null && /\.mp4$/i.test(file) && (
+          <button type="button" className="btn" onClick={() => onPlay(file)}>Play</button>
+        )}
+        {file !== null && (
+          <button type="button" className="c-act" onClick={() => revealRender(job.reel, file).catch((err: unknown) => setProblem(err instanceof Error ? err.message : 'Could not reach the server'))}>
+            Show in folder
+          </button>
+        )}
+        <button type="button" className="c-act" onClick={onDismiss}>Dismiss</button>
+      </span>
+    </div>
   );
 }
 
@@ -142,6 +166,7 @@ function VersionRail({ entries, selected, ready, sectionIds, onOpen }: VersionRa
             </span>
             <span className="tags">
               {versionTag(entry, sectionIds) !== '' && <small className="num">{versionTag(entry, sectionIds)}</small>}
+              {entry.approved && <small className="num approved-mark">✓ approved</small>}
               {ready.has(entry.number) && entry.number !== selected && <small className="num ready-mark">ready</small>}
             </span>
           </button>
@@ -263,10 +288,15 @@ interface MainProps {
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
   onBriefStarted(slug: string): void;
+  /** The reel's versions: the one on show carries its approval. */
+  entries: VersionEntry[];
+  /** The finished render Review is playing instead of the version, if any. */
+  playingRender: string | null;
+  onStopRender(): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted, entries, playingRender, onStopRender } = props;
   if (creating) return <NewReel project={project} onStarted={onStarted} onBriefStarted={onBriefStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
@@ -276,8 +306,18 @@ function Main(props: MainProps) {
   }
   if (reel.brief !== undefined && reel.newestVersion === null) return <BriefWaiting reel={{ ...reel, brief: reel.brief }} />;
   if (phase === 'Review') {
+    const shown = version.status === 'ready' ? version.version : undefined;
+    // A finished render plays in place of the version, with a way back to it.
+    if (playingRender !== null) {
+      return (
+        <main className="main rv-main" aria-label="Review">
+          <RenderPlayer slug={reel.slug} file={playingRender} version={shown?.number} onBack={onStopRender} />
+        </main>
+      );
+    }
     return (
       <Review
+        actions={shown && <VersionActions slug={reel.slug} entry={entries.find((e) => e.number === shown.number)} footage={shown.footage !== undefined} />}
         reel={reel}
         state={version.status}
         message={version.status === 'error' ? version.message : undefined}
@@ -399,17 +439,28 @@ export function App() {
 
   const [phase, setPhase] = useState<Phase>('Storyboard');
   const [creating, setCreating] = useState(false);
+  /** The finished render Review plays in place of the version; cleared when another reel or version opens. */
+  const [playingRender, setPlayingRender] = useState<string | null>(null);
+  const [rendersTick, setRendersTick] = useState(0);
+  /** The project's render queue, in order: loaded once, then kept from render-progress events. */
+  const [jobs, setJobs] = useState<RenderJob[]>([]);
+  /** The render that finished last, for the ready notice, until dismissed. */
+  const [readyRender, setReadyRender] = useState<RenderJob | null>(null);
+  /** The render that failed last, shown in the render menu until another is queued. */
+  const [renderFailure, setRenderFailure] = useState<RenderJob | null>(null);
 
   const openReel = useCallback((slug: string) => {
     setCreating(false);
     setSelected(slug);
     setChosen(undefined);
+    setPlayingRender(null);
     setReady(new Set());
     setPhase(lastTab(slug) ?? 'Storyboard');
   }, []);
 
   const openVersionNumber = useCallback((number: number) => {
     setChosen(number);
+    setPlayingRender(null);
     setReady((prev) => new Set([...prev].filter((n) => n > number)));
   }, []);
 
@@ -422,6 +473,10 @@ export function App() {
       })
       .catch((err: unknown) => setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Could not reach the server' }));
   }, [openReel]);
+
+  useEffect(() => {
+    fetchRenderJobs().then((loaded) => setJobs((prev) => (prev.length === 0 ? loaded : prev)), () => undefined);
+  }, []);
 
   // A reel Kinotta just started: it joins the list, then opens in Review.
   const reelStarted = useCallback(
@@ -499,6 +554,24 @@ export function App() {
         }
       } else if (event.type === 'transcription-progress') {
         setTranscribed({ slug: event.reel, progress: event.progress });
+      } else if (event.type === 'approval-changed') {
+        if (event.reel === current.current.slug) setVersionsTick((n) => n + 1);
+      } else if (event.type === 'render-progress') {
+        const { job } = event;
+        const over = job.state === 'done' || job.state === 'failed' || job.state === 'cancelled';
+        // The queue keeps its order: a known job is updated in place, a new one joins the end, a finished one leaves.
+        setJobs((prev) => {
+          const known = prev.some((j) => j.id === job.id);
+          if (over) return prev.filter((j) => j.id !== job.id);
+          return known ? prev.map((j) => (j.id === job.id ? job : j)) : [...prev, job];
+        });
+        if (job.state === 'queued') setRenderFailure(null);
+        if (job.state === 'failed') setRenderFailure(job);
+        if (job.state === 'done') {
+          setReadyRender(job);
+          // A finished render of the open reel joins the render menu's past renders.
+          if (job.reel === current.current.slug) setRendersTick((n) => n + 1);
+        }
       } else if (event.reel === current.current.slug && event.version === current.current.version) {
         setCommentsTick((n) => n + 1);
       }
@@ -558,6 +631,18 @@ export function App() {
           if (reel) rememberTab(reel.slug, next);
         }}
         section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
+        renders={{
+          slug: creating ? undefined : reel?.slug,
+          jobs,
+          titles: new Map(load.listing.reels.map((r) => [r.slug, r.title])),
+          failure: renderFailure,
+          rendersTick,
+          onPlay: (file) => {
+            setPhase('Review');
+            if (reel) rememberTab(reel.slug, 'Review');
+            setPlayingRender(file);
+          },
+        }}
       />
       <div className="body">
         <Rail
@@ -595,6 +680,9 @@ export function App() {
           edits={edits}
           transcription={transcription}
           onBriefStarted={briefStarted}
+          entries={entries ?? []}
+          playingRender={playingRender}
+          onStopRender={() => setPlayingRender(null)}
         />
         {creating ? (
           <NewReelSide />
@@ -615,6 +703,21 @@ export function App() {
           commentsPanel
         )}
       </div>
+      {readyRender !== null && (
+        <RenderReadyNotice
+          job={readyRender}
+          title={load.listing.reels.find((r) => r.slug === readyRender.reel)?.title ?? readyRender.reel}
+          onDismiss={() => setReadyRender(null)}
+          onPlay={(file) => {
+            if (readyRender.reel !== reel?.slug) openReel(readyRender.reel);
+            setCreating(false);
+            setPhase('Review');
+            rememberTab(readyRender.reel, 'Review');
+            setPlayingRender(file);
+            setReadyRender(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -112,7 +112,7 @@ Map what the speaker says onto these:
 }
 ```
 
-Paths are relative to `plan.json`. `out` is when the clip leaves the timeline; if the clip is shorter, the composite holds its last frame. `duration` (optional) is the video's length in seconds.
+Paths are relative to `plan.json`. `out` is when the clip leaves the timeline; if the clip is shorter, the composed page holds its last frame. `duration` (optional) is the video's length in seconds.
 
 ## One Kinotta page from a plan
 

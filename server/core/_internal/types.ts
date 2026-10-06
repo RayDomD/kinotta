@@ -133,6 +133,77 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version, as its shots.json says. */
   builtBy?: string;
+  /** The version has an `approval.json`: it is final. */
+  approved: boolean;
+  /** How many comments the version holds. */
+  comments: number;
+  /** How many static contract issues it has (`versionIssues`): the ones Final and Overlay refuse on. */
+  issues: number;
+}
+
+/** A finished render in a reel's renders/ folder. */
+export interface RenderFile {
+  /** The file name. */
+  file: string;
+  version: number;
+  preset: RenderPreset;
+  bytes: number;
+  /** When it was written, as an ISO time. */
+  at: string;
+}
+
+/** What approving a version returns. `warning` names the contract issues an approved version still has (R10). */
+export interface Approval {
+  approved: true;
+  /** When the version was first approved, as an ISO time. */
+  at: string;
+  warning?: string;
+}
+
+/** What withdrawing an approval returns. */
+export interface Withdrawal {
+  approved: false;
+}
+
+/** A render's named defaults (R2): Draft is a quick check of any version, Final and Overlay are the deliverables. */
+export type RenderPreset = 'draft' | 'final' | 'overlay';
+
+/** The four settings on top of a preset (R3). */
+export interface RenderSettings {
+  /** Frames a second: the source's (a footage reel's rate, 30 for a code-only page) or a fixed rate. */
+  fps: 'source' | 24 | 25 | 30 | 60;
+  /** The short side: half the source's (Draft's default), the source's, 1080 or 2160. The long side keeps the source's aspect ratio. */
+  size: 'half' | 'source' | '1080p' | '4k';
+  /** High lowers the H.264 CRF, or writes ProRes 4444 XQ for an Overlay. */
+  quality: 'standard' | 'high';
+  /** How a footage reel's audio joins at a cut (R9): about 20 ms fades (`smooth`) or none (`hard`). */
+  audio: 'smooth' | 'hard';
+}
+
+/** A render: a version and a preset, and any of the four settings to use instead of the reel's saved ones. */
+export interface RenderRequest extends Partial<RenderSettings> {
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+  /** Saves the settings this render uses as the reel's for its preset (R16). Only Picker's render sets it. */
+  remember?: boolean;
+}
+
+/** One render in the project's queue. Held in memory: a restart forgets it (R8). */
+export interface RenderJob {
+  id: string;
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+  /** From 0 to 1. */
+  progress: number;
+  /** Seconds left, an estimate; null until there is progress to base it on. */
+  remaining: number | null;
+  /** The finished file, relative to the project folder with `/` separators. Set when `state` is `done`. */
+  output?: string;
+  /** Why it failed, when `state` is `failed`. */
+  error?: string;
 }
 
 /** What `Project.subscribe` reports. */
@@ -140,7 +211,9 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
-  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress };
+  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
+  | { type: 'render-progress'; job: RenderJob };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {
@@ -165,8 +238,8 @@ export interface Project {
   /** A reel's version folders, oldest first. Throws `KinottaError` `not-found` for an unknown reel. */
   listVersions(slug: string): Promise<VersionEntry[]>;
   /**
-   * Calls `listener` when a version with a shots.json appears, a reel appears or goes, or a version's saved
-   * comments change. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
+   * Calls `listener` when a version with a shots.json appears, a reel appears or goes, a version's saved
+   * comments change, or a version's `approval.json` appears or goes. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
   /** Absolute path of the reel's footage file, or null (code-only reel, file missing, or a path outside the project). */
@@ -257,6 +330,39 @@ export interface Project {
    * `KinottaError` `invalid` for an empty title or brief.
    */
   startReelFromBrief(input: NewBriefReel): Promise<StartedBriefReel>;
+  /**
+   * Marks a version final by writing `v<n>/approval.json` (`{ approvedBy: "you", at }`); nothing else in the version changes,
+   * and approving again keeps the first time. A version with contract issues is approved with a `warning` naming them.
+   * Only the editor's HTTP API calls this; `kinotta` has no approve command (R17). Throws `not-found` for an unknown reel or version.
+   */
+  approveVersion(slug: string, number: number): Promise<Approval>;
+  /** Deletes the version's `approval.json`; renders already made stay. Throws `not-found` for an unknown reel or version. */
+  withdrawApproval(slug: string, number: number): Promise<Withdrawal>;
+  /**
+   * Queues a render and returns the job as queued; it runs after the jobs before it, one at a time, and reports through
+   * `render-progress` events. With `remember`, the settings it uses are saved as the reel's for its preset. Throws
+   * `not-found` for an unknown reel or version, and `invalid` for an unknown preset or setting, a Final or Overlay the gate
+   * refuses, or an Overlay of a page that isn't transparent.
+   */
+  render(request: RenderRequest): Promise<RenderJob>;
+  /** The jobs waiting or running, in queue order. */
+  renderJobs(): RenderJob[];
+  /** The reel's finished renders, newest first. Throws `not-found` for an unknown reel. */
+  listRenders(slug: string): Promise<RenderFile[]>;
+  /** Shows a finished render in the system's file manager. Throws `not-found` for an unknown reel or render. */
+  revealRender(slug: string, file: string): Promise<void>;
+  /** The path of a finished render, for serving it. Throws `not-found` for an unknown reel or render. */
+  renderFile(slug: string, file: string): Promise<string>;
+  /** Each preset's four settings for a reel: the ones saved by a remembered render, else R2's defaults. Throws `not-found` for an unknown reel. */
+  renderSettings(slug: string): Promise<Record<RenderPreset, RenderSettings>>;
+  /** Resolves with the job once it is done, failed or cancelled. Throws `not-found` for an unknown job. */
+  whenRendered(jobId: string): Promise<RenderJob>;
+  /**
+   * Cancels a render (R8): a queued job is dropped at once; a running one has its processes stopped and its temp output and
+   * `renders/.work-<job>/` removed, and this resolves once they are gone. A finished job comes back unchanged. Throws
+   * `not-found` for an unknown job.
+   */
+  cancelRender(jobId: string): Promise<RenderJob>;
 }
 
 /** A reel's unsaved edits: operations on named targets, in the order they were made. */
@@ -444,7 +550,10 @@ export interface StartedReel {
 /** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
 export type Transcriber = (videoFile: string, onProgress?: (processedSeconds: number) => void) => Promise<TranscriptWord[]>;
 
-export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper';
+export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
+
+/** What a tool is for: starting a reel from a video, or rendering. */
+export type ToolUse = 'video' | 'render';
 
 export interface ToolStatus {
   id: ToolId;
@@ -452,6 +561,7 @@ export interface ToolStatus {
   present: boolean;
   /** How to install it on this machine. */
   hint: string;
+  neededFor: ToolUse[];
 }
 
 export interface ToolCheck {

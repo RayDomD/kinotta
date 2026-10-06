@@ -1,6 +1,6 @@
 import type { TranscriptionProgress } from '../../api/index.ts';
+import { formatRemaining } from '../../timecode.ts';
 
-const SECONDS_PER_MINUTE = 60;
 const PERCENT = 100;
 
 /** What the progress lane shows for a transcription still running or failed (null once it is done, or when none ran). */
@@ -10,11 +10,6 @@ export interface LaneProgress {
   fraction: number;
   percent: number;
   text: string;
-}
-
-/** `8 s`, `about 2 min`: how long is left, as an estimate reads. */
-export function formatRemaining(seconds: number): string {
-  return seconds < SECONDS_PER_MINUTE ? `${Math.max(1, Math.round(seconds))} s` : `${Math.round(seconds / SECONDS_PER_MINUTE)} min`;
 }
 
 export function laneProgress(progress: TranscriptionProgress | null | undefined): LaneProgress | null {

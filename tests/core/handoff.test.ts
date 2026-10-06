@@ -77,7 +77,8 @@ describe('a hand-off blocks Save', () => {
     expect(await project.saveEdits(REEL)).toEqual({ version: 2 });
   });
 
-  it('replays the edit list onto the next version, flags an operation whose target is gone, and blocks Save until it is dropped', async () => {
+  // It waits up to EVENT_WAIT_MS for the watcher, then builds twice, so the default 5 s is too short under a full run.
+  it('replays the edit list onto the next version, flags an operation whose target is gone, and blocks Save until it is dropped', { timeout: EVENT_WAIT_MS * 2 }, async () => {
     const { dir, reelDir, project } = await withEdits();
     await project.copyBatch(REEL, 1, { section: 'cold-open' });
     const before = (await project.readEditList(REEL)).operations;

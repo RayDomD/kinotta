@@ -1,9 +1,9 @@
-import { execFile, spawn } from 'node:child_process';
-import { resolve } from 'node:path';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 /**
- * The one place Kinotta starts the skill's scripts (E3), ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
+ * The one place Kinotta starts the skill's scripts (E3), its renderer, ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
  * The scripts are the repo's own copies under skill/kinotta/.
  */
 
@@ -11,6 +11,7 @@ const SKILL_DIR = resolve(import.meta.dirname, '../../../skill/kinotta');
 const BUILD_SCRIPT = resolve(SKILL_DIR, 'engine/build.py');
 const SHOTS_SCRIPT = resolve(SKILL_DIR, 'scripts/shots.py');
 const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
+const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const BUILD_TIMEOUT_MS = 120_000;
 const PROBE_TIMEOUT_MS = 20_000;
@@ -18,6 +19,9 @@ const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const TRANSCODE_CRF = '20';
 const TOOL_PROBE_TIMEOUT_MS = 10_000;
+/** `render.js --info` starts a browser and loads the page, which a large page makes slow. */
+const PAGE_INFO_TIMEOUT_MS = 60_000;
+const CANCELLED = 'The render was cancelled.';
 
 const exec = promisify(execFile);
 
@@ -92,6 +96,343 @@ export function transcribeAudio(videoFile: string, transcriptFile: string, onPro
       else reject(new Error(`${PYTHON} failed: ${errors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`));
     });
   });
+}
+
+/** The version page's own size and length, and whether it is drawn on a transparent background. */
+export interface PageInfo {
+  width: number;
+  height: number;
+  /** Seconds. */
+  duration: number;
+  alpha: boolean;
+}
+
+/** `render.js --info`: what the page says about itself, without rendering. Throws when the page can't be read. */
+export async function pageInfo(page: string): Promise<PageInfo> {
+  let output: string;
+  try {
+    output = (await exec(process.execPath, [RENDER_SCRIPT, page, '--info'], { encoding: 'utf8', timeout: PAGE_INFO_TIMEOUT_MS, windowsHide: true })).stdout;
+  } catch (err) {
+    const failure = err as Error & { stderr?: string };
+    throw new Error(`The renderer could not read the page: ${renderFailure(failure.stderr ?? '') || failure.message}`);
+  }
+  const info = JSON.parse(output.trim().split('\n').at(-1) ?? '') as Partial<PageInfo>;
+  if (typeof info.width !== 'number' || typeof info.height !== 'number' || typeof info.duration !== 'number') {
+    throw new Error('The renderer could not read the page: it sets no window.DURATION.');
+  }
+  return { width: info.width, height: info.height, duration: info.duration, alpha: info.alpha === true };
+}
+
+export interface FootageProbe {
+  width: number;
+  height: number;
+  /** The frame rate as ffprobe gives it, a fraction such as "30000/1001". */
+  fps: string;
+  audio: boolean;
+}
+
+/** ffprobe on a footage file: its picture size, frame rate and whether it has sound. */
+export async function probeFootage(file: string): Promise<FootageProbe> {
+  const args = ['-v', 'error', '-show_entries', 'stream=codec_type,width,height,r_frame_rate', '-of', 'json', file];
+  const { streams = [] } = JSON.parse(await run('ffprobe', args, PROBE_TIMEOUT_MS)) as {
+    streams?: Array<{ codec_type?: string; width?: number; height?: number; r_frame_rate?: string }>;
+  };
+  const video = streams.find((stream) => stream.codec_type === 'video');
+  if (!video?.width || !video.height || !video.r_frame_rate) throw new Error(`ffprobe found no video in ${file}.`);
+  return { width: video.width, height: video.height, fps: video.r_frame_rate, audio: streams.some((stream) => stream.codec_type === 'audio') };
+}
+
+export interface PageRender {
+  /** The version page to render. */
+  page: string;
+  /** The file to write; its extension picks the container. */
+  out: string;
+  /** Frames a second: a number, or a fraction such as "30000/1001". */
+  fps: string;
+  /** The page's device scale factor: 0.5 is half size. */
+  scale: number;
+  crf: number;
+  /** Four samples per frame across a 180° shutter, or one. */
+  blur: boolean;
+  codec: 'h264' | 'prores';
+  /** ProRes only: `render.js --prores-profile`, 4 (4444) unless given. */
+  proresProfile?: string;
+  /** Only these frames, `[from, to)`: one segment of a parallel render. */
+  frames?: readonly [number, number];
+}
+
+/** What `render.js` reports before its first frame. */
+export interface RenderedPage {
+  width: number;
+  height: number;
+  frames: number;
+}
+
+/** One line of `render.js --progress`: frames done, or the page's size and frame count; null for any other line. */
+function parseRenderLine(line: string): { done: number; frames: number } | RenderedPage | null {
+  try {
+    const parsed = JSON.parse(line) as { frame?: unknown; frames?: unknown; width?: unknown; height?: unknown };
+    if (typeof parsed.frames !== 'number') return null;
+    if (typeof parsed.frame === 'number') return { done: parsed.frame, frames: parsed.frames };
+    if (typeof parsed.width === 'number' && typeof parsed.height === 'number') return { width: parsed.width, height: parsed.height, frames: parsed.frames };
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Calls `onLine` for each whole line of a text stream. */
+function eachLine(stream: NodeJS.ReadableStream, onLine: (line: string) => void): void {
+  let pending = '';
+  stream.setEncoding('utf8');
+  stream.on('data', (chunk: string) => {
+    const lines = (pending + chunk).split('\n');
+    pending = lines.pop() ?? '';
+    for (const line of lines) onLine(line);
+  });
+}
+
+/** `render.js` arguments for a page render to `out` (a file, or `-` for stdout), always with progress. */
+function renderArgs(job: Omit<PageRender, 'out' | 'codec'>, out: string, codec: string, crf: boolean): string[] {
+  const args = [RENDER_SCRIPT, job.page, out, job.fps, '--scale', String(job.scale), '--codec', codec, '--progress'];
+  if (crf) args.push('--crf', String(job.crf));
+  if (!job.blur) args.push('--no-blur');
+  if (codec === 'prores' && job.proresProfile !== undefined) args.push('--prores-profile', job.proresProfile);
+  if (job.frames !== undefined) args.push('--frames', `${job.frames[0]}:${job.frames[1]}`);
+  return args;
+}
+
+/**
+ * Stops a process and everything it started, resolving once they are gone. On Windows a killed Node leaves its Chromium and
+ * ffmpeg running, so the whole tree goes; elsewhere SIGTERM lets Playwright close its browser.
+ */
+function killTree(child: ChildProcess): Promise<void> {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  if (process.platform !== 'win32') {
+    child.kill('SIGTERM');
+    return Promise.resolve();
+  }
+  return new Promise((done) => {
+    const killer = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    killer.on('error', () => {
+      child.kill();
+      done();
+    });
+    killer.on('close', () => done());
+  });
+}
+
+/** Collects one render's progress and errors from its text output. */
+function renderListener(onProgress?: (done: number, frames: number) => void) {
+  const state = { errors: '', page: null as RenderedPage | null };
+  const onLine = (line: string): void => {
+    const parsed = parseRenderLine(line);
+    if (parsed === null) state.errors = (state.errors + line + '\n').slice(-ERROR_TAIL_CHARS);
+    else if ('done' in parsed) onProgress?.(parsed.done, parsed.frames);
+    else state.page = parsed;
+  };
+  return { state, onLine };
+}
+
+/**
+ * `render.js` (R14): the page frame by frame into a video. No timeout; a long page takes minutes. `onProgress` gets the
+ * frames done and the total after each frame. Resolves with the page's rendered size; a failure rejects with the reason.
+ * When `signal` aborts, the renderer and everything it started are stopped, and it rejects once they are gone.
+ */
+export function renderPage(job: PageRender, onProgress?: (done: number, frames: number) => void, signal?: AbortSignal): Promise<RenderedPage> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(process.execPath, renderArgs(job, job.out, job.codec, job.codec === 'h264'), { windowsHide: true });
+    const { state, onLine } = renderListener(onProgress);
+    eachLine(child.stdout, onLine);
+    eachLine(child.stderr, onLine);
+    let stopped: Promise<void> = Promise.resolve();
+    const stop = (): void => void (stopped = killTree(child));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener('abort', stop, { once: true });
+    child.on('error', (err) => reject(new Error(`The renderer could not start: ${err.message}`)));
+    child.on('close', (code) => {
+      signal?.removeEventListener('abort', stop);
+      if (signal?.aborted) void stopped.then(() => reject(new Error(CANCELLED)));
+      else if (code === 0 && state.page !== null) resolveRun(state.page);
+      else reject(new Error(`The render failed: ${renderFailure(state.errors) || `exit code ${code}`}`));
+    });
+  });
+}
+
+/** Seconds of the fade on each side of a cut with Smooth audio (R9). */
+const CUT_FADE_SECONDS = 0.02;
+const AUDIO_BITRATE = '192k';
+
+export interface FootageComposite {
+  footage: string;
+  /** The pieces of the footage in play order, in source seconds. */
+  pieces: ReadonlyArray<{ in: number; out: number }>;
+  /** Frames a second, as for ffmpeg. */
+  fps: string;
+  width: number;
+  height: number;
+  crf: number;
+  /** How the audio joins at a cut, or null when the footage has no sound. */
+  audio: 'smooth' | 'hard' | null;
+  out: string;
+  /** Stops after this many frames: a segment's stretch of footage can round to one frame more than its overlay. */
+  frames?: number;
+}
+
+const seconds = (value: number): string => String(Math.round(value * 1e6) / 1e6);
+
+/**
+ * The audio filter graph for the footage's pieces from input `input`, labelled `[a]`: each piece trimmed, with a short fade
+ * either side of each cut (Smooth) or none (Hard), then joined.
+ */
+function audioGraph(pieces: FootageComposite['pieces'], audio: 'smooth' | 'hard', input: string): string[] {
+  const count = pieces.length;
+  const labels = pieces.map((_, i) => `[a${i}]`).join('');
+  const graph = [`[${input}]asplit=${count}${pieces.map((_, i) => `[t${i}]`).join('')}`];
+  pieces.forEach((piece, i) => {
+    const fades: string[] = [];
+    if (audio === 'smooth' && i > 0) fades.push(`afade=t=in:st=0:d=${CUT_FADE_SECONDS}`);
+    if (audio === 'smooth' && i < count - 1) fades.push(`afade=t=out:st=${seconds(piece.out - piece.in - CUT_FADE_SECONDS)}:d=${CUT_FADE_SECONDS}`);
+    graph.push(`[t${i}]atrim=start=${seconds(piece.in)}:end=${seconds(piece.out)},asetpts=PTS-STARTPTS${fades.map((fade) => `,${fade}`).join('')}[a${i}]`);
+  });
+  graph.push(`${labels}concat=n=${count}:v=0:a=1[a]`);
+  return graph;
+}
+
+/**
+ * ffmpeg arguments that cut the footage into its pieces and lay the overlay frames read from stdin (NUT) over them: video
+ * joined with hard cuts; audio with a short fade either side of each cut (Smooth) or none (Hard); H.264 and AAC out.
+ */
+export function compositeArgs(job: FootageComposite): string[] {
+  const count = job.pieces.length;
+  const labels = (prefix: string): string => job.pieces.map((_, i) => `[${prefix}${i}]`).join('');
+  const graph = [`[0:v]split=${count}${labels('s')}`];
+  job.pieces.forEach((piece, i) => graph.push(`[s${i}]trim=start=${seconds(piece.in)}:end=${seconds(piece.out)},setpts=PTS-STARTPTS[v${i}]`));
+  graph.push(`${labels('v')}concat=n=${count}:v=1:a=0,fps=${job.fps},scale=${job.width}:${job.height},setsar=1[base]`);
+  graph.push('[base][1:v]overlay=(W-w)/2:(H-h)/2:format=auto,format=yuv420p[v]');
+  if (job.audio !== null) graph.push(...audioGraph(job.pieces, job.audio, '0:a'));
+  const audio = job.audio === null ? [] : ['-map', '[a]', '-c:a', 'aac', '-b:a', AUDIO_BITRATE];
+  return [
+    '-loglevel', 'error', '-y', '-i', job.footage, '-f', 'nut', '-i', 'pipe:0',
+    '-filter_complex', graph.join(';'), '-map', '[v]', ...audio,
+    ...(job.frames === undefined ? [] : ['-frames:v', String(job.frames)]),
+    '-c:v', 'libx264', '-crf', String(job.crf), '-preset', 'medium', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', job.out,
+  ];
+}
+
+/**
+ * A footage render (R13, R18): `render.js` draws the overlay page as RGBA frames on its stdout, piped straight into
+ * ffmpeg, which cuts the footage by its pieces and lays the frames on top. No intermediate file. When either process
+ * fails, or `signal` aborts, both are stopped with everything they started and the promise rejects with the reason.
+ */
+export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, composite: FootageComposite, onProgress?: (done: number, frames: number) => void, signal?: AbortSignal): Promise<RenderedPage> {
+  return new Promise((resolveRun, reject) => {
+    const renderer = spawn(process.execPath, renderArgs(page, '-', 'rgba', false), { windowsHide: true });
+    const encoder = spawn('ffmpeg', compositeArgs(composite), { windowsHide: true });
+    const { state, onLine } = renderListener(onProgress);
+    let encoderErrors = '';
+    renderer.stdout.pipe(encoder.stdin);
+    // ffmpeg gone early: its own exit says why, so the broken pipe needs no report of its own.
+    encoder.stdin.on('error', () => undefined);
+    eachLine(renderer.stderr, onLine);
+    encoder.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      encoderErrors = (encoderErrors + chunk).slice(-ERROR_TAIL_CHARS);
+    });
+    let failure: string | null = null;
+    let stopped: Promise<unknown> = Promise.resolve();
+    const fail = (reason: string): void => {
+      if (failure !== null) return;
+      failure = reason;
+      stopped = Promise.all([killTree(renderer), killTree(encoder)]);
+    };
+    const cancel = (): void => fail(CANCELLED);
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener('abort', cancel, { once: true });
+    renderer.on('error', (err) => fail(`The renderer could not start: ${err.message}`));
+    encoder.on('error', (err: NodeJS.ErrnoException) => fail(err.code === 'ENOENT' ? 'ffmpeg is not installed or not on the PATH.' : `ffmpeg failed: ${err.message}`));
+    const rendered = new Promise<void>((done) =>
+      renderer.on('close', (code) => {
+        if (code !== 0) fail(`The render failed: ${renderFailure(state.errors) || `exit code ${code}`}`);
+        done();
+      }),
+    );
+    const encoded = new Promise<void>((done) =>
+      encoder.on('close', (code) => {
+        if (code !== 0) fail(`ffmpeg failed: ${encoderErrors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`);
+        done();
+      }),
+    );
+    void Promise.all([rendered, encoded]).then(async () => {
+      signal?.removeEventListener('abort', cancel);
+      await stopped;
+      if (failure !== null) reject(new Error(failure));
+      else if (state.page === null) reject(new Error('The render failed: the renderer reported no frames.'));
+      else resolveRun(state.page);
+    });
+  });
+}
+
+/** The footage's sound for a joined render: the pieces, cut as `audio` says. */
+export interface JoinAudio {
+  footage: string;
+  pieces: FootageComposite['pieces'];
+  audio: 'smooth' | 'hard';
+}
+
+/**
+ * ffmpeg arguments that join the segments a concat list names into `out` without re-encoding them. With `audio`, the
+ * footage's sound is encoded once over all its pieces, as a single-page render does, and laid under the joined video.
+ */
+export function joinArgs(list: string, out: string, audio: JoinAudio | null): string[] {
+  const inputs = ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list];
+  const faststart = out.endsWith('.mp4') ? ['-movflags', '+faststart'] : [];
+  if (audio === null) return [...inputs, '-c', 'copy', ...faststart, out];
+  return [
+    ...inputs, '-i', audio.footage, '-filter_complex', audioGraph(audio.pieces, audio.audio, '1:a').join(';'),
+    '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', AUDIO_BITRATE, ...faststart, out,
+  ];
+}
+
+/** ffmpeg joining a parallel render's segments (see `joinArgs`). When `signal` aborts, ffmpeg is stopped and it rejects. */
+export function joinSegments(list: string, out: string, audio: JoinAudio | null, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn('ffmpeg', joinArgs(list, out, audio), { windowsHide: true });
+    let errors = '';
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (errors = (errors + chunk).slice(-ERROR_TAIL_CHARS)));
+    let stopped: Promise<void> = Promise.resolve();
+    const stop = (): void => void (stopped = killTree(child));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener('abort', stop, { once: true });
+    child.on('error', (err: NodeJS.ErrnoException) => reject(new Error(err.code === 'ENOENT' ? 'ffmpeg is not installed or not on the PATH.' : `ffmpeg failed: ${err.message}`)));
+    child.on('close', (code) => {
+      signal?.removeEventListener('abort', stop);
+      if (signal?.aborted) void stopped.then(() => reject(new Error(CANCELLED)));
+      else if (code === 0) resolveRun();
+      else reject(new Error(`ffmpeg could not join the segments: ${errors.trim().split('\n').slice(-3).join(' ') || `exit code ${code}`}`));
+    });
+  });
+}
+
+/** What a failed render's error output says went wrong: the first thrown error when there is one, else the last lines. */
+function renderFailure(errors: string): string {
+  const thrown = /\b(?:[A-Z]\w*)?Error: [^\r\n]*/.exec(errors);
+  return thrown ? thrown[0] : errors.trim().split('\n').slice(-3).join(' ');
+}
+
+/**
+ * Shows a file in the system's file manager: selected in Explorer or Finder, its folder elsewhere. It doesn't wait for
+ * the window, and a file manager that can't start is ignored.
+ */
+export function revealInFolder(file: string): void {
+  const child =
+    process.platform === 'win32'
+      ? // Explorer reads `/select,` and the quoted path as one argument, so it is passed as written.
+        spawn('explorer.exe', [`/select,"${file}"`], { stdio: 'ignore', detached: true, windowsVerbatimArguments: true })
+      : process.platform === 'darwin'
+        ? spawn('open', ['-R', file], { stdio: 'ignore', detached: true })
+        : spawn('xdg-open', [dirname(file)], { stdio: 'ignore', detached: true });
+  child.on('error', () => undefined);
+  child.unref();
 }
 
 /** ffmpeg: an H.264 and AAC copy of a video that browsers play, for HEVC or ProRes originals. The source is only read. */

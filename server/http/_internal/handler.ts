@@ -3,18 +3,25 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools } from '../../core/index.ts';
-import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project } from '../../core/index.ts';
+import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
+const APPROVAL_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/approval$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
 const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
 const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
+const RENDER_API = /^\/api\/renders\/([^/]+)$/;
+const RENDER_SETTINGS_API = /^\/api\/reels\/([^/]+)\/render-settings$/;
+const RENDERS_LIST_API = /^\/api\/reels\/([^/]+)\/renders$/;
+const REVEAL_API = /^\/api\/reels\/([^/]+)\/renders\/([^/]+)\/reveal$/;
+const RENDER_FILE_ROUTE = /^\/renders\/([^/]+)\/([^/]+)$/;
+const HTTP_NO_CONTENT = 204;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -48,6 +55,7 @@ const CONTENT_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
 };
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -122,6 +130,16 @@ async function handleNote(req: IncomingMessage, res: ServerResponse, project: Pr
   else res.writeHead(405).end();
 }
 
+/** A version's approval: PUT approves, DELETE withdraws (R17: the editor is the only way to approve). */
+async function handleApproval(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const version = Number(route[2]);
+  if (slug === null) sendJson(res, 404, { error: 'Not found' });
+  else if (req.method === 'PUT') sendJson(res, 200, await project.approveVersion(slug, version));
+  else if (req.method === 'DELETE') sendJson(res, 200, await project.withdrawApproval(slug, version));
+  else res.writeHead(405).end();
+}
+
 async function handleBatch(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
@@ -149,6 +167,19 @@ async function handleEdits(req: IncomingMessage, res: ServerResponse, project: P
   else if (req.method === 'POST') sendJson(res, 201, await project.addOperation(slug, (await readJsonBody(req)) as NewOperation));
   else if (req.method === 'DELETE') sendJson(res, 200, await project.discardEdits(slug));
   else res.writeHead(405).end();
+}
+
+/**
+ * A render request's body: `{ reel, version, preset, fps?, size?, quality?, audio?, remember? }`. The core checks the
+ * preset and the settings' values.
+ */
+async function readRenderRequest(req: IncomingMessage): Promise<RenderRequest> {
+  const body = await readJsonBody(req);
+  const { reel, version, preset, fps, size, quality, audio, remember } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  if (typeof reel !== 'string' || !Number.isInteger(version) || typeof preset !== 'string') {
+    throw new KinottaError('invalid', 'A render needs a "reel", a whole-number "version" and a "preset".');
+  }
+  return { reel, version, preset, fps, size, quality, audio, remember: remember === true } as RenderRequest;
 }
 
 /** The optional body of a batch request: `{ includeIssues, runtimeIssues }`. An empty body means the plain batch. */
@@ -214,6 +245,15 @@ async function sendRanged(req: IncomingMessage, res: ServerResponse, file: strin
   else createReadStream(file, range ?? undefined).pipe(res);
 }
 
+/** A finished render, with byte ranges so it can be played and sought. Anything but a finished render is a 404. */
+async function serveRender(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
+  const slug = safeDecode(route[1]!);
+  const file = safeDecode(route[2]!);
+  const path = slug === null || file === null ? null : await project.renderFile(slug, file).catch(() => null);
+  if (path) await sendRanged(req, res, path);
+  else sendNotFound(res);
+}
+
 async function serveFootage(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   const file = slug === null ? null : await project.footageFile(slug);
@@ -269,6 +309,7 @@ export function createHandler(project: Project, webRoot: string) {
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
       const noteRoute = NOTE_API.exec(pathname);
+      const approvalRoute = APPROVAL_API.exec(pathname);
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
@@ -276,12 +317,19 @@ export function createHandler(project: Project, webRoot: string) {
       const saveRoute = SAVE_API.exec(pathname);
       const handoffRoute = HANDOFF_API.exec(pathname);
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
+      const renderRoute = RENDER_API.exec(pathname);
+      const renderSettingsRoute = RENDER_SETTINGS_API.exec(pathname);
+      const rendersListRoute = RENDERS_LIST_API.exec(pathname);
+      const revealRoute = REVEAL_API.exec(pathname);
+      const renderFileRoute = RENDER_FILE_ROUTE.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
         await handleComment(req, res, project, commentRoute);
       } else if (noteRoute) {
         await handleNote(req, res, project, noteRoute);
+      } else if (approvalRoute) {
+        await handleApproval(req, res, project, approvalRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
       } else if (editsRoute) {
@@ -294,6 +342,20 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(handoffRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelHandoff(slug));
+      } else if (pathname === '/api/renders' && req.method === 'POST') {
+        sendJson(res, 201, await project.render(await readRenderRequest(req)));
+      } else if (renderRoute && req.method === 'DELETE') {
+        const id = safeDecode(renderRoute[1]!);
+        if (id === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.cancelRender(id));
+      } else if (revealRoute && req.method === 'POST') {
+        const slug = safeDecode(revealRoute[1]!);
+        const file = safeDecode(revealRoute[2]!);
+        if (slug === null || file === null) sendJson(res, 404, { error: 'Not found' });
+        else {
+          await project.revealRender(slug, file);
+          res.writeHead(HTTP_NO_CONTENT).end();
+        }
       } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
         sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
@@ -307,12 +369,24 @@ export function createHandler(project: Project, webRoot: string) {
         res.writeHead(405).end();
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
+      } else if (renderFileRoute) {
+        await serveRender(req, res, project, renderFileRoute);
       } else if (pathname === '/api/project') {
         sendJson(res, 200, { name: project.name });
       } else if (transcriptionRoute) {
         const slug = safeDecode(transcriptionRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
+      } else if (pathname === '/api/renders') {
+        sendJson(res, 200, { jobs: project.renderJobs() });
+      } else if (rendersListRoute) {
+        const slug = safeDecode(rendersListRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { renders: await project.listRenders(slug) });
+      } else if (renderSettingsRoute) {
+        const slug = safeDecode(renderSettingsRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { settings: await project.renderSettings(slug) });
       } else if (pathname === '/api/videos') {
         sendJson(res, 200, { videos: await project.listVideos() });
       } else if (pathname === '/api/tools') {

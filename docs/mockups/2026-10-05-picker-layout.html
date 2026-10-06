@@ -1,0 +1,29 @@
+<!-- Picker layout decision, 2026-10-05: option B (versions table) chosen in a ui-preview round. Wireframe only; the visual world follows DESIGN.md. Spec #52, plan docs/plans/2026-10-05-approve-and-render.md. -->
+<h2>Picker: versions table (chosen)</h2>
+<p class="subtitle">Same shell as Storyboard and Review: top bar, 220px rail, 320px right column. Every version is a row (built by, comments, contract, approval, Approve or Withdraw). The player sits under the table for the selected row. The right column holds Render (preset and four settings) for the selected version, the Queue, and Past renders.</p>
+
+<div class="cards">
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. Versions table</div>
+        <div class="mockup-body" style="display:grid;grid-template-columns:70px 1fr 110px;gap:6px;font-size:11px">
+          <div class="mock-sidebar">Rail<br>reels<br>sections<br>v1<br>v2 ✓<br>v3 now</div>
+          <div class="mock-content">
+            <div class="placeholder" style="text-align:left">v · built by · comments · contract · approval</div>
+            <div class="placeholder" style="text-align:left">v1 · agent · 4 · 2 issues · <button class="mock-button">Approve</button></div>
+            <div class="placeholder" style="text-align:left">v2 · you · 0 · ok · ✓ Approved <button class="mock-button">Withdraw</button></div>
+            <div class="placeholder" style="text-align:left;outline:2px solid currentColor">v3 · you · 1 · ok · <button class="mock-button">Approve</button></div>
+            <div class="placeholder" style="height:70px;margin-top:6px">Player: selected row</div>
+          </div>
+          <div class="mock-sidebar">
+            <b>Render v3</b><br>Draft · Final · Overlay<br>fps · size<br>quality · audio<br><button class="mock-button">Render</button>
+            <hr><b>Queue</b><br>v2 Final 42%<br>
+            <hr><b>Past renders</b><br>v2-final-1080p30
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Versions table</h3><p>Every version is a row with built by, comments, contract status and approval, so you compare at a glance. The player sits under the table for the selected row. Dense, best when a reel has many versions.</p></div>
+  </div>
+</div>

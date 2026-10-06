@@ -127,7 +127,7 @@ describe('startReel', () => {
 });
 
 describe('the runner', () => {
-  it('is the only module that names the skill scripts or starts Python', () => {
+  it('is the only module that names the skill scripts or the renderer, or starts Python', () => {
     const offenders: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -136,7 +136,7 @@ describe('the runner', () => {
         else if (/\.ts$/.test(entry.name) && !path.endsWith('runner.ts')) {
           // Naming Python is fine (the tool check's hints and types); starting it outside the runner is not.
           const text = readFileSync(path, 'utf8');
-          if (/\.py\b|ffprobe/i.test(text) || (/child_process/.test(text) && /python/i.test(text))) offenders.push(path);
+          if (/\.py\b|ffprobe|render\.js/i.test(text) || (/child_process/.test(text) && /python/i.test(text))) offenders.push(path);
         }
       }
     };

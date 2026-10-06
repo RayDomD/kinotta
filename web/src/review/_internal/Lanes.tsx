@@ -112,6 +112,13 @@ const MIN_CLIP_DRAG = 0.5;
 const NUDGE = 0.1;
 const NUDGE_FAR = 1;
 
+/** A clip drag in progress, for the picture to follow before it is dropped: which clip, how, and by how many seconds. */
+export interface ClipPreview {
+  id: string;
+  mode: 'slide' | 'start' | 'end';
+  by: number;
+}
+
 /** What the Clips lane shows of a clip being dragged: which one, how (its body slides, an edge trims), and how far (pixels). */
 interface ClipDrag {
   id: string;
@@ -128,9 +135,11 @@ interface ClipsLaneProps {
   onTrim: ((id: string, edge: 'start' | 'end', by: number) => void) | undefined;
   /** A press on a clip that does not drag seeks to where it was pressed. */
   onSeekAt(clientX: number): void;
+  /** Hears a drag as it goes, and null when it ends, so the picture can follow it. */
+  onPreview?(preview: ClipPreview | null): void;
 }
 
-const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, onSeekAt }: ClipsLaneProps) {
+const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, onSeekAt, onPreview }: ClipsLaneProps) {
   const lane = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<ClipDrag | null>(null);
   const began = useRef<{ x: number; moved: boolean } | null>(null);
@@ -170,6 +179,8 @@ const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, 
     if (start.moved || Math.abs(dx) >= DRAG_THRESHOLD) {
       start.moved = true;
       setDrag({ id, mode, dx });
+      const clip = clips.find((c) => c.id === id);
+      if (clip) onPreview?.({ id, mode, by: limit(clip, mode, dx * perPixel()) });
     }
   };
   const release = (e: PointerEvent<HTMLElement>, clip: ClipSpan, mode: ClipDrag['mode']): void => {
@@ -177,6 +188,7 @@ const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, 
     const start = began.current;
     began.current = null;
     setDrag(null);
+    onPreview?.(null);
     if (!start) return;
     if (!start.moved) {
       if (mode === 'slide') onSeekAt(e.clientX);
@@ -190,6 +202,7 @@ const ClipsLane = memo(function ClipsLane({ win, total, clips, onSlide, onTrim, 
   const cancel = (): void => {
     began.current = null;
     setDrag(null);
+    onPreview?.(null);
   };
   return (
     <div ref={lane} className="lane ov-lane">
@@ -510,6 +523,8 @@ export interface LanesProps {
   /** Present when clips can be edited: the body slides a clip, an edge trims it; by seconds of the timeline. */
   onSlideClip?(id: string, by: number): void;
   onTrimClip?(id: string, edge: 'start' | 'end', by: number): void;
+  /** Hears a clip drag as it goes (null when it ends), for the picture to follow. */
+  onPreviewClip?(preview: ClipPreview | null): void;
   comments: readonly Comment[];
   /** What the overview draws: the clips, or the pieces when there are none. */
   overview: readonly Span[];
@@ -530,7 +545,7 @@ export interface LanesProps {
 
 /** The overview of the reel and the zoomed lanes under it, on one time axis with one playhead. */
 export function Lanes(props: LanesProps) {
-  const { win, total, time, pieces, clips, phrases, currentPhrase, words, transcribing, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord, onSlideClip, onTrimClip } = props;
+  const { win, total, time, pieces, clips, phrases, currentPhrase, words, transcribing, currentWord, comments, overview, onWindow, onScrub, snipping, selection, onSelect, blading, onCut, onMovePiece, onFixWord, onRetimeWord, onSlideClip, onTrimClip, onPreviewClip } = props;
   const plane = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
   const selecting = useRef<{ anchor: number; band: Span | null } | null>(null);
@@ -614,6 +629,8 @@ export function Lanes(props: LanesProps) {
           if (started) {
             const dx = e.clientX - started.startX;
             if (started.active || Math.abs(dx) >= DRAG_THRESHOLD) {
+              // The picture shows the piece being moved, from its first frame.
+              if (!started.active && pieces?.[started.index]) onScrub(pieces[started.index]!.at);
               started.active = true;
               setDrag({ index: started.index, dx });
             }
@@ -635,7 +652,7 @@ export function Lanes(props: LanesProps) {
           </>
         )}
         <span>Clips</span>
-        <ClipsLane win={win} total={total} clips={clips} onSlide={onSlideClip} onTrim={onTrimClip} onSeekAt={scrubAt} />
+        <ClipsLane win={win} total={total} clips={clips} onSlide={onSlideClip} onTrim={onTrimClip} onSeekAt={scrubAt} onPreview={onPreviewClip} />
         <span>Captions</span>
         <CaptionsLane win={win} phrases={phrases} current={currentPhrase} />
         {words !== null && (
