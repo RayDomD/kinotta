@@ -28,3 +28,8 @@ export function formatAxisTime(seconds: number, reelDuration: number): string {
 export function formatDuration(seconds: number): string {
   return `${seconds.toFixed(1)}s`;
 }
+
+/** `8 s`, `2 min`: how long is left, as an estimate reads. */
+export function formatRemaining(seconds: number): string {
+  return seconds < SECONDS_PER_MINUTE ? `${Math.max(1, Math.round(seconds))} s` : `${Math.round(seconds / SECONDS_PER_MINUTE)} min`;
+}

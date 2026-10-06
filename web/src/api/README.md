@@ -11,7 +11,8 @@ numbered comments), `addComment(slug, n, { pin, text })` (resolves with `{ comme
 `{ text, file, count }`), `editComment(slug, n, id, text)` (resolves with `{ comment, comments }`), `deleteComment(slug, n, id)` (resolves with the renumbered comments), `fetchNote(slug, n)` and `saveNote(slug, n, note)` (the note on the whole reel), `approveVersion(slug, n)` (resolves with `{ approved, at, warning? }`) and `withdrawApproval(slug, n)`, `subscribe(onEvent)` (the server's change events over `EventSource`, returns a close function; the browser reconnects on its own), `footageUrl(slug)` (the same-origin URL of a footage reel's footage file), `fetchRenderSettings(slug)` (each preset's four
 settings), `queueRender(slug, n, preset, settings)` (queues a render and saves the settings for the preset; a refusal throws
 with the reason), `fetchRenders(slug)` (finished renders, newest first), `renderFileUrl(slug, file)` and
-`revealRender(slug, file)` (shows a render in the file manager), and their types.
+`revealRender(slug, file)` (shows a render in the file manager), `fetchRenderJobs()` (the queue: jobs waiting or running)
+and `cancelRender(id)`, and their types.
 
 ## Does not handle
 

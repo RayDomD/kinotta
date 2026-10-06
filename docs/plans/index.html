@@ -124,21 +124,16 @@
 <p class="subtitle">Regenerated 2026-10-06</p>
 
 <div class="badge-row">
-  <span class="count"><span class="dot" style="background:var(--in-progress)"></span>2 In Progress</span>
+  <span class="count"><span class="dot" style="background:var(--in-progress)"></span>1 In Progress</span>
   <span class="count"><span class="dot" style="background:var(--blocked)"></span>0 Blocked</span>
   <span class="count"><span class="dot" style="background:var(--approved)"></span>0 Approved</span>
   <span class="count"><span class="dot" style="background:var(--draft)"></span>0 Draft</span>
-  <span class="count"><span class="dot" style="background:var(--done)"></span>41 Done</span>
+  <span class="count"><span class="dot" style="background:var(--done)"></span>42 Done</span>
 </div>
 
 <div class="group">
-  <div class="group-title">In Progress (2)</div>
+  <div class="group-title">In Progress (1)</div>
   <div class="cards">
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-renders-everywhere.md">Renders in the background, everywhere (T56)</a>
-      <div class="meta"><span class="status-badge status-in-progress">In Progress</span><span>2026-10-06</span></div>
-      <div class="summary">Picker shows the queue with progress, estimate and cancel; the top bar shows a running render on every tab; a finished render raises a ready notice with Play and Show in folder.</div>
-    </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-approve-and-render.md">Approve and Render phase</a>
       <div class="meta"><span class="status-badge status-in-progress">In Progress</span><span>2026-10-05</span></div>
@@ -148,17 +143,17 @@
 </div>
 
 <details class="group">
-  <summary>Done (41)</summary>
+  <summary>Done (42)</summary>
   <div class="cards">
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-settings.md">Presets and the four settings (T53)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-06</span></div>
+      <div class="summary">A render takes frame rate, size, quality and audio at cuts on top of its preset's defaults; Picker's render call remembers them per preset in render-settings.json, the CLI's flags never do.</div>
+    </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-picker-page.md">Picker page (T55)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-06</span></div>
       <div class="summary">Picker becomes the third tab, with a versions table (built by, comments, contract, approval), the read-only player under it, and a render panel and past renders in the right column.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-queue-cancel.md">One queue across processes, and cancel (T52)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-06</span></div>
-      <div class="summary">kinotta render joins a running editor's queue through a port file, or hosts the server headless; cancel stops every render process and leaves no file.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-segments.md">Parallel segments and the estimate (T54)</a>
@@ -166,34 +161,14 @@
       <div class="summary">A render splits its frames across several Chromium pages that run at once in renders/.work-&lt;job&gt;/, then joins them; progress combines the segments and gives an estimate.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-settings.md">Presets and the four settings (T53)</a>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-queue-cancel.md">One queue across processes, and cancel (T52)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-06</span></div>
-      <div class="summary">A render takes frame rate, size, quality and audio at cuts on top of its preset's defaults; Picker's render call remembers them per preset in render-settings.json, the CLI's flags never do.</div>
+      <div class="summary">kinotta render joins a running editor's queue through a port file, or hosts the server headless; cancel stops every render process and leaves no file.</div>
     </div>
     <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-gate.md">The render gate (T51)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">Final and Overlay are refused for a version that isn't approved, has no plan of its own or has contract issues, naming every reason; Draft renders anyway.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-scale-elements.md">Move and scale elements on footage reels (T39)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T39. element-offset operation; click an element in the frame, drag to move, corner handle to scale; build.py applies per-clip offsets with CSS translate and scale so they stack on the clip's own animation.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-real-transcription-with-progress.md">Real transcription with progress (T43)</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">T43. A reel started from a video returns at once; faster-whisper runs in the background with progress and an estimate, edits collect without a version, and v1 (with captions and automatic sections) follows.</div>
-    </div>
-    <div class="card">
-      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-new-reel-finish.md">New reel finish, editable drop name, playback copy for picked videos</a>
-      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
-      <div class="summary">Close T42's open stories 8 and 10 and run the T47 finish pass on the drop zone and brief form after the T42/T44/T45 merge.</div>
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-renders-everywhere.md">Renders in the background, everywhere (T56)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-06</span></div>
+      <div class="summary">Picker shows the queue with progress, estimate and cancel; the top bar shows a running render on every tab; a finished render raises a ready notice with Play and Show in folder.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-captions.md">Move captions (T37)</a>
@@ -204,6 +179,26 @@
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-pieces-in-the-engine.md">Pieces in the engine (T29)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T29. A footage plan may list pieces of the source video; build.py and shots.py put everything on the reel's timeline, and one core module maps source time to timeline time and back.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-render-gate.md">The render gate (T51)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">Final and Overlay are refused for a version that isn't approved, has no plan of its own or has contract issues, naming every reason; Draft renders anyway.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-new-reel-finish.md">New reel finish, editable drop name, playback copy for picked videos</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">Close T42's open stories 8 and 10 and run the T47 finish pass on the drop zone and brief form after the T42/T44/T45 merge.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-move-scale-elements.md">Move and scale elements on footage reels (T39)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T39. element-offset operation; click an element in the frame, drag to move, corner handle to scale; build.py applies per-clip offsets with CSS translate and scale so they stack on the clip's own animation.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-real-transcription-with-progress.md">Real transcription with progress (T43)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T43. A reel started from a video returns at once; faster-whisper runs in the background with progress and an estimate, edits collect without a version, and v1 (with captions and automatic sections) follows.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-start-a-reel-from-a-video.md">Start a reel from a picked video (T30)</a>
@@ -249,6 +244,11 @@
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-review-edit-finish.md">Finish pass on Review and Edit (T47)</a>
       <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
       <div class="summary">T47. Lane B finish on the Review tab and New reel screen: critique and audit recorded, keyboard path to a stretch and arrow nudging added, DESIGN.md updated.</div>
+    </div>
+    <div class="card">
+      <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-undo-redo-remove.md">Undo, redo and remove one edit (T33)</a>
+      <div class="meta"><span class="status-badge status-done">Done</span><span>2026-10-05</span></div>
+      <div class="summary">T33. Undo and redo (keys and buttons) step through the edit list, a card drops its own edit while later ones stay applied, and the redo history persists in edit-list.json.</div>
     </div>
     <div class="card">
       <a class="title" href="vscode://file/C:/FIles/Projects/Apps/Kinotta/docs/plans/2026-10-05-brief-reel-empty-storyboard-last-tab.md">New reel from a brief, empty Storyboard and last-used tab (T45)</a>

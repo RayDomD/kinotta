@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatRemaining, laneProgress } from '../../web/src/review/_internal/transcribing.ts';
+import { laneProgress } from '../../web/src/review/_internal/transcribing.ts';
+import { formatRemaining } from '../../web/src/timecode.ts';
 
 describe('laneProgress', () => {
   it('says how far along and how long is left while running', () => {

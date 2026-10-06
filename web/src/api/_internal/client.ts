@@ -286,6 +286,10 @@ export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPr
  */
 export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings): Promise<RenderJob> =>
   requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true }) });
+/** The project's render queue: the jobs waiting or running, in order. Changes arrive as `render-progress` events. */
+export const fetchRenderJobs = async (): Promise<RenderJob[]> => (await getJson<{ jobs: RenderJob[] }>('/api/renders')).jobs;
+/** Cancels a render: a waiting one is dropped, a running one stopped. Either way it leaves no file. */
+export const cancelRender = (id: string): Promise<RenderJob> => requestJson(`/api/renders/${encodeURIComponent(id)}`, { method: 'DELETE' });
 /** A reel's finished renders, newest first. */
 export const fetchRenders = async (slug: string): Promise<RenderFile[]> =>
   (await getJson<{ renders: RenderFile[] }>(`/api/reels/${encodeURIComponent(slug)}/renders`)).renders;

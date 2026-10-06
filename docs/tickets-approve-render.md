@@ -159,7 +159,7 @@ and the reel's past renders with Play and Show in folder. Final and Overlay show
 - [x] Past renders list with Play and Show in folder
 - [x] Playwright: approve a version, see the rail mark, render a Draft, play the finished file
 
-## T56. Renders in the background, everywhere
+## T56. Renders in the background, everywhere — Done
 
 **What to build:** The queue in Picker's right column with progress, estimate and cancel. A render indicator in the
 top bar on every tab. A finished render raises a "ready" notice with Play and Show in folder, like the version notice.
@@ -168,11 +168,11 @@ top bar on every tab. A finished render raises a "ready" notice with Play and Sh
 
 **Model:** mid
 
-- [ ] The queue shows the running job's progress and estimate, and the waiting jobs
-- [ ] Cancel from Picker removes the job and leaves no file
-- [ ] The top bar shows a running render on every tab
-- [ ] A finished render raises a notice with Play and Show in folder
-- [ ] Playwright: start a render, switch tabs, see progress, cancel one
+- [x] The queue shows the running job's progress and estimate, and the waiting jobs
+- [x] Cancel from Picker removes the job and leaves no file
+- [x] The top bar shows a running render on every tab
+- [x] A finished render raises a notice with Play and Show in folder
+- [x] Playwright: start a render, switch tabs, see progress, cancel one
 
 ## T57. Chromium in the tool check — Done
 

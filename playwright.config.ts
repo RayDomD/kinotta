@@ -68,6 +68,8 @@ const BRIEF_REEL_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-brief-reel-project.t
 
 /** An eighteenth for picker.spec.ts: the showreel sample, whose versions are approved and rendered. */
 const PICKER_PORT = 4380;
+/** A nineteenth for renders.spec.ts: the showreel sample, where renders are queued, followed from other tabs and cancelled. */
+const RENDERS_PORT = 4379;
 
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
 
@@ -222,6 +224,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${PICKER_PORT}`,
       env: { ...serverEnv(PICKER_PORT), KINOTTA_E2E_FIXTURE: 'showreel-project' },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${RENDERS_PORT}`,
+      env: { ...serverEnv(RENDERS_PORT), KINOTTA_E2E_FIXTURE: 'showreel-project' },
       timeout: 120_000,
       reuseExistingServer: false,
     },

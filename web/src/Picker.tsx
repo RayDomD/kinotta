@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { approveVersion, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, withdrawApproval } from './api/index.ts';
-import type { RenderFile, RenderPreset, RenderSettings, VersionEntry } from './api/index.ts';
+import { approveVersion, cancelRender, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, withdrawApproval } from './api/index.ts';
+import type { RenderFile, RenderJob, RenderPreset, RenderSettings, VersionEntry } from './api/index.ts';
+import { formatRemaining } from './timecode.ts';
 import { BUILT_BY_YOU } from '../../server/core/model.ts';
 
 const PRESETS: ReadonlyArray<{ id: RenderPreset; name: string }> = [
@@ -32,7 +33,17 @@ const AUDIO_OPTIONS: ReadonlyArray<{ value: RenderSettings['audio']; name: strin
 /** Browsers play H.264 but not ProRes, so only an `.mp4` render plays in Kinotta. */
 const PLAYABLE = /\.mp4$/i;
 
-const presetName = (preset: RenderPreset): string => PRESETS.find((p) => p.id === preset)?.name ?? preset;
+export const presetName = (preset: RenderPreset): string => PRESETS.find((p) => p.id === preset)?.name ?? preset;
+const PERCENT = 100;
+/** `42%`, a job's progress in whole percents. */
+export const percent = (job: RenderJob): string => `${Math.floor(job.progress * PERCENT)}%`;
+/** `about 2 min left`: a running job's estimate, as the queue says it. */
+function timeLeft(job: RenderJob): string {
+  if (job.remaining === null) return 'starting';
+  return job.remaining <= 0 ? 'almost done' : `about ${formatRemaining(job.remaining)} left`;
+}
+/** The file a finished job wrote, from its project-relative output path. */
+export const outputFile = (job: RenderJob): string | null => job.output?.split('/').at(-1) ?? null;
 const issueText = (count: number): string => (count === 0 ? 'ok' : `${count} ${count === 1 ? 'issue' : 'issues'}`);
 const builtBy = (who: string | undefined): string => (who === BUILT_BY_YOU ? 'you' : (who ?? ''));
 const when = (iso: string): string => new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -134,6 +145,12 @@ export interface PickerSideProps {
   /** Changes when a render of this reel finishes, so the past renders reload. */
   rendersTick: number;
   onPlay(file: string): void;
+  /** The project's queue: the running job first, then the waiting ones, for any reel. */
+  jobs: RenderJob[];
+  /** Reel titles by slug, to name a job of another reel. */
+  titles: ReadonlyMap<string, string>;
+  /** The last render that failed, until another is queued. */
+  failure: RenderJob | null;
 }
 
 function Choice<T extends string | number>(props: { label: string; value: T; options: ReadonlyArray<{ value: T; name: string }>; onChange(value: T): void }) {
@@ -151,7 +168,7 @@ function Choice<T extends string | number>(props: { label: string; value: T; opt
 }
 
 /** The right column of Picker: Render for the selected version (preset and the four settings), then past renders. */
-export function PickerSide({ slug, version, footage, rendersTick, onPlay }: PickerSideProps) {
+export function PickerSide({ slug, version, footage, rendersTick, onPlay, jobs, titles, failure }: PickerSideProps) {
   const [saved, setSaved] = useState<{ slug: string; settings: Record<RenderPreset, RenderSettings> } | null>(null);
   const [preset, setPreset] = useState<RenderPreset>('draft');
   const [settings, setSettings] = useState<RenderSettings | null>(null);
@@ -160,6 +177,7 @@ export function PickerSide({ slug, version, footage, rendersTick, onPlay }: Pick
   const [status, setStatus] = useState('');
   const [renders, setRenders] = useState<RenderFile[]>([]);
   const [revealError, setRevealError] = useState('');
+  const [cancelError, setCancelError] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -207,6 +225,13 @@ export function PickerSide({ slug, version, footage, rendersTick, onPlay }: Pick
       .finally(() => setSending(false));
   };
 
+  const cancel = (job: RenderJob): void => {
+    setCancelError('');
+    // The job leaves the queue when its render-progress event says it is cancelled.
+    cancelRender(job.id).catch((err: unknown) => setCancelError(err instanceof Error ? err.message : 'Could not reach the server'));
+  };
+  const jobName = (job: RenderJob): string => `${job.reel === slug ? '' : `${titles.get(job.reel) ?? job.reel} `}v${job.version} ${presetName(job.preset)}`;
+
   const reveal = (file: string): void => {
     setRevealError('');
     revealRender(slug, file).catch((err: unknown) => setRevealError(err instanceof Error ? err.message : 'Could not reach the server'));
@@ -238,6 +263,32 @@ export function PickerSide({ slug, version, footage, rendersTick, onPlay }: Pick
         </button>
         {refusal !== '' && <p className="pk-refusal" role="alert">{refusal}</p>}
         <p className="pk-message" role="status">{status}</p>
+      </section>
+      <section className="pk-queue" aria-labelledby="pk-queue-title">
+        <h2 id="pk-queue-title">Queue</h2>
+        {jobs.length === 0 ? (
+          <p className="meta">Nothing rendering.</p>
+        ) : (
+          <ul className="pk-jobs" aria-label="Queue">
+            {jobs.map((job) => (
+              <li key={job.id}>
+                <span className="pk-job">
+                  {job.state === 'running' ? `${jobName(job)} · ${percent(job)} · ${timeLeft(job)}` : `${jobName(job)} · waiting`}
+                </span>
+                {job.state === 'running' && (
+                  <span className="pk-bar" aria-hidden="true">
+                    <span style={{ transform: `scaleX(${job.progress})` }} />
+                  </span>
+                )}
+                <button type="button" className="c-act" aria-label={`Cancel ${jobName(job)}`} onClick={() => cancel(job)}>
+                  Cancel
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {failure !== null && <p className="pk-refusal" role="alert">{`${jobName(failure)} failed: ${failure.error ?? 'unknown reason'}`}</p>}
+        {cancelError !== '' && <p className="pk-refusal" role="alert">{cancelError}</p>}
       </section>
       <section className="pk-past" aria-labelledby="pk-past-title">
         <h2 id="pk-past-title">Past renders</h2>

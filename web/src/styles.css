@@ -445,3 +445,16 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .pk-renders li { display: flex; flex-direction: column; gap: 2px; }
 .pk-file { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
 .pk-actions { display: flex; gap: 14px; }
+
+/* renders in the background (T56): the top bar's indicator, Picker's queue, and the ready notice over any tab */
+.tb-render { display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.tb-render .dot { color: var(--light); font-size: 13px; text-shadow: 0 0 10px var(--light-glow); }
+.pk-queue { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--rule); padding-top: 14px; }
+.pk-queue h2 { font-size: 16px; font-weight: 600; }
+.pk-jobs { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.pk-jobs li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.pk-job { font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.pk-bar { display: block; width: 100%; height: 3px; background: var(--rule); }
+.pk-bar span { display: block; height: 100%; background: var(--light); transform-origin: left; }
+.render-ready { position: fixed; left: 244px; bottom: 22px; z-index: 8; max-width: 72ch; }
+.render-ready .pk-actions { align-items: baseline; }

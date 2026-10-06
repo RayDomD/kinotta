@@ -61,8 +61,8 @@ test('the server refuses a comment on v1 with 409 and still lists versions and r
   expect((await request.get(`/api/reels/${REEL}/versions/1/comments`)).status()).toBe(200);
   expect(await (await request.get(`/api/reels/${REEL}/versions`)).json()).toEqual({
     versions: [
-      { number: 1, isNewest: false, isStoryboard: true, approved: false },
-      { number: 2, isNewest: true, isStoryboard: false, approved: false },
+      { number: 1, isNewest: false, isStoryboard: true, approved: false, comments: expect.any(Number), issues: 0 },
+      { number: 2, isNewest: true, isStoryboard: false, approved: false, comments: expect.any(Number), issues: 0 },
     ],
   });
 });
