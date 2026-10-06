@@ -153,12 +153,25 @@ export interface Withdrawal {
 /** A render's named defaults (R2): Draft is a quick check of any version, Final and Overlay are the deliverables. */
 export type RenderPreset = 'draft' | 'final' | 'overlay';
 
-export interface RenderRequest {
+/** The four settings on top of a preset (R3). */
+export interface RenderSettings {
+  /** Frames a second: the source's (a footage reel's rate, 30 for a code-only page) or a fixed rate. */
+  fps: 'source' | 24 | 25 | 30 | 60;
+  /** The short side: half the source's (Draft's default), the source's, 1080 or 2160. The long side keeps the source's aspect ratio. */
+  size: 'half' | 'source' | '1080p' | '4k';
+  /** High lowers the H.264 CRF, or writes ProRes 4444 XQ for an Overlay. */
+  quality: 'standard' | 'high';
+  /** How a footage reel's audio joins at a cut (R9): about 20 ms fades (`smooth`) or none (`hard`). */
+  audio: 'smooth' | 'hard';
+}
+
+/** A render: a version and a preset, and any of the four settings to use instead of the reel's saved ones. */
+export interface RenderRequest extends Partial<RenderSettings> {
   reel: string;
   version: number;
   preset: RenderPreset;
-  /** How a footage reel's audio joins at a cut (R9): about 20 ms fades (`smooth`, the default) or none (`hard`). */
-  audio?: 'smooth' | 'hard';
+  /** Saves the settings this render uses as the reel's for its preset (R16). Only Picker's render sets it. */
+  remember?: boolean;
 }
 
 /** One render in the project's queue. Held in memory: a restart forgets it (R8). */
@@ -312,12 +325,15 @@ export interface Project {
   withdrawApproval(slug: string, number: number): Promise<Withdrawal>;
   /**
    * Queues a render and returns the job as queued; it runs after the jobs before it, one at a time, and reports through
-   * `render-progress` events. Throws `not-found` for an unknown reel or version, and `invalid` for a render this build
-   * can't make (for now, anything but a Draft of a code-only reel).
+   * `render-progress` events. With `remember`, the settings it uses are saved as the reel's for its preset. Throws
+   * `not-found` for an unknown reel or version, and `invalid` for an unknown preset or setting, a Final or Overlay the gate
+   * refuses, or an Overlay of a page that isn't transparent.
    */
   render(request: RenderRequest): Promise<RenderJob>;
   /** The jobs waiting or running, in queue order. */
   renderJobs(): RenderJob[];
+  /** Each preset's four settings for a reel: the ones saved by a remembered render, else R2's defaults. Throws `not-found` for an unknown reel. */
+  renderSettings(slug: string): Promise<Record<RenderPreset, RenderSettings>>;
   /** Resolves with the job once it is done, failed or cancelled. Throws `not-found` for an unknown job. */
   whenRendered(jobId: string): Promise<RenderJob>;
   /**

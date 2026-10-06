@@ -107,7 +107,7 @@ the job and removes the temp output and `renders/.work-<job>/`. `kinotta render`
 - [x] Cancel leaves no output file and no `.work-<job>/` folder
 - [x] `kinotta render --project <dir>` and `kinotta check --project <dir>` act on that project
 
-## T53. Presets and the four settings
+## T53. Presets and the four settings — Done
 
 **What to build:** The three presets as named defaults (R2). The four settings (R3): frame rate (source, 24, 25, 30,
 60), size (source, 1080p, 4K) scaled through `deviceScaleFactor` and limited to the source's aspect ratio, quality
@@ -119,11 +119,11 @@ it, and `kinotta render` flags never change it (R16). The CLI takes the four set
 
 **Model:** mid
 
-- [ ] Each preset renders with its R2 defaults
-- [ ] Each setting changes the output as described; size keeps the source's aspect ratio
-- [ ] A High-quality or Hard-cut render gets its own file name and doesn't replace the default one
-- [ ] Settings saved from the HTTP call come back per preset for the next render of that reel
-- [ ] A `kinotta render` with flags leaves `render-settings.json` unchanged
+- [x] Each preset renders with its R2 defaults
+- [x] Each setting changes the output as described; size keeps the source's aspect ratio
+- [x] A High-quality or Hard-cut render gets its own file name and doesn't replace the default one
+- [x] Settings saved from the HTTP call come back per preset for the next render of that reel
+- [x] A `kinotta render` with flags leaves `render-settings.json` unchanged
 
 ## T54. Parallel segments and the estimate
 

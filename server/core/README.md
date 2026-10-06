@@ -74,7 +74,14 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.mp4` under a temp name (`.render-<job>.mp4`), renamed when
   complete so the same settings replace the file and a failure leaves nothing; `output` is that path relative to the
   project. Presets (R2): Draft is half size, CRF 28, no motion blur; Final is full size, CRF 16, with motion blur;
-  Overlay is ProRes 4444 with alpha in a `.mov`, the page alone with no sound. A code-only reel renders its page at the
+  Overlay is ProRes 4444 with alpha in a `.mov`, the page alone with no sound. Four settings (R3) go on top, each
+  optional in the request: `fps` (`'source'`, 24, 25, 30, 60), `size` (`'half'`, `'source'`, `'1080p'`, `'4k'`: the
+  short side, the long side keeping the source's aspect ratio, the page scaled through `deviceScaleFactor`), `quality`
+  (`'standard'`, `'high'`: CRF 20 for Draft and 10 for Final, ProRes 4444 XQ for Overlay) and `audio`. A render uses the
+  request's settings over the reel's saved ones for its preset over R2's defaults; an unknown value is `invalid`. High
+  adds `-high` to the file name, and Hard cuts in a render with sound add `-hardcuts` (R18). With `remember: true` (only
+  Picker's render sets it) the settings used are saved to `reels/<reel>/render-settings.json` (`{ draft, final,
+  overlay }`) for that preset (R16). `renderSettings(slug)` returns all three presets' settings with defaults filled in. A code-only reel renders its page at the
   page's size and 30 fps, and has an Overlay only when the page is transparent (`invalid` otherwise). A footage reel
   renders at the footage's size and frame rate: `render.js` draws the overlay page as RGBA frames piped straight into
   ffmpeg, which cuts the original footage by the version's own pieces (through the plan resolver, never the reel's

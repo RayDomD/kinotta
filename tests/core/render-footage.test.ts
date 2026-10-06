@@ -183,6 +183,15 @@ describe('Final and Overlay of a footage reel', () => {
     expect(loudestNear(hard, cut)).toBeGreaterThan(0.3);
   });
 
+  it("scales a Draft to 1080p at the footage's aspect ratio, at the frame rate asked for", { timeout: SLOW_MS }, async () => {
+    const job = await rendered(reel, { version: 2, preset: 'draft', size: '1080p', fps: 25 });
+
+    expect(job.output).toBe(`reels/${reel.slug}/renders/${reel.slug}-v2-draft-1080p25.mp4`);
+    const { streams, duration } = probe(join(reel.dir, job.output!));
+    expect(streams.find((s) => s.codec_type === 'video')).toMatchObject({ width: 1920, height: 1080, r_frame_rate: '25/1' });
+    expect(duration).toBeCloseTo(TIMELINE_SECONDS, 1);
+  });
+
   it('writes an Overlay as ProRes 4444 with alpha and no sound', { timeout: SLOW_MS }, async () => {
     const job = await rendered(reel, { version: 2, preset: 'overlay' });
 

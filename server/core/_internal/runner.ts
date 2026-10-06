@@ -155,6 +155,8 @@ export interface PageRender {
   /** Four samples per frame across a 180° shutter, or one. */
   blur: boolean;
   codec: 'h264' | 'prores';
+  /** ProRes only: `render.js --prores-profile`, 4 (4444) unless given. */
+  proresProfile?: string;
 }
 
 /** What `render.js` reports before its first frame. */
@@ -193,6 +195,7 @@ function renderArgs(job: Omit<PageRender, 'out' | 'codec'>, out: string, codec: 
   const args = [RENDER_SCRIPT, job.page, out, job.fps, '--scale', String(job.scale), '--codec', codec, '--progress'];
   if (crf) args.push('--crf', String(job.crf));
   if (!job.blur) args.push('--no-blur');
+  if (codec === 'prores' && job.proresProfile !== undefined) args.push('--prores-profile', job.proresProfile);
   return args;
 }
 

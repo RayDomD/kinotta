@@ -17,6 +17,7 @@ const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
 const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
 const RENDER_API = /^\/api\/renders\/([^/]+)$/;
+const RENDER_SETTINGS_API = /^\/api\/reels\/([^/]+)\/render-settings$/;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -163,14 +164,17 @@ async function handleEdits(req: IncomingMessage, res: ServerResponse, project: P
   else res.writeHead(405).end();
 }
 
-/** A render request's body: `{ reel, version, preset, audio? }`. The core checks the preset and the rest. */
+/**
+ * A render request's body: `{ reel, version, preset, fps?, size?, quality?, audio?, remember? }`. The core checks the
+ * preset and the settings' values.
+ */
 async function readRenderRequest(req: IncomingMessage): Promise<RenderRequest> {
   const body = await readJsonBody(req);
-  const { reel, version, preset, audio } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
-  if (typeof reel !== 'string' || !Number.isInteger(version) || typeof preset !== 'string' || (audio !== undefined && audio !== 'smooth' && audio !== 'hard')) {
-    throw new KinottaError('invalid', 'A render needs a "reel", a whole-number "version" and a "preset", and "audio" is "smooth" or "hard".');
+  const { reel, version, preset, fps, size, quality, audio, remember } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  if (typeof reel !== 'string' || !Number.isInteger(version) || typeof preset !== 'string') {
+    throw new KinottaError('invalid', 'A render needs a "reel", a whole-number "version" and a "preset".');
   }
-  return { reel, version: version as number, preset: preset as RenderRequest['preset'], ...(audio === undefined ? {} : { audio }) };
+  return { reel, version, preset, fps, size, quality, audio, remember: remember === true } as RenderRequest;
 }
 
 /** The optional body of a batch request: `{ includeIssues, runtimeIssues }`. An empty body means the plain batch. */
@@ -300,6 +304,7 @@ export function createHandler(project: Project, webRoot: string) {
       const handoffRoute = HANDOFF_API.exec(pathname);
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
       const renderRoute = RENDER_API.exec(pathname);
+      const renderSettingsRoute = RENDER_SETTINGS_API.exec(pathname);
       if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -347,6 +352,10 @@ export function createHandler(project: Project, webRoot: string) {
         else sendJson(res, 200, { progress: project.transcriptionProgress(slug) });
       } else if (pathname === '/api/renders') {
         sendJson(res, 200, { jobs: project.renderJobs() });
+      } else if (renderSettingsRoute) {
+        const slug = safeDecode(renderSettingsRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, { settings: await project.renderSettings(slug) });
       } else if (pathname === '/api/videos') {
         sendJson(res, 200, { videos: await project.listVideos() });
       } else if (pathname === '/api/tools') {

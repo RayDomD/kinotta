@@ -1,13 +1,21 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { checkTools, missingToolsMessage, openProject, versionIssues, type Project, type RenderJob, type RenderPreset } from './core/index.ts';
+import { checkTools, missingToolsMessage, openProject, versionIssues, type Project, type RenderJob, type RenderPreset, type RenderRequest } from './core/index.ts';
 import { findEditor, queueRender } from './editor-client.ts';
 import { DEFAULT_PORT, startServer, type RunningServer } from './main.ts';
 
 const CHECK_COMMAND = 'kinotta check <reel> [version] [--project <dir>]';
 const CHECK_USAGE = `Usage: ${CHECK_COMMAND}`;
 const RENDER_PRESETS: readonly RenderPreset[] = ['draft', 'final', 'overlay'];
-const RENDER_USAGE = `Usage: kinotta render <reel> v<n> --preset ${RENDER_PRESETS.join('|')} [--project <dir>]`;
+/** `kinotta render`'s setting flags (R3) and the values each takes. They apply to one render and are never saved (R16). */
+const SETTING_FLAGS = {
+  fps: ['source', '24', '25', '30', '60'],
+  size: ['half', 'source', '1080p', '4k'],
+  quality: ['standard', 'high'],
+  audio: ['smooth', 'hard'],
+} as const;
+const SETTING_USAGE = Object.entries(SETTING_FLAGS).map(([flag, values]) => `[--${flag} ${values.join('|')}]`).join(' ');
+const RENDER_USAGE = `Usage: kinotta render <reel> v<n> --preset ${RENDER_PRESETS.join('|')} ${SETTING_USAGE} [--project <dir>]`;
 /** `kinotta render` prints a progress line each time the job gets this much further. */
 const PROGRESS_STEP_PERCENT = 10;
 
@@ -81,19 +89,27 @@ async function check(args: string[]): Promise<number> {
   }
 }
 
-/** `<reel> v<n> --preset <preset>`, or null when the arguments don't read that way. */
-function parseRenderArgs(args: string[]): { reel: string; version: number; preset: RenderPreset } | null {
+/** `<reel> v<n> --preset <preset>` and any setting flags, or null when the arguments don't read that way. */
+function parseRenderArgs(args: string[]): RenderRequest | null {
   const positional: string[] = [];
-  let preset: string | undefined;
+  const flags: Record<string, string | undefined> = {};
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--preset') preset = args[++i];
-    else positional.push(args[i]!);
+    const arg = args[i]!;
+    if (arg.startsWith('--')) flags[arg.slice(2)] = args[++i];
+    else positional.push(arg);
   }
   const [reel, versionArg] = positional;
   const version = Number(versionArg?.replace(/^v/i, ''));
   if (positional.length !== 2 || reel === undefined || !Number.isInteger(version) || version < 1) return null;
-  if (!RENDER_PRESETS.includes(preset as RenderPreset)) return null;
-  return { reel, version, preset: preset as RenderPreset };
+  const { preset, fps, size, quality, audio, ...unknown } = flags;
+  if (Object.keys(unknown).length > 0 || !RENDER_PRESETS.includes(preset as RenderPreset)) return null;
+  const request: RenderRequest = { reel, version, preset: preset as RenderPreset };
+  for (const [flag, value] of [['fps', fps], ['size', size], ['quality', quality], ['audio', audio]] as const) {
+    if (value === undefined) continue;
+    if (!(SETTING_FLAGS[flag] as readonly string[]).includes(value)) return null;
+    Object.assign(request, { [flag]: flag === 'fps' && value !== 'source' ? Number(value) : value });
+  }
+  return request;
 }
 
 /** Whether a version is approved; false when the reel or version can't be listed. */
