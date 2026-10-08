@@ -1,4 +1,5 @@
-import type { CaptionsPlan, ElementOffset, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
+import type { CaptionsPlan, ElementOffset, MediaPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
+import type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {
   slug: string;
@@ -92,6 +93,8 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  mediaSections?: { id: string; name: string; start: number; end: number; placement?: string; partOf?: string }[];
+  media?: MediaPlan;
   number: number;
   isNewest: boolean;
   duration: number;
@@ -201,6 +204,9 @@ export interface TranscriptionProgress {
 }
 
 export interface FramePin {
+  placement?: string;
+  sourceTime?: number;
+  offset?: number;
   kind: 'frame';
   version: number;
   section: string | null;
@@ -216,6 +222,9 @@ export interface FramePin {
 
 /** A pin on a spoken word of the shot's line. */
 export interface WordPin {
+  placement?: string;
+  sourceTime?: number;
+  offset?: number;
   kind: 'word';
   version: number;
   section: string | null;
@@ -246,7 +255,7 @@ export interface CommentsOfVersion {
 }
 
 export interface NewComment {
-  pin: { shot: string; x: number; y: number; element: string | null } | { kind: 'word'; shot: string; time: number; word: string };
+  pin: { kind?: 'frame'; placement?: string; time?: number; shot: string; x: number; y: number; element: string | null } | { kind: 'word'; placement?: string; shot: string; time: number; word: string };
   text: string;
 }
 
@@ -284,8 +293,20 @@ export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPr
  * Queues a render with these settings and saves them as the reel's for the preset (R16). A refusal (the gate, an Overlay
  * of an opaque page) throws with the reason.
  */
-export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings): Promise<RenderJob> =>
-  requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true }) });
+export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
+  requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true, acceptOverload }) });
+/**
+ * Save and render (AM40): saves the pending edits as the next version, then queues its render with these settings, saved
+ * as the reel's for the preset. A refused or failed Save throws with the reason and queues nothing.
+ */
+export const saveAndRender = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<{ version: number; job: RenderJob }> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/save-and-render`, { method: 'POST', body: JSON.stringify({ preset, ...settings, remember: true, acceptOverload }) });
+/**
+ * Where a reel's mix passes full scale, measured from the mix a render makes (AM29, AM38): a saved version's, or with no
+ * version the pending mix Save would preserve. No spans when it stays within full scale.
+ */
+export const fetchOverload = (slug: string, version?: number): Promise<MixOverload> =>
+  getJson<MixOverload>(`/api/reels/${encodeURIComponent(slug)}/overload${version === undefined ? '' : `?version=${version}`}`);
 /** The project's render queue: the jobs waiting or running, in order. Changes arrive as `render-progress` events. */
 export const fetchRenderJobs = async (): Promise<RenderJob[]> => (await getJson<{ jobs: RenderJob[] }>('/api/renders')).jobs;
 /** Cancels a render: a waiting one is dropped, a running one stopped. Either way it leaves no file. */
@@ -383,6 +404,39 @@ export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
 
 /** Same-origin URL of a footage reel's footage file (served with byte ranges so video can seek). */
 export const footageUrl = (slug: string): string => `/footage/${encodeURIComponent(slug)}`;
+export const fetchMediaModel = (slug: string): Promise<MediaEditingModel> => getJson(`/api/reels/${encodeURIComponent(slug)}/media-model`);
+
+export const mediaUrl = (source: string, saved?: { reel: string; version: number }): string => saved
+  ? `/media/${encodeURIComponent(saved.reel)}/${saved.version}/${encodeURIComponent(source)}`
+  : `/media/${encodeURIComponent(source)}`;
+export const fetchMedia = async (filter: MediaFilter = {}): Promise<MediaEntry[]> => {
+  const params = new URLSearchParams();
+  if (filter.kind) params.set('kind', filter.kind);
+  if (filter.search) params.set('search', filter.search);
+  return (await getJson<{ media: MediaEntry[] }>(`/api/media?${params}`)).media;
+};
+export const fetchWaveform = (source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform> => {
+  const params = new URLSearchParams();
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
+  return getJson(`/api/media/${encodeURIComponent(source)}/waveform?${params}`);
+};
+const speechPath = (source: string, saved?: { reel: string; version: number }): string => {
+  const params = new URLSearchParams();
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
+  return `/api/media/${encodeURIComponent(source)}/speech?${params}`;
+};
+export const fetchSpeech = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => getJson(speechPath(source, saved));
+/** Starts the source's transcription, or retries a failed one. Cached words come straight back. */
+export const transcribeMedia = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => requestJson(speechPath(source, saved), { method: 'POST' });
+export const fetchProjectMedia = async (): Promise<ProjectMediaFile[]> => (await getJson<{ files: ProjectMediaFile[] }>('/api/media/project')).files;
+export const referenceMedia = (path: string): Promise<ImportedMedia> => requestJson('/api/media/reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) });
+export const relinkMedia = (source: string, path: string): Promise<MediaEntry> => requestJson('/api/media/relink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, path }) });
+export const importMedia = (file: File): Promise<ImportedMedia> => requestJson(`/api/media?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+export async function mediaBytes(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('The sound could not be loaded. Check the source and retry.');
+  return response.arrayBuffer();
+}
 
 /** A video in the project, as the New reel screen lists it. */
 export interface VideoEntry {
@@ -419,6 +473,8 @@ export interface EditList {
   operations: Operation[];
   canUndo: boolean;
   canRedo: boolean;
+  /** Edits replayed from this base, resetting Undo/Redo. Kept until Save or Discard. */
+  replayedFrom?: number;
   stale?: true;
   /** A comment batch is out: Save is blocked with this reason until the next version appears or the hand-off is cancelled. */
   handedOff?: { version: number; copiedAt: string; reason: string };

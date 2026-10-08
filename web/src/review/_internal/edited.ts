@@ -174,6 +174,22 @@ export function clipIdForScene(scene: string, clips: readonly PlanClip[]): strin
   return (exact ?? clips.find((c) => scene === c.id || scene.startsWith(`${c.id}-`)))?.id;
 }
 
+/**
+ * The saved clip whose scene an unsaved split part plays in until Save builds its own: its nearest saved ancestor. A split
+ * names its parts `<clip>~<operation>~<n>`, so a part split again from a saved part borrows that part's scene and element
+ * offsets, not the root fragment's. Null for a clip that is itself saved, or that was never split.
+ */
+export function borrowedScene(clip: Pick<PlanClip, 'id' | 'splitFrom'>, saved: readonly Pick<PlanClip, 'id'>[]): string | null {
+  const savedIds = new Set(saved.map((c) => c.id));
+  if (savedIds.has(clip.id) || clip.splitFrom === undefined) return null;
+  const parts = clip.id.split('~');
+  for (let end = parts.length - 2; end >= 1; end -= 2) {
+    const ancestor = parts.slice(0, end).join('~');
+    if (savedIds.has(ancestor)) return ancestor;
+  }
+  return clip.splitFrom;
+}
+
 /** One caption phrase's words with the unsaved word and caption edits applied. */
 export interface PhraseText {
   /** Its words now, in source seconds: what a caption edit names. */

@@ -2,6 +2,39 @@
 
 The Review tab: the reel playing in the Gate well, with lanes on a zoomable time axis under it.
 
+The newest saved reel uses `MediaEditor`, including single-source and code reels adapted in memory. Native saved
+versions use it directly. Older versions without a media model and footage awaiting its first version retain the
+legacy player. Frozen versions are never rewritten by opening Review.
+
+## Media editor
+
+`MediaEditor` shares the three-column `EditorWorkspace`: the collapsible Reel/Media rail, the frame and timeline,
+and the Clip/Edits/Comments panel. Surviving section spans sit in the Reel rail. The middle column can shrink, the
+transport wraps, and only the timeline pans and zooms.
+
+- `NativeLanes` draws Footage, Inserts and named audio owners. Track gain and Mute are saved and rendered. Solo is
+  preview only. Footage sound stays locked to its picture. Dragging an insert's sound to an owner detaches it.
+- `EditorialLanes` draws graphics, captions, words and pins. Words and captions edit inline. Broken attachments
+  retain Reattach markers and explicit repair choices in Clip settings. Graphic drag drafts update the preview
+  before release, and only the committed gesture enters the edit list.
+- `TimelineOverview` keeps the whole reel above Footage. Its draggable window and keyboard slider pan the same
+  time window used by every detailed lane without moving the playhead.
+- `ClipSettings` holds applicable Sound, Timing, Picture and Placement controls. Double-click or Enter on a bar
+  opens it. Right-click exposes settings, Mute, Split, Duplicate, Replace and Remove.
+- `MediaLibrary` is one path list with search and type filters. Preview uses the main frame. Plus adds at the
+  playhead, and dropping chooses a lane or owner. First use registers a project path and reuses identical content.
+  Failed rows expose Retry or Relink.
+  A failed frame preview offers Retry without closing the frame.
+- `EditorToolbar` and the keyboard handlers consume one registry. Settings rebinds every shortcut and persists
+  editing defaults, rail/label/timecode preferences and full theme/accent per viewer in browser storage.
+- `useMediaPlayback` uses Web Audio for the shared mix, including live unsaved envelopes, track controls and
+  seeking. The picture follows that clock and holds it while loading. Failed sound, picture or speech has Retry
+  on its clip and a frame note inside the affected span. A selected snip auditions a lead-in and excludes the
+  selected interval from both sound and picture before any edit is stored.
+
+Each meaningful component has DOM verification attributes and a `.verify.ts` companion. Browser tests run live
+invariants and deliberate invalid states, including the retained A6 harness.
+
 ## Public interface
 
 `index.ts` exports `Review({ reel, state, message?, version?, comments, section?, edits?, transcription?, actions? })`.
@@ -12,6 +45,11 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
   Review: the queue and past renders are in the top bar's render menu, and a finished render plays in Review's place.
 
 - `state` is `loading`, `error`, `none` (the reel has no version, so its footage plays alone) or `ready` (then `version` is set).
+
+## Legacy player
+
+These controls apply to older versions without a native media model and footage awaiting its first version.
+
 - The player stacks the footage `<video>` under the version page (`stage`'s `PagePlayer`). The video's clock drives the
   reel: playback follows the version's `pieces` in order and jumps over snipped stretches; without footage (a code-only
   reel) a clock drives it. Each animation frame the timeline time is set and the page is seeked to it.
@@ -36,8 +74,8 @@ The Review tab: the reel playing in the Gate well, with lanes on a zoomable time
 
 ## Does not handle
 
-Blade and reorder, word, clip and element edits and the hand-off are later tickets. Comments are made and
-shown elsewhere; Review only draws their pins. It never reads a version page itself; that is `stage`'s job.
+Recording, free layout and automatic ducking are outside this editor change. Saving and rendering belong to the
+server. Reading and interacting with an authored page belongs to `stage`. Network calls go through `web/src/api`.
 
 ## Dependencies
 

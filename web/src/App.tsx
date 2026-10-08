@@ -10,7 +10,7 @@ import { lastTab, rememberTab } from './lastTab.ts';
 import { NewReel, NewReelSide } from './NewReel.tsx';
 import { RenderMenu, RenderPlayer, VersionActions, outputFile, presetName } from './Renders.tsx';
 import type { RenderMenuProps } from './Renders.tsx';
-import { Review, ReviewSide, useEdits } from './review/index.ts';
+import { EditorIcon, EditorRail, EditorWorkspace, Review, ReviewSide, useEditorWorkspace, useEdits } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
@@ -69,6 +69,7 @@ function TopBar(props: {
   renders?: RenderMenuProps;
 }) {
   const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false, renders } = props;
+  const workspace = useEditorWorkspace();
   return (
     <header className="top">
       <div className="brand"><HexMark />KINOTTA</div>
@@ -97,6 +98,7 @@ function TopBar(props: {
           onSaved={onCopied}
         />
       )}
+      <button type="button" className="editor-icon-button editor-gear" aria-label="Settings" title="Settings" onClick={() => workspace.setSettingsOpen(true)}><EditorIcon name="settings" /></button>
     </header>
   );
 }
@@ -208,6 +210,7 @@ function SectionRail({ version, comments, selected, onSelect }: SectionRailProps
 }
 
 interface RailProps {
+  reviewMode: boolean;
   project: string;
   listing: ReelListing;
   current: string | undefined;
@@ -222,7 +225,7 @@ interface RailProps {
 function Rail(props: RailProps) {
   const { project, listing, current, sections, versions, onOpen, creating, onNewReel } = props;
   return (
-    <aside className="rail" aria-label="Project">
+    <EditorRail reviewMode={props.reviewMode}>
       <div>
         <div className="label">Reels in {project}/reels</div>
         {listing.reels.length > 0 ? (
@@ -251,7 +254,7 @@ function Rail(props: RailProps) {
           onOpen={versions.onOpenVersion}
         />
       )}
-    </aside>
+    </EditorRail>
   );
 }
 
@@ -317,12 +320,22 @@ function Main(props: MainProps) {
     }
     return (
       <Review
-        actions={shown && <VersionActions slug={reel.slug} entry={entries.find((e) => e.number === shown.number)} footage={shown.footage !== undefined} />}
+        actions={shown && (
+          <VersionActions
+            slug={reel.slug}
+            entry={entries.find((e) => e.number === shown.number)}
+            footage={shown.footage !== undefined}
+            pending={shown.isNewest && edits.list !== null && !edits.list.stale && edits.list.operations.length > 0 ? { count: edits.list.operations.length, next: shown.number + 1 } : undefined}
+            onSaved={onOpenVersion}
+          />
+        )}
         reel={reel}
         state={version.status}
         message={version.status === 'error' ? version.message : undefined}
         version={version.status === 'ready' ? version.version : undefined}
         comments={comments.comments}
+        onSaveComment={comments.save}
+        reveal={reveal}
         section={version.status === 'ready' && hasSections(version.version.sections) ? (version.version.sections.find((s) => s.id === sectionId) ?? null) : null}
         edits={edits}
         transcription={transcription}
@@ -404,6 +417,11 @@ function useVersion(slug: string | undefined, number: number | undefined, noVers
 }
 
 export function App() {
+  return <EditorWorkspace><Studio /></EditorWorkspace>;
+}
+
+function Studio() {
+  const workspace = useEditorWorkspace();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [selected, setSelected] = useState<string | undefined>();
   /** The version on screen. Set to the newest when a reel is opened; after that only the reviewer changes it. */
@@ -644,8 +662,9 @@ export function App() {
           },
         }}
       />
-      <div className="body">
+      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-rail-open={String(workspace.railOpen)}>
         <Rail
+          reviewMode={phase === 'Review' && !creating}
           project={load.project}
           listing={load.listing}
           current={reel?.slug}
@@ -691,9 +710,10 @@ export function App() {
             edits={edits}
             pieces={openVersion?.pieces}
             clips={openVersion?.clips}
-            editable={(openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined) && edits.list?.stale !== true) || awaitingV1}
+            editable={(openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined || openVersion.media !== undefined) && edits.list?.stale !== true) || awaitingV1}
             awaitingV1={awaitingV1}
             codeOnly={openVersion?.code !== undefined}
+            media={openVersion?.media !== undefined}
             nextVersion={(newest ?? 0) + 1}
             commentCount={comments.comments.length}
             onSaved={openVersionNumber}

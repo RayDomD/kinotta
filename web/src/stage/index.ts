@@ -1,5 +1,5 @@
 export { PagePlayer } from './_internal/PagePlayer.tsx';
-export type { CaptionMove, CaptionPhrase, CaptionShift, CaptionText, CaptionWord, ClipTiming, PagePlayerProps } from './_internal/PagePlayer.tsx';
+export type { CaptionMove, CaptionPhrase, CaptionPreview, CaptionShift, CaptionText, CaptionWord, ClipTiming, PagePlayerProps } from './_internal/PagePlayer.tsx';
 export { CLIP_ROOT } from './_internal/ElementLayer.tsx';
 export type { ElementChange, ElementEditing, ElementOffset } from './_internal/ElementLayer.tsx';
 export { PageStill } from './_internal/PageStill.tsx';

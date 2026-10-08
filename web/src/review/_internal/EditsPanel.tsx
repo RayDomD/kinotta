@@ -1,9 +1,9 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { applyOperations, describeOperation, pieceMap, toTimeline, toTimelineSpan } from '../../../../server/core/model.ts';
 import type { Operation, Piece, PlanClip } from '../../../../server/core/model.ts';
 import { formatTransport } from './clock.ts';
 import { editedList } from './edited.ts';
+import { useEditorWorkspace } from './EditorWorkspace.tsx';
 import type { EditsState } from './useEdits.ts';
 
 export interface ReviewSideProps {
@@ -16,6 +16,7 @@ export interface ReviewSideProps {
   editable: boolean;
   /** Built from code: only element moves are edits, and the cards name scenes, not clips. */
   codeOnly?: boolean;
+  media?: boolean;
   /** The reel has no version yet (its transcript is still coming in): edits collect, and Save waits for v1. */
   awaitingV1?: boolean;
   /** The number the next Save makes. */
@@ -28,10 +29,20 @@ export interface ReviewSideProps {
   comments: ReactNode;
 }
 
+function verifyAttrs(tab: string, list: EditsState['list']) {
+  return { 'data-verify-unit': 'EditsPanel', 'data-verify-tab': tab, 'data-verify-count': list?.operations.length ?? 0, 'data-verify-base': list?.base ?? 0, 'data-verify-replayed-from': list?.replayedFrom ?? '' };
+}
+
 /** Where an operation landed on the timeline as it was when the operation was made, in the transport's reading. */
 function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number, clips: readonly PlanClip[] | undefined): string {
-  const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   const op = operations[index]!;
+  if (op.kind === 'track-add' || op.kind === 'track-change' || op.kind === 'track-move' || op.kind === 'track-remove') return 'audio track';
+  if (op.kind === 'placement-detach') return 'insert sound';
+  if (op.kind === 'placement-snip') return `${formatTransport(op.from)} to ${formatTransport(op.to)}`;
+  if (op.kind === 'clip-attachment') return `placement ${op.placement}`;
+  if (op.kind === 'clip-split') return `clip ${op.clip}`;
+  if (op.kind === 'placement-add' || op.kind === 'placement-change' || op.kind === 'placement-remove' || op.kind === 'placement-move' || op.kind === 'placement-layer' || op.kind === 'placement-replace' || op.kind === 'placement-split') return 'media placement';
+  const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   if (op.kind === 'caption-position') return 'all captions';
   if (op.kind === 'clip-trim') return formatTransport(toTimeline(before, op.in) ?? 0);
   if (op.kind === 'clip-slide' || op.kind === 'element-offset') {
@@ -53,7 +64,7 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   return formatTransport(at ?? 0);
 }
 
-function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1 = false, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
+function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = false, awaitingV1 = false, nextVersion, onSaved }: Omit<ReviewSideProps, 'commentCount' | 'comments'>) {
   const operations = edits?.list?.operations ?? [];
   const stale = edits?.list?.stale === true;
   const flagged = edits?.list?.flagged ?? {};
@@ -70,6 +81,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1
   return (
     <>
       <div className="rv-panelbody">
+        {edits?.list?.replayedFrom !== undefined && <p className="meta" role="status" data-verify-replay-notice>{`Edits carried from v${edits.list.replayedFrom} to v${edits.list.base}. Undo and Redo restarted for the new version.`}</p>}
         {!editable && <p className="meta">{stale ? 'These edits were made on an older version. Discard them to start again.' : 'Open the newest version to edit it.'}</p>}
         {handedOff && (
           <div className="rv-handoff" role="status">
@@ -77,8 +89,9 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1
             <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.cancelHandoff()}>Cancel hand-off</button>
           </div>
         )}
-        {editable && operations.length === 0 && codeOnly && <p className="meta rv-hint">No edits yet. Click an element in the frame and drag it to move it, or drag its corner to scale it. The arrow keys nudge it. This reel is built from code, so its timing is changed by your agent.</p>}
-        {editable && operations.length === 0 && !codeOnly && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it. Click an element in the frame to move it; the arrow keys nudge it.</p>}
+        {editable && operations.length === 0 && media && <p className="meta rv-hint">Import media from the library, then adjust each placement's range, timing and sound. Changes play in preview. Save preserves them in a new version.</p>}
+        {editable && operations.length === 0 && codeOnly && !media && <p className="meta rv-hint">No edits yet. Click an element in the frame and drag it to move it, or drag its corner to scale it. The arrow keys nudge it. This reel is built from code, so its timing is changed by your agent.</p>}
+        {editable && operations.length === 0 && !codeOnly && !media && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it. Click an element in the frame to move it; the arrow keys nudge it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
           <div className="rv-undo">
             <button type="button" disabled={!idle || edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>
@@ -123,7 +136,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1
             </button>
             <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.discard()}>Discard</button>
           </div>
-          <div className="hint">{awaitingV1 ? 'Save is on once the transcript is done and v1 is built. Your edits are kept and apply to v1.' : codeOnly ? `Writes the moves into kinotta-edits.css beside the page and saves v${nextVersion}.` : `Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
+          <div className="hint">{awaitingV1 ? 'Save is on once the transcript is done and v1 is built. Your edits are kept and apply to v1.' : media ? `Preserves the media and edits in v${nextVersion}.` : codeOnly ? `Writes the moves into kinotta-edits.css beside the page and saves v${nextVersion}.` : `Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
         </div>
       )}
     </>
@@ -132,10 +145,10 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, awaitingV1
 
 /** The right column of the Review tab: Edits (the edit list, Save and Discard) and Comments. */
 export function ReviewSide(props: ReviewSideProps) {
-  const [tab, setTab] = useState<'edits' | 'comments'>('edits');
+  const { panelTab: tab, setPanelTab: setTab, setClipHost, setPinHost } = useEditorWorkspace();
   const count = props.edits?.list?.operations.length ?? 0;
   return (
-    <div className="rv-side">
+    <div className="rv-side" {...verifyAttrs(tab, props.edits?.list ?? null)}>
       <div className="rv-tabs" role="tablist" aria-label="Edits and comments">
         <button type="button" role="tab" aria-selected={tab === 'edits'} onClick={() => setTab('edits')}>
           Edits{count > 0 && <span className="dot">{count}</span>}
@@ -143,8 +156,12 @@ export function ReviewSide(props: ReviewSideProps) {
         <button type="button" role="tab" aria-selected={tab === 'comments'} onClick={() => setTab('comments')}>
           Comments{props.commentCount > 0 && <span className="dot">{props.commentCount}</span>}
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'clip'} onClick={() => setTab('clip')}>Clip</button>
       </div>
-      {tab === 'edits' ? <EditsTab {...props} /> : props.comments}
+      {tab === 'edits' && <EditsTab {...props} />}
+      <div className="editor-pin-host" ref={setPinHost} hidden={tab !== 'comments'} />
+      {tab === 'comments' && props.comments}
+      <div className="editor-clip-host" ref={setClipHost} hidden={tab !== 'clip'} />
     </div>
   );
 }

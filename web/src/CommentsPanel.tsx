@@ -214,7 +214,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
     setUndo(null);
     try {
       await state.save({
-        pin: pin.kind === 'word' ? { kind: 'word', shot: pin.shot, time: pin.time, word: pin.word } : { shot: pin.shot, x: pin.x, y: pin.y, element: pin.element },
+        pin: pin.kind === 'word' ? { kind: 'word', placement: pin.placement, shot: pin.shot, time: pin.time, word: pin.word } : { kind: 'frame', placement: pin.placement, time: pin.time, shot: pin.shot, x: pin.x, y: pin.y, element: pin.element },
         text,
       });
     } catch (err) {

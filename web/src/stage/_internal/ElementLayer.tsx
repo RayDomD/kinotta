@@ -209,6 +209,8 @@ export function ElementLayer({ frame, loaded, scale, time, editing }: ElementLay
     if (e.button !== 0 || !editable) return;
     // No text selection or native drag starts under a drag of ours.
     e.preventDefault();
+    // Which also keeps focus where it was: a field typed in before would take the arrow keys meant for this element.
+    if (document.activeElement instanceof HTMLElement && FIELD_TAGS.has(document.activeElement.tagName)) document.activeElement.blur();
     if ((e.target as HTMLElement).dataset.grip !== undefined && selected) {
       begin('scale', selected, e);
       return;

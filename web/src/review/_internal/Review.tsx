@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Operation } from '../../../../server/core/model.ts';
-import { footageUrl, versionPageUrl } from '../../api/index.ts';
-import type { Comment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
+import { fetchMediaModel, footageUrl, versionPageUrl } from '../../api/index.ts';
+import type { Comment, MediaEditingModel, NewComment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
 import type { CaptionMove, CaptionPhrase, CaptionText, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
@@ -21,6 +21,7 @@ import { FRAME_RATE, centerWindow, followWindow, timelineLength, wholeVideo, zoo
 import type { Piece, TimeWindow } from './timeline.ts';
 import { laneProgress } from './transcribing.ts';
 import { usePlayback } from './usePlayback.ts';
+import { MediaEditor } from './MediaEditor.tsx';
 import '../review.css';
 
 /** The lanes open on this many seconds of the reel (all of it when it is shorter). */
@@ -48,6 +49,8 @@ export interface ReviewProps {
   message?: string;
   version?: Version;
   comments: Comment[];
+  onSaveComment?(input: NewComment): Promise<void>;
+  reveal?: { commentId: string; seq: number } | null;
   /** On a reel with several sections: the one the rail has selected. Choosing another moves the lanes to it. */
   section?: Section | null;
   /** The reel's edit list and the changes to it. Absent: the reel plays but cannot be edited. */
@@ -488,8 +491,22 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 /** The Review tab: the reel in the Gate well, playing, with the lanes under it. */
 export function Review(props: ReviewProps) {
   const { state, message, reel } = props;
+  const [mediaModel, setMediaModel] = useState<MediaEditingModel | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [mediaAttempt, setMediaAttempt] = useState(0);
+  const version = props.version;
+  const adaptedVersion = useMemo(() => mediaModel && version ? { ...version, media: mediaModel.media, duration: mediaModel.duration, clips: mediaModel.clips ?? version.clips, mediaSections: mediaModel.sections, captions: mediaModel.captions === false ? undefined : mediaModel.captions ?? version.captions } : null, [version, mediaModel]);
+  useEffect(() => {
+    setMediaModel(null); setMediaError(null);
+    if (state !== 'ready' || !version?.isNewest || version.media) return;
+    let live = true;
+    void fetchMediaModel(reel.slug).then((model) => { if (live) setMediaModel(model); }, (error: unknown) => { if (live) setMediaError(error instanceof Error ? error.message : 'The Review editor could not be loaded.'); });
+    return () => { live = false; };
+  }, [reel.slug, version?.number, version?.media, version?.isNewest, state, mediaAttempt]);
   if (state === 'loading') return <main className="main" aria-label="Review"><div className="state">Loading…</div></main>;
   if (state === 'error') return <main className="main" aria-label="Review"><Empty>{`Could not read the reel. ${message ?? ''}`.trim()}</Empty></main>;
-  // A new reel or version starts from the top, with its own window and its own page.
-  return <Playing key={`${reel.slug}/${props.version?.number ?? 'footage'}`} {...props} />;
+  if (version?.media) return <MediaEditor key={`${reel.slug}/${version.number}`} {...props} />;
+  if (mediaModel && adaptedVersion) return <MediaEditor key={`${reel.slug}/${adaptedVersion.number}`} {...props} sourceRoot={mediaModel.sourceRoot} legacySources={mediaModel.legacySources} version={adaptedVersion} />;
+  if (version?.isNewest) return <main className="main" aria-label="Review">{mediaError ? <><p role="alert">{mediaError}</p><button type="button" className="rv-tool" onClick={() => setMediaAttempt((attempt) => attempt + 1)}>Retry Review</button></> : <div className="state">Preparing Review…</div>}</main>;
+  return <Playing key={`${reel.slug}/${version?.number ?? 'footage'}`} {...props} />;
 }

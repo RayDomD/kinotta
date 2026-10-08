@@ -4,6 +4,9 @@ import { ElementLayer } from './ElementLayer.tsx';
 import type { ElementEditing } from './ElementLayer.tsx';
 import { useSeekReporter } from './issues.ts';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekNow } from './page.ts';
+import { hitTest } from './dom.ts';
+import { PinMark } from './PinMark.tsx';
+import type { FramePick, FramePin } from './PinFrame.tsx';
 
 /** One caption phrase as the page draws it: a `[data-caption]` scene. Times are the reel's. */
 export interface CaptionPhrase {
@@ -19,6 +22,18 @@ export interface CaptionWord {
   text: string;
   start: number;
   end: number;
+  sourceStart?: number;
+}
+
+/** Native captions rebuilt from the pending media model, including newly duplicated speech. */
+export interface CaptionPreview {
+  start: number;
+  end: number;
+  placement: string;
+  sourceStart: number;
+  words: readonly CaptionWord[];
+  look: string;
+  color: string;
 }
 
 /** The caption on show retyped: its index among the page's caption scenes and the whole phrase's new text. */
@@ -77,6 +92,10 @@ export interface PagePlayerProps {
   clipTiming?: ClipTiming | null;
   /** Words shown in place of a caption's built ones, by index among the page's caption scenes; null for one as built. */
   captionWords?: readonly (readonly CaptionWord[] | null)[] | null;
+  captionPreview?: readonly CaptionPreview[];
+  onFramePick?(pick: FramePick): void;
+  pins?: readonly FramePin[];
+  draftPin?: FramePick | null;
   /** A double-click (or Enter) on the caption handle opens its text to retype; this reports the new text. Absent: no text editing. */
   onCaptionText?(edit: CaptionText): void | Promise<unknown>;
 }
@@ -124,6 +143,36 @@ const WORDS_EDITED = 'wordsEdited';
 /** Seconds the last word stays marked after it ends: the engine's own hold (`NOW_HOLD` in motion.js). */
 const NOW_HOLD = 0.25;
 
+const savedCaptions = new WeakMap<Document, HTMLElement[]>();
+
+function applyCaptionPreview(frame: HTMLIFrameElement | null, preview: PagePlayerProps['captionPreview']): void {
+  const doc = frame?.contentDocument;
+  if (!doc) return;
+  if (preview === undefined) {
+    const saved = savedCaptions.get(doc);
+    if (saved) { captionScenes(frame).forEach((scene) => scene.remove()); doc.body.append(...saved); savedCaptions.delete(doc); }
+    return;
+  }
+  if (!savedCaptions.has(doc)) savedCaptions.set(doc, captionScenes(frame));
+  captionScenes(frame).forEach((scene) => scene.remove());
+  preview.forEach((phrase, i) => {
+    const scene = doc.createElement('section');
+    Object.assign(scene.dataset, { scene: `cap-preview-${i + 1}`, caption: '', placement: phrase.placement, sourceStart: String(phrase.sourceStart), start: String(phrase.start), duration: String(phrase.end - phrase.start), wordsEdited: '' });
+    const caption = doc.createElement('div');
+    caption.className = 'caption'; caption.dataset.el = 'caption'; caption.dataset.look = phrase.look;
+    caption.style.setProperty('--cap-color', phrase.color);
+    const line = doc.createElement('span'); line.className = 'ph';
+    phrase.words.forEach((word, n) => {
+      const span = doc.createElement('span');
+      Object.assign(span.dataset, { t: String(word.start), e: String(word.end), sourceStart: String(word.sourceStart) });
+      span.textContent = word.text;
+      if (n > 0) line.append(doc.createTextNode(' '));
+      line.append(span);
+    });
+    caption.append(line); scene.append(caption); doc.body.append(scene);
+  });
+}
+
 /** Puts the given words in each edited caption and the built ones back in the rest. An emptied caption is hidden. */
 function applyCaptionWords(frame: HTMLIFrameElement | null, captionWords: PagePlayerProps['captionWords']): void {
   const doc = frame?.contentDocument;
@@ -160,8 +209,9 @@ function applyCaptionWords(frame: HTMLIFrameElement | null, captionWords: PagePl
  * Marks the words of each edited caption said and now, as the engine does for built ones: the engine keeps the spans
  * it found when the page loaded, so swapped-in spans are marked here after each seek.
  */
-function markCaptionWords(frame: HTMLIFrameElement | null, time: number): void {
+function markCaptionWords(frame: HTMLIFrameElement | null, time: number, preview = false): void {
   for (const scene of frame?.contentDocument?.querySelectorAll<HTMLElement>('[data-caption][data-words-edited]') ?? []) {
+    if (preview) scene.classList.toggle('active', time >= Number(scene.dataset.start) && time < Number(scene.dataset.start) + Number(scene.dataset.duration));
     const words = [...scene.querySelectorAll<HTMLElement>('[data-t]')];
     const said = words.filter((w) => time >= Number(w.dataset.t));
     const now = said[said.length - 1];
@@ -186,10 +236,11 @@ function readPhrases(doc: Document | null): CaptionPhrase[] {
  * The version page playing: a same-origin frame at 1920x1080 scaled to its box, seeked to `time` each time that
  * changes. Not interactive. The page's background is transparent, so footage stacked under the box shows through.
  */
-export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, onCaptionText }: PagePlayerProps) {
+export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, captionPreview, onCaptionText, onFramePick, pins = [], draftPin }: PagePlayerProps) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
+  const previewed = useRef<PagePlayerProps['captionPreview']>(undefined);
   const [scale, setScale] = useState(0);
   const report = useSeekReporter(pageUrl);
   const [handle, setHandle] = useState<Handle | null>(null);
@@ -217,16 +268,17 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
   useEffect(() => {
     if (!loaded) return;
     applyClipTiming(frame.current, clipTiming);
-    applyCaptionWords(frame.current, captionWords);
+    if (captionPreview !== previewed.current) { applyCaptionPreview(frame.current, captionPreview); previewed.current = captionPreview; }
+    if (captionPreview === undefined) applyCaptionWords(frame.current, captionWords);
     seekNow(frame.current?.contentWindow ?? null, time).then(
       () => {
-        markCaptionWords(frame.current, time);
+        markCaptionWords(frame.current, time, captionPreview !== undefined);
         report(null);
         measure();
       },
       (err: unknown) => report(err),
     );
-  }, [loaded, time, clipTiming, captionWords]);
+  }, [loaded, time, clipTiming, captionWords, captionPreview]);
 
   // The page's captions take the previewed positions (CSS translate, as the build writes them); a drag in progress adds to them.
   useEffect(() => {
@@ -292,9 +344,19 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
         style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}
         onLoad={() => {
           setLoaded(true);
+          previewed.current = undefined;
           onPhrases?.(readPhrases(frame.current?.contentDocument ?? null));
         }}
       />
+      {pins.map((pin, i) => <PinMark key={pin.id} {...pin} stack={i} />)}
+      {draftPin && <span className="hexpin draft" role="img" aria-label="Draft pin" style={{ left: `${draftPin.x * 100}%`, top: `${draftPin.y * 100}%` }}><svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="3" /></svg></span>}
+      {onFramePick && loaded && <button type="button" aria-label="Choose pin position" style={{ position: 'absolute', inset: 0, zIndex: 4, background: 'transparent', border: 0, padding: 0, cursor: 'crosshair', pointerEvents: 'auto' }} onClick={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const x = event.detail === 0 ? 0.5 : Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+        const y = event.detail === 0 ? 0.5 : Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+        const doc = frame.current?.contentDocument;
+        onFramePick({ x, y, element: doc ? hitTest(doc, x * PAGE_WIDTH, y * PAGE_HEIGHT)?.name ?? null : null });
+      }} />}
       {elements && <ElementLayer frame={frame} loaded={loaded} scale={scale} time={time} editing={elements} />}
       {handle && scale > 0 && retyping === null && (
         <div
