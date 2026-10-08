@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dropIndex } from '../../web/src/review/_internal/Lanes.tsx';
-import { captionShifts, clipIdForScene, clipOffsets, codeClips, editedClips, phraseTexts, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
+import { captionShifts, clipIdForScene, clipOffsets, borrowedScene, codeClips, editedClips, phraseTexts, remap, sourceStretches } from '../../web/src/review/_internal/edited.ts';
 
 const SAVED = [{ in: 0, out: 12 }];
 /** Seconds 3 to 5 snipped. */
@@ -207,5 +207,18 @@ describe('phraseTexts', () => {
 
   it('gives an emptied phrase no words', () => {
     expect(phraseTexts(spans, saved, saved.slice(2), SAVED)[0]).toEqual({ words: [], page: [] });
+  });
+});
+
+describe('borrowedScene: the saved scene an unsaved split part plays in until Save', () => {
+  const saved = [{ id: '01', in: 0, out: 1 }, { id: '01~a~2', in: 2, out: 3, splitFrom: '01' }];
+  it('uses the nearest saved ancestor, so a part split from a saved part keeps the scene and offsets of that part', () => {
+    expect(borrowedScene({ id: '01~a~2~b~2', splitFrom: '01' }, saved)).toBe('01~a~2');
+    expect(borrowedScene({ id: '01~c~3', splitFrom: '01' }, saved)).toBe('01');
+  });
+  it('falls back to the root fragment for an id it cannot trace, and lends nothing to a saved clip', () => {
+    expect(borrowedScene({ id: 'odd', splitFrom: '01' }, saved)).toBe('01');
+    expect(borrowedScene({ id: '01~a~2', splitFrom: '01' }, saved)).toBeNull();
+    expect(borrowedScene({ id: '02' }, saved)).toBeNull();
   });
 });

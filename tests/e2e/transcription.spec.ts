@@ -1,3 +1,5 @@
+import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -33,7 +35,7 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   await expect(progress).toHaveAttribute('aria-valuenow', '33', { timeout: BUILD_WAIT_MS });
   await expect(progress).toContainText(/Transcribing with faster-whisper · about \d+ s left · you can cut and snip now/);
   await expect(versions(page)).toHaveCount(0);
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
   // Snip a stretch of the footage while the words are still coming.
   await review(page).getByRole('toolbar', { name: 'Edit tools' }).getByRole('button', { name: 'Snip S' }).click();
@@ -47,24 +49,25 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   await page.mouse.up();
   await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
-  await expect(timecode(page)).toHaveText(/\/ 00:0[89]\.\d\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
   // Save waits for v1.
   await expect(page.getByRole('button', { name: /^Save(?! as)/ })).toBeDisabled();
 
   // The words arrive: v1 is built, the lane gives way to the words, and the snip is still in the list and on the timeline.
   writeFileSync(join(readFileSync(PROJECT_FILE, 'utf8'), '.release-transcript'), '');
+  await revealReelRail(page);
   await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect(versions(page)).toContainText('Saved by you');
   await expect(review(page).getByRole('progressbar', { name: 'Transcription' })).toHaveCount(0);
-  await expect(review(page).locator('.rv-phrase')).toHaveText('hello there');
-  await expect(review(page).locator('.rv-words .rv-w')).toHaveCount(2);
+  await expect(review(page).locator('.editorial-lanes .native-lane').nth(1).locator('.editorial-text-bar > button')).toHaveText('hello there');
+  await expect(review(page).locator('.editorial-word')).toHaveCount(2);
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('list', { name: 'Edits' })).not.toContainText('No longer applies');
-  await expect(timecode(page)).toHaveText(/\/ 00:0[89]\.\d\d$/);
-  await expect(review(page).locator('.meta').first()).toContainText('unsaved edits');
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
+  await expect(page.getByRole('button', { name: /^Save as v2/ })).toBeEnabled();
 
   // And it saves: v2 is v1 with the snip.
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(timecode(page)).toHaveText(/\/ 00:0[89]\.\d\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
 });

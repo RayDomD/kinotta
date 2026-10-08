@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { revealReelRail } from '../helpers/review-rail.ts';
 
 // Building v1 runs the real build, so the first wait after a drop is longer than the default.
 const BUILD_WAIT_MS = 30_000;
@@ -19,6 +20,7 @@ test('a video dropped on New reel is copied to footage, named like a picked one,
   const name = page.getByLabel('Reel name');
   const copies = page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /footage\/dropped-clip/ });
   await page.goto('/');
+  await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();
 
   await page.getByLabel('Drop a video').setInputFiles(DROPPED_VIDEO);
@@ -30,6 +32,7 @@ test('a video dropped on New reel is copied to footage, named like a picked one,
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Launch clip' })).toBeVisible();
   await expect(page.getByRole('main', { name: 'Review' }).locator('video')).toBeVisible();
 
+  await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();
   await expect(copies).toHaveCount(1);
 
@@ -38,6 +41,7 @@ test('a video dropped on New reel is copied to footage, named like a picked one,
   await page.getByRole('button', { name: 'Start reel' }).click();
   await expect(page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'dropped clip' })).toHaveCount(1, { timeout: BUILD_WAIT_MS });
 
+  await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();
   await expect(copies).toHaveCount(1);
 });

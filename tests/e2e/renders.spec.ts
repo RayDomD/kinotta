@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
+import { revealReelRail } from '../helpers/review-rail.ts';
 
 /** Two Drafts of the showreel, one after the other. */
 const RENDER_WAIT_MS = 150_000;
@@ -13,6 +14,7 @@ const menu = (page: Page): Locator => page.getByRole('dialog', { name: 'Renders'
 const queue = (page: Page): Locator => menu(page).getByRole('list', { name: 'Queue' });
 
 async function renderDraft(page: Page, version: number): Promise<void> {
+  await revealReelRail(page);
   await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: new RegExp(`^v${version}`) }).click();
   await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: `Render v${version}` }).click();
   const form = page.getByRole('dialog', { name: `Render v${version}` });
@@ -91,6 +93,7 @@ test('a reel switch does not show another reel’s settings or past renders when
   await expect(menu(page)).toContainText('product-showreel-v2-draft.mp4');
   await page.keyboard.press('Escape');
 
+  await revealReelRail(page);
   await reels.getByRole('button', { name: /B-roll cutdown/ }).click();
   await menuButton(page).click();
   await expect(menu(page).getByRole('alert')).toContainText('Render list unavailable');

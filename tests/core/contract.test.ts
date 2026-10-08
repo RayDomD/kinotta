@@ -30,6 +30,24 @@ describe('contract issues', () => {
     expect((await openProject(copyFixture('footage-project')).readVersion('founder-talk', 1)).issues).toEqual([]);
   });
 
+  it('reports a page that plays its own sound outside the shared mix (AM42), and allows muted video', async () => {
+    const scene = SCENE('one', 0, 10);
+    const sounding = [
+      ['<audio src="hit.mp3"></audio>', 'an audio element'],
+      ['<video src="clip.mp4" autoplay></video>', 'an unmuted video element'],
+      ['<script>new Audio("hit.mp3").play();</script>', 'new Audio'],
+      ['<script>const ctx = new (window.AudioContext || window.webkitAudioContext)();</script>', 'AudioContext'],
+      ['<script>speechSynthesis.speak(new SpeechSynthesisUtterance("hi"));</script>', 'speechSynthesis'],
+    ] as const;
+    for (const [markup, named] of sounding) {
+      const issues = (await writeVersion([SHOT('01', 0)], PAGE(scene + markup)).readVersion('r', 1)).issues;
+      expect(issues, markup).toEqual([{ code: 'page-sound', message: expect.stringContaining(named) }]);
+      expect(issues[0]!.message).toContain('shared mix');
+    }
+    const quiet = PAGE(`${scene}<video src="clip.mp4" muted autoplay></video><script>tl.play();</script>`);
+    expect((await writeVersion([SHOT('01', 0)], quiet).readVersion('r', 1)).issues).toEqual([]);
+  });
+
   it('lists each planted problem of the broken sample in plain words, and still reads the shots', async () => {
     const version = await openProject(copyFixture('broken-project')).readVersion('launch-teaser', 1);
 

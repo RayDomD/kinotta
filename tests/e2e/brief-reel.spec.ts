@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { revealReelRail } from '../helpers/review-rail.ts';
 import type { Page } from '@playwright/test';
 
 // Starts reels in the footage sample with a fake transcriber (playwright.config.ts), so this has its own server and runs in order.
@@ -85,6 +86,7 @@ test('a reel reopens in the tab last used for it', async ({ page }) => {
   await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
 
   // Another reel has no tab remembered, so it opens in Storyboard.
+  await revealReelRail(page);
   await reelsRail(page).getByRole('button', { name: /^Founder talk/ }).click();
   await expect(phaseTab(page, 'Storyboard')).toHaveAttribute('aria-current', 'page');
 
@@ -93,6 +95,8 @@ test('a reel reopens in the tab last used for it', async ({ page }) => {
 
   // And after a reload, which opens the newest reel.
   await page.reload();
+  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
+  await revealReelRail(page);
   await expect(reelsRail(page).getByRole('button', { name: 'Bare talk' })).toHaveAttribute('aria-current', 'true');
   await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
 });

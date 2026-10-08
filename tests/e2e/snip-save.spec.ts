@@ -1,3 +1,5 @@
+import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,7 +19,8 @@ const NOT_MOVED = /^(none|0px)$/;
 
 // The footage sample with a fake transcriber, its own server (playwright.config.ts).
 test.use({ baseURL: 'http://localhost:4385' });
-test.describe.configure({ mode: 'serial' });
+// Each check creates a differently named reel. A failure must not hide the other editing regressions.
+test.describe.configure({ mode: 'default' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');
@@ -31,14 +34,15 @@ async function startReel(page: Page, title: string): Promise<void> {
   await page.getByRole('button', { name: 'Start reel' }).click();
   await expect(review(page).getByRole('heading', { name: title })).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The reel opens at once; v1 follows when the (fake) transcription and the build are done.
+  await revealReelRail(page);
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
 }
 
 /** With the Snip tool on, drags along the lanes between two fractions of the reel's width and leaves a stretch selected. */
 async function selectStretch(page: Page): Promise<void> {
-  await review(page).getByRole('toolbar', { name: 'Edit tools' }).getByRole('button', { name: 'Snip S' }).click();
-  await review(page).locator('.axis').scrollIntoViewIfNeeded();
-  const plane = (await review(page).locator('.rv-plane').boundingBox())!;
+  await review(page).getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Snip', exact: true }).click();
+  await review(page).locator('[data-role="main"] .native-lane-bars').scrollIntoViewIfNeeded();
+  const plane = (await review(page).locator('[data-role="main"] .native-lane-bars').boundingBox())!;
   const y = plane.y + plane.height - AXIS_INSET;
   await page.mouse.move(plane.x + plane.width * DRAG_FROM, y);
   await page.mouse.down();
@@ -49,21 +53,21 @@ async function selectStretch(page: Page): Promise<void> {
 
 test('snip a stretch, see it in the Edits panel, and Save it as a new version', async ({ page }) => {
   await startReel(page, 'Snip talk');
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
   await expect(versions(page)).toContainText('Saved by you');
-  await expect(review(page).getByRole('toolbar', { name: 'Edit tools' })).toBeVisible();
+  await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
 
   await selectStretch(page);
-  await expect(review(page).getByRole('button', { name: /^Snip \d\.\ds$/ })).toBeVisible();
-  await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
+  await expect(review(page).getByRole('button', { name: 'Apply snip', exact: true })).toBeVisible();
+  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
 
   // The operation is listed, the timeline closes over it and says how long it was, and the reel is shorter.
   const edits = page.getByRole('list', { name: 'Edits' });
   await expect(edits.getByRole('listitem')).toHaveCount(1);
   await expect(edits).toContainText(/Snipped 3\.\ds \(00:0[23]\.\d\d to 00:0[56]\.\d\d\)/);
-  await expect(review(page).locator('.rv-joint span')).toHaveText(/^SNIP −3\.\ds$/);
-  await expect(timecode(page)).toHaveText(/\/ 00:0[89]\.\d\d$/);
-  await expect(review(page).locator('.meta').first()).toContainText('unsaved edits');
+  await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
+  await expect(page.getByRole('button', { name: /^Save as v2/ })).toBeEnabled();
   // The playhead sits where the snip was, and the footage is already past the snipped stretch.
   await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(4.9);
 
@@ -77,10 +81,10 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toContainText('Saved by you');
-  await expect(review(page).locator('.meta').first()).toContainText('v2');
-  await expect(review(page).locator('.meta').first()).not.toContainText('unsaved edits');
-  await expect(timecode(page)).toHaveText(/\/ 00:0[89]\.\d\d$/);
-  await expect(page.getByText('No edits yet')).toBeVisible();
+  await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('button', { name: /^Save as v3/ })).toHaveCount(0);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
+  await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '0');
   const shots = JSON.parse(readFileSync(join(reelDir, 'v2', 'shots.json'), 'utf8'));
   expect(shots.builtBy).toBe('you');
   expect(existsSync(join(reelDir, 'v2', 'edits.json'))).toBe(true);
@@ -121,14 +125,14 @@ test('a selected stretch previews the snip: the picture is past it, and playing 
 test('Discard drops the edit list and the reel plays whole again', async ({ page }) => {
   await startReel(page, 'Discard talk');
   await selectStretch(page);
-  await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
+  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
-  await expect(timecode(page)).toHaveText(/\/ 00:0[89]\.\d\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
 
   await page.getByRole('button', { name: 'Discard', exact: true }).click();
 
-  await expect(page.getByText('No edits yet')).toBeVisible();
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '0');
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   expect(existsSync(join(project, 'reels', 'discard-talk', 'edit-list.json'))).toBe(false);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveCount(0);
@@ -146,22 +150,38 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/, { timeout: BUILD_WAIT_MS });
-  await expect(review(page).getByRole('toolbar', { name: 'Edit tools' })).toBeVisible();
+  await revealReelRail(page);
+  await expect.poll(() => reviewClockText(page), { timeout: BUILD_WAIT_MS }).toMatch(/\/ 00:12\.0\d$/);
+  await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
 
   await selectStretch(page);
-  await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
+  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
+  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await expect(page.getByRole('alert').first()).toContainText('broken footage attachment');
+  const broken = review(page).locator('[data-verify-broken-graphic="true"]');
+  const brokenIds = await broken.evaluateAll((bars) => bars.map((bar) => bar.getAttribute('data-graphic')!));
+  expect(brokenIds).toEqual(['01', '02']);
+  // AM30 requires a deliberate repair when a snip interrupts a followed graphic.
+  for (const id of brokenIds) {
+    await review(page).locator(`[data-graphic="${id}"]`).dblclick();
+    const graphicSettings = page.getByRole('region', { name: 'Graphics attachments' });
+    await graphicSettings.getByRole('button', { name: /^Trim to source/ }).first().click();
+  }
+  await expect(broken).toHaveCount(0);
+  await page.getByRole('tab', { name: /^Edits/ }).click();
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
 
   // v2 holds all three: the one whose moment was snipped says so, the others sit at their new times (the word 3 s earlier).
   await page.getByRole('tab', { name: /^Comments/ }).click();
   const cards = page.locator('.clist .c');
-  // The column lists the open section's (01) comments.
+  // The first section retains its surviving pin. The removed moment sits at the join in the following section.
+  await expect(cards).toHaveCount(1);
+  await expect(cards.filter({ hasText: 'Slide the laptops in faster.' }).locator('.carry-state')).toHaveCount(0);
+  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /The sync problem/ }).click();
   await expect(cards).toHaveCount(2);
   await expect(cards.filter({ hasText: 'Bigger count.' }).locator('.carry-state')).toHaveText('Moment removed');
-  await expect(cards.filter({ hasText: 'Slide the laptops in faster.' }).locator('.carry-state')).toHaveCount(0);
   const carried = (await (await page.request.get('/api/reels/founder-talk/versions/2/comments')).json()) as { comments: Array<{ text: string; state?: string; pin: { time: number } }> };
   expect(carried.comments).toHaveLength(3);
   const word = carried.comments.find((c) => c.text === 'Land this word harder.')!;
@@ -169,14 +189,14 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   expect(word.state).toBeUndefined();
 
   const project = readFileSync(PROJECT_FILE, 'utf8');
-  expect(JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')).pieces).toHaveLength(2);
+  expect(JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')).media.sequence).toHaveLength(2);
   expect(existsSync(join(project, 'reels', 'founder-talk', 'plan.json'))).toBe(false);
 });
 
 /** Snips the stretch the lanes' drag selects. */
 async function snipOnce(page: Page): Promise<void> {
   await selectStretch(page);
-  await review(page).getByRole('button', { name: /^Snip \d\.\ds$/ }).click();
+  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
 }
 
 test('undo and redo step the edit list, one card can be removed, and a reload brings it all back', async ({ page }) => {
@@ -184,19 +204,24 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
   await snipOnce(page);
   await expect(cards).toHaveCount(1);
-  const oneSnip = (await timecode(page).textContent())!.split('/')[1]!.trim();
+  const oneSnip = (await reviewClockText(page))!.split('/')[1]!.trim();
   await snipOnce(page);
   await expect(cards).toHaveCount(2);
-  await expect(timecode(page)).not.toHaveText(new RegExp(`/ ${oneSnip.replace('.', '\.')}$`));
-  const twoSnips = (await timecode(page).textContent())!.split('/')[1]!.trim();
+  await expect.poll(async () => (await reviewClockText(page)).split('/')[1]!.trim()).not.toBe(oneSnip);
+  const twoSnips = (await reviewClockText(page))!.split('/')[1]!.trim();
 
-  // Ctrl+Z restores the list and the reel's length, Ctrl+Shift+Z puts the snip back.
+  // Ctrl+Z restores the list and the reel's length, Ctrl+Y puts the snip back.
+  await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(cards).toHaveCount(1);
-  await expect(timecode(page)).toHaveText(new RegExp(`/ ${oneSnip.replace('.', '\.')}$`));
+  await expect.poll(async () => (await reviewClockText(page)).split('/')[1]!.trim()).toBe(oneSnip);
+  // An unbound shifted Undo key must not fall through to another Undo.
   await page.keyboard.press('Control+Shift+z');
+  await expect(cards).toHaveCount(1);
+  await page.keyboard.press('Control+y');
   await expect(cards).toHaveCount(2);
-  await expect(timecode(page)).toHaveText(new RegExp(`/ ${twoSnips.replace('.', '\.')}$`));
+  await expect.poll(async () => (await reviewClockText(page)).split('/')[1]!.trim()).toBe(twoSnips);
+  await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(cards).toHaveCount(1);
   await page.keyboard.press('Control+y');
@@ -206,7 +231,7 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   await cards.first().hover();
   await page.getByRole('button', { name: 'Remove edit 1' }).click();
   await expect(cards).toHaveCount(1);
-  await expect(timecode(page)).not.toHaveText(new RegExp(`/ ${twoSnips.replace('.', '\.')}$`));
+  await expect.poll(async () => (await reviewClockText(page)).split('/')[1]!.trim()).not.toBe(twoSnips);
 
   // The buttons do the same as the keys, and Redo is there after an Undo.
   await page.getByRole('button', { name: /^Undo Ctrl/ }).click();
@@ -217,6 +242,7 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
 
   // Reloading restores the list and its redo history.
   await page.reload();
+  await revealReelRail(page);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Undo talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
   await expect(cards).toHaveCount(1);
@@ -228,26 +254,28 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
 
 test('the Blade cuts the footage in two, a piece is dragged to a new place, and Save builds it', async ({ page }) => {
   await startReel(page, 'Blade talk');
-  const tools = review(page).getByRole('toolbar', { name: 'Edit tools' });
+  const tools = review(page).getByRole('toolbar', { name: 'Timeline tools' });
   const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
-  const pieces = review(page).locator('.rv-piece');
+  const pieces = review(page).locator('[data-role="main"] [data-placement]');
 
   // B turns the Blade on; pressing the middle of the lanes cuts there. The cut is marked and listed, and nothing is removed.
+  await focusReview(page);
   await page.keyboard.press('b');
-  await expect(tools.getByRole('button', { name: 'Blade B' })).toHaveAttribute('aria-pressed', 'true');
-  await review(page).locator('.axis').scrollIntoViewIfNeeded();
-  const plane = (await review(page).locator('.rv-plane').boundingBox())!;
-  await page.mouse.click(plane.x + plane.width / 2, plane.y + plane.height - AXIS_INSET);
+  await expect(tools.getByRole('button', { name: 'Blade', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await pieces.first().scrollIntoViewIfNeeded();
+  const plane = (await review(page).locator('[data-role="main"] .native-lane-bars').boundingBox())!;
+  await page.mouse.click(plane.x + plane.width / 2, plane.y + plane.height / 2);
   await expect(cards).toHaveCount(1);
-  await expect(cards.first()).toContainText(/Cut into two pieces at 00:0[56]\.\d\d/);
+  await expect(cards.first()).toContainText(/Split 6\.00s in/);
   await expect(pieces).toHaveCount(2);
-  await expect(review(page).locator('.rv-joint.cut span')).toHaveText('CUT');
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect(pieces.first()).toHaveAccessibleName(/0\.00 to 6\.00 seconds/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
-  // Cutting at the playhead, which sits at the start where the footage already begins, is refused with a reason.
-  await tools.getByRole('button', { name: /^Cut at playhead/ }).click();
-  await expect(page.getByRole('alert')).toContainText('already a cut');
+  // A split at an existing boundary is disabled and adds no operation.
+  await review(page).getByLabel('Playhead', { exact: true }).fill('0');
+  await expect(tools.getByRole('button', { name: 'Split at playhead', exact: true })).toBeDisabled();
   await expect(cards).toHaveCount(1);
+  await focusReview(page);
   await page.keyboard.press('v');
 
   // Dragging piece B to the left of A reorders the reel; the first piece now starts about halfway through the source.
@@ -258,46 +286,50 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await page.mouse.move(second.x + second.width / 2 - plane.width * 0.3, y, { steps: 5 });
   await page.mouse.move(second.x + second.width / 2 - plane.width * 0.6, y, { steps: 5 });
   await page.mouse.up();
-  await expect(cards.last()).toContainText('Moved piece B to place 1');
-  await expect(pieces.first()).toContainText(/^A06\.00 to 12\.00$/);
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect(cards.last()).toContainText('Reordered media');
+  const reorderedId = await pieces.first().getAttribute('data-placement');
+  await review(page).getByLabel('Playhead', { exact: true }).fill('0.1');
+  await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(6);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
   // Undo takes the move back.
+  await focusReview(page);
   await page.keyboard.press('Control+z');
-  await expect(pieces.first()).toContainText(/^A00\.00 to 06\.00$/);
-  await page.keyboard.press('Control+Shift+z');
-  await expect(pieces.first()).toContainText(/^A06\.00 to 12\.00$/);
+  await expect(pieces.first()).not.toHaveAttribute('data-placement', reorderedId!);
+  await page.keyboard.press('Control+y');
+  await expect(pieces.first()).toHaveAttribute('data-placement', reorderedId!);
 
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const plan = JSON.parse(readFileSync(join(project, 'reels', 'blade-talk', 'v2', 'plan.json'), 'utf8'));
-  expect(plan.pieces).toHaveLength(2);
-  expect(plan.pieces[0].in).toBeGreaterThan(5);
-  expect(plan.pieces[1].in).toBe(0);
-  await expect(pieces.first()).toContainText(/^A06\.00 to 12\.00$/);
+  expect(plan.media.sequence).toHaveLength(2);
+  const savedPieces = plan.media.sequence.map((id: string) => plan.media.placements.find((p: { id: string }) => p.id === id));
+  expect(savedPieces[0].in).toBeGreaterThan(5);
+  expect(savedPieces[1].in).toBe(0);
+  await expect(pieces.first()).toHaveAttribute('data-placement', reorderedId!);
 });
 
 test('a word is fixed in place and re-timed by its edge, and Save puts both in the new version', async ({ page }) => {
   await startReel(page, 'Words talk');
   const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
-  const word = (index: number): Locator => review(page).locator(`.rv-w[data-word="${index}"]`);
-  await review(page).locator('.axis').scrollIntoViewIfNeeded();
+  const word = (index: number): Locator => review(page).locator('.editorial-word').nth(index);
+  await word(1).scrollIntoViewIfNeeded();
 
-  // Double-clicking a word opens its text; Enter saves the fix, which is listed and marked on the word.
-  await expect(word(1)).toHaveText('there');
-  await word(1).dblclick();
-  await review(page).getByLabel('Word text').fill('where');
+  // Clicking a word opens its text; Enter saves the fix, which is listed and marked on the word.
+  await expect(word(1).getByRole('button', { name: /^Edit word/ })).toHaveText('there');
+  await word(1).getByRole('button', { name: /^Edit word/ }).click();
+  await review(page).getByLabel(/^Word at/).fill('where');
   await page.keyboard.press('Enter');
   await expect(cards).toHaveCount(1);
-  await expect(cards.first()).toContainText('Changed “there” to “where”');
+  await expect(cards.first()).toContainText('Changed the word to “where”');
   // The caption in the picture reads the fix before Save.
-  await expect(page.frameLocator('iframe[title="Words talk page"]').locator('.caption').first()).toHaveText('hello where');
-  await expect(word(1)).toHaveText('where');
-  await expect(word(1)).toHaveClass(/fixed/);
+  await expect(page.frameLocator('iframe[title="Authored graphics"]').locator('.caption').first()).toHaveText('hello where');
+  await expect(word(1).getByRole('button', { name: /^Edit word/ })).toHaveText('where');
+  await expect(word(1)).toHaveAttribute('data-source-start', '1');
 
   // Dragging a word's right edge later re-times it.
-  const grip = (await word(1).locator('.rv-grip.r').boundingBox())!;
+  const grip = (await word(1).getByLabel(/^Word end at/).boundingBox())!;
   const y = grip.y + grip.height / 2;
   await page.mouse.move(grip.x + grip.width / 2, y);
   await page.mouse.down();
@@ -305,32 +337,34 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await page.mouse.up();
   await expect(cards).toHaveCount(2);
   await expect(cards.last()).toContainText(/Re-timed to 00:01\.00 to 00:0[12]\.\d\d/);
-  await expect(word(1)).toHaveClass(/retimed/);
+  await expect.poll(async () => Number(await word(1).getAttribute('data-source-end'))).toBeGreaterThan(1.5);
 
   await page.getByRole('button', { name: /^Save as v2/ }).click();
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
-  const words = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v2', 'transcript.json'), 'utf8')).words;
+  const savedPlan = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v2', 'plan.json'), 'utf8'));
+  const words = savedPlan.media.placements[0].words ?? savedPlan.media.sources[0].words;
   const first = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v1', 'transcript.json'), 'utf8')).words;
   expect(words[1].text).toBe('where');
   expect(words[1].end).toBeGreaterThan(1.5);
   expect(first[1].text).toBe('there');
-  await expect(word(1)).toHaveText('where');
-  await expect(word(1)).not.toHaveClass(/fixed/);
+  await expect(word(1).getByRole('button', { name: /^Edit word/ })).toHaveText('where');
+  await expect(cards).toHaveCount(0);
 });
 
 test('dragging a caption moves every caption, Alt-drag moves one phrase, and Save builds both', async ({ page }) => {
   await startReel(page, 'Caption talk');
   const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
   const handle = review(page).getByRole('button', { name: /^Move captions/ });
-  const caption = page.frameLocator('iframe[title="Caption talk page"]').locator('.caption').first();
+  const caption = page.frameLocator('iframe[title="Authored graphics"]').locator('.caption').first();
 
   // One second in, a caption is on show: the editor's handle sits over it, outside the page.
+  await focusReview(page);
   await page.keyboard.press('Shift+ArrowRight');
-  await expect(timecode(page)).toHaveText(/^00:01\.\d\d/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/^00:01\.\d\d/);
   await expect(handle).toBeVisible();
   await expect(caption).toHaveCSS('translate', NOT_MOVED);
-  await expect(page.frameLocator('iframe[title="Caption talk page"]').locator('.rv-caphandle')).toHaveCount(0);
+  await expect(page.frameLocator('iframe[title="Authored graphics"]').locator('.rv-caphandle')).toHaveCount(0);
 
   const dragBy = async (dx: number, dy: number, alt: boolean): Promise<void> => {
     const box = (await handle.boundingBox())!;
@@ -349,7 +383,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   const before = (await handle.boundingBox())!;
   await dragBy(-30, -40, false);
   await expect(cards).toHaveCount(1);
-  await expect(cards.first()).toContainText('Captions · all captions');
+  await expect(cards.first()).toContainText('Captions');
   await expect(cards.first()).toContainText(/Moved all captions to -\d+, -\d+/);
   await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
   const after = (await handle.boundingBox())!;
@@ -360,7 +394,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   await dragBy(0, -40, true);
   await expect(cards).toHaveCount(2);
   await expect(cards.last()).toContainText(/Moved one caption to 0, -\d+/);
-  await expect(review(page).locator('.rv-phrase.own')).toHaveCount(1);
+  await expect(cards.last()).toContainText('Captions');
 
   // The arrow keys nudge the focused handle (Shift for one pixel; Alt moves the phrase).
   await handle.focus();
@@ -375,7 +409,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   const { captions } = JSON.parse(readFileSync(join(reelDir, 'v2', 'plan.json'), 'utf8'));
   expect(captions.position.x).toBeLessThan(0);
   expect(captions.position.y).toBeLessThan(-30);
-  expect(captions.phrases).toEqual([{ at: 0.5, x: 0, y: expect.any(Number) }]);
+  expect(captions.phrases).toEqual([expect.objectContaining({ placement: expect.any(String), at: 0.5, x: 0, y: expect.any(Number) })]);
   expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain(';translate:');
   expect(readFileSync(join(reelDir, 'v1', 'index.html'), 'utf8')).not.toContain('translate:');
   // The new version's page already holds the positions; the editor shows them without any unsaved edit.
@@ -387,11 +421,11 @@ test('a caption is retyped in the frame, with a word added, and the page shows i
   await startReel(page, 'Retype talk');
   const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
   const handle = review(page).getByRole('button', { name: /^Move captions/ });
-  const caption = page.frameLocator('iframe[title="Retype talk page"]').locator('.caption').first();
+  const caption = page.frameLocator('iframe[title="Authored graphics"]').locator('.caption').first();
 
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
   await expect(caption).toBeAttached();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).focus();
+  await focusReview(page);
   await page.keyboard.press('Shift+ArrowRight');
   await expect(handle).toBeVisible();
   await expect(caption).toHaveText('hello there');
@@ -408,8 +442,8 @@ test('a caption is retyped in the frame, with a word added, and the page shows i
   // The picture, the Captions lane and the Words lane show it with no rebuild.
   await expect(caption).toHaveText('hello out there');
   await expect(caption.locator('[data-t]')).toHaveCount(3);
-  await expect(review(page).locator('.rv-phrase').first()).toHaveText('hello out there');
-  await expect(review(page).locator('.rv-w')).toHaveText(['hello', 'out', 'there']);
+  await expect(review(page).locator('.editorial-lanes .native-lane').nth(1).locator('.editorial-text-bar > button').first()).toHaveText('hello out there');
+  await expect(review(page).getByRole('button', { name: /^Edit word/ })).toHaveText(['hello', 'out', 'there']);
 
   // Escape leaves a caption as it was.
   await handle.dblclick();
@@ -417,6 +451,7 @@ test('a caption is retyped in the frame, with a word added, and the page shows i
   await page.keyboard.press('Escape');
   await expect(cards).toHaveCount(1);
 
+  await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(cards).toHaveCount(0);
   await expect(caption).toHaveText('hello there');
@@ -446,23 +481,25 @@ test('keyboard only: pick a video, play, mark a stretch, snip it and Save', asyn
   await tabTo(page, page.getByRole('button', { name: 'Start reel' }));
   await page.keyboard.press('Enter');
   await expect(review(page).getByRole('heading', { name: 'Keys talk' })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await page.getByRole('tab', { name: 'Reel rail', exact: true }).press('Enter');
   await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(timecode(page)).toHaveText(/\/ 00:12\.0\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
   // Play, pause, step with the arrows.
-  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  await focusReview(page);
   await page.keyboard.press('Home');
   await page.keyboard.press('Space');
-  await expect(timecode(page)).not.toHaveText(/^00:00\.00/);
+  await expect.poll(() => reviewClockText(page)).not.toMatch(/^00:00\.00/);
   await page.keyboard.press('Space');
   await page.keyboard.press('Home');
   await page.keyboard.press('s');
-  await expect(review(page).getByRole('button', { name: 'Snip S' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(review(page).getByRole('button', { name: 'Snip', exact: true })).toHaveAttribute('aria-pressed', 'true');
   for (let i = 0; i < 2; i += 1) await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press('[');
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press(']');
-  await expect(review(page).getByRole('button', { name: /^Snip 3\.0s$/ })).toBeVisible();
+  await expect(review(page).getByText('Remove 3.00s of footage', { exact: true })).toBeVisible();
+  await expect(review(page).getByRole('button', { name: 'Apply snip', exact: true })).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
 

@@ -1,3 +1,4 @@
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
@@ -19,6 +20,7 @@ async function openReview(page: Page): Promise<void> {
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
   await expect(actions(page)).toBeVisible();
+  await revealReelRail(page);
 }
 
 test('Approve and Withdraw by the title mark the version on show, and the rail follows', async ({ page }) => {
@@ -76,5 +78,5 @@ test('a refused render shows its reason; a Draft renders and the finished file p
   await expect(video).toHaveAttribute('src', /\/renders\/product-showreel\/product-showreel-v2-draft-540p30\.mp4$/);
   await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.duration), { timeout: 15_000 }).toBeGreaterThan(1);
   await review(page).getByRole('button', { name: 'Back to v2' }).click();
-  await expect(review(page).locator('iframe[title$=" page"]')).toBeVisible();
+  await expect(review(page).locator('iframe[title="Authored graphics"]')).toBeVisible();
 });

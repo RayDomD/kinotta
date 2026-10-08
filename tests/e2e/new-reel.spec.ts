@@ -1,3 +1,4 @@
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '@playwright/test';
 
 // Building v1 runs the real build, so the first wait after Start is longer than the default.
@@ -31,6 +32,7 @@ test('a video picked on New reel becomes a reel that opens in Review', async ({ 
 
   await expect(page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Picked talk' })).toBeVisible();
+  await revealReelRail(page);
   await expect(page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Picked talk' })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('main', { name: 'Review' }).locator('video')).toBeVisible();
 

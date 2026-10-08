@@ -1,3 +1,5 @@
+import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,7 +27,7 @@ test.use({ baseURL: 'http://localhost:4384' });
 test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
-const clip = (page: Page, id: string): Locator => review(page).locator(`.ov[data-clip="${id}"]`);
+const clip = (page: Page, id: string): Locator => review(page).locator(`.editorial-graphic[data-graphic="${id}"]`);
 
 /** Drags from a point by `dx` pixels along the lane, in steps, as a pointer would. */
 async function dragFrom(page: Page, x: number, y: number, dx: number): Promise<void> {
@@ -40,10 +42,11 @@ test('trim a clip by its edge, slide another by its body, see it flagged, and Sa
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
-  await expect(review(page).getByLabel('Timecode')).toHaveText(/\/ 00:12\.0\d$/, { timeout: BUILD_WAIT_MS });
-  await expect(review(page).locator('.ov')).toHaveCount(4);
+  await revealReelRail(page);
+  await expect.poll(() => reviewClockText(page), { timeout: BUILD_WAIT_MS }).toMatch(/\/ 00:12\.0\d$/);
+  await expect(review(page).locator('[data-graphic]')).toHaveCount(4);
   const edits = page.getByRole('list', { name: 'Edits' });
-  const perSecond = ((await review(page).locator('.rv-plane').boundingBox())!.width) / SAMPLE_SECONDS;
+  const perSecond = ((await review(page).locator('.editorial-lanes .native-lane-bars').first().boundingBox())!.width) / SAMPLE_SECONDS;
 
   // The body slides: clip 03 moves later, its card says so and flags it, and the clip is marked.
   await clip(page, '03').scrollIntoViewIfNeeded();
@@ -69,6 +72,7 @@ test('trim a clip by its edge, slide another by its body, see it flagged, and Sa
   await expect(clip(page, '02').locator('.rv-off')).toHaveCount(0);
 
   // Undo takes the last edit back, and the clip is its old length again.
+  await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(edits.getByRole('listitem')).toHaveCount(1);
   await expect.poll(async () => (await clip(page, '02').boundingBox())!.width).toBeCloseTo(before.width, 0);
@@ -94,17 +98,18 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
-  await expect(review(page).getByLabel('Timecode')).toHaveText(/\/ 00:12\.0\d$/, { timeout: BUILD_WAIT_MS });
+  await revealReelRail(page);
+  await expect.poll(() => reviewClockText(page), { timeout: BUILD_WAIT_MS }).toMatch(/\/ 00:12\.0\d$/);
   const edits = page.getByRole('list', { name: 'Edits' });
-  const frame = page.frameLocator('iframe[title$=" page"]');
+  const frame = page.frameLocator('iframe[title="Authored graphics"]');
   const tag = review(page).getByTestId('element-tag');
 
   // Four seconds in, clip 02's counter panel is on show. A click on it selects it: tag, outline and grip, all outside the page.
   await expect(frame.locator('section[data-scene]').first()).toBeAttached();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).focus();
+  await focusReview(page);
   await page.keyboard.press('Home');
   for (let i = 0; i < FOUR_SECONDS; i += 1) await page.keyboard.press('Shift+ArrowRight');
-  await expect(review(page).getByLabel('Timecode')).toHaveText(/^00:04\.\d\d/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/^00:04\.\d\d/);
   await expect(frame.locator('#conflict-panel')).toBeVisible();
   const panel = (await frame.locator('#conflict-panel').boundingBox())!;
   await page.mouse.click(panel.x + PANEL_INSET, panel.y + PANEL_INSET);
@@ -122,7 +127,7 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   await page.mouse.up();
   await expect(review(page).getByTestId('element-ghost')).toBeVisible();
   await expect(edits.getByRole('listitem')).toHaveCount(1);
-  await expect(edits).toContainText(/Clip 02 · /);
+  await expect(edits).toContainText(/Clip 02/);
   await expect(edits).toContainText(/Moved conflict-panel by [1-9]\d*, [1-9]\d* at 100%/);
   await expect(frame.locator('#conflict-panel')).not.toHaveCSS('translate', 'none');
   const moved = (await frame.locator('#conflict-panel').boundingBox())!;
@@ -144,13 +149,13 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   // Arrow keys nudge the selected element, a run of them settling into one change, and do not step the player.
   const nudgeTag = /02 · conflict-panel\s*\+(\d+), \+(\d+)/.exec((await tag.textContent()) ?? '')!;
   const movedX = Number(nudgeTag[1]);
-  const clock = await review(page).getByLabel('Timecode').textContent();
+  const clock = await reviewClockText(page);
   await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowDown');
   await expect(tag).toContainText(new RegExp(String.raw`conflict-panel\s*\+${movedX + 11}, \+${Number(nudgeTag[2]) + 1}`));
   await expect(edits.getByRole('listitem')).toHaveCount(3);
-  await expect(review(page).getByLabel('Timecode')).toHaveText(clock!);
+  await expect.poll(() => reviewClockText(page)).toMatch(clock!);
 
   await page.getByRole('button', { name: /^Save as v3/ }).click();
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
@@ -169,10 +174,11 @@ test('a clip follows a slide in the picture while it is dragged, and stays there
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
-  await expect(review(page).locator('.ov')).toHaveCount(4);
-  const perSecond = ((await review(page).locator('.rv-plane').boundingBox())!.width) / SAMPLE_SECONDS;
+  await revealReelRail(page);
+  await expect(review(page).locator('[data-graphic]')).toHaveCount(4);
+  const perSecond = ((await review(page).locator('.editorial-lanes .native-lane-bars').first().boundingBox())!.width) / SAMPLE_SECONDS;
   // Clip 01 is the page's first clip scene; its data-start is where the page plays it, in seconds.
-  const scene = page.frameLocator('iframe[title$=" page"]').locator('section[data-scene]:not([data-caption])').first();
+  const scene = page.frameLocator('iframe[title="Authored graphics"]').locator('section[data-scene]:not([data-caption])').first();
   await expect(scene).toHaveAttribute('data-start', /\d/);
   const savedStart = Number(await scene.getAttribute('data-start'));
 
@@ -187,7 +193,7 @@ test('a clip follows a slide in the picture while it is dragged, and stays there
 
   // Mid-drag: the page plays the clip later already, and the playhead sits at its new start.
   await expect.poll(async () => Number(await scene.getAttribute('data-start'))).toBeGreaterThan(savedStart + 0.4);
-  const playhead = await review(page).getByLabel('Timecode').textContent();
+  const playhead = await reviewClockText(page);
   expect(playhead).toMatch(/^00:0\d\.\d\d/);
 
   await page.mouse.up();
@@ -197,6 +203,7 @@ test('a clip follows a slide in the picture while it is dragged, and stays there
   await expect.poll(async () => Number(await scene.getAttribute('data-start'))).toBeGreaterThan(savedStart + 0.4);
 
   // Undo puts it back where the version has it.
+  await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(edits.getByRole('listitem')).toHaveCount(0);
   await expect.poll(async () => Number(await scene.getAttribute('data-start'))).toBeCloseTo(savedStart, 2);

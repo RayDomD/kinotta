@@ -1,3 +1,5 @@
+import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,16 +20,17 @@ test('drag an element on a code-only reel, Save, and see it moved in the next ve
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
-  const tools = review(page).getByRole('toolbar', { name: 'Edit tools' });
+  await revealReelRail(page);
+  const tools = review(page).getByRole('toolbar', { name: 'Timeline tools' });
   await expect(tools).toBeVisible();
 
   // Timing is the agent's: Blade and Snip are off, with the reason on show.
   await expect(tools.getByRole('button', { name: /^Blade/ })).toBeDisabled();
   await expect(tools.getByRole('button', { name: /^Snip/ })).toBeDisabled();
-  await expect(tools).toContainText('Built from code');
+  await expect(review(page).getByText(/Built from code: only elements can be moved/)).toBeVisible();
 
   // The first scene is on show at the start: click its cube, drag it.
-  const frame = page.frameLocator('iframe[title$=" page"]');
+  const frame = page.frameLocator('iframe[title="Authored graphics"]');
   const cube = frame.locator('[data-el="cube"]');
   await expect(cube).toBeVisible();
   const before = (await cube.boundingBox())!;
@@ -57,7 +60,7 @@ test('drag an element on a code-only reel, Save, and see it moved in the next ve
   const reelDir = join(readFileSync(PROJECT_FILE, 'utf8'), 'reels', 'product-showreel');
   expect(readFileSync(join(reelDir, 'v3', 'kinotta-edits.css'), 'utf8')).toMatch(/\[data-scene="cube-lands"\] \[data-el="cube"\] \{ translate: [1-9]\d*px [1-9]\d*px; \}/);
   expect(existsSync(join(reelDir, 'v2', 'kinotta-edits.css'))).toBe(false);
-  await expect(review(page).locator('.meta').first()).toContainText('v3');
+  await expect(versions.getByRole('button', { name: /^v3/ })).toHaveAttribute('aria-current', 'true');
   const cubeV3 = frame.locator('[data-el="cube"]');
   await expect(cubeV3).toBeVisible();
   await expect(cubeV3).toHaveCSS('translate', /^[1-9]\d*px [1-9]\d*px$/);

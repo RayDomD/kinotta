@@ -1,3 +1,4 @@
+import { revealReelRail } from '../helpers/review-rail.ts';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -82,6 +83,7 @@ test('the rail marks a version approved in the editor or on disk, on every tab, 
   await expect(v1).toContainText('✓ approved');
 
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await revealReelRail(page);
   await expect(v1).toContainText('✓ approved');
   await expect(v2).toContainText('✓ approved');
 
