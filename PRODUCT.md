@@ -44,6 +44,8 @@ A comment is pinned to a named element inside the reel, not just to a timestamp 
 
 The editor uses the owner's Rubric brand structure (`C:\FIles\projects\Brands\Rubric\DESIGN.md`, `design-elements.html`), with an ice-blue light instead of chrome metal, as decided in `docs/2026-09-30-grilling-decisions.md` (D15 to D22). Motion keeps Rubric's speeds by the owner's choice (D19).
 
+The name: *kino* (film) + Ilonggo *kinot ta* ("let's save"). Film and edit with less of your time.
+
 ## Evidence on Hand
 
 - Origin: the RoboNuggets guide *The 3 Levels of AI Motion Graphics* and its transcript. Kinotta is a clean-room build of the storyboard and review loop, not a copy of the RUBRIC tools, with MIT notices wherever code is copied (D4).
