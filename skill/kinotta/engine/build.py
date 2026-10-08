@@ -20,7 +20,7 @@ snipped stretch is dropped, one straddling a snip is trimmed to its edge, and wo
 import base64, html, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(E))
-from pieces import timeline_plan, timeline_words
+from pieces import CAPTION_LOOKS, media_words, timeline_plan, timeline_words
 b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
 CURSOR = '<svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>'
 # A composed page draws only the scenes running at t, over the footage: transparent wherever no clip paints.
@@ -66,10 +66,10 @@ def build(src, dst):
     open(dst, 'w', encoding='utf-8').write(page(p['title'], p['css'], body, f'<script>{p["js"]}</script>'))
 def clip_source(plan_dir, c):
     if c.get('clip'): return plan_dir/c['clip']
-    found = sorted(plan_dir.glob(f'clips/{c["id"]}-*.html')) or sorted(plan_dir.glob(f'{c["id"]}-*.html'))
+    id_ = c.get('splitFrom', c['id'])
+    found = sorted(plan_dir.glob(f'clips/{id_}-*.html')) or sorted(plan_dir.glob(f'{id_}-*.html'))
     if not found: sys.exit(f'clip {c["id"]}: no "clip" path and no clips/{c["id"]}-*.html beside the plan')
     return found[0]
-CAPTION_LOOKS = ('highlight', 'phrase', 'words')
 CAPTION_COLOR = '#FF5A1F'   # the engine's accent
 CAPTION_WORDS = 6           # a phrase's usual cap; it runs up to two over to reach a clause end
 CAPTION_PAUSE = 0.3         # a gap between words this long ends a phrase
@@ -89,12 +89,12 @@ def caption_style(value):
     look = opts.get('look', 'highlight')
     if look not in CAPTION_LOOKS: sys.exit(f'captions look must be one of {", ".join(CAPTION_LOOKS)}')
     return look, opts.get('color', CAPTION_COLOR)
-def caption_shift(value, first):
+def caption_shift(value, first, placement=None):
     """The offset (x, y) of the phrase whose first word starts at source second `first`: the reel-wide position plus
     that phrase's own, or None when it is not moved."""
     opts = {} if value is True else value
     pos = opts.get('position') or {}
-    own = min((e for e in opts.get('phrases') or [] if abs(e['at'] - first) <= CAPTION_AT), key=lambda e: abs(e['at'] - first), default={})
+    own = min((e for e in opts.get('phrases') or [] if e.get('placement') == placement and abs(e['at'] - first) <= CAPTION_AT), key=lambda e: abs(e['at'] - first), default={})
     x, y = pos.get('x', 0) + own.get('x', 0), pos.get('y', 0) + own.get('y', 0)
     return None if x == 0 and y == 0 else (x, y)
 def phrases(words):
@@ -110,19 +110,22 @@ def phrases(words):
         if not nxt or full or nxt.get('piece') != w.get('piece') or nxt['start'] - w['end'] > CAPTION_PAUSE or (ends(w) and len(cur) >= 3):
             out.append({'start': cur[0]['start'], 'end': cur[-1]['end'], 'words': cur}); cur = []
     for a, b in zip(out, out[1:]):
-        if b['start'] - a['end'] < CAPTION_HOLD: a['end'] = b['start']
+        if b['start'] - a['end'] < CAPTION_HOLD and a['words'][-1].get('piece') == b['words'][0].get('piece'): a['end'] = b['start']
     return out
 def caption_scenes(plan_dir, P, pieces=None):
-    if not P.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
+    if not P.get('transcript') and not P.get('media'): sys.exit('captions need "transcript", the transcript path from the plan')
     look, color = caption_style(P['captions'])
-    words = [{**w, 'at': w['start']} for w in json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']]
-    if pieces: words = timeline_words(words, pieces)
+    if P.get('media'): words = media_words(P['media'])
+    else:
+        words = [{**w, 'at': w['start']} for w in json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']]
+        if pieces: words = timeline_words(words, pieces)
     scenes = []
     for n, ph in enumerate(phrases(words), 1):
-        spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}">{html.escape(w["text"])}</span>' for w in ph['words'])
-        shift = caption_shift(P['captions'], ph['words'][0]['at'])
+        spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}" data-source-start="{w["at"]}">{html.escape(w["text"])}</span>' for w in ph['words'])
+        shift = caption_shift(P['captions'], ph['words'][0]['at'], ph['words'][0].get('placement'))
         moved = f';translate:{shift[0]:g}px {shift[1]:g}px' if shift else ''
-        scenes.append(f'<section data-scene="cap-{n:03d}" data-caption data-start="{ph["start"]}" data-duration="{round(ph["end"] - ph["start"], 6)}">'
+        placement = f' data-placement="{html.escape(ph["words"][0]["placement"], quote=True)}"' if 'placement' in ph['words'][0] else ''
+        scenes.append(f'<section data-scene="cap-{n:03d}" data-caption{placement} data-source-start="{ph["words"][0]["at"]}" data-start="{ph["start"]}" data-duration="{round(ph["end"] - ph["start"], 6)}">'
                       f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}{moved}"><span class="ph">{spans}</span></div></section>')
     return scenes
 def compose(plan_path, dst):
@@ -131,11 +134,12 @@ def compose(plan_path, dst):
     # compares scene markup between versions, and a clip whose motion alone changed must count as changed.
     body = []
     for c in P['clips']:
-        p = parts(clip_source(plan_dir, c)); sel = f'[data-scene="{p["name"]}"]'
+        if c.get('attachmentBroken'): sys.exit(f'graphic {c["id"]}: repair its broken footage attachment before building')
+        p = parts(clip_source(plan_dir, c)); scene = c['id'] if c.get('splitFrom') else p['name']; sel = f'[data-scene="{scene}"]'
         style = f'<style>{sel}{{{p["css"]}}}</style>' if p['css'].strip() else ''
         style += offsets_style(sel, c.get('offsets'))
         script = f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{p["js"]}\n}})(M.scope(M.root));M.root=null;</script>'
-        body.append(f'<section data-scene="{p["name"]}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
+        body.append(f'<section data-scene="{scene}" data-start="{c["in"]}" data-duration="{round(c["out"] - c["in"], 6)}">{p["stage"]()}{style}{script}</section>')
     captions = P.get('captions')
     if captions: body += caption_scenes(plan_dir, P, source.get('pieces'))
     duration = P['duration'] if 'duration' in P else max(c['out'] for c in P['clips'])

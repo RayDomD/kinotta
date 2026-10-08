@@ -25,10 +25,11 @@ const EPSILON = 1e-9;
  * `videoLength` is needed then. Throws `invalid` for a malformed piece or two that overlap in the source.
  */
 export function pieceMap(pieces: readonly Piece[] | undefined, videoLength: number): PieceMap {
+  if (pieces !== undefined && !Array.isArray(pieces)) throw new KinottaError('invalid', 'pieces must be a list of source ranges.');
   const list = pieces && pieces.length > 0 ? pieces : [{ in: 0, out: videoLength }];
   let at = 0;
   const placed = list.map((p, i) => {
-    if (!Number.isFinite(p.in) || !Number.isFinite(p.out) || p.in < 0 || p.in >= p.out) {
+    if (!p || typeof p !== 'object' || Array.isArray(p) || !Number.isFinite(p.in) || !Number.isFinite(p.out) || p.in < 0 || p.in >= p.out) {
       throw new KinottaError('invalid', `pieces[${i}] needs "in" and "out" in seconds, 0 <= in < out.`);
     }
     const piece = { in: p.in, out: p.out, at };

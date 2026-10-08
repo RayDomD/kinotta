@@ -4,14 +4,18 @@ import { BUILT_BY_YOU, applyOperations, operationTouches } from './edit-model.ts
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { handoffReason, readHandoff } from './handoff.ts';
-import { assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
-import { readReelPlan, readReelTranscript, readReelWords } from './sources.ts';
+import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
+import { freezePageDependencies } from './graphic-preservation.ts';
+import { preserveMedia } from './media-preservation.ts';
+import { withSpeech } from './media-speech.ts';
+import { mediaWithTracks } from './media-model.ts';
+import { readReelPlan, readReelTranscript, readReelWords, readSourceAudio } from './sources.ts';
 import { beginSave, endSave, rollBackSources } from './save-journal.ts';
 import { settleNewest } from './carry.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
 import type { SavedVersion, TranscriptWord } from './types.ts';
-import { STAGE_DIR, publishVersion, stageVersion } from './version-build.ts';
+import { STAGE_DIR, publishVersion, snapshotLegacyVersion, stageVersion } from './version-build.ts';
 import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 
 const SPAN_TOLERANCE = 1e-6;
@@ -49,6 +53,7 @@ function clipsChanged(before: Plan, after: Plan, section: { id: string; start: n
  * comparing the pages finds, so the claim in shots.json and the comparison agree.
  */
 export function changedSectionsOf(before: Plan, after: Plan, operations: readonly Operation[]): string[] {
+  if (before.media || after.media) return JSON.stringify(before) === JSON.stringify(after) ? [] : (after.sections ?? []).map((s) => s.id);
   const duration = before.duration ?? 0;
   const was = pieceMap(before.pieces, duration);
   const now = pieceMap(after.pieces, duration);
@@ -67,12 +72,19 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
   const newest = await newestVersionNumber(reelDir);
   const from = join(reelDir, `v${newest}`);
   const { sources, scenes } = await codeSources(from);
-  const edited = applyOperations(sources, list.operations);
+  const applied = applyOperations(sources, list.operations);
+  const edited = applied.plan.media ? { ...applied, plan: { ...applied.plan, media: mediaWithTracks(applied.plan.media) } } : applied;
   const stage = join(reelDir, STAGE_DIR);
   await rm(stage, { recursive: true, force: true });
   try {
     await copyVersion(from, stage);
+    // Files the page uses from outside its version folder are frozen too, so the new version cannot change later (AM33).
+    await freezePageDependencies(stage);
     await writeEdits(stage, offsetsOf(edited));
+    if (edited.plan.media) {
+      const media = await preserveMedia(from, stage, await withSpeech(projectDir, from, edited.plan.media));
+      await writeJsonAtomic(join(stage, MEDIA_SIDECAR_FILE), { media, duration: edited.plan.duration });
+    }
     await writeFile(join(stage, 'edits.json'), `${JSON.stringify({ base: list.base, operations: list.operations }, null, 2)}
 `, 'utf8');
     const shots = JSON.parse(await readFile(join(from, 'shots.json'), 'utf8')) as Record<string, unknown>;
@@ -88,7 +100,14 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
     throw err;
   }
   const number = newest + 1;
-  await publishVersion(reelDir, { dir: stage }, number);
+  try {
+    await beginSave(reelDir, number, [], list.operations.map((op) => op.id));
+    await publishVersion(reelDir, { dir: stage }, number);
+  } catch (failure) {
+    await endSave(reelDir);
+    await rm(stage, { recursive: true, force: true });
+    throw failure;
+  }
   await settleNewest(projectDir, slug);
   return { version: number };
 }
@@ -114,13 +133,15 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
     if (await isCodeOnly(projectDir, reelDir)) {
       const saved = await saveCodeOnly(projectDir, slug, reelDir, list);
       await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
+      await endSave(reelDir);
       await settleNewest(projectDir, slug);
       return saved;
     }
     const { plan, planFile, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
     const transcript = transcriptFile ? await readReelTranscript(transcriptFile) : {};
     const words = await readReelWords(transcriptFile);
-    const edited: Sources = applyOperations({ plan, words }, list.operations);
+    const applied: Sources = applyOperations({ plan, words, videoAudio: await readSourceAudio(plan, planDir) }, list.operations);
+    const edited: Sources = applied.plan.media ? { ...applied, plan: { ...applied.plan, media: await withSpeech(projectDir, planDir, mediaWithTracks(applied.plan.media)) } } : applied;
     const number = (await newestVersionNumber(reelDir)) + 1;
 
     const staged = await stageVersion(reelDir, {
@@ -133,13 +154,21 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
       operations: { base: list.base, list: list.operations },
     });
 
+    // The editable plan keeps original paths but remembers the bytes the published version preserved.
+    let nextPlan = edited.plan;
+    if (edited.plan.media) {
+      const preserved = (JSON.parse(await readFile(join(staged.dir, 'plan.json'), 'utf8')) as Plan).media!;
+      nextPlan = { ...edited.plan, media: { ...edited.plan.media, sources: edited.plan.media.sources.map((source) => ({ ...source, contentHash: preserved.sources.find((s) => s.id === source.id)!.contentHash })) } };
+    }
+
     // The journal first, then the sources, then the rename that commits: a crash in between is settled on the next read.
     const before = [{ file: planFile, text: await readFile(planFile, 'utf8') }];
     if (transcriptFile) before.push({ file: transcriptFile, text: await readFile(transcriptFile, 'utf8') });
     try {
+      if (!plan.media && edited.plan.media) await snapshotLegacyVersion(planDir, join(reelDir, `v${list.base}`), plan, { ...transcript, words });
       await beginSave(reelDir, number, before, list.operations.map((op) => op.id));
-      await writeJsonAtomic(planFile, edited.plan);
-      if (transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { ...transcript, words: edited.words });
+      await writeJsonAtomic(planFile, nextPlan);
+      if (!edited.plan.media && transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { ...transcript, words: edited.words });
       await publishVersion(reelDir, staged, number);
     } catch (err) {
       await rollBackSources(before);

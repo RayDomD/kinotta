@@ -1,20 +1,23 @@
 import { basename, join, resolve } from 'node:path';
 import { approveVersion, withdrawApproval } from './_internal/approval.ts';
 import { copyBatch } from './_internal/batch.ts';
-import { addOperation, cancelHandoff, discardEdits, readEditList, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
+import { addOperation, cancelHandoff, discardEdits, readEditList, readMediaModel, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { saveEdits } from './_internal/save.ts';
 import { readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
+import { importMedia, listMedia, listProjectMedia, mediaFile, mediaWaveform, referenceMedia, relinkMedia } from './_internal/media-library.ts';
+import { createMediaSpeech } from './_internal/media-speech.ts';
 import { listReels } from './_internal/reels.ts';
-import { prepareRender, runRender } from './_internal/render.ts';
+import { checkRenderChoice, prepareRender, runRender } from './_internal/render.ts';
+import { mixOverload } from './_internal/media-overload.ts';
 import { readRenderSettings, saveRenderSettings } from './_internal/render-settings.ts';
 import { listRenders, renderPath, revealRender } from './_internal/past-renders.ts';
 import { createRenderQueue } from './_internal/render-queue.ts';
 import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
 import { checkTools, missingToolsMessage } from './_internal/tools.ts';
-import type { Project, ProjectEvent, Transcriber } from './_internal/types.ts';
+import type { Project, ProjectEvent, RenderJob, RenderRequest, Transcriber } from './_internal/types.ts';
 import { listVideos } from './_internal/videos.ts';
 import { listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
@@ -27,6 +30,13 @@ export type { NewOperation, Operation, SnipOperation } from './_internal/edit-mo
 export { checkTools, missingToolsMessage };
 export { versionIssues } from './_internal/footage-issues.ts';
 export type {
+  MediaSpeech,
+  MediaWaveform,
+  ProjectMediaFile,
+  MediaEditingModel,
+  ImportedMedia,
+  MediaEntry,
+  MediaFilter,
   AddedComment,
   Approval,
   BatchOptions,
@@ -42,7 +52,9 @@ export type {
   NewFramePin,
   NewReel,
   NewWordPin,
+  MixOverload,
   NoteSaved,
+  OverloadSpan,
   Overlay,
   Project,
   ProjectEvent,
@@ -87,7 +99,23 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const emit = (event: ProjectEvent): void => listeners.forEach((listener) => listener(event));
   const transcriptions = createTranscriptions(emit);
   const renders = createRenderQueue(emit);
+  const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
+  const render = async (request: RenderRequest): Promise<RenderJob> => {
+    const task = await prepareRender(dir, request);
+    if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
+    return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
+  };
   return {
+    importMedia: (name, body) => importMedia(dir, name, body),
+    referenceMedia: (path) => referenceMedia(dir, path),
+    listProjectMedia: () => listProjectMedia(dir),
+    relinkMedia: (source, path) => relinkMedia(dir, source, path),
+    mediaFile: (source, saved) => mediaFile(dir, source, saved),
+    mediaWaveform: (source, saved) => mediaWaveform(dir, source, saved),
+    listMedia: (filter) => listMedia(dir, filter),
+    mediaSpeech: (source, saved) => speech.status(source, saved),
+    transcribeMedia: (source, saved) => speech.start(source, saved),
+    readMediaModel: (slug) => readMediaModel(dir, slug),
     name: basename(dir),
     reelsDir: join(dir, 'reels'),
     listReels: () => listReels(dir),
@@ -125,11 +153,14 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
     approveVersion: (slug, number) => approveVersion(dir, slug, number),
     withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
-    render: async (request) => {
-      const task = await prepareRender(dir, request);
-      if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
-      return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
+    render,
+    saveAndRender: async (request) => {
+      await checkRenderChoice(dir, request);
+      // Save refusing or failing throws here, so no render of stale or pending content starts (AM40).
+      const { version } = await saveEdits(dir, request.reel);
+      return { version, job: await render({ ...request, version }) };
     },
+    mixOverload: (slug, version) => mixOverload(dir, slug, version),
     renderJobs: () => renders.jobs(),
     renderSettings: (slug) => readRenderSettings(dir, slug),
     listRenders: (slug) => listRenders(dir, slug),

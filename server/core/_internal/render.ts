@@ -6,7 +6,11 @@ import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
 import { versionIssues } from './footage-issues.ts';
 import { readRenderSettings, requestSettings } from './render-settings.ts';
-import { joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
+import { encodeMedia, joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
+import { mediaRenderArgs } from './media-render.ts';
+import { describeOverload, mixOverload } from './media-overload.ts';
+import { mediaTimeline } from './media-model.ts';
+import { mediaPlanTimeline } from './edit-model.ts';
 import type { RenderJob, RenderPreset, RenderRequest, RenderSettings } from './types.ts';
 import { readVersion } from './version.ts';
 
@@ -75,14 +79,33 @@ async function gateReasons(projectDir: string, request: RenderRequest, versionDi
 }
 
 /**
+ * Refuses an unknown reel, preset or setting value before anything else happens, so Save and render never saves a version
+ * for a render it was always going to refuse.
+ */
+export async function checkRenderChoice(projectDir: string, request: Omit<RenderRequest, 'version'>): Promise<void> {
+  if (!PRESETS.includes(request.preset)) throw new KinottaError('invalid', `Unknown preset "${request.preset}". Use draft, final or overlay.`);
+  requestSettings((await readRenderSettings(projectDir, request.reel))[request.preset], { ...request, version: 0 });
+}
+
+/**
  * Checks that a render can be made before it is queued. Throws `not-found` for an unknown reel or version, and `invalid`
- * for an unknown preset or setting, a Final or Overlay the gate refuses (naming every reason; a Draft skips the gate), or
+ * for a mix that goes above full scale unless `acceptOverload` says the owner chose to render it as it is (AM38; Overlay
+ * is silent), for an unknown preset or setting, a Final or Overlay the gate refuses (naming every reason; a Draft skips the gate), or
  * an Overlay of a code-only page that isn't transparent (R11).
  */
 export async function prepareRender(projectDir: string, request: RenderRequest): Promise<RenderTask> {
-  if (!PRESETS.includes(request.preset)) throw new KinottaError('invalid', `Unknown preset "${request.preset}". Use draft, final or overlay.`);
+  await checkRenderChoice(projectDir, request);
   const { reelDir, versionDir } = await requireVersionDir(projectDir, request.reel, request.version);
   const settings = requestSettings((await readRenderSettings(projectDir, request.reel))[request.preset], request);
+  const version = await readVersion(projectDir, request.reel, request.version);
+  if (version.media && mediaTimeline(version.media, version.duration).placements.some((p) => p.attachmentBroken)) throw new KinottaError('invalid', 'Repair broken footage attachments before rendering.');
+  if (version.media && mediaPlanTimeline({ media: version.media, duration: version.duration, clips: version.clips, sections: version.mediaSections }).clips?.some((c) => c.attachmentBroken)) throw new KinottaError('invalid', 'Repair broken graphic attachments before rendering.');
+  if (version.media && !version.media.legacy && request.preset !== 'overlay' && request.acceptOverload !== true) {
+    const overload = await mixOverload(projectDir, request.reel, request.version);
+    if (overload.spans.length > 0) {
+      throw new KinottaError('invalid', `The mix of v${request.version} goes above full scale at ${describeOverload(overload)}. Lower a level, or render it as it is.`);
+    }
+  }
   const codeOnly = (await readReelFootage(projectDir, reelDir)) === null;
   if (request.preset !== 'draft') {
     const reasons = await gateReasons(projectDir, request, versionDir, codeOnly);
@@ -226,7 +249,34 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
       await joinSegments(list, temp, null, signal);
       return whole;
     };
-    if (task.codeOnly) {
+    const native = (await readVersion(projectDir, request.reel, request.version)).media;
+    if (native && request.preset !== 'overlay') {
+      // Keep graphics segmented if requested, then compose picture and audio once over the whole timeline.
+      await mkdir(work, { recursive: true });
+      const graphics = join(work, 'graphics.mov');
+      const firstVideo = native.sources.find((s) => s.kind === 'video');
+      const ownPlan = await exists(join(versionDir, VERSION_PLAN_FILE)) || await exists(join(versionDir, 'media.json'));
+      if (!ownPlan) throw new Error('Save this media version before rendering so its source paths are frozen.');
+      const source = firstVideo ? await probeFootage(join(versionDir, firstVideo.path)) : info;
+      if (settings.fps === 'source' && 'fps' in source) fps = source.fps;
+      // The authored page owns the reel canvas. A differently shaped source must be framed inside it.
+      const { width, height } = targetSize(info, settings.size);
+      const pageJob = { page, fps, scale: height / info.height, crf, blur: encoding.blur, codec: 'prores', proresProfile } as const;
+      const count = segmentCount(Math.round(info.duration * fpsValue(fps)), segments);
+      if (count === 1) rendered = await renderPage({ ...pageJob, out: graphics }, report, signal);
+      else {
+        const ranges = frameRanges(Math.round(info.duration * fpsValue(fps)), count);
+        const { page: whole, list } = await renderSegments(work, 'mov', ranges, report, signal, (frames, out, onProgress, stop) =>
+          renderPage({ ...pageJob, out, frames }, (done) => onProgress(done), stop),
+        );
+        await joinSegments(list, graphics, null, signal);
+        rendered = whole;
+      }
+      const composite = mediaRenderArgs(native, versionDir, graphics, temp, info.duration, width, height, fps, crf);
+      sound = composite.sound;
+      await encodeMedia(composite.args, signal);
+      rendered = { ...rendered, width, height };
+    } else if (task.codeOnly || native) {
       const { height } = targetSize(info, settings.size);
       const codec = request.preset === 'overlay' ? 'prores' : 'h264';
       const pageJob = { page, fps, scale: height / info.height, crf, blur: encoding.blur, codec, proresProfile } as const;

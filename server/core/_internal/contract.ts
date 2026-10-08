@@ -17,6 +17,9 @@ import type { ContractIssue } from './types.ts';
  *   scene-gap         no scene covers a shot's start
  *   no-named-elements the scenes covering a shot have no data-el
  *   duplicate-element a data-el name is used twice in one scene
+ *   page-sound        the page plays sound of its own, outside the shared mix (ADR 0005): an audio element, an
+ *                     unmuted video element, or a script making sound (new Audio, AudioContext, speechSynthesis).
+ *                     Inline markup and scripts only; a separate script file is not read.
  *
  * Problems are returned, never thrown: a broken version still opens.
  */
@@ -45,6 +48,23 @@ function numeric(value: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Script calls that make sound in the browser. A timeline's own `.play()` makes none, so it is not one of them. */
+const SOUND_SCRIPTS: ReadonlyArray<[RegExp, string]> = [
+  [/\bnew\s+Audio\s*\(/, 'new Audio'],
+  [/\b(?:webkit)?AudioContext\b/, 'AudioContext'],
+  [/\bspeechSynthesis\b/, 'speechSynthesis'],
+];
+
+/** What on a page makes sound the editor and the render never hear, or null when nothing does (AM42). */
+function pageSound(root: ReturnType<typeof parse>): string | null {
+  const found: string[] = [];
+  if (root.querySelector('audio')) found.push('an audio element');
+  if (root.querySelectorAll('video').some((video) => !video.hasAttribute('muted'))) found.push('an unmuted video element');
+  const scripts = root.querySelectorAll('script').map((script) => script.text).join('\n');
+  for (const [pattern, name] of SOUND_SCRIPTS) if (pattern.test(scripts)) found.push(name);
+  return found.length > 0 ? found.join(', ') : null;
+}
+
 const secs = (n: number): string => `${Number(n.toFixed(2))}s`;
 const times = (n: number): string => (n === 2 ? 'twice' : `${n} times`);
 
@@ -53,7 +73,8 @@ export function scanPage(html: string | null): PageScan {
   if (html === null) return { scenes: [], issues: [{ code: 'no-page', message: 'the version has no index.html' }] };
   const scenes: PageScene[] = [];
   const issues: ContractIssue[] = [];
-  const found = parse(html).querySelectorAll('[data-scene]');
+  const root = parse(html);
+  const found = root.querySelectorAll('[data-scene]');
   for (const [i, node] of found.entries()) {
     const name = node.getAttribute('data-scene')?.trim() || `#${i + 1}`;
     const start = numeric(node.getAttribute('data-start'));
@@ -72,6 +93,10 @@ export function scanPage(html: string | null): PageScan {
   }
   if (scenes.length === 0) {
     issues.unshift({ code: 'no-scenes', message: 'the page has no scenes with data-start and data-duration' });
+  }
+  const sound = pageSound(root);
+  if (sound !== null) {
+    issues.push({ code: 'page-sound', message: `the page plays its own sound (${sound}), which preview, Save and render leave out. Add the sound as a project source so it joins the shared mix.` });
   }
   return { scenes, issues };
 }

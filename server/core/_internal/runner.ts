@@ -19,6 +19,8 @@ const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const TRANSCODE_CRF = '20';
 const TOOL_PROBE_TIMEOUT_MS = 10_000;
+const WAVEFORM_BUCKETS = 1024;
+const WAVEFORM_SAMPLE_RATE = 48000;
 /** `render.js --info` starts a browser and loads the page, which a large page makes slow. */
 const PAGE_INFO_TIMEOUT_MS = 60_000;
 const CANCELLED = 'The render was cancelled.';
@@ -461,4 +463,69 @@ export async function probeVideo(file: string): Promise<VideoProbe> {
   const duration = Number(parsed.format?.duration);
   if (!codec || !Number.isFinite(duration)) throw new Error(`ffprobe found no video in ${file}.`);
   return { duration, codec, size: Number(parsed.format?.size) };
+}
+
+/** Original-sound peaks, with a bounded number of buckets and no automatic level changes. */
+export async function waveformPeaks(file: string, duration: number): Promise<number[]> {
+  const samples = Math.max(1, Math.ceil(duration * WAVEFORM_SAMPLE_RATE / WAVEFORM_BUCKETS));
+  const filter = `aresample=${WAVEFORM_SAMPLE_RATE},asetnsamples=n=${samples}:p=0,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.Peak_level:file=-`;
+  const output = await run('ffmpeg', ['-v', 'error', '-i', file, '-vn', '-af', filter, '-f', 'null', '-'], BUILD_TIMEOUT_MS);
+  const peaks = [...output.matchAll(/lavfi\.astats\.Overall\.Peak_level=([^\r\n]+)/g)].map((match) => {
+    const db = Number(match[1]);
+    return Number.isFinite(db) ? 10 ** (db / 20) : 0;
+  });
+  if (!peaks.length) throw new Error('No sound peaks could be prepared.');
+  return peaks;
+}
+
+/**
+ * The peak of each measuring window of a mix, linear (1 is full scale), from `mediaMixArgs`. The mix is measured as the
+ * render makes it, so nothing is estimated.
+ */
+export async function mixPeaks(args: string[]): Promise<number[]> {
+  const output = await run('ffmpeg', args, BUILD_TIMEOUT_MS);
+  return [...output.matchAll(/lavfi\.astats\.Overall\.Peak_level=([^\r\n]+)/g)].map((match) => {
+    const db = Number(match[1]);
+    return Number.isFinite(db) ? 10 ** (db / 20) : 0;
+  });
+}
+
+/** Compose native media with one whole-reel audio mix. Cancellation waits for the encoder to stop. */
+export function encodeMedia(args: string[], signal: AbortSignal): Promise<void> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn('ffmpeg', args, { windowsHide: true });
+    let errors = '';
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (errors = (errors + chunk).slice(-ERROR_TAIL_CHARS)));
+    let stopped: Promise<void> = Promise.resolve();
+    const stop = (): void => void (stopped = killTree(child));
+    if (signal.aborted) stop();
+    else signal.addEventListener('abort', stop, { once: true });
+    child.on('error', (err) => reject(new Error(`The media encoder could not start: ${err.message}`)));
+    child.on('close', (code) => {
+      signal.removeEventListener('abort', stop);
+      if (signal.aborted) void stopped.then(() => reject(new Error(CANCELLED)));
+      else if (code === 0) resolveRun();
+      else reject(new Error(`The media render failed: ${errors.trim() || `exit code ${code}`}`));
+    });
+  });
+}
+
+export interface MediaProbe {
+  duration: number;
+  codec: string;
+  audio: boolean;
+  width?: number;
+  height?: number;
+}
+
+/** Probe original sound, image or video bytes before a library entry can become ready. */
+export async function probeMedia(file: string, kind: 'video' | 'audio' | 'image'): Promise<MediaProbe> {
+  const parsed = JSON.parse(await run('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:format=duration', '-of', 'json', file], PROBE_TIMEOUT_MS)) as {
+    streams?: { codec_type?: string; codec_name?: string; width?: number; height?: number }[];
+    format?: { duration?: string };
+  };
+  const stream = parsed.streams?.find((s) => s.codec_type === (kind === 'audio' ? 'audio' : 'video'));
+  const duration = kind === 'image' ? 0 : Number(parsed.format?.duration);
+  if (!stream?.codec_name || !Number.isFinite(duration) || (kind !== 'image' && duration <= 0)) throw new Error(`ffprobe found no readable ${kind} in ${file}.`);
+  return { duration, codec: stream.codec_name, audio: parsed.streams!.some((s) => s.codec_type === 'audio'), ...(stream.width && stream.height ? { width: stream.width, height: stream.height } : {}) };
 }

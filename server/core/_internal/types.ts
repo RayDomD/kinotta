@@ -1,5 +1,6 @@
-import type { CaptionsPlan, ElementOffset, NewOperation, Operation, PlanClip } from './edit-model.ts';
+import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
+import type { MediaPlan, MediaSource } from './media-model.ts';
 
 export interface ReelSummary {
   /** Folder name under reels/. */
@@ -49,6 +50,10 @@ export interface TranscriptWord {
   /** Seconds. */
   start: number;
   end: number;
+  /** New media model: the independent speech occurrence and its source anchor. */
+  placement?: string;
+  source?: string;
+  sourceStart?: number;
 }
 
 export interface Overlay {
@@ -86,6 +91,10 @@ export interface Version {
   isNewest: boolean;
   /** Seconds. */
   duration: number;
+  /** Source/placement model for versions authored with multiple media. */
+  media?: MediaPlan;
+  /** Native sections before mapping source anchors onto continuous reel parts. */
+  mediaSections?: Plan['sections'];
   shots: Shot[];
   /** Empty when the version has none. */
   overlays: Overlay[];
@@ -180,11 +189,25 @@ export interface RenderSettings {
   audio: 'smooth' | 'hard';
 }
 
+/** Where a reel's mix passes full scale (AM29, AM38): reel seconds, and the highest linear peak there (1 is full scale). */
+export interface OverloadSpan {
+  start: number;
+  end: number;
+  peak: number;
+}
+
+/** A mix's overload, measured from the same mix a render makes. No spans: it stays within full scale. */
+export interface MixOverload {
+  spans: OverloadSpan[];
+}
+
 /** A render: a version and a preset, and any of the four settings to use instead of the reel's saved ones. */
 export interface RenderRequest extends Partial<RenderSettings> {
   reel: string;
   version: number;
   preset: RenderPreset;
+  /** The owner has seen the mix overload and renders it as it is (AM38). Without it an overloaded mix is refused. */
+  acceptOverload?: boolean;
   /** Saves the settings this render uses as the reel's for its preset (R16). Only Picker's render sets it. */
   remember?: boolean;
 }
@@ -228,6 +251,19 @@ export interface TranscriptionProgress {
 }
 
 export interface Project {
+  importMedia(name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedMedia>;
+  referenceMedia(path: string): Promise<ImportedMedia>;
+  /** Supported media inside the project, outside reels/, that the library does not hold yet. */
+  listProjectMedia(): Promise<ProjectMediaFile[]>;
+  relinkMedia(source: string, path: string): Promise<MediaEntry>;
+  mediaFile(source: string, saved?: { reel: string; version: number }): Promise<string | null>;
+  mediaWaveform(source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform>;
+  listMedia(filter?: MediaFilter): Promise<MediaEntry[]>;
+  /** How a source's speech stands: words cached by content, a running or failed transcription, or not started. */
+  mediaSpeech(source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech>;
+  /** Transcribes a source in the background unless its words are cached or already coming. Also the retry. */
+  transcribeMedia(source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech>;
+  readMediaModel(slug: string): Promise<MediaEditingModel>;
   /** The project folder's name. */
   name: string;
   /** Absolute path of the project's reels/ folder. */
@@ -345,6 +381,18 @@ export interface Project {
    * refuses, or an Overlay of a page that isn't transparent.
    */
   render(request: RenderRequest): Promise<RenderJob>;
+  /**
+   * Save and render (AM40): saves the reel's pending edits as the next version, then queues a render of that version.
+   * Refuses an unknown preset or setting before saving. A refused or failed Save throws and starts no render, keeping the
+   * edits and the saved versions; Render saved version is `render` with an explicit version.
+   */
+  saveAndRender(request: Omit<RenderRequest, 'version'>): Promise<{ version: number; job: RenderJob }>;
+  /**
+   * Where the mix passes full scale (AM29, AM38), measured from the mix a render makes. With a version, that saved
+   * version's; without, the pending mix Save would preserve. Levels are never changed. No spans for a reel without native
+   * media. Throws `not-found` for an unknown reel or version.
+   */
+  mixOverload(slug: string, version?: number): Promise<MixOverload>;
   /** The jobs waiting or running, in queue order. */
   renderJobs(): RenderJob[];
   /** The reel's finished renders, newest first. Throws `not-found` for an unknown reel. */
@@ -374,6 +422,8 @@ export interface EditList {
   canUndo: boolean;
   /** Redo has a list to step forward to (a new change ends it). */
   canRedo: boolean;
+  /** Edits replayed from this base, resetting Undo/Redo. Kept until Save or Discard. */
+  replayedFrom?: number;
   /** The list was made on a version that is no longer the newest; it cannot take edits or be saved. */
   stale?: true;
   /** A comment batch is out for the newest version: Save is blocked with this reason until the next version or `cancelHandoff`. */
@@ -397,6 +447,58 @@ export interface ImportedVideo {
   copied: boolean;
   /** True when this video has an H.264 copy for playback (HEVC or ProRes). */
   playbackCopy: boolean;
+}
+
+export interface MediaEntry extends MediaSource {
+  name: string;
+  size: number;
+  state: 'ready' | 'missing' | 'changed';
+  codec: string;
+  audio: boolean;
+  width?: number;
+  height?: number;
+  playback?: string;
+}
+
+export interface ImportedMedia extends MediaEntry {
+  copied: boolean;
+}
+
+export interface MediaFilter {
+  kind?: MediaSource['kind'];
+  search?: string;
+}
+
+/** A supported file inside the project that the media library does not hold yet. */
+export interface ProjectMediaFile {
+  path: string;
+  name: string;
+  kind: MediaSource['kind'];
+  size: number;
+}
+
+export type MediaSpeech =
+  | { state: 'idle' }
+  | { state: 'running' }
+  | { state: 'ready'; words: TranscriptWord[] }
+  | { state: 'failed'; error: string };
+
+export interface MediaWaveform {
+  state: 'ready' | 'unavailable';
+  duration: number;
+  peaks: number[];
+  error?: string;
+}
+
+export interface MediaEditingModel {
+  media: MediaPlan;
+  duration: number;
+  sourceRoot: string;
+  clips?: Plan['clips'];
+  sections?: Plan['sections'];
+  captions?: Plan['captions'];
+  /** Original legacy sources let pending source-time edits replay before adapting to placements. */
+  legacySources?: Sources;
 }
 
 /** A reel started from a brief instead of a video. */
@@ -431,6 +533,9 @@ export interface CopiedBatch {
 
 /** What the caller supplies for a frame pin; the core fills in the rest. */
 export interface NewFramePin {
+  placement?: string;
+  /** Media and footage pins may identify any moment, rather than only a shot start. */
+  time?: number;
   /** Omitted for a frame pin. */
   kind?: 'frame';
   /** Shot number, "03". */
@@ -442,13 +547,19 @@ export interface NewFramePin {
   element: string | null;
 }
 
-export interface FramePin {
+export interface PlacementPin {
+  placement?: string;
+  sourceTime?: number;
+  offset?: number;
+}
+
+export interface FramePin extends PlacementPin {
   kind: 'frame';
   version: number;
   /** The shot's section, or null. */
   section: string | null;
   shot: string;
-  /** The shot's start, in seconds. */
+  /** Reel seconds, at the chosen frame or the shot's start. */
   time: number;
   /** Fractions of the frame, rounded to 3 decimals. */
   x: number;
@@ -458,8 +569,9 @@ export interface FramePin {
 
 /** What the caller supplies for a word pin: a word of the shot's spoken line, by its start time and text. */
 export interface NewWordPin {
+  placement?: string;
   kind: 'word';
-  /** Shot number, "03". Empty on a version with no shots: the pin then belongs to the transcript. */
+  /** Shot number, "03". Empty targets the full transcript on a media/footage version, or a version with no shots. */
   shot: string;
   /** The word's start, in seconds. */
   time: number;
@@ -468,7 +580,7 @@ export interface NewWordPin {
 }
 
 /** A comment pinned to a spoken word. The core stores the transcript's own text and time for it. */
-export interface WordPin {
+export interface WordPin extends PlacementPin {
   kind: 'word';
   version: number;
   /** The shot's section, or null. */

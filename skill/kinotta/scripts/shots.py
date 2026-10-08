@@ -14,7 +14,7 @@ With "pieces" (see engine/pieces.py) every time in the list is on the reel's tim
 trimmed clips are cut to their edge, and words in a snip are not in the Captions span."""
 import json, sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'engine'))
-from pieces import timeline_plan, timeline_words
+from pieces import media_words, timeline_plan, timeline_words
 
 DEFAULT_STILL = 1.0
 TYPES = {'full': 'cutaway', 'panel': 'panel'}
@@ -34,6 +34,7 @@ def shots(plan, plan_dir=pathlib.Path(".")):
     out = []
     # In time order, since Kinotta runs each shot to the next one's start; a batch's new clip can come earlier.
     for c in sorted(plan['clips'], key=lambda c: c['in']):
+        if c.get('attachmentBroken'): sys.exit(f'graphic {c["id"]}: repair its broken footage attachment before building')
         if c.get('section') not in ids: sys.exit(f'clip {c["id"]}: "section" must be one of {sorted(ids)}')
         if c['kind'] not in TYPES: sys.exit(f'clip {c["id"]}: kind must be full or panel')
         def add(number, title, start, end, still, extra={}):
@@ -53,9 +54,11 @@ def shots(plan, plan_dir=pathlib.Path(".")):
             add(c['id'] + chr(ord('a') + i), s['title'], start, end, still, {'clip': c['id']})
     result = {'contract': 1, 'duration': plan['duration'], 'sections': plan['sections'], 'shots': out}
     if plan.get('captions'):
-        if not plan.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
-        words = json.load(open(plan_dir / plan['transcript'], encoding='utf-8'))['words']
-        if pieces: words = timeline_words(words, pieces)
+        if plan.get('media'): words = media_words(plan['media'])
+        else:
+            if not plan.get('transcript'): sys.exit('captions need "transcript", the transcript path from the plan')
+            words = json.load(open(plan_dir / plan['transcript'], encoding='utf-8'))['words']
+            if pieces: words = timeline_words(words, pieces)
         if words: result['overlays'] = [{'kind': 'CAPTIONS', 'name': 'Captions', 'start': words[0]['start'], 'end': words[-1]['end']}]
     return result
 

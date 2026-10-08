@@ -1,20 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { applyOperation, applyOperations } from './edit-model.ts';
+import { join, relative, sep } from 'node:path';
+import { applyOperation, applyOperations, mediaEditingPlan } from './edit-model.ts';
 import type { NewOperation, Operation, Sources } from './edit-model.ts';
+import type { MediaPlan } from './media-model.ts';
 import { KinottaError } from './errors.ts';
-import type { EditList } from './types.ts';
+import type { EditList, MediaEditingModel } from './types.ts';
 import { assertCodeOnlyOperations, codeSources, isCodeOnly } from './code-edits.ts';
 import { clearHandoff, handoffReason, readHandoff } from './handoff.ts';
 import type { Handoff } from './handoff.ts';
-import { readReelPlan, readReelWords } from './sources.ts';
+import { readReelPlan, readReelWords, readSourceAudio } from './sources.ts';
 import { recoverSave } from './save-journal.ts';
 import { newestVersionNumber, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-slide', 'element-offset']);
+const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset']);
 
 const queues = new Map<string, Promise<unknown>>();
 
@@ -39,6 +40,8 @@ interface Stored {
   redo: Operation[][];
   /** Operations a replay onto a newer version found no longer apply, by id, with why. */
   flagged: Record<string, string>;
+  /** The older base whose history was reset by replay. Kept until Save or Discard. */
+  replayedFrom?: number;
 }
 
 /** The most lists Undo keeps. */
@@ -52,7 +55,7 @@ async function readStored(reelDir: string): Promise<Stored | null> {
     const parsed = JSON.parse(await readFile(join(reelDir, EDIT_LIST_FILE), 'utf8')) as Record<string, unknown>;
     if (!Number.isInteger(parsed.base) || !Array.isArray(parsed.operations)) return null;
     const flagged = parsed.flagged && typeof parsed.flagged === 'object' ? (parsed.flagged as Record<string, string>) : {};
-    return { base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged };
+    return { base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged, ...(Number.isInteger(parsed.replayedFrom) && Number(parsed.replayedFrom) >= 0 && Number(parsed.replayedFrom) < Number(parsed.base) ? { replayedFrom: Number(parsed.replayedFrom) } : {}) };
   } catch {
     return null;
   }
@@ -69,6 +72,7 @@ function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditLis
     operations: stored.operations,
     canUndo: stored.undo.length > 0,
     canRedo: stored.redo.length > 0,
+    ...(stored.replayedFrom !== undefined ? { replayedFrom: stored.replayedFrom } : {}),
     ...(stale ? { stale: true as const } : {}),
     ...handoffOf(handoff),
     ...(Object.keys(flagged).length > 0 ? { flagged } : {}),
@@ -85,8 +89,38 @@ async function writeStored(reelDir: string, stored: Stored): Promise<void> {
 /** The reel's sources as the newest version has them: what an edit list applies to. */
 async function currentSources(projectDir: string, reelDir: string): Promise<Sources> {
   if (await isCodeOnly(projectDir, reelDir)) return (await codeSources(join(reelDir, `v${await newestVersionNumber(reelDir)}`))).sources;
-  const { plan, transcriptFile } = await readReelPlan(projectDir, reelDir);
-  return { plan, words: await readReelWords(transcriptFile) };
+  const { plan, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
+  return { plan, words: await readReelWords(transcriptFile), videoAudio: await readSourceAudio(plan, planDir) };
+}
+
+/**
+ * The media Save would preserve: the newest version's sources with the edits that still apply, the authored duration, and
+ * the folder its source paths are relative to. Null while the reel has no native media (a legacy reel not yet converted).
+ */
+export async function readPendingMedia(projectDir: string, slug: string): Promise<{ media: MediaPlan; duration: number; planDir: string } | null> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, async () => {
+    const list = await readEditListNow(projectDir, slug);
+    const code = await isCodeOnly(projectDir, reelDir);
+    const planDir = code ? join(reelDir, `v${await newestVersionNumber(reelDir)}`) : (await readReelPlan(projectDir, reelDir)).planDir;
+    const sources = await currentSources(projectDir, reelDir);
+    const applying = list.stale ? [] : list.operations.filter((op) => list.flagged?.[op.id] === undefined);
+    const { plan } = applyOperations(sources, applying);
+    return plan.media && !plan.media.legacy ? { media: plan.media, duration: plan.duration ?? 0, planDir } : null;
+  });
+}
+
+/** The editing identities and path base, including legacy and authored-page adapters. */
+export async function readMediaModel(projectDir: string, slug: string): Promise<MediaEditingModel> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, async () => {
+    await recoverSave(reelDir, EDIT_LIST_FILE);
+    const code = await isCodeOnly(projectDir, reelDir);
+    const planDir = code ? join(reelDir, `v${await newestVersionNumber(reelDir)}`) : (await readReelPlan(projectDir, reelDir)).planDir;
+    const sources = await currentSources(projectDir, reelDir);
+    const plan = mediaEditingPlan(sources);
+    return { media: plan.media!, duration: plan.duration ?? 0, clips: plan.clips, sections: plan.sections, captions: plan.captions, ...(plan.media?.legacy && !sources.plan.media ? { legacySources: sources } : {}), sourceRoot: relative(planDir, projectDir).split(sep).join('/') || '.' };
+  });
 }
 
 /**
@@ -110,7 +144,7 @@ async function replayOntoNewest(projectDir: string, reelDir: string, stored: Sto
       flagged[op.id] = err instanceof Error ? err.message : 'It no longer applies.';
     }
   }
-  const next: Stored = { base: newest, operations: stored.operations, undo: [], redo: [], flagged };
+  const next: Stored = { base: newest, operations: stored.operations, undo: [], redo: [], flagged, replayedFrom: stored.base };
   await writeStored(reelDir, next);
   return next;
 }
@@ -156,7 +190,7 @@ async function loadForChange(projectDir: string, reelDir: string, slug: string):
 
 /** Writes `operations` as the new list, keeping what it replaced for Undo. A new change ends the redo history. */
 async function commit(reelDir: string, stored: Stored, operations: Operation[]): Promise<Stored> {
-  const next = { base: stored.base, operations, undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [], flagged: stored.flagged };
+  const next = { ...stored, operations, undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [] };
   await writeStored(reelDir, next);
   return next;
 }

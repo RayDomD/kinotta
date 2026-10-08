@@ -28,7 +28,12 @@ Thin routes over the reels core, plus static serving of the built UI. No logic o
   A malformed body or a render the core refuses (unknown preset, the gate) is a 422 naming the reason; an unknown reel
   or version a 404. `GET /api/renders` returns `{ jobs }`, the jobs waiting or running. `DELETE /api/renders/<id>`
   cancels a job and answers 200 once it has stopped, with the job (`cancelled`, or unchanged if it had finished); an
-  unknown job is a 404. Progress comes as `render-progress` events on `/api/events`.
+  unknown job is a 404. Progress comes as `render-progress` events on `/api/events`. `acceptOverload: true` renders a mix
+  that goes above full scale, which is otherwise a 422 naming where. `POST /api/reels/<reel>/save-and-render` with
+  `{ preset, fps?, size?, quality?, audio?, remember?, acceptOverload? }` saves the pending edits, then queues the new
+  version's render and answers 201 with `{ version, job }`; a refused Save is a 422 and queues nothing.
+  `GET /api/reels/<reel>/overload[?version=<n>]` answers `{ spans: [{ start, end, peak }] }`, where the pending mix (or
+  version n's) passes full scale.
 - `GET /api/reels/<reel>/renders` returns `{ renders }`, the reel's finished renders newest first. `GET /renders/<reel>/<file>`
   serves one with byte ranges; temp files, path tricks and unknown files are a 404. `POST
   /api/reels/<reel>/renders/<file>/reveal` shows it in the system's file manager and answers 204, or 404 for an unknown file.

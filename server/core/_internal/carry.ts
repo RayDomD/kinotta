@@ -8,6 +8,8 @@ import type { StoredComment } from './state.ts';
 import { pieceMap, toSource, toTimeline } from './pieces.ts';
 import type { PieceMap } from './pieces.ts';
 import type { Shot, Version } from './types.ts';
+import type { PlacementPin } from './types.ts';
+import { legacyMedia, mediaTimeline, remapMediaMoment, timelineMoment } from './media-model.ts';
 import { newestVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
 
 /** The id of the section a shot belongs to. Every shot of a version has one, but a shot can be missing from a version. */
@@ -45,7 +47,16 @@ function mapOf(version: Version): PieceMap {
  * snipped stretch has no place; `removed` then says so, and `time` is where the snip closed up (the start of the next
  * piece in the source, else the end).
  */
-export function remapMoment(from: Version, to: Version, time: number): { time: number; removed: boolean } {
+export function remapMoment(from: Version, to: Version, time: number, anchor?: PlacementPin): { time: number; removed: boolean } {
+  if (from.media || to.media) {
+    // First conversion keeps the adapter's original source root. Old pins have reel times, not occurrence IDs.
+    const legacySource = !from.media && from.footage ? to.media?.sources.find((s) => s.id.startsWith('legacy:')) : undefined;
+    if (!from.media && from.footage && !legacySource) return { time: Math.min(time, to.duration), removed: true };
+    const legacy = legacySource ? legacyMedia({ video: legacySource.id.slice('legacy:'.length), pieces: from.pieces, duration: from.duration }) : null;
+    const before = from.media ? mediaTimeline(from.media, from.duration) : legacy ? mediaTimeline(legacy, from.duration) : { placements: [], duration: from.duration };
+    const after = to.media ? mediaTimeline(to.media, to.duration) : { placements: [], duration: to.duration };
+    return remapMediaMoment(before, after, time, anchor);
+  }
   const target = mapOf(to);
   const source = toSource(mapOf(from), time + JOIN_NUDGE);
   const placed = source === null ? null : toTimeline(target, source);
@@ -94,12 +105,15 @@ function elementGone(page: PageView | null, time: number, name: string): boolean
  * when the element it is pinned on is (an element pin follows its element); a mark it already had stays.
  */
 function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null): StoredComment {
-  const moment = remapMoment(from, to, comment.pin.time);
+  const moment = remapMoment(from, to, comment.pin.time, comment.pin);
   const shot = shotAt(to, moment.time);
-  const place = { version: to.number, section: shot?.section ?? null, shot: shot?.number ?? comment.pin.shot, time: moment.time };
+  const section = shot?.section ?? (to.media ? to.sections.find((s) => s.start <= moment.time && s.end > moment.time)?.id ?? null : null);
+  const place = { version: to.number, section, shot: shot?.number ?? comment.pin.shot, time: moment.time };
+  const adopted = !from.media && from.footage && to.media && !moment.removed ? timelineMoment(mediaTimeline(to.media, to.duration), moment.time) : null;
+  const anchor = adopted ? { placement: adopted.placement, sourceTime: adopted.time } : {};
   const target = comment.pin.kind === 'word' ? undefined : comment.pin.element;
   const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elementGone(page, moment.time, target)) ? ELEMENT_REMOVED : undefined;
-  return { ...comment, id: randomUUID(), pin: { ...comment.pin, ...place }, ...(state ? { state } : {}) };
+  return { ...comment, id: randomUUID(), pin: { ...comment.pin, ...place, ...anchor }, ...(state ? { state } : {}) };
 }
 
 /**

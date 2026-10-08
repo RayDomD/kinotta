@@ -128,6 +128,7 @@ The static rules, each with the code it prints in brackets:
 | `scene-gap` | no scene covers a shot's start |
 | `no-named-elements` | the scenes covering a shot have no `data-el` |
 | `duplicate-element` | a `data-el` name is used twice in one scene |
+| `page-sound` | the page plays sound of its own: an `<audio>`, a `<video>` without `muted`, or `new Audio`, `AudioContext` or `speechSynthesis` in an inline script. Sound belongs in the plan's `media` as a source and placement, so it joins the one mix the owner hears, edits and renders (ADR 0005) |
 
 On a footage reel (its `reel.json` names footage) it also reports, after those:
 

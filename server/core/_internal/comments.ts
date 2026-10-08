@@ -5,6 +5,7 @@ import { readState, serialized, stateFilePath, writeState } from './state.ts';
 import type { StateFile, StoredComment } from './state.ts';
 import type { AddedComment, Comment, CommentList, FramePin, NewComment, NewWordPin, NoteSaved, Shot, Version, WordPin } from './types.ts';
 import { assertTakesComments } from './version.ts';
+import { mediaTimeline } from './media-model.ts';
 
 /** The shot a word pin carries on a version with no shots: it belongs to the transcript. */
 export const NO_SHOT = '';
@@ -46,7 +47,7 @@ function fraction(value: unknown, axis: string): number {
 }
 
 function buildWordPin(raw: NewWordPin, version: number, shot: Shot): WordPin {
-  const found = shot.words?.find((w) => Math.abs(w.start - raw.time) <= WORD_TIME_TOLERANCE && w.text === raw.word);
+  const found = shot.words?.find((w) => Math.abs(w.start - raw.time) <= WORD_TIME_TOLERANCE && w.text === raw.word && (!raw.placement || raw.placement === w.placement));
   if (!found) {
     throw new KinottaError('invalid', `Shot ${shot.number} has no spoken word "${String(raw.word)}" at ${String(raw.time)}s.`);
   }
@@ -55,18 +56,26 @@ function buildWordPin(raw: NewWordPin, version: number, shot: Shot): WordPin {
 
 /** A word of the transcript of a version with no shots, which is where that version's word pins go. */
 function buildTranscriptWordPin(raw: NewWordPin, version: Version): WordPin {
-  const found = version.transcript?.find((w) => Math.abs(w.start - raw.time) <= WORD_TIME_TOLERANCE && w.text === raw.word);
+  const found = version.transcript?.find((w) => Math.abs(w.start - raw.time) <= WORD_TIME_TOLERANCE && w.text === raw.word && (!raw.placement || raw.placement === w.placement));
   if (!found) {
     throw new KinottaError('invalid', `The transcript has no word "${String(raw.word)}" at ${String(raw.time)}s.`);
   }
-  return { kind: 'word', version: version.number, section: null, shot: NO_SHOT, time: found.start, word: found.text };
+  const section = version.media ? version.sections.find((s) => s.start <= found.start && s.end > found.start)?.id ?? null : null;
+  return { kind: 'word', version: version.number, section, shot: NO_SHOT, time: found.start, word: found.text };
 }
 
-function buildPin(input: NewComment, version: Version): FramePin | WordPin {
+function buildPinWithoutAnchor(input: NewComment, version: Version): FramePin | WordPin {
   const raw = input?.pin;
   if (raw === null || typeof raw !== 'object') throw new KinottaError('invalid', 'A comment needs a pin.');
   const shots = version.shots;
-  if (raw.kind === 'word' && shots.length === 0 && raw.shot === NO_SHOT) return buildTranscriptWordPin(raw, version);
+  if (raw.kind === 'frame' && (version.media || version.footage) && raw.time !== undefined) {
+    if (!Number.isFinite(raw.time) || raw.time < 0 || raw.time >= version.duration) throw new KinottaError('invalid', 'Choose a pin moment inside the reel.');
+    const timeline = version.media ? mediaTimeline(version.media, version.duration) : null;
+    if (raw.placement && !timeline?.placements.some((p) => p.id === raw.placement && p.at <= raw.time! && p.at + p.duration > raw.time!)) throw new KinottaError('invalid', 'That placement is not playing at the pin moment.');
+    const shot = shots.find((s) => s.number === raw.shot);
+    return { kind: 'frame', version: version.number, section: shot?.section ?? version.sections.find((s) => s.start <= raw.time! && s.end > raw.time!)?.id ?? null, shot: shot?.number ?? NO_SHOT, time: raw.time, x: fraction(raw.x, 'x'), y: fraction(raw.y, 'y'), element: raw.element ?? null };
+  }
+  if (raw.kind === 'word' && (version.media || version.footage || shots.length === 0) && raw.shot === NO_SHOT) return buildTranscriptWordPin(raw, version);
   const shot = shots.find((s) => s.number === raw.shot);
   if (!shot) throw new KinottaError('invalid', `Version ${version.number} has no shot "${String(raw.shot)}".`);
   if (raw.kind === 'word') return buildWordPin(raw, version.number, shot);
@@ -84,6 +93,17 @@ function buildPin(input: NewComment, version: Version): FramePin | WordPin {
     y: fraction(raw.y, 'y'),
     element,
   };
+}
+
+function buildPin(input: NewComment, version: Version): FramePin | WordPin {
+  const pin = buildPinWithoutAnchor(input, version);
+  if (!version.media) return pin;
+  const timeline = mediaTimeline(version.media, version.duration);
+  const word = pin.kind === 'word' ? version.transcript?.find((w) => w.start === pin.time && w.text === pin.word && (!input.pin.placement || w.placement === input.pin.placement)) : undefined;
+  const identity = word?.placement ?? input.pin.placement;
+  const placement = identity ? timeline.placements.find((p) => p.id === identity) : timeline.placements.find((p) => (p.role === 'main' || p.role === 'gap') && p.at <= pin.time && p.at + p.duration > pin.time);
+  if (!placement) return pin;
+  return { ...pin, placement: placement.id, offset: pin.time - placement.at, ...(placement.role === 'gap' ? {} : { sourceTime: word?.sourceStart ?? (placement.in + pin.time - placement.at) }) };
 }
 
 export async function listComments(projectDir: string, slug: string, number: number): Promise<Comment[]> {

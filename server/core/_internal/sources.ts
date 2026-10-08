@@ -4,6 +4,7 @@ import type { Plan } from './edit-model.ts';
 import type { TranscriptWord } from './types.ts';
 import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
+import { probeMedia } from './runner.ts';
 
 const PLAN_FILE = 'plan.json';
 const TRANSCRIPT_FILE = 'transcript.json';
@@ -21,6 +22,12 @@ export interface ReelSources {
 }
 
 const readJson = async (file: string): Promise<unknown> => JSON.parse(await readFile(file, 'utf8')) as unknown;
+
+/** Silent legacy footage still plays, and does not need an audio decoder or a sound owner. */
+export async function readSourceAudio(plan: Plan, planDir: string): Promise<boolean | undefined> {
+  if (plan.media || typeof plan.video !== 'string') return undefined;
+  return probeMedia(resolve(planDir, plan.video), 'video').then((probe) => probe.audio, () => undefined);
+}
 
 async function exists(file: string): Promise<boolean> {
   return readFile(file).then(() => true, () => false);
@@ -43,6 +50,7 @@ export async function readReelPlan(projectDir: string, reelDir: string): Promise
   let plan: Plan;
   try {
     plan = (await readJson(planFile)) as Plan;
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) throw new KinottaError('invalid', 'A plan must be an object.');
   } catch {
     throw new KinottaError('invalid', `The reel's plan (${planFile}) could not be read.`);
   }

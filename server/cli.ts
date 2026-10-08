@@ -15,7 +15,7 @@ const SETTING_FLAGS = {
   audio: ['smooth', 'hard'],
 } as const;
 const SETTING_USAGE = Object.entries(SETTING_FLAGS).map(([flag, values]) => `[--${flag} ${values.join('|')}]`).join(' ');
-const RENDER_USAGE = `Usage: kinotta render <reel> v<n> --preset ${RENDER_PRESETS.join('|')} ${SETTING_USAGE} [--project <dir>]`;
+const RENDER_USAGE = `Usage: kinotta render <reel> v<n> --preset ${RENDER_PRESETS.join('|')} ${SETTING_USAGE} [--accept-overload] [--project <dir>]`;
 /** `kinotta render` prints a progress line each time the job gets this much further. */
 const PROGRESS_STEP_PERCENT = 10;
 
@@ -93,9 +93,12 @@ async function check(args: string[]): Promise<number> {
 function parseRenderArgs(args: string[]): RenderRequest | null {
   const positional: string[] = [];
   const flags: Record<string, string | undefined> = {};
+  let acceptOverload = false;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (arg.startsWith('--')) flags[arg.slice(2)] = args[++i];
+    // The owner has heard the mix overload and renders it as it is (AM38); a flag with no value.
+    if (arg === '--accept-overload') acceptOverload = true;
+    else if (arg.startsWith('--')) flags[arg.slice(2)] = args[++i];
     else positional.push(arg);
   }
   const [reel, versionArg] = positional;
@@ -103,7 +106,7 @@ function parseRenderArgs(args: string[]): RenderRequest | null {
   if (positional.length !== 2 || reel === undefined || !Number.isInteger(version) || version < 1) return null;
   const { preset, fps, size, quality, audio, ...unknown } = flags;
   if (Object.keys(unknown).length > 0 || !RENDER_PRESETS.includes(preset as RenderPreset)) return null;
-  const request: RenderRequest = { reel, version, preset: preset as RenderPreset };
+  const request: RenderRequest = { reel, version, preset: preset as RenderPreset, ...(acceptOverload ? { acceptOverload } : {}) };
   for (const [flag, value] of [['fps', fps], ['size', size], ['quality', quality], ['audio', audio]] as const) {
     if (value === undefined) continue;
     if (!(SETTING_FLAGS[flag] as readonly string[]).includes(value)) return null;

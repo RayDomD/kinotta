@@ -2,8 +2,11 @@ import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/p
 import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import type { Operation, Plan, PlanClip } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
+import { mediaPlanTimeline } from './edit-model.ts';
 import { buildPage, buildShots } from './runner.ts';
 import type { TranscriptWord } from './types.ts';
+import { preserveMedia } from './media-preservation.ts';
+import { graphicPreserver } from './graphic-preservation.ts';
 
 /** Where a version is built before it exists: not a `v<n>` folder, and hidden from the watcher. */
 export const STAGE_DIR = '.save';
@@ -17,7 +20,7 @@ async function clipPath(planDir: string, clip: PlanClip): Promise<string | undef
   if (typeof clip.clip === 'string') return clip.clip;
   for (const folder of ['clips', '']) {
     try {
-      const found = (await readdir(join(planDir, folder))).filter((f) => f.startsWith(`${clip.id}-`) && f.endsWith('.html')).sort()[0];
+      const found = (await readdir(join(planDir, folder))).filter((f) => f.startsWith(`${clip.splitFrom ?? clip.id}-`) && f.endsWith('.html')).sort()[0];
       if (found) return posix.join(folder, found);
     } catch {
       // no such folder
@@ -34,17 +37,28 @@ async function clipPath(planDir: string, clip: PlanClip): Promise<string | undef
 async function versionPlan(planDir: string, versionDir: string, plan: Plan): Promise<Plan> {
   const rebase = (path: string): string => (isAbsolute(path) ? path : relative(versionDir, resolve(planDir, path)).split(sep).join('/'));
   const copy: Plan = { ...plan };
+  if (copy.media) copy.media = await preserveMedia(planDir, versionDir, copy.media);
   if (typeof copy.video === 'string') copy.video = rebase(copy.video);
   if (copy.transcript !== undefined) copy.transcript = PUBLISHED_TRANSCRIPT;
   if (Array.isArray(copy.clips)) {
+    const preserveGraphic = graphicPreserver(versionDir);
     copy.clips = await Promise.all(
       copy.clips.map(async (clip) => {
         const path = await clipPath(planDir, clip);
-        return path === undefined ? clip : { ...clip, clip: rebase(path) };
+        return path === undefined ? clip : { ...clip, clip: copy.media ? await preserveGraphic(resolve(planDir, path)) : rebase(path) };
       }),
     );
   }
   return copy;
+}
+
+/** Older agent builds may have no metadata copies. Freeze their source ranges and words before first native conversion. */
+export async function snapshotLegacyVersion(planDir: string, versionDir: string, plan: Plan, transcript: Record<string, unknown>): Promise<void> {
+  if (plan.media) return;
+  const planFile = join(versionDir, 'plan.json');
+  if (!(await stat(planFile).then(() => true, () => false))) await writeJson(planFile, await versionPlan(planDir, versionDir, plan));
+  const transcriptFile = join(versionDir, PUBLISHED_TRANSCRIPT);
+  if (!(await stat(transcriptFile).then(() => true, () => false))) await writeJson(transcriptFile, transcript);
 }
 
 export interface StagedVersion {
@@ -75,6 +89,8 @@ export interface VersionInput {
  * a failure removes the stage and throws the reason.
  */
 export async function stageVersion(reelDir: string, input: VersionInput): Promise<StagedVersion> {
+  const broken = mediaPlanTimeline(input.plan).clips?.find((c) => c.attachmentBroken);
+  if (broken) throw new KinottaError('invalid', `Graphic ${broken.id} has a broken footage attachment. Trim, split or reattach it before Save.`);
   const dir = join(reelDir, STAGE_DIR);
   await rm(dir, { recursive: true, force: true });
   await mkdir(dir);

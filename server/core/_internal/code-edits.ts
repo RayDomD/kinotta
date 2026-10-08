@@ -2,6 +2,7 @@ import { cp, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { CLIP_ROOT } from './edit-model.ts';
 import type { ElementOffset, Operation, Sources } from './edit-model.ts';
+import type { MediaPlan } from './media-model.ts';
 import { scanPage } from './contract.ts';
 import type { PageScene } from './contract.ts';
 import { KinottaError } from './errors.ts';
@@ -15,6 +16,7 @@ import { readReelFootage } from './footage.ts';
 
 /** The stylesheet a saved version carries, next to its `index.html`. */
 export const EDITS_CSS = 'kinotta-edits.css';
+export const MEDIA_SIDECAR_FILE = 'media.json';
 const PAGE_FILE = 'index.html';
 const REEL_PLAN_FILE = 'plan.json';
 const HEADER = '/* Element moves made in Kinotta. Rewritten on each Save; edit them in Kinotta. */';
@@ -69,12 +71,16 @@ export async function codeSources(versionDir: string): Promise<{ sources: Source
   if (scenes.length === 0) throw new KinottaError('invalid', 'This version has no scenes to edit.');
   const saved = await readEditsCss(versionDir);
   const clips = scenes.map((s) => ({ id: s.name, in: s.start, out: s.start + s.duration, ...(saved[s.name] ? { offsets: saved[s.name] } : {}) }));
-  return { sources: { plan: { clips }, words: [] }, scenes };
+  const shots = JSON.parse(await readFile(join(versionDir, 'shots.json'), 'utf8')) as { duration: number };
+  const sidecar = await readFile(join(versionDir, MEDIA_SIDECAR_FILE), 'utf8').catch(() => null);
+  const media = sidecar ? (JSON.parse(sidecar) as { media: MediaPlan }).media : undefined;
+  return { sources: { plan: { clips, duration: shots.duration, ...(media ? { media } : {}) }, words: [] }, scenes };
 }
 
 /** Throws `invalid` unless every operation is a move or scale of an element, the only edit a reel built from code takes. */
-export function assertCodeOnlyOperations(operations: readonly Pick<Operation, 'kind'>[]): void {
-  if (operations.some((op) => op.kind !== 'element-offset')) {
+export function assertCodeOnlyOperations(operations: readonly Operation[]): void {
+  const allowed = new Set(['element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-remove', 'placement-replace', 'word-text', 'word-timing', 'phrase-text']);
+  if (operations.some((op) => !allowed.has(op.kind) || ((op.kind === 'placement-add' || op.kind === 'placement-replace') && op.placement.role !== 'audio'))) {
     throw new KinottaError('invalid', 'This reel is built from code, so only elements can be moved or scaled. To change its timing, ask your agent for a new version.');
   }
 }

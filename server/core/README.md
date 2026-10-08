@@ -98,6 +98,17 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `versionIssues`; otherwise `invalid` naming every reason, as in `v1 can't be rendered as a Final: it was built before
   plans were kept; it has 1 contract issue: …`. Approval is not checked: pressing Render is the decision (R19). A Draft
   skips the gate.
+- `saveAndRender({ reel, preset, ...settings })` is Save and render (AM40): it refuses an unknown preset or setting, then
+  runs `saveEdits` and queues `render` for the version it made, returning `{ version, job }`. A refused or failed Save
+  throws and queues nothing, so pending edits never reach a render without becoming a saved version first. `render` with
+  an explicit version is Render saved version. HTTP: `POST /api/reels/<reel>/save-and-render`.
+- `mixOverload(slug, version?)` (`_internal/media-overload.ts`) measures where a native mix passes full scale: the same
+  FFmpeg mix the render makes (`mediaMixArgs` shares its per-placement chain with `mediaRenderArgs`), one peak per 10 ms,
+  joined into `{ spans: [{ start, end, peak }] }`. Without a version it measures the pending mix Save would preserve. A
+  Draft or Final of a version whose mix overloads is refused (`invalid`, naming the spans) unless the request has
+  `acceptOverload: true`; levels are never changed (AM38). Overlay is silent and skips it. Mono sources play at full level
+  on both sides, as Web Audio plays them in preview. FFmpeg's AAC encoder applies its own clip avoidance inside an
+  accepted overload, so only the onset of an overloaded passage keeps its full peak in the file.
 - `listRenders(slug)` lists `reels/<reel>/renders/` newest first, skipping dot names (temp files, work folders): `{ file,
   version, preset, bytes, at }`, the version and preset read from the file name. `renderFile(slug, file)` is a finished
   render's path, for serving it, and `revealRender(slug, file)` shows it in the system's file manager through the runner

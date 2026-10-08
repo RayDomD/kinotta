@@ -2,6 +2,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, join, resolve, sep } from 'node:path';
 import type { CaptionsPlan, PlanClip } from './edit-model.ts';
 import { pieceMap } from './pieces.ts';
+import { mediaTimeline, mediaWords } from './media-model.ts';
+import type { MediaPlan } from './media-model.ts';
 import type { Piece, PlacedPiece } from './pieces.ts';
 import { readReelPlan } from './sources.ts';
 import { playbackPath } from './import.ts';
@@ -65,7 +67,7 @@ async function readOwn(versionDir: string, reelDir: string, name: string): Promi
   return null;
 }
 
-type VersionPlan = { pieces?: unknown; captions?: unknown; clips?: unknown };
+type VersionPlan = { pieces?: unknown; captions?: unknown; clips?: unknown; media?: MediaPlan; sections?: Version['mediaSections'] };
 
 /**
  * The plan a version was built with, the one resolver pieces, captions and clips all read so they cannot disagree. Its own;
@@ -85,6 +87,8 @@ async function resolvePlan(projectDir: string, versionDir: string, reelDir: stri
   };
   const own = await readFile(join(versionDir, PLAN_FILE), 'utf8').catch(() => null);
   if (own !== null) return parse(own);
+  const media = await readFile(join(versionDir, 'media.json'), 'utf8').catch(() => null);
+  if (media !== null) return parse(media);
   if (newest) return ((await readReelPlan(projectDir, reelDir).catch(() => null))?.plan as VersionPlan | undefined) ?? null;
   const number = Number(/^v(\d+)$/.exec(basename(versionDir))?.[1]);
   for (let earlier = number - 1; Number.isInteger(number) && earlier >= 1; earlier--) {
@@ -149,8 +153,20 @@ function withSpokenLine(shot: Shot, words: TranscriptWord[]): Shot {
 /** Adds the footage reference, pieces, transcript and each shot's spoken line to a version of a footage reel. */
 export async function addFootage(projectDir: string, reelDir: string, versionDir: string, version: Version): Promise<Version> {
   const ref = await readReelFootage(projectDir, reelDir);
-  if (!ref) return version;
   const plan = await resolvePlan(projectDir, versionDir, reelDir, version.isNewest);
+  if (plan?.media) {
+    const timeline = mediaTimeline(plan.media, version.duration);
+    const words = mediaWords(plan.media, version.duration);
+    const captions = readCaptions(plan);
+    return {
+      ...version, media: plan.media, duration: plan.media.sequence.length ? timeline.duration : version.duration,
+      mediaSections: plan.sections as Version['mediaSections'],
+      transcript: words, shots: version.shots.map((shot) => withSpokenLine(shot, words)),
+      ...(captions === undefined ? {} : { captions }),
+      ...(readClips(plan) === undefined ? {} : { clips: readClips(plan) }),
+    };
+  }
+  if (!ref) return version;
   const pieces = readPieces(plan, version.duration);
   const transcript = await readTranscript(versionDir, reelDir);
   const captions = readCaptions(plan);

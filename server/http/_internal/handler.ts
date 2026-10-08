@@ -14,6 +14,9 @@ const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
 const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
+const SAVE_AND_RENDER_API = /^\/api\/reels\/([^/]+)\/save-and-render$/;
+const OVERLOAD_API = /^\/api\/reels\/([^/]+)\/overload$/;
+const MEDIA_MODEL_API = /^\/api\/reels\/([^/]+)\/media-model$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
 const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
 const RENDER_API = /^\/api\/renders\/([^/]+)$/;
@@ -23,6 +26,10 @@ const REVEAL_API = /^\/api\/reels\/([^/]+)\/renders\/([^/]+)\/reveal$/;
 const RENDER_FILE_ROUTE = /^\/renders\/([^/]+)\/([^/]+)$/;
 const HTTP_NO_CONTENT = 204;
 const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
+const MEDIA_ROUTE = /^\/media\/([^/]+)$/;
+const VERSION_MEDIA_ROUTE = /^\/media\/([^/]+)\/(\d+)\/([^/]+)$/;
+const WAVEFORM_API = /^\/api\/media\/([^/]+)\/waveform$/;
+const SPEECH_API = /^\/api\/media\/([^/]+)\/speech$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
 const HEARTBEAT_MS = 25_000;
@@ -56,6 +63,12 @@ const CONTENT_TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.mov': 'video/quicktime',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
 };
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -175,11 +188,19 @@ async function handleEdits(req: IncomingMessage, res: ServerResponse, project: P
  */
 async function readRenderRequest(req: IncomingMessage): Promise<RenderRequest> {
   const body = await readJsonBody(req);
-  const { reel, version, preset, fps, size, quality, audio, remember } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const { reel, version, preset, fps, size, quality, audio, remember, acceptOverload } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   if (typeof reel !== 'string' || !Number.isInteger(version) || typeof preset !== 'string') {
     throw new KinottaError('invalid', 'A render needs a "reel", a whole-number "version" and a "preset".');
   }
-  return { reel, version, preset, fps, size, quality, audio, remember: remember === true } as RenderRequest;
+  return { reel, version, preset, fps, size, quality, audio, remember: remember === true, acceptOverload: acceptOverload === true } as RenderRequest;
+}
+
+/** A Save and render request's body: `{ preset, fps?, size?, quality?, audio?, remember? }`; the reel is in the path. */
+async function readRenderChoice(req: IncomingMessage): Promise<Omit<RenderRequest, 'reel' | 'version'>> {
+  const body = await readJsonBody(req);
+  const { preset, fps, size, quality, audio, remember, acceptOverload } = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  if (typeof preset !== 'string') throw new KinottaError('invalid', 'Save and render needs a "preset".');
+  return { preset, fps, size, quality, audio, remember: remember === true, acceptOverload: acceptOverload === true } as Omit<RenderRequest, 'reel' | 'version'>;
 }
 
 /** The optional body of a batch request: `{ includeIssues, runtimeIssues }`. An empty body means the plain batch. */
@@ -304,7 +325,7 @@ async function serveVersionFile(req: IncomingMessage, res: ServerResponse, reels
 export function createHandler(project: Project, webRoot: string) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
-      const { pathname } = new URL(req.url ?? '/', 'http://localhost');
+      const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
       const versionRoute = VERSION_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
@@ -313,8 +334,15 @@ export function createHandler(project: Project, webRoot: string) {
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
+      const mediaRoute = MEDIA_ROUTE.exec(pathname);
+      const versionMediaRoute = VERSION_MEDIA_ROUTE.exec(pathname);
+      const waveformRoute = WAVEFORM_API.exec(pathname);
+      const speechRoute = SPEECH_API.exec(pathname);
       const editsRoute = EDITS_API.exec(pathname);
       const saveRoute = SAVE_API.exec(pathname);
+    const saveAndRenderRoute = SAVE_AND_RENDER_API.exec(pathname);
+    const overloadRoute = OVERLOAD_API.exec(pathname);
+      const mediaModelRoute = MEDIA_MODEL_API.exec(pathname);
       const handoffRoute = HANDOFF_API.exec(pathname);
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
       const renderRoute = RENDER_API.exec(pathname);
@@ -342,6 +370,17 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(handoffRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelHandoff(slug));
+      } else if (overloadRoute && req.method === 'GET') {
+        // `?version=<n>` measures that saved version; without it, the pending mix Save would preserve.
+        const slug = safeDecode(overloadRoute[1]!);
+        const asked = searchParams.get('version');
+        const version = asked === null ? undefined : Number(asked);
+        if (slug === null || (version !== undefined && !(Number.isInteger(version) && version > 0))) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.mixOverload(slug, version));
+      } else if (saveAndRenderRoute && req.method === 'POST') {
+        const slug = safeDecode(saveAndRenderRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 201, await project.saveAndRender({ ...(await readRenderChoice(req)), reel: slug }));
       } else if (pathname === '/api/renders' && req.method === 'POST') {
         sendJson(res, 201, await project.render(await readRenderRequest(req)));
       } else if (renderRoute && req.method === 'DELETE') {
@@ -365,10 +404,48 @@ export function createHandler(project: Project, webRoot: string) {
         const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
         const imported = await project.importVideo(name, req);
         sendJson(res, imported.copied ? 201 : 200, imported);
+      } else if (pathname === '/api/media' && req.method === 'POST') {
+        const imported = await project.importMedia(searchParams.get('name') ?? '', req);
+        sendJson(res, imported.copied ? 201 : 200, imported);
+      } else if (pathname === '/api/media/reference' && req.method === 'POST') {
+        const body = await readJsonBody(req) as { path?: unknown };
+        if (typeof body.path !== 'string') throw new BadRequest(400, 'Choose a project media path.');
+        sendJson(res, 200, await project.referenceMedia(body.path));
+      } else if (pathname === '/api/media/relink' && req.method === 'POST') {
+        const body = await readJsonBody(req) as { source?: unknown; path?: unknown };
+        if (typeof body.source !== 'string' || typeof body.path !== 'string') throw new BadRequest(400, 'Choose a source and project media path.');
+        sendJson(res, 200, await project.relinkMedia(body.source, body.path));
+      } else if (speechRoute && (req.method === 'GET' || req.method === 'POST')) {
+        const source = safeDecode(speechRoute[1]!);
+        const reel = searchParams.get('reel');
+        const version = Number(searchParams.get('version'));
+        if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
+        const saved = reel ? { reel, version } : undefined;
+        sendJson(res, 200, req.method === 'POST' ? await project.transcribeMedia(source, saved) : await project.mediaSpeech(source, saved));
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
+      } else if (mediaRoute || versionMediaRoute) {
+        const route = (versionMediaRoute ?? mediaRoute)!;
+        const source = safeDecode(route[versionMediaRoute ? 3 : 1]!);
+        const reel = versionMediaRoute ? safeDecode(route[1]!) : undefined;
+        const saved = versionMediaRoute && reel ? { reel, version: Number(route[2]) } : undefined;
+        const file = source === null || reel === null ? null : await project.mediaFile(source, saved);
+        if (file) await sendRanged(req, res, file);
+        else sendNotFound(res);
+      } else if (pathname === '/api/media/project') {
+        sendJson(res, 200, { files: await project.listProjectMedia() });
+      } else if (pathname === '/api/media') {
+        const kind = searchParams.get('kind');
+        if (kind !== null && !['video', 'image', 'audio'].includes(kind)) throw new BadRequest(400, 'Choose video, image or audio.');
+        sendJson(res, 200, { media: await project.listMedia({ ...(kind ? { kind: kind as 'video' | 'image' | 'audio' } : {}), search: searchParams.get('search') ?? '' }) });
+      } else if (waveformRoute) {
+        const source = safeDecode(waveformRoute[1]!);
+        const reel = searchParams.get('reel');
+        const version = Number(searchParams.get('version'));
+        if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
+        sendJson(res, 200, await project.mediaWaveform(source, reel ? { reel, version } : undefined));
       } else if (renderFileRoute) {
         await serveRender(req, res, project, renderFileRoute);
       } else if (pathname === '/api/project') {
@@ -403,6 +480,10 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(versionRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.readVersion(slug, Number(versionRoute[2])));
+      } else if (mediaModelRoute) {
+        const slug = safeDecode(mediaModelRoute[1]!);
+        if (slug === null) sendNotFound(res);
+        else sendJson(res, 200, await project.readMediaModel(slug));
       } else if (pathname.startsWith('/api/')) {
         sendJson(res, 404, { error: 'Not found' });
       } else if (pathname.startsWith(REELS_PREFIX)) {

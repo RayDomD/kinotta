@@ -44,7 +44,7 @@ function safeName(name: string): string {
 }
 
 /** Writes a stream to a file and returns its SHA-256 and size, without holding the video in memory. */
-async function writeHashed(body: AsyncIterable<Uint8Array>, file: string): Promise<{ hash: string; size: number }> {
+export async function writeHashed(body: AsyncIterable<Uint8Array>, file: string): Promise<{ hash: string; size: number }> {
   const hash = createHash('sha256');
   let size = 0;
   const tap = new Transform({
@@ -58,7 +58,7 @@ async function writeHashed(body: AsyncIterable<Uint8Array>, file: string): Promi
   return { hash: hash.digest('hex'), size };
 }
 
-async function hashOf(file: string): Promise<string> {
+export async function hashOf(file: string): Promise<string> {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
   return hash.digest('hex');
