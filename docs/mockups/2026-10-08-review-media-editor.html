@@ -1,0 +1,326 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review media editor</title><style>
+
+:root { color-scheme: dark; --bg: oklch(.184 .004 106); --bg2: oklch(.214 .005 90); --ink: oklch(.945 .004 106); --muted: oklch(.640 .008 106); --rule: oklch(.945 .004 106 / .14); --accent: oklch(.84 .11 225); --text-secondary: var(--muted); --selected-border: var(--accent); --border: var(--rule); --bg-tertiary: var(--bg2); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Outfit, "Segoe UI", sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 60px; }
+h1 { font-size: 24px; font-weight: 500; margin: 0 0 4px; }
+h2 { font-size: 19px; font-weight: 500; margin: 36px 0 4px; border-top: 1px solid var(--rule); padding-top: 18px; }
+h3 { font-size: 15px; font-weight: 500; }
+.lede, .subtitle { color: var(--muted); font-size: 14px; max-width: 90ch; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 800px) { .split { grid-template-columns: 1fr; } }
+.mockup { border: 1px solid var(--rule); background: var(--bg2); min-width: 0; }
+.mockup-header { padding: 6px 10px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--rule); }
+.mockup-body { padding: 12px; overflow-x: auto; }
+.placeholder { border: 1px solid var(--rule); background: oklch(.15 .003 106); color: var(--muted); }
+.section { margin-top: 16px; }
+
+</style></head><body><main>
+<h1>Review media editor: decisions, 2026-10-08</h1>
+<p class="lede">Chosen in a ui-preview session with the owner. Builds on docs/mockups/2026-10-05-review-edit.html (layout) and 2026-10-06-review-picker-merge.html. Wireframe fidelity: structure and placement are decided; visuals follow DESIGN.md.</p>
+<h2>1 · Layout: stay on Review</h2>
+<p class="lede">Editing happens inside the Review tab (frame, transport, lanes, Edits and Comments panel). No "Edit media" page swap. This restores the 10-05 Review and Edit layout the media editor drifted from.</p>
+
+
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Today: "Edit media" swaps the tab for a long page</div>
+    <div class="mockup-body" style="font-size:12px;line-height:1.35">
+      <div class="placeholder" style="padding:6px">Title, version actions, notices</div>
+      <div class="placeholder" style="padding:18px 6px;margin-top:4px">Frame</div>
+      <div class="placeholder" style="padding:4px 6px;margin-top:4px">Transport, Playhead box, Pin frame</div>
+      <div class="placeholder" style="padding:4px 6px;margin-top:4px">New pin form + Pins list</div>
+      <div class="placeholder" style="padding:26px 6px;margin-top:4px">Placements: one full form each (In, Out, Framing, H%, V%, Volume, fades, Mute, speech, Solo, points, Remove, Earlier, Split, Duplicate, Replace)</div>
+      <div class="placeholder" style="padding:4px 6px;margin-top:4px">Sections list</div>
+      <div class="placeholder" style="padding:12px 6px;margin-top:4px">Graphics: one "Attach at playhead" row per graphic</div>
+      <div class="placeholder" style="padding:44px 6px;margin-top:4px">Speech: every word as text + Source start + Source end + Pin word, hundreds of rows</div>
+      <div class="placeholder" style="padding:12px 6px;margin-top:4px">Project media library</div>
+      <p style="margin-top:6px;color:var(--text-secondary)">Edits and Comments already sit in the right panel.</p>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Target: stay on Review (10-05 layout, plus media lanes)</div>
+    <div class="mockup-body" style="font-size:12px;line-height:1.35">
+      <div style="display:grid;grid-template-columns:1fr 34%;gap:6px">
+        <div>
+          <div class="placeholder" style="padding:30px 6px">Frame: drag picture to reframe, caption handle</div>
+          <div class="placeholder" style="padding:4px 6px;margin-top:4px">Play · 00:38.90 · Select V · Blade B · Snip S · zoom</div>
+          <div style="display:grid;grid-template-columns:58px 1fr;gap:3px 6px;margin-top:6px">
+            <span>Reel</span><div class="placeholder" style="padding:2px">overview</div>
+            <span>Footage</span><div class="placeholder" style="padding:2px">A | B | C, waveforms, drag to reorder</div>
+            <span><b>Sound</b></span><div class="placeholder" style="padding:2px;border:1.5px dashed var(--accent)">music, voiceover: volume line, fades as handles</div>
+            <span><b>Inserts</b></span><div class="placeholder" style="padding:2px;border:1.5px dashed var(--accent)">added video and stills</div>
+            <span>Clips</span><div class="placeholder" style="padding:2px">graphics (broken ones flagged here)</div>
+            <span>Captions</span><div class="placeholder" style="padding:2px">phrases</div>
+            <span>Words</span><div class="placeholder" style="padding:2px">click to retype, drag edges to re-time</div>
+            <span>Pins</span><div class="placeholder" style="padding:2px">on the ruler</div>
+          </div>
+        </div>
+        <div>
+          <div class="placeholder" style="padding:4px 6px">Edits | Comments</div>
+          <div class="placeholder" style="padding:30px 6px;margin-top:4px">numbered edits, Undo, Save as vN, Discard</div>
+          <div class="placeholder" style="padding:14px 6px;margin-top:4px;border:1.5px dashed var(--accent)">Selected placement inspector? (open)</div>
+          <div class="placeholder" style="padding:8px 6px;margin-top:4px;border:1.5px dashed var(--accent)">Library: drawer or popover? (open)</div>
+        </div>
+      </div>
+      <p style="margin-top:6px;color:var(--text-secondary)">Dashed = open layout question for the next screen.</p>
+    </div>
+  </div>
+</div>
+
+
+<h2>2 · Audio tracks under the ruler, with track headers (option A)</h2>
+<p class="lede">One row per sound role. Each header has Mute, Solo and a volume slider for the whole track. Clips keep their own volume line, fade handles and right-click settings (AM18). Track Mute affects the render; track Solo is preview only, as AM29 sets for placements.</p>
+<div class="mockup">
+  <div class="mockup-header">A · Track headers: Mute, Solo and volume on each track, nothing below</div>
+  <div class="mockup-body" style="background:#161616;color:#bdbdbd;font-size:12px;padding:12px">
+    <div style="display:grid;grid-template-columns:150px 1fr;gap:4px 10px;align-items:center">
+      <span style="opacity:.5">Words</span><div style="height:20px;border:1px solid #333;opacity:.5;padding:2px 4px">Hi, my name is Ryan…</div>
+      <span></span><div style="height:16px;font-size:11px;opacity:.6;display:flex;justify-content:space-between"><span>00:00</span><span>00:04</span><span>00:08</span><span>00:12</span></div>
+
+      <div style="display:flex;gap:6px;align-items:center;border:1px solid #333;padding:4px 6px;height:44px"><b style="color:#ddd;width:58px">Speech</b><span style="border:1px solid #555;padding:0 4px">M</span><span style="border:1px solid #555;padding:0 4px">S</span><span style="flex:1;height:3px;background:#555;position:relative"><i style="position:absolute;left:70%;top:-4px;width:3px;height:11px;background:#7cc8f0"></i></span></div>
+      <div style="height:44px;position:relative;border:1px solid #333"><div style="position:absolute;left:0;width:58%;top:3px;bottom:3px;border:1px solid #555;background:repeating-linear-gradient(90deg,#5a5a5a 0 1px,transparent 1px 4px) center/100% 50% no-repeat"><span style="position:absolute;left:4px;top:1px;font-size:10px">A · founder take</span></div><div style="position:absolute;left:58.5%;width:41%;top:3px;bottom:3px;border:1px solid #555;background:repeating-linear-gradient(90deg,#5a5a5a 0 1px,transparent 1px 4px) center/100% 50% no-repeat"><span style="position:absolute;left:4px;top:1px;font-size:10px">B</span></div></div>
+
+      <div style="display:flex;gap:6px;align-items:center;border:1px solid #333;padding:4px 6px;height:44px"><b style="color:#ddd;width:58px">Voiceover</b><span style="border:1px solid #555;padding:0 4px">M</span><span style="border:1px solid #7cc8f0;color:#7cc8f0;padding:0 4px">S</span><span style="flex:1;height:3px;background:#555;position:relative"><i style="position:absolute;left:55%;top:-4px;width:3px;height:11px;background:#7cc8f0"></i></span></div>
+      <div style="height:44px;position:relative;border:1px solid #333"><div style="position:absolute;left:30%;width:26%;top:3px;bottom:3px;border:1px solid #555;background:repeating-linear-gradient(90deg,#5a5a5a 0 1px,transparent 1px 4px) center/100% 50% no-repeat"><span style="position:absolute;left:4px;top:1px;font-size:10px">VO pass 2</span></div></div>
+
+      <div style="display:flex;gap:6px;align-items:center;border:1px solid #333;padding:4px 6px;height:44px"><b style="color:#ddd;width:58px">Music</b><span style="border:1px solid #555;padding:0 4px">M</span><span style="border:1px solid #555;padding:0 4px">S</span><span style="flex:1;height:3px;background:#555;position:relative"><i style="position:absolute;left:40%;top:-4px;width:3px;height:11px;background:#7cc8f0"></i></span></div>
+      <div style="height:44px;position:relative;border:1px solid #333"><div style="position:absolute;left:0;width:100%;top:3px;bottom:3px;border:1px solid #7cc8f0;background:repeating-linear-gradient(90deg,#4a5a62 0 1px,transparent 1px 4px) center/100% 50% no-repeat"><span style="position:absolute;left:4px;top:1px;font-size:10px;color:#7cc8f0">bed.mp3 · loop</span><svg style="position:absolute;inset:0;width:100%;height:100%" preserveAspectRatio="none" viewBox="0 0 100 40"><polyline points="0,40 4,14 30,14 33,26 56,26 59,14 96,14 100,40" fill="none" stroke="#7cc8f0" stroke-width=".8" vector-effect="non-scaling-stroke"/></svg></div></div>
+    </div>
+    <p style="margin-top:8px;opacity:.7">Per-clip mute, fades and volume points via right-click on the clip. Replace, duplicate, split: Blade tool and right-click.</p>
+  </div>
+</div>
+
+
+<h2>3 · Media library contents</h2>
+<p class="lede">One list of project files by their project path, shared vocabulary with Claude. Search, type tabs (AM10), click to preview in the main frame, + adds at playhead, drag onto a track. Relink and Retry only on problem rows (AM15, AM25).</p>
+
+
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Library (fits the rail, a drawer or a panel tab)</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:13px;padding:12px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1;border:1px solid #444;padding:4px 8px;color:#888">Search media</div>
+        <span style="border:1px solid #666;padding:4px 10px">Import</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:8px;font-size:12px">
+        <span style="border-bottom:1.5px solid #7cc8f0;color:#eee;padding:1px 6px">All</span><span style="padding:1px 6px;color:#999">Video</span><span style="padding:1px 6px;color:#999">Sound</span><span style="padding:1px 6px;color:#999">Stills</span>
+      </div>
+      <div style="margin-top:8px;border-top:1px solid #333">
+        <div style="display:grid;grid-template-columns:22px 1fr auto 22px;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #333"><span style="color:#999">♪</span><span>media/bed.mp3</span><span style="color:#888;font-size:12px">02:31</span><span style="text-align:center;border:1px solid #555">+</span></div>
+        <div style="display:grid;grid-template-columns:22px 1fr auto 22px;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #333;background:#1f2326;box-shadow:inset 2px 0 0 #7cc8f0"><span style="color:#999">♪</span><span>media/vo-pass2.wav</span><span style="color:#888;font-size:12px">00:18</span><span style="text-align:center;border:1px solid #555">+</span></div>
+        <div style="padding:4px 8px 8px 34px;border-bottom:1px solid #333;font-size:12px;color:#999">▶ playing in preview · <span style="color:#7cc8f0">00:06 / 00:18</span></div>
+        <div style="display:grid;grid-template-columns:22px 1fr auto 22px;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #333"><span style="color:#999">▭</span><span>footage/product.mp4</span><span style="color:#888;font-size:12px">00:42</span><span style="text-align:center;border:1px solid #555">+</span></div>
+        <div style="display:grid;grid-template-columns:22px 1fr auto 22px;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #333"><span style="color:#999">▣</span><span>media/logo.png</span><span style="color:#888;font-size:12px">still</span><span style="text-align:center;border:1px solid #555">+</span></div>
+        <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #333"><span style="color:#999">▭</span><span style="color:#999">footage/broll-old.mov</span><span style="font-size:12px;border:1px dashed #888;padding:0 6px">Missing · Relink</span></div>
+        <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:7px 4px"><span style="color:#999">♪</span><span style="color:#999">sting.wav</span><span style="font-size:12px;border:1px dashed #888;padding:0 6px">Import failed · Retry</span></div>
+      </div>
+      <div style="margin-top:10px;border:1px dashed #555;padding:8px;text-align:center;color:#888;font-size:12px">Drop files anywhere here</div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">How it works, and what's gone</div>
+    <div class="mockup-body" style="font-size:13px">
+      <h4 style="margin:0 0 4px">Doing things</h4>
+      <ul style="margin:0 0 10px 16px;padding:0">
+        <li><b>Click a row</b> to hear or see it. It plays in the main frame and speakers, not in a mini player in the list.</li>
+        <li><b>+</b> adds it at the playhead on the right track: sound to the first audio track with room (a new one if none), video and stills to Inserts.</li>
+        <li><b>Drag</b> a row onto any track or lane for exact placement. Dropping on Footage puts it in the main cut.</li>
+        <li><b>Problems only</b> get a label: Missing → Relink opens a file picker, Import failed → Retry.</li>
+      </ul>
+      <h4 style="margin:0 0 4px">Removed from today's library</h4>
+      <ul style="margin:0 0 10px 16px;padding:0">
+        <li>The separate "In this project" list and "Add to library": project files are just in the list.</li>
+        <li>Append / Insert picture / Add sound buttons: one + and drag.</li>
+        <li>Preview / Close preview buttons and the inline player.</li>
+        <li>"ready" on every row, the Relink dropdown, help paragraphs.</li>
+        <li>The Type dropdown becomes four tabs.</li>
+      </ul>
+      <h4 style="margin:0 0 4px">Still covered</h4>
+      <p style="margin:0">Import by drop or button and Retry (AM15), search, type filter, preview, reuse across reels (AM10), exact-content relink (AM25).</p>
+    </div>
+  </div>
+</div>
+
+
+
+<h2>4 · Library placement: left rail tab, collapsible, pushes the editor</h2>
+<p class="lede">Rail has Reel (reels, sections, versions) and Media as tabs, Reel first, so the two never stack. Collapsed by default to an icon strip; [ toggles. Full-fidelity screen: 2026-10-08-review-media-editor-screen.html. Open, it pushes the editor narrower rather than overlaying.</p>
+
+
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Collapsed (default)</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:11px;padding:8px">
+      <div style="display:grid;grid-template-columns:30px 1fr 26%;gap:4px;height:230px">
+        <div style="border:1px solid #333;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:8px">
+          <span title="Reel" style="color:#999">≡</span>
+          <span title="Media" style="color:#999">▤</span>
+          <span style="margin-top:auto;margin-bottom:8px;color:#777">»</span>
+        </div>
+        <div style="border:1px solid #333;display:grid;grid-template-rows:1fr 92px">
+          <div style="display:grid;place-items:center;color:#777">Frame (full width)</div>
+          <div style="border-top:1px solid #333;padding:4px;display:grid;grid-template-columns:70px 1fr;gap:3px 4px">
+            <span>Footage</span><span style="border:1px solid #444"></span>
+            <span>Clips</span><span style="border:1px solid #444"></span>
+            <span>Words</span><span style="border:1px solid #444"></span>
+            <span>Speech M S ─</span><span style="border:1px solid #444"></span>
+            <span>Music M S ─</span><span style="border:1px solid #444"></span>
+          </div>
+        </div>
+        <div style="border:1px solid #333;padding:4px;color:#777">Edits | Comments</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Expanded on Media</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:11px;padding:8px">
+      <div style="display:grid;grid-template-columns:34% 1fr 22%;gap:4px;height:230px">
+        <div style="border:1px solid #333;padding:4px">
+          <div style="display:flex;gap:8px;border-bottom:1px solid #333;padding-bottom:3px"><span style="color:#999">Reel</span><b style="color:#7cc8f0">Media</b><span style="margin-left:auto;color:#777">«</span></div>
+          <div style="border:1px solid #444;margin-top:4px;padding:2px 4px;color:#888">Search media</div>
+          <div style="margin-top:4px">All · Video · Sound · Stills</div>
+          <div style="margin-top:4px;border-bottom:1px solid #333;padding:2px 0">♪ media/bed.mp3 <span style="float:right">02:31 +</span></div>
+          <div style="border-bottom:1px solid #333;padding:2px 0">♪ media/vo-pass2.wav <span style="float:right">00:18 +</span></div>
+          <div style="border-bottom:1px solid #333;padding:2px 0">▭ footage/product.mp4 <span style="float:right">00:42 +</span></div>
+          <div style="border-bottom:1px solid #333;padding:2px 0;color:#999">▭ broll-old.mov <span style="float:right;border:1px dashed #888;padding:0 3px">Relink</span></div>
+        </div>
+        <div style="border:1px solid #333;display:grid;grid-template-rows:1fr 92px">
+          <div style="display:grid;place-items:center;color:#777">Frame (narrower)</div>
+          <div style="border-top:1px solid #333;padding:4px;color:#777">tracks</div>
+        </div>
+        <div style="border:1px solid #333;padding:4px;color:#777">Edits | Comments</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:10px">The Reel tab holds what the rail has today: reels, sections, versions. The rail remembers open or closed between sessions.</p>
+
+
+
+<h2>5 · Cuts</h2>
+<p class="lede">Cut: per-word list with Source start/end (Words lane replaces it), healthy-graphics list (Clips lane; broken attachments keep a warning with repair, AM30), pins list and new-pin form, sections list, key help and waveform notes, Earlier/Later buttons, In/Out and Horizontal/Vertical % boxes (exact values move to right-click; Crop/Fit stays, AM9).</p>
+
+
+
+<!-- 3 -->
+<h3 style="margin-top:18px">3 · Pins list and new-pin form</h3>
+<div class="split">
+  <div class="mockup"><div class="mockup-header">Today: under the transport</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="border:1px solid #444;padding:8px">
+        <div style="color:#999">Pin at 00:12.40 · footage A</div>
+        <div style="margin-top:4px">Comment <span style="display:block;border:1px solid #555;height:34px;margin-top:2px"></span></div>
+        <div style="margin-top:6px;display:flex;gap:6px"><span style="border:1px solid #555;padding:1px 6px">Save pin</span><span style="border:1px solid #555;padding:1px 6px">Cancel pin</span></div>
+      </div>
+      <div style="margin-top:8px"><b>Pins</b></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"><span style="border:1px solid #555;padding:1px 6px">1 · logo too small · 4.20s</span><span style="border:1px solid #555;padding:1px 6px">2 · cut earlier · 12.40s</span></div>
+    </div></div>
+  <div class="mockup"><div class="mockup-header">After: on the frame and in Comments</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="display:grid;grid-template-columns:1fr 40%;gap:8px">
+        <div style="border:1px solid #333;height:110px;position:relative"><span style="position:absolute;left:30%;top:35%;background:#7cc8f0;color:#111;padding:0 5px;font-weight:600">2</span>
+          <div style="position:absolute;left:36%;top:30%;width:52%;background:#222;border:1px solid #7cc8f0;padding:4px">cut earlier<div style="margin-top:3px;color:#7cc8f0">Enter saves · Esc cancels</div></div></div>
+        <div style="border:1px solid #333;padding:4px"><div style="color:#999;border-bottom:1px solid #333">Edits | <b style="color:#eee">Comments</b></div><div style="padding:3px 0;border-bottom:1px solid #333">1 · 00:04.20 logo too small</div><div style="padding:3px 0;color:#7cc8f0">2 · 00:12.40 cut earlier</div></div>
+      </div>
+      <p style="margin-top:6px;color:#999">The comment box opens on the frame where you clicked. Pins also sit on the Pins lane.</p>
+    </div></div>
+</div>
+
+
+<!-- 4 -->
+<h3 style="margin-top:22px">4 · Continuous sections list</h3>
+<div class="split">
+  <div class="mockup"><div class="mockup-header">Today: a section in the page</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <b>Sections</b>
+      <div style="margin-top:4px;border:1px solid #444;padding:4px">Part 1 · 00:00 to 00:58 · continuous</div>
+      <div style="margin-top:4px;border:1px solid #444;padding:4px">Part 2 · 00:58 to 01:58 · continuous</div>
+    </div></div>
+  <div class="mockup"><div class="mockup-header">After: rail, Reel tab</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="width:60%;border:1px solid #333;padding:6px">
+        <div style="border-bottom:1px solid #333"><b style="color:#7cc8f0">Reel</b> <span style="color:#999">Media</span></div>
+        <div style="color:#999;margin-top:4px">Sections</div>
+        <div style="box-shadow:inset 2px 0 0 #7cc8f0;padding:2px 6px">01 Part 1 <span style="color:#999">00:00 to 00:58</span></div>
+        <div style="padding:2px 6px">02 Part 2 <span style="color:#999">00:58 to 01:58</span></div>
+      </div>
+    </div></div>
+</div>
+
+
+<!-- 5 -->
+<h3 style="margin-top:22px">5 · Key help paragraph and "Waveform unavailable" note</h3>
+<div class="split">
+  <div class="mockup"><div class="mockup-header">Today: text above and inside every placement</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <p style="color:#999;margin:0">Select a placement, then use the arrow keys to move it (Shift for a second), [ or ] to trim its start or end to the playhead, and S to split it there.</p>
+      <div style="margin-top:6px;border:1px solid #444;padding:4px">bed.mp3 · audio · 0.00–12.00s<div style="color:#999">Waveform unavailable. Playback readiness is checked separately.</div></div>
+    </div></div>
+  <div class="mockup"><div class="mockup-header">After: shortcuts on hover, problem shown on the clip</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="display:flex;gap:6px;align-items:center"><span style="border:1px solid #7cc8f0;color:#7cc8f0;padding:1px 8px">Select V</span><span style="background:#222;border:1px solid #555;padding:2px 6px">← → move · [ ] trim · S split</span></div>
+      <div style="margin-top:8px;height:28px;border:1px dashed #666;padding:3px 6px;color:#999">bed.mp3 · no waveform</div>
+      <p style="margin-top:6px;color:#999">Tooltip on the tool, and a ? key that lists all shortcuts.</p>
+    </div></div>
+</div>
+
+
+<!-- 6 -->
+<h3 style="margin-top:22px">6 · Earlier / Later buttons</h3>
+<div class="split">
+  <div class="mockup"><div class="mockup-header">Today: in each placement's button row</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px"><span style="border:1px solid #555;padding:1px 6px">Remove</span><span style="border:1px solid #888;padding:1px 6px">Earlier</span><span style="border:1px solid #888;padding:1px 6px">Later</span><span style="border:1px solid #555;padding:1px 6px">Split</span><span style="border:1px solid #555;padding:1px 6px">Duplicate</span></div>
+    </div></div>
+  <div class="mockup"><div class="mockup-header">After: drag in the Footage lane, or arrow keys</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="height:30px;position:relative;border:1px solid #333">
+        <span style="position:absolute;left:0;width:30%;top:3px;bottom:3px;border:1px solid #555;padding:2px 4px">A</span>
+        <span style="position:absolute;left:31%;width:4px;top:0;bottom:0;background:#7cc8f0"></span>
+        <span style="position:absolute;left:36%;width:30%;top:3px;bottom:3px;border:1px solid #555;padding:2px 4px">B</span>
+        <span style="position:absolute;left:62%;width:30%;top:-4px;bottom:6px;border:1.5px solid #7cc8f0;background:#1f2326;padding:2px 4px;color:#7cc8f0">C ← dragging</span>
+      </div>
+      <p style="margin-top:6px;color:#999">The blue line shows where C will land.</p>
+    </div></div>
+</div>
+
+
+<!-- 7 -->
+<h3 style="margin-top:22px">7 · Number boxes: In, Out, Horizontal %, Vertical %</h3>
+<div class="split">
+  <div class="mockup"><div class="mockup-header">Today: four boxes on every placement</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <span>In <span style="border:1px solid #555;padding:0 10px">0.00</span></span><span>Out <span style="border:1px solid #555;padding:0 10px">36.90</span></span>
+        <span>Framing <span style="border:1px solid #555;padding:0 6px">Crop to fill ▾</span></span>
+        <span>Horizontal % <span style="border:1px solid #555;padding:0 10px">50</span></span><span>Vertical % <span style="border:1px solid #555;padding:0 10px">50</span></span>
+      </div>
+    </div></div>
+  <div class="mockup"><div class="mockup-header">After: drag edges and the picture; numbers on right-click</div>
+    <div class="mockup-body" style="background:#161616;color:#c8c8c8;font-size:12px;padding:10px">
+      <div style="display:grid;grid-template-columns:1fr 46%;gap:8px">
+        <div>
+          <div style="border:1px solid #333;height:60px;position:relative"><span style="position:absolute;inset:8px 20%;border:1.5px solid #7cc8f0;color:#7cc8f0;padding:2px">✥ drag to reframe</span></div>
+          <div style="margin-top:6px;height:24px;position:relative;border:1px solid #333"><span style="position:absolute;left:10%;width:60%;top:2px;bottom:2px;border:1.5px solid #7cc8f0"></span><span style="position:absolute;left:calc(10% - 3px);width:6px;top:0;bottom:0;background:#7cc8f0"></span><span style="position:absolute;left:calc(70% - 3px);width:6px;top:0;bottom:0;background:#7cc8f0"></span></div>
+        </div>
+        <div style="border:1px solid #555;background:#202020;padding:4px">
+          <div>Crop to fill / Fit whole</div><div>Follow footage / Stay at time</div><div style="border-top:1px solid #444;margin-top:3px;padding-top:3px">Exact times…</div><div>Exact framing…</div><div style="border-top:1px solid #444;margin-top:3px;padding-top:3px">Split · Duplicate · Replace · Remove</div>
+        </div>
+      </div>
+      <p style="margin-top:6px;color:#999">Crop/Fit stays (AM9); only the four boxes leave the page.</p>
+    </div></div>
+</div>
+
+
+</main></body></html>

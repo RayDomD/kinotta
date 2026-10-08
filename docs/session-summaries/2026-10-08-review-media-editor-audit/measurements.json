@@ -1,0 +1,182 @@
+[
+  {
+    "name": "dark-1024-closed",
+    "examined": 86,
+    "violations": [],
+    "documentWidth": 1024,
+    "viewport": 1024,
+    "mainWidth": 720
+  },
+  {
+    "name": "dark-1024-open",
+    "examined": 103,
+    "violations": [],
+    "documentWidth": 1024,
+    "viewport": 1024,
+    "mainWidth": 524
+  },
+  {
+    "name": "dark-1272-closed",
+    "examined": 88,
+    "violations": [],
+    "documentWidth": 1272,
+    "viewport": 1272,
+    "mainWidth": 948.171875
+  },
+  {
+    "name": "dark-1272-open",
+    "examined": 105,
+    "violations": [],
+    "documentWidth": 1272,
+    "viewport": 1272,
+    "mainWidth": 737.78125
+  },
+  {
+    "name": "dark-1600-closed",
+    "examined": 88,
+    "violations": [],
+    "documentWidth": 1600,
+    "viewport": 1600,
+    "mainWidth": 1236
+  },
+  {
+    "name": "dark-1600-open",
+    "examined": 105,
+    "violations": [],
+    "documentWidth": 1600,
+    "viewport": 1600,
+    "mainWidth": 980
+  },
+  {
+    "name": "light-1024-closed",
+    "examined": 86,
+    "violations": [
+      {
+        "tag": "SPAN",
+        "class": "rv-caphint",
+        "text": "Drag moves every caption · Alt-drag this phrase · Double-cli",
+        "contrast": 1.32,
+        "color": "oklch(0.22 0.004 106)",
+        "background": [
+          48.59999999999999,
+          48.59999999999999,
+          46.99999999999999,
+          255
+        ]
+      }
+    ],
+    "documentWidth": 1024,
+    "viewport": 1024,
+    "mainWidth": 720
+  },
+  {
+    "name": "light-1024-open",
+    "examined": 103,
+    "violations": [
+      {
+        "tag": "SPAN",
+        "class": "rv-caphint",
+        "text": "Drag moves every caption · Alt-drag this phrase · Double-cli",
+        "contrast": 1.32,
+        "color": "oklch(0.22 0.004 106)",
+        "background": [
+          48.59999999999999,
+          48.59999999999999,
+          46.99999999999999,
+          255
+        ]
+      }
+    ],
+    "documentWidth": 1024,
+    "viewport": 1024,
+    "mainWidth": 524
+  },
+  {
+    "name": "light-1272-closed",
+    "examined": 88,
+    "violations": [
+      {
+        "tag": "SPAN",
+        "class": "rv-caphint",
+        "text": "Drag moves every caption · Alt-drag this phrase · Double-cli",
+        "contrast": 1.32,
+        "color": "oklch(0.22 0.004 106)",
+        "background": [
+          48.59999999999999,
+          48.59999999999999,
+          46.99999999999999,
+          255
+        ]
+      }
+    ],
+    "documentWidth": 1272,
+    "viewport": 1272,
+    "mainWidth": 948.171875
+  },
+  {
+    "name": "light-1272-open",
+    "examined": 105,
+    "violations": [
+      {
+        "tag": "SPAN",
+        "class": "rv-caphint",
+        "text": "Drag moves every caption · Alt-drag this phrase · Double-cli",
+        "contrast": 1.32,
+        "color": "oklch(0.22 0.004 106)",
+        "background": [
+          48.59999999999999,
+          48.59999999999999,
+          46.99999999999999,
+          255
+        ]
+      }
+    ],
+    "documentWidth": 1272,
+    "viewport": 1272,
+    "mainWidth": 737.78125
+  },
+  {
+    "name": "light-1600-closed",
+    "examined": 88,
+    "violations": [
+      {
+        "tag": "SPAN",
+        "class": "rv-caphint",
+        "text": "Drag moves every caption · Alt-drag this phrase · Double-cli",
+        "contrast": 1.32,
+        "color": "oklch(0.22 0.004 106)",
+        "background": [
+          48.59999999999999,
+          48.59999999999999,
+          46.99999999999999,
+          255
+        ]
+      }
+    ],
+    "documentWidth": 1600,
+    "viewport": 1600,
+    "mainWidth": 1236
+  },
+  {
+    "name": "light-1600-open",
+    "examined": 105,
+    "violations": [
+      {
+        "tag": "SPAN",
+        "class": "rv-caphint",
+        "text": "Drag moves every caption · Alt-drag this phrase · Double-cli",
+        "contrast": 1.32,
+        "color": "oklch(0.22 0.004 106)",
+        "background": [
+          48.59999999999999,
+          48.59999999999999,
+          46.99999999999999,
+          255
+        ]
+      }
+    ],
+    "documentWidth": 1600,
+    "viewport": 1600,
+    "mainWidth": 980
+  }
+]

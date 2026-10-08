@@ -13,7 +13,7 @@ One video deliverable inside a project, such as a product showreel or a b-roll e
 _Avoid_: Video, project, clip
 
 **Version**:
-A frozen build of a reel, made by your Save or by an agent from one comment batch. It never changes after it exists, and it keeps the transcript and plan it was built from.
+A frozen build of a reel, made by your Save or by an agent from one comment batch, retaining the exact media, transcript and plan it was built from.
 Only the newest version of a reel takes comments; older versions can be viewed but not commented on.
 _Avoid_: Draft, revision, iteration
 
@@ -38,20 +38,36 @@ A named thing inside a scene that a click can land on, such as a headline, logo 
 _Avoid_: Node, layer, component
 
 **Clip**:
-One item on the timeline's video track: either a footage take or a scene.
-_Avoid_: Segment, track item
+A generated graphic with its own timing on the reel, such as animated b-roll or a lower third.
+_Avoid_: Footage take, placement, segment
+
+**Source**:
+Underlying media used in a reel, such as a video, image or audio recording. The same source can be used more than once and across reels in its project.
+_Avoid_: Placement
+
+**Placement**:
+One timed use of a source in a reel, independently editable and commentable even when the same source appears elsewhere.
+_Avoid_: Source, clip
 
 **Transcript**:
-The timed words spoken in a reel's footage, saved with the reel and copied into each version. An agent plans b-roll against it, and each shot shows the line it covers.
+The timed words from a speech source, reused by its placements and retained with each version. An agent plans word-linked graphics against them, and a shot shows the line it covers.
 _Avoid_: Subtitles, SRT
 
 **Captions**:
-The transcript shown on a footage reel's page, a phrase at a time, each phrase its own scene with an element named caption. They can be moved: every caption together, or one phrase on its own, kept by its first word's time in the source (a caption position).
+The timed words from the chosen speech placement shown on the reel's frame. Their text and position can be adjusted for that placement without changing another use of the same source.
 _Avoid_: Subtitles, burn-ins
 
 **Overlay**:
 A clip layered above the main clips, such as b-roll or a lower third.
 _Avoid_: B-roll track, layer
+
+**Split screen**:
+An arrangement showing different pictures at the same moment in separate regions of the reel's frame.
+_Avoid_: Picture-in-picture
+
+**Free layout**:
+An arrangement of several source placements in custom regions of the reel's frame, each with its own timing and framing. Regions can overlap, with an order deciding which picture is in front.
+_Avoid_: Two-source preset
 
 ### Editing
 
@@ -68,7 +84,7 @@ Writing the edit list into the reel's sources and building the next version from
 _Avoid_: Commit, export, publish
 
 **Piece**:
-A stretch of the source video on the reel's timeline. A footage reel is an ordered list of pieces.
+A timed stretch of a video source in the reel's main sequence. A footage reel is an ordered sequence of pieces, with any deliberate gaps between them.
 _Avoid_: Clip, segment, take
 
 **Cut**:
@@ -82,6 +98,32 @@ _Avoid_: Delete, trim, ripple
 **Offset**:
 A move and scale applied to an element on top of its own animation.
 _Avoid_: Nudge, transform, override
+
+### Audio
+
+**Original sound**:
+The sound recorded with a footage source, including its speech and background sound.
+_Avoid_: Voiceover
+
+**Music**:
+Audio added to a reel as its musical background.
+_Avoid_: Original sound
+
+**Sound effect**:
+Audio added to mark an action or moment in a reel.
+_Avoid_: Music, voiceover
+
+**Voiceover**:
+Narration added to a reel separately from the sound recorded with its footage. It can be imported or recorded inside Kinotta.
+_Avoid_: Original sound
+
+**Solo**:
+A preview-only choice that lets you hear one sound in isolation without changing the rendered mix.
+_Avoid_: Mute
+
+**Mute**:
+An edit that silences a placement in both playback and its rendered version.
+_Avoid_: Solo
 
 ### Feedback
 

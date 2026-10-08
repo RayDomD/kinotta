@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kinotta split-screen decision</title>
+<style>*{box-sizing:border-box}body{margin:0;padding:32px;background:#292927;color:#eeeae2;font:15px/1.5 'Segoe UI',sans-serif}h2,h3,p{margin:0 0 12px}.subtitle,.card-body p{color:#b5b4ae}.cards{gap:18px}.card{border:1px solid #676762;background:#343431}.card[data-choice="c-free-layout"]{border:2px solid #a3daf0}.card-body{padding:18px}.section{margin-top:26px}.mock-button{background:#eeeae2;color:#292927;border:0;padding:8px 12px;font:inherit}.mock-button:disabled{opacity:.75}</style></head><body>
+<main style="max-width:1250px;margin:auto;font-family:'Segoe UI',sans-serif">
+  <h2>Q24 · What should split screen let you make?</h2>
+  <p class="subtitle">All pictures below appear at the same moment in one reel. These are illustrative frames, not imported footage.</p>
+  <p style="margin:12px 0 24px"><strong>Chosen: C · Free layout.</strong> Owner: “I choose C so we can have the freedom.” A and B remain reference examples. Overlap and stacking controls are still to be decided.</p>
+  <div class="cards options" data-multiselect style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+    <section class="card" data-choice="a-side-by-side" style="border-radius:0">
+      <div class="card-image" style="display:block;aspect-ratio:auto;background:#20201e;padding:12px">
+        <div style="display:flex;aspect-ratio:16/9;overflow:hidden;border:1px solid #686865">
+          <div id="side-a" style="flex:50;min-width:0;overflow:hidden;border-right:2px solid #a3daf0">
+            <svg viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" role="img" aria-label="Speaker in the left half"><rect width="320" height="240" fill="#414544"/><rect x="20" y="24" width="85" height="128" fill="#565c59"/><circle cx="164" cy="85" r="35" fill="#c5b5a3"/><path d="M92 240V187Q94 131 164 129Q234 131 236 187V240" fill="#929d9b"/><text x="16" y="222" fill="#f1f0e8" font-size="15">TALKING TAKE</text></svg>
+          </div>
+          <div id="side-b" style="flex:50;min-width:0;overflow:hidden">
+            <svg viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" role="img" aria-label="Product in the right half"><rect width="320" height="240" fill="#746a59"/><rect y="179" width="320" height="61" fill="#a79a82"/><rect x="134" y="37" width="52" height="29" fill="#393b35"/><rect x="115" y="63" width="90" height="121" fill="#cbc1a7"/><rect x="123" y="101" width="74" height="48" fill="#ece6d6"/><text x="160" y="129" text-anchor="middle" font-size="12" fill="#363b32">PRODUCT</text><text x="16" y="222" fill="#f1f0e8" font-size="15">PRODUCT VIDEO</text></svg>
+          </div>
+        </div>
+        <label for="side-divider" style="display:block;color:#eeeae2;margin-top:12px">Divider: give either picture more room</label>
+        <input id="side-divider" type="range" min="25" max="75" value="50" aria-label="Left picture width" style="width:100%;accent-color:#a3daf0" oninput="document.getElementById('side-a').style.flex=this.value;document.getElementById('side-b').style.flex=100-this.value">
+      </div>
+      <div class="card-body"><h3>A · Side by side</h3><p>Speaker on the left, product on the right. Move the divider and adjust each picture's crop independently.</p><button class="mock-button" type="button" disabled>Reference option</button></div>
+    </section>
+    <section class="card" data-choice="b-top-bottom" style="border-radius:0">
+      <div class="card-image" style="display:block;aspect-ratio:auto;background:#20201e;padding:12px">
+        <div style="display:flex;flex-direction:column;aspect-ratio:16/9;overflow:hidden;border:1px solid #686865">
+          <div id="stack-a" style="flex:50;min-height:0;overflow:hidden;border-bottom:2px solid #a3daf0">
+            <svg viewBox="0 0 320 100" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" role="img" aria-label="Speaker in the upper half"><rect width="320" height="100" fill="#414544"/><rect x="20" y="12" width="85" height="80" fill="#565c59"/><circle cx="164" cy="33" r="24" fill="#c5b5a3"/><path d="M98 100Q100 59 164 58Q228 59 230 100" fill="#929d9b"/><text x="10" y="91" fill="#f1f0e8" font-size="11">TALKING TAKE</text></svg>
+          </div>
+          <div id="stack-b" style="flex:50;min-height:0;overflow:hidden">
+            <svg viewBox="0 0 320 100" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" role="img" aria-label="Product in the lower half"><rect width="320" height="100" fill="#746a59"/><rect y="79" width="320" height="21" fill="#a79a82"/><rect x="143" y="8" width="34" height="16" fill="#393b35"/><rect x="131" y="23" width="58" height="65" fill="#cbc1a7"/><rect x="136" y="42" width="48" height="28" fill="#ece6d6"/><text x="160" y="60" text-anchor="middle" font-size="8" fill="#363b32">PRODUCT</text><text x="10" y="91" fill="#f1f0e8" font-size="11">PRODUCT VIDEO</text></svg>
+          </div>
+        </div>
+        <label for="stack-divider" style="display:block;color:#eeeae2;margin-top:12px">Divider: give either picture more height</label>
+        <input id="stack-divider" type="range" min="25" max="75" value="50" aria-label="Upper picture height" style="width:100%;accent-color:#a3daf0" oninput="document.getElementById('stack-a').style.flex=this.value;document.getElementById('stack-b').style.flex=100-this.value">
+      </div>
+      <div class="card-body"><h3>B · Top and bottom</h3><p>Speaker above, product below. The same two-source control, with a horizontal divider.</p><button class="mock-button" type="button" disabled>Reference option</button></div>
+    </section>
+    <section class="card" data-choice="c-free-layout" style="border-radius:0">
+      <div class="card-image" style="display:block;aspect-ratio:auto;background:#20201e;padding:12px">
+        <svg viewBox="0 0 320 180" width="100%" style="display:block;aspect-ratio:16/9;border:1px solid #686865" role="img" aria-label="Free arrangement with a large speaker region and three other source regions"><rect width="320" height="180" fill="#20201e"/><rect width="192" height="180" fill="#414544"/><circle cx="96" cy="59" r="26" fill="#c5b5a3"/><path d="M42 180V130Q42 96 96 94Q150 96 150 130V180" fill="#929d9b"/><text x="12" y="167" font-size="12" fill="#eeeae2">SOURCE A</text><rect x="195" width="125" height="74" fill="#746a59"/><rect x="241" y="9" width="32" height="56" fill="#cbc1a7"/><rect x="195" y="77" width="125" height="50" fill="#566874"/><text x="205" y="106" font-size="12" fill="#eeeae2">SOURCE C</text><rect x="195" y="130" width="125" height="50" fill="#6e655a"/><text x="205" y="160" font-size="12" fill="#eeeae2">SOURCE D</text></svg>
+        <p style="color:#eeeae2;margin-top:12px;min-height:47px">Several sources and individually positioned regions.</p>
+      </div>
+      <div class="card-body"><h3>C · Free layout</h3><p>Place several pictures in custom regions, each with independent timing and framing. This is the chosen design direction.</p><button class="mock-button" type="button" disabled>Chosen by owner</button></div>
+    </section>
+  </div>
+  <div class="section"><h3>Framing and timing are separate</h3><p>In A or B, you can move or zoom the picture inside its region. One source can start later than the other. These sliders demonstrate the divider only, not final crop or timeline controls.</p><p style="margin-top:10px"><strong>Q21 remains open:</strong> You can manually change every placement's volume. Should captions follow the main talking take by default, with a choice to use voiceover instead?</p></div>
+</main>
+</body></html>

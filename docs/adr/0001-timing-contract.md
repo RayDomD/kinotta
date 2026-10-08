@@ -1,5 +1,7 @@
 # Every version is an HTML page under a timing contract
 
+Audio amendment, 2026-10-07: [ADR 0005](0005-all-sound-uses-shared-mix.md) narrows independent page audio for the new media model. The visual timing and element contract below remains in force.
+
 Claude builds each version as an HTML page with free choice of technique (CSS, canvas, three.js,
 Web Audio), bound by three rules: every scene carries its start time and length, every element
 carries a stable name, and the page exposes a function that jumps it to any second. We chose this

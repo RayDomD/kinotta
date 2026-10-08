@@ -1,5 +1,7 @@
 # Kinotta is invoked inside existing projects, not in its own workspaces
 
+Media-history amendment, 2026-10-07: [ADR 0003](0003-saved-versions-preserve-media.md) requires versions created with the new media model to preserve their media content. Import ownership and reference policies below remain, with saved history protected from later changes to referenced files.
+
 Kinotta ships as a global Claude skill plus the editor app. You run Claude inside any existing
 project (for example a brand repo like Aroma) and invoke the skill; reels are written to
 `<project>/reels/`, and the editor opens that folder. We chose this because projects already hold

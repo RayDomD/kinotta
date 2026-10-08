@@ -56,7 +56,8 @@ Then, inside any project:
   are any. Claude runs it before saying a version is ready.
 - `kinotta render <reel> v<n> --preset draft|final|overlay` renders a version. With the editor open it joins the
   editor's render queue; otherwise it renders on its own and exits. `--fps`, `--size`, `--quality` and `--audio`
-  change one render without changing the settings the editor remembers. `check` and `render` take `--project <dir>`.
+  change one render without changing the settings the editor remembers. A mix that goes above full scale is refused with
+  where it overloads; `--accept-overload` renders it as it is. `check` and `render` take `--project <dir>`.
 
 ## Screens
 

@@ -51,7 +51,7 @@ The editor uses the owner's Rubric brand structure (`C:\FIles\projects\Brands\Ru
 
 ## Product Principles
 
-1. **The reel is the subject.** The editor frames someone else's work, so the chrome recedes and never tints the judgment of colour or motion.
+1. **The reel is the subject.** The editor frames someone else's work. Neutral dark remains the default, and the owner can theme the whole editor, including the area behind the picture, through Appearance settings (owner decision, 2026-10-08).
 2. **Pin, don't describe.** Every feedback affordance should land on a moment and an element, so comments stay short and unambiguous.
 3. **Versions are history, not drafts.** Nothing edits a version in place. The UI makes it obvious which frozen version is on screen.
 4. **One hand-off, no friction.** Getting a comment batch from the editor to Claude and the next version back is a single, predictable step.

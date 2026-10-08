@@ -80,7 +80,7 @@ components:
 
 Kinotta is a dark table the owner lays someone else's reel on. The table itself is warm near-black and flat, divided by hairlines, and carries no hue, because every reel brings its own client's brand and the chrome must never tint the judgment of colour or motion. One cold ice-blue light moves over the table: it marks the pin you placed, the version on screen, the section in view, and the element under the cursor. Nothing else is lit.
 
-The structure is the owner's Rubric brand (decisions D15 to D22 in `docs/2026-09-30-grilling-decisions.md`): Outfit for reading, Doto dot-matrix for numbers, zero radius, the hex mark and hex cursor, and stacked paper for the things in your hand. Rubric's chrome-metal gradients are replaced by the ice light. The editor is dark only and is used full screen on a large monitor in operate mode.
+The structure is the owner's Rubric brand (decisions D15 to D22 in `docs/2026-09-30-grilling-decisions.md`): Outfit for reading, Doto dot-matrix for numbers, zero radius, the hex mark and hex cursor, and stacked paper for the things in your hand. Rubric's chrome-metal gradients are replaced by the ice light. Neutral dark is the default. Appearance can change the whole editor, including the picture well, to a light theme and select an ice-blue, amber or mint accent (owner decision, 2026-10-08). The editor is used full screen on a large monitor in operate mode.
 
 Motion keeps Rubric's speeds by the owner's explicit choice (D19), which overrides the CRAFT operate budget: the chrome lifts, presses and recolours at crafted speeds, and anything driven by review work (stepping shots, scrubbing, keyboard navigation) never animates.
 
@@ -213,4 +213,4 @@ A single 640px column: heading, a lede, the list of videos in the project (`rv-p
 - **Don't** round a corner or use chrome-metal gradients.
 - **Don't** add texture other than dot terrain, and only in empty places.
 - **Don't** let the element name tag cover the element or the reel's content.
-- **Don't** add a light theme (D21).
+- **Don't** change the neutral dark default. The owner's Appearance choice applies to the full editor.

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review with media editing</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --ground: oklch(.184 .004 106); --ground-deep: oklch(.150 .003 106);
+  --card: oklch(.214 .005 90); --card-raised: oklch(.246 .005 90);
+  --ink: oklch(.945 .004 106); --ink-2: oklch(.820 .007 106); --muted: oklch(.640 .008 106);
+  --rule: oklch(.945 .004 106 / .14); --hairline: oklch(.945 .004 106 / .24);
+  --light: oklch(.84 .11 225); --light-glow: oklch(.84 .11 225 / .5); --light-wash: oklch(.84 .11 225 / .07);
+  --still-ground: oklch(.13 .006 50);
+  --sheet-rest: 5px 5px 0 -1.6px var(--ground), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px var(--ground), 10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --sheet-press: 2px 2px 0 -1.6px var(--ground), 2px 2px 0 0 oklch(.945 .004 106 / .42);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.5 Outfit, "Segoe UI", sans-serif; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.num { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; }
+.label { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+
+.mk { flex-wrap: wrap; display: flex; align-items: center; gap: 6px; padding: 8px 20px; background: var(--ground-deep); border-bottom: 1px dashed var(--hairline); font-size: 13px; color: var(--muted); }
+.mk button { padding: 3px 10px; border: 1.2px solid var(--hairline); color: var(--ink-2); }
+.mk button[aria-pressed="true"] { border-color: var(--light); color: var(--light); }
+
+.app { height: calc(100vh - 38px); min-height: 820px; display: grid; grid-template-rows: 52px 1fr; }
+.top { min-width: 0; display: flex; align-items: center; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: .06em; font-size: 14px; }
+.modes { display: flex; gap: 2px; }
+.modes span { padding: 6px 12px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
+.modes span.on { color: var(--ink); border-color: var(--light); }
+.status { margin-left: auto; color: var(--muted); font-size: 13px; }
+
+.body { display: grid; grid-template-columns: 44px minmax(0, 1fr) clamp(260px, 22vw, 320px); min-height: 0; }
+body.open .body { grid-template-columns: clamp(240px, 20vw, 300px) minmax(0, 1fr) clamp(260px, 22vw, 320px); }
+
+/* rail */
+.rail { border-right: 1px solid var(--rule); display: flex; min-height: 0; }
+.icons { width: 44px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 12px; }
+.icons button { width: 32px; height: 32px; display: grid; place-items: center; color: var(--muted); border-left: 1.6px solid transparent; }
+.icons button:hover { color: var(--ink); }
+.icons button[aria-current] { color: var(--light); border-color: var(--light); }
+.icons .tog { margin-top: auto; margin-bottom: 12px; font-size: 13px; }
+.drawer { display: none; flex: 1; min-width: 0; border-left: 1px solid var(--rule); padding: 14px 12px; overflow: auto; flex-direction: column; gap: 10px; }
+body.open .drawer { display: flex; }
+body.open .icons { border-right: 0; }
+.search { display: flex; gap: 6px; }
+.search span { flex: 1; border: 1.4px solid var(--hairline); padding: 5px 9px; color: var(--muted); font-size: 13px; }
+.search button { border: 1.4px solid var(--hairline); padding: 5px 10px; font-size: 13px; color: var(--ink-2); }
+.types { display: flex; gap: 2px; font-size: 13px; }
+.types span { padding: 2px 8px; color: var(--muted); border-bottom: 1.6px solid transparent; }
+.types span.on { color: var(--ink); border-color: var(--light); }
+.lib { list-style: none; border-top: 1px solid var(--rule); }
+.lib li { display: grid; grid-template-columns: 18px 1fr auto 22px; gap: 8px; align-items: center; padding: 7px 2px; border-bottom: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); cursor: grab; }
+.lib li:hover { background: var(--card); color: var(--ink); }
+.lib li.on { background: var(--light-wash); box-shadow: inset 2px 0 0 var(--light); color: var(--ink); }
+.lib .k { color: var(--muted); font-size: 12px; }
+.lib .d { font: 700 11px Doto, monospace; color: var(--muted); }
+.lib .add { border: 1.2px solid var(--hairline); text-align: center; line-height: 18px; }
+.lib .bad { grid-column: 3 / 5; font-size: 11.5px; border: 1.2px dashed var(--ink-2); padding: 0 6px; color: var(--ink); }
+.lib li.broken span:nth-child(2) { color: var(--muted); }
+.dropnote { border: 1.4px dashed var(--hairline); padding: 10px; text-align: center; font-size: 12px; color: var(--muted); }
+.reeltab { display: none; }
+body.reel .reeltab { display: flex; flex-direction: column; gap: 6px; }
+body.reel .medtab { display: none !important; }
+.rtabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule); margin: -4px 0 4px; }
+.rtabs button { padding: 4px 10px 7px; font-size: 14px; color: var(--muted); border-bottom: 1.6px solid transparent; }
+.rtabs button:hover { color: var(--ink); }
+body.open:not(.reel) .rtabs [data-t=open], body.reel .rtabs [data-t=reel] { color: var(--ink); font-weight: 600; border-color: var(--light); }
+.reeltab .it { padding: 4px 8px; font-size: 14px; color: var(--ink-2); }
+.reeltab .it.cur { color: var(--ink); box-shadow: inset 2px 0 0 var(--light); }
+
+/* main */
+.main { overflow: auto; padding: 16px 22px 24px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.head { display: flex; align-items: baseline; gap: 14px; }
+.head h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+.head .meta { color: var(--muted); font-size: 13px; }
+.head .acts { margin-left: auto; display: flex; gap: 8px; }
+.ghost { border: 1.4px solid var(--hairline); padding: 4px 12px; font-size: 13px; color: var(--ink-2); }
+.primary { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 13px; padding: 5px 14px; }
+
+.well { background: var(--ground-deep); padding: 10px; }
+.frame { position: relative; aspect-ratio: 16/9; max-height: 38vh; margin: 0 auto; overflow: hidden;
+  background: radial-gradient(120% 90% at 30% 35%, oklch(.42 .05 60), oklch(.2 .02 50) 60%, oklch(.13 .006 50)); }
+.person { position: absolute; left: 14%; bottom: 0; width: 26%; height: 80%; background: radial-gradient(50% 30% at 50% 18%, oklch(.6 .05 50), transparent 70%), radial-gradient(60% 70% at 50% 100%, oklch(.32 .03 250), transparent 70%); }
+.insert { position: absolute; right: 6%; top: 10%; width: 40%; aspect-ratio: 16/9; background: linear-gradient(135deg, oklch(.5 .06 200), oklch(.3 .04 230)); outline: 1.5px solid var(--light); outline-offset: 3px; box-shadow: 0 0 12px var(--light-glow); }
+.insert .h { position: absolute; width: 7px; height: 7px; background: var(--light); }
+.tag { position: absolute; background: var(--light); color: var(--ground); font-size: 12px; font-weight: 600; padding: 1px 7px; white-space: nowrap; }
+.cap { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); font: 600 clamp(14px, 1.6vw, 24px) Outfit; color: #f4f2ee; text-shadow: 0 2px 10px rgba(0,0,0,.55); white-space: nowrap; }
+.cap mark { background: none; color: oklch(.82 .12 60); }
+.cpin { position: absolute; left: 30%; top: 30%; width: 20px; height: 20px; display: grid; place-items: center; font: 800 10px Doto; color: var(--ground); }
+.cpin svg { position: absolute; inset: 0; }
+.cpin b { position: relative; }
+
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-top: 8px; }
+.tc { font: 700 15px Doto, monospace; white-space: nowrap; }
+.tc span { color: var(--muted); }
+.tools { display: flex; gap: 2px; }
+.tool { white-space: nowrap; display: flex; gap: 6px; align-items: center; padding: 4px 10px; font-size: 13px; color: var(--ink-2); border: 1.4px solid transparent; }
+.tool kbd { font: 700 11px Doto, monospace; color: var(--muted); border: 1px solid var(--hairline); padding: 0 4px; }
+.tool.on { color: var(--light); border-color: var(--light); }
+.zoom { white-space: nowrap; margin-left: auto; font-size: 13px; color: var(--muted); }
+.zoom b { font: 700 12px Doto, monospace; color: var(--ink-2); }
+
+/* timeline: lanes then tracks share one grid so the playhead runs through all */
+.tl { position: relative; display: grid; grid-template-columns: 138px 1fr; gap: 5px 12px; align-items: center; font-size: 13px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 10px; }
+.lane { position: relative; min-width: 0; height: 26px; }
+.lane i { position: absolute; top: 2px; bottom: 2px; font-style: normal; background: var(--card); border: 1.4px solid var(--hairline); padding: 0 7px; font-size: 12px; line-height: 19px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane i b { font: 800 11px Doto, monospace; color: var(--muted); margin-right: 5px; }
+.lane i.sel { border-color: var(--light); color: var(--ink); box-shadow: 0 0 10px var(--light-glow); }
+.lane i.warn { border-style: dashed; border-color: var(--ink-2); }
+.lane.foot { height: 34px; }
+.lane.foot i { line-height: 28px; }
+.lane.words i { border-width: 0 0 0 1px; border-color: var(--rule); background: none; padding: 0 3px; }
+.lane.words { border-top: 1.4px solid var(--hairline); border-bottom: 1.4px solid var(--hairline); }
+.lane.over { height: 16px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
+.lane.over i { top: 4px; bottom: 4px; padding: 0; background: var(--hairline); border: 0; }
+.lane.over .win { position: absolute; left: 30%; width: 14%; top: 0; bottom: 0; border: 1.4px solid var(--ink-2); }
+.lane.pins { height: 22px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
+.lane.pins .p { position: absolute; top: 1px; width: 20px; height: 20px; transform: translateX(-50%); display: grid; place-items: center; font: 800 10px Doto; color: var(--ground); }
+.lane.pins .p svg { position: absolute; inset: 0; }
+.lane.pins .p b { position: relative; }
+.axis { height: 16px; font: 700 11px Doto, monospace; color: var(--muted); }
+.axis span { position: absolute; transform: translateX(-50%); }
+.ph { position: absolute; top: 4px; bottom: 0; width: 1.6px; background: var(--light); box-shadow: 0 0 8px var(--light-glow); pointer-events: none; z-index: 4; }
+
+.sep { grid-column: 1 / -1; height: 1px; background: var(--rule); margin: 4px 0; }
+.th { display: flex; align-items: center; gap: 6px; height: 46px; padding: 0 8px; border: 1px solid var(--rule); background: var(--card); color: var(--ink-2); }
+.th .n { flex: 1; font-size: 13px; color: var(--ink); }
+.th .ms { border: 1.2px solid var(--hairline); font: 700 11px Doto; padding: 0 4px; color: var(--muted); }
+.th .ms.on { border-color: var(--light); color: var(--light); }
+.th .vol { width: 34px; height: 3px; background: var(--hairline); position: relative; }
+.th .vol::after { content: ""; position: absolute; top: -4px; left: var(--v); width: 3px; height: 11px; background: var(--ink-2); }
+.track { position: relative; height: 46px; border: 1px solid var(--rule); }
+.clip { position: absolute; top: 3px; bottom: 3px; border: 1.4px solid var(--hairline); background: var(--card);
+  background-image: repeating-linear-gradient(90deg, oklch(.945 .004 106 / .25) 0 1.4px, transparent 1.4px 4px); background-size: 100% 46%; background-position: center 70%; background-repeat: no-repeat; }
+.clip .nm { position: absolute; left: 6px; top: 1px; font-size: 11.5px; color: var(--ink-2); }
+.clip.sel { border-color: var(--light); box-shadow: 0 0 10px var(--light-glow); background-image: repeating-linear-gradient(90deg, oklch(.84 .11 225 / .4) 0 1.4px, transparent 1.4px 4px); }
+.clip.sel .nm { color: var(--light); }
+.clip svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.clip .fh { position: absolute; top: -4px; width: 8px; height: 8px; background: var(--light); }
+.addtrack { font-size: 12px; color: var(--muted); text-align: left; padding: 2px 8px; }
+.addtrack:hover { color: var(--ink); }
+
+/* right panel */
+.side { border-left: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; }
+.tabs { display: flex; padding: 12px 16px 0; border-bottom: 1px solid var(--rule); gap: 2px; }
+.tabs span { padding: 6px 10px 8px; font-size: 14px; color: var(--muted); border-bottom: 1.6px solid transparent; }
+.tabs span.on { color: var(--ink); font-weight: 600; border-color: var(--ink); }
+.tabs .num { font-size: 12px; margin-left: 5px; color: var(--light); }
+.panel { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.undo { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.c { position: relative; background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 8px 12px; margin: 0 10px 6px 0; list-style: none; }
+.c .w { font-size: 12px; color: var(--muted); display: flex; gap: 8px; }
+.c .w .num { color: var(--light); }
+.c p { font-size: 14px; margin-top: 2px; }
+.c.flag { border-style: dashed; }
+.save { border-top: 1px solid var(--rule); padding: 14px 16px; display: flex; gap: 14px; align-items: center; }
+.save .btn { background: var(--ink); color: var(--ground); font-weight: 600; padding: 8px 16px; box-shadow: var(--sheet-press); }
+.save .q { color: var(--muted); font-size: 14px; }
+
+/* context menu */
+.ctx { position: absolute; z-index: 8; width: 230px; background: var(--card-raised); border: 1px solid var(--hairline); box-shadow: var(--sheet-rest); padding: 4px 0; font-size: 13px; display: none; }
+body.menu .ctx { display: block; }
+.ctx div { padding: 5px 12px; color: var(--ink-2); display: flex; justify-content: space-between; }
+.ctx div:hover { background: var(--light-wash); color: var(--ink); }
+.ctx div span { color: var(--muted); font: 700 11px Doto; }
+.ctx hr { border: 0; border-top: 1px solid var(--rule); margin: 4px 0; }
+
+/* numbered callouts for the walkthrough */
+.co { position: absolute; z-index: 9; width: 20px; height: 20px; border-radius: 50%; background: oklch(.78 .16 60); color: #1a1a1a; font: 700 11px Outfit; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--ground); }
+body.nocall .co { display: none; }
+
+.ib { width: 30px; height: 28px; display: grid; place-items: center; border: 1.4px solid transparent; color: var(--ink-2); position: relative; }
+.ib:hover { border-color: var(--hairline); color: var(--ink); }
+.ib.on { color: var(--light); border-color: var(--light); }
+.ib:hover::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: var(--card-raised); border: 1px solid var(--hairline); padding: 2px 8px; font-size: 12px; color: var(--ink); z-index: 9; }
+.tdiv { width: 1px; height: 20px; background: var(--rule); margin: 0 4px; }
+.ovl { position: absolute; top: 0; bottom: 0; background: oklch(.65 .17 40 / .35); border-left: 1.4px solid oklch(.72 .17 45); border-right: 1.4px solid oklch(.72 .17 45); pointer-events: none; }
+.warnline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: oklch(.82 .14 60); }
+.warnline button { color: var(--ink); text-decoration: underline; }
+.gear { margin-left: 12px; width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink-2); border: 1.4px solid transparent; }
+.gear:hover { border-color: var(--hairline); color: var(--ink); }
+.cliptab { display: none; }
+body.cliptabon .cliptab { display: flex; }
+body.cliptabon .editstab { display: none; }
+.cs { border-top: 1px solid var(--rule); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.cs h4 { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.cs .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cs .in { background: var(--ground-deep); border: 1.4px solid var(--rule); padding: 2px 8px; font: 700 12px Doto, monospace; color: var(--ink); min-width: 70px; text-align: right; }
+.cs .wave { height: 44px; border: 1px solid var(--rule); background: repeating-linear-gradient(90deg, oklch(.84 .11 225 / .4) 0 1.4px, transparent 1.4px 4px) center / 100% 55% no-repeat; position: relative; }
+.cs .seg { display: flex; border: 1.4px solid var(--hairline); }
+.cs .seg span { padding: 1px 10px; }
+.cs .seg span.on { background: var(--card-raised); color: var(--ink); box-shadow: inset 0 -1.6px 0 var(--light); }
+.sheet { display: none; position: fixed; inset: 0; background: oklch(.1 .003 106 / .6); z-index: 20; place-items: center; }
+body.settings .sheet { display: grid; }
+.sheet .box { width: min(760px, calc(100vw - 32px)); height: min(520px, calc(100vh - 80px)); background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); display: grid; grid-template-columns: 170px 1fr; }
+.sheet nav { border-right: 1px solid var(--rule); padding: 16px 0; display: flex; flex-direction: column; }
+.sheet nav span { padding: 6px 16px; color: var(--muted); font-size: 14px; }
+.sheet nav span.on { color: var(--ink); box-shadow: inset 2px 0 0 var(--light); background: var(--light-wash); }
+.sheet .pane { padding: 16px 20px; overflow: auto; font-size: 14px; }
+.sheet .pane h3 { font-size: 16px; font-weight: 500; margin-bottom: 10px; display: flex; justify-content: space-between; }
+.sheet .kb { display: grid; grid-template-columns: 1fr auto; gap: 0; }
+.sheet .kb > * { padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.sheet kbd { justify-self: end; align-self: center; font: 700 12px Doto, monospace; border: 1.2px solid var(--hairline); padding: 1px 8px; color: var(--ink); }
+.sheet kbd.rec { border-color: var(--light); color: var(--light); }
+.sheet .kb > kbd { padding: 1px 8px; border-bottom: 1.2px solid var(--hairline); }
+.sheet .clash { grid-column: 1 / -1; font-size: 12px; color: oklch(.82 .14 60); border: 0; padding-top: 0; }
+.link { font-size: 11px; color: var(--muted); margin-left: 4px; }
+</style>
+</head>
+<body class="open">
+<div class="mk">
+  <span>View</span>
+  <button data-s="open" aria-pressed="true">Rail open on Media</button>
+  <button data-s="closed" aria-pressed="false">Rail collapsed</button>
+  <button data-s="reel" aria-pressed="false">Rail open on Reel</button>
+  <span style="margin-left:14px">|</span>
+  <button id="menuBtn" aria-pressed="false">Right-click on music clip</button>
+  <button id="clipBtn" aria-pressed="false">Clip tab (music selected)</button><button id="setBtn" aria-pressed="false">Settings</button><button id="callBtn" aria-pressed="true">Numbered callouts</button>
+</div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>KINOTTA</div>
+    <span style="font-weight:500">Founder talk</span>
+    <nav class="modes"><span>Storyboard</span><span class="on">Review</span></nav>
+    <div class="status">No renders running</div><button class="gear" id="gear" title="Settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.3 4.3l2.1 2.1M13.6 13.6l2.1 2.1M4.3 15.7l2.1-2.1M13.6 6.4l2.1-2.1" stroke="currentColor" stroke-width="1.6"/></svg></button>
+  </header>
+
+  <div class="body">
+    <!-- 1 rail -->
+    <aside class="rail" style="position:relative">
+      <span class="co" style="left:10px;top:-6px">1</span>
+      <div class="icons">
+        <button title="Reel: reels, sections, versions" id="iReel" onclick="document.querySelector('[data-s=reel]').click()"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M3 5h14M3 10h14M3 15h9" stroke="currentColor" stroke-width="1.6"/></svg></button>
+        <button title="Media" id="iMed" aria-current="true" onclick="document.querySelector('[data-s=open]').click()"><svg width="18" height="18" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 7.5l5 2.5-5 2.5z" fill="currentColor"/></svg></button>
+        <button class="tog" id="tog" title="Collapse rail (M)">«</button>
+      </div>
+      <div class="drawer">
+        <div class="rtabs"><button data-t="reel">Reel</button><button data-t="open">Media</button></div>
+        <div class="medtab" style="display:contents">
+          <div class="search"><span>Search media</span><button>Import</button></div>
+          <div class="types"><span class="on">All</span><span>Video</span><span>Sound</span><span>Stills</span></div>
+          <ul class="lib">
+            <li><span class="k">♪</span><span>media/bed.mp3</span><span class="d">02:31</span><span class="add">+</span></li>
+            <li class="on"><span class="k">♪</span><span>media/vo-pass2.wav</span><span class="d">00:18</span><span class="add">+</span></li>
+            <li><span class="k">▭</span><span>footage/founder-talk.mov</span><span class="d">02:14</span><span class="add">+</span></li>
+            <li><span class="k">▭</span><span>footage/product.mp4</span><span class="d">00:42</span><span class="add">+</span></li>
+            <li><span class="k">▣</span><span>media/logo.png</span><span class="d">still</span><span class="add">+</span></li>
+            <li class="broken"><span class="k">▭</span><span>footage/broll-old.mov</span><span class="bad">Missing · Relink</span></li>
+            <li class="broken"><span class="k">♪</span><span>sting.wav</span><span class="bad">Import failed · Retry</span></li>
+          </ul>
+          <div class="dropnote">Drop files here, or drag a row onto a track</div>
+        </div>
+        <div class="reeltab">
+          <div class="label">Reels</div>
+          <div class="it cur">Founder talk</div><div class="it">Launch teaser</div>
+          <div class="label" style="margin-top:12px">Sections</div>
+          <div class="it cur"><span class="num" style="color:var(--light)">01</span> The problem <span style="color:var(--muted);font-size:12px">00:00 to 01:20</span></div>
+          <div class="it"><span class="num">02</span> The fix <span style="color:var(--muted);font-size:12px">01:20 to 02:14</span></div>
+          <div class="label" style="margin-top:12px">Versions</div>
+          <div class="it cur">v3 <span style="color:var(--muted);font-size:12px">editing</span></div><div class="it">v2 <span style="color:var(--muted);font-size:12px">Saved by you</span></div><div class="it">v1 <span style="color:var(--muted);font-size:12px">Built by Claude</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="head" style="position:relative">
+        <h1>The problem</h1><span class="meta"><span class="num">V3</span> · 02:14 · unsaved edits</span>
+        <div class="acts"><button class="ghost">Approve v3</button><button class="primary">Render ▾</button></div>
+      </div>
+
+      <!-- 2 frame -->
+      <div class="well" style="position:relative">
+        <span class="co" style="left:-8px;top:-8px">2</span>
+        <div class="frame">
+          <div class="person"></div>
+          <div class="insert"><span class="h" style="left:-4px;top:-4px"></span><span class="h" style="right:-4px;top:-4px"></span><span class="h" style="left:-4px;bottom:-4px"></span><span class="h" style="right:-4px;bottom:-4px"></span></div>
+          <div class="tag" style="right:6%;top:calc(10% - 22px)">product.mp4 · drag to move, corners to size</div>
+          <div class="cpin"><svg viewBox="0 0 28 28"><path d="M14 2l10.4 6v12L14 26 3.6 20V8z" fill="var(--light)" stroke="var(--ground)" stroke-width="2"/></svg><b>2</b></div>
+          <div class="cap">we kept <mark>losing</mark> the thread</div>
+        </div>
+        <div class="warnline" style="padding-top:8px">⚠ The mix goes above full scale at 1 spot <button>Next</button></div>
+        <!-- 3 transport -->
+        <div class="transport" style="position:relative">
+          <span class="co" style="left:-18px;top:6px">3</span>
+          <svg width="30" height="30" viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--ink)"/><path d="M11.5 9.8l6 4.2-6 4.2z" fill="var(--ground)"/></svg>
+          <span class="tc">00:55.12 <span>/ 02:14.00</span></span>
+          <div class="tools"><span class="ib on" data-tip="Select · V"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3l10 6-4.5 1.5L13 16l-2 1-2.5-5.5L5 15z"/></svg></span><span class="ib" data-tip="Blade · B"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2v16M6 6l4-4 4 4"/></svg></span><span class="ib" data-tip="Snip · S"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3v14M15 3v14M5 10h10" stroke-dasharray="2 2"/></svg></span><span class="tdiv"></span><span class="ib" data-tip="Split at playhead · Ctrl+K"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="6" height="8"/><rect x="12" y="6" width="6" height="8"/></svg></span><span class="ib" data-tip="Insert gap at playhead"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="8" height="8" stroke-dasharray="2 2"/><path d="M2 10h3M15 10h3"/></svg></span><span class="ib" data-tip="Duplicate"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="10" height="10"/><rect x="7" y="7" width="10" height="10"/></svg></span><span class="tdiv"></span><span class="ib on" data-tip="Snap · on"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4v7a6 6 0 0 0 12 0V4M4 7h3M13 7h3"/></svg></span><span class="ib" data-tip="Pin a comment · P"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2l6.5 3.8v7.4L10 17l-6.5-3.8V5.8z"/></svg></span></div>
+          <span class="zoom">Showing <b>00:40 to 01:10</b></span>
+        </div>
+      </div>
+
+      <!-- 4 lanes + 5 tracks -->
+      <div class="tl">
+        <span class="co" style="left:-18px;top:30px">4</span>
+        <span class="co" style="left:-18px;top:318px">5</span>
+        <div class="ph" style="left:calc(138px + 12px + (100% - 150px) * .505)"></div>
+
+        <span>Reel</span>
+        <div class="lane over"><i style="left:1%;width:16%"></i><i style="left:18%;width:22%"></i><i style="left:41%;width:20%"></i><i style="left:62%;width:36%"></i><div class="win"></div></div>
+
+        <span>Footage</span>
+        <div class="lane foot"><i style="left:0;width:62%"><b>A</b>founder-talk 00:40 to 01:20</i><i style="left:62.5%;width:37.5%"><b>B</b>01:24 to 01:54</i></div>
+
+        <span>Inserts</span>
+        <div class="lane"><i class="sel" style="left:44%;width:24%"><b>01</b>product.mp4 <span title="Own sound, muted">🔇</span></i></div>
+
+        <span>Clips</span>
+        <div class="lane"><i style="left:6%;width:20%"><b>01</b>Title card</i><i class="warn" style="left:72%;width:18%"><b>03</b>Stat ⚠ Reattach</i></div>
+
+        <span>Captions</span>
+        <div class="lane"><i style="left:22%;width:24%">so here's what broke</i><i style="left:46.5%;width:22%;border-color:var(--light);color:var(--ink)">we kept losing the thread</i><i style="left:69%;width:22%">until we wrote it down</i></div>
+
+        <span>Words</span>
+        <div class="lane words"><i style="left:46.5%;width:3%">we</i><i style="left:49.5%;width:4%">kept</i><i style="left:53.5%;width:6%;color:var(--light)">losing</i><i style="left:59.5%;width:3%">the</i><i style="left:62.5%;width:6%">thread</i><i style="left:69%;width:5%">until</i><i style="left:74%;width:3%">we</i><i style="left:77%;width:5%">wrote</i><i style="left:82%;width:2%">it</i><i style="left:84%;width:6%">down</i></div>
+
+        <span>Pins</span>
+        <div class="lane pins"><span class="p" style="left:12%"><svg viewBox="0 0 28 28"><path d="M14 2l10.4 6v12L14 26 3.6 20V8z" fill="var(--light)" stroke="var(--ground)" stroke-width="2"/></svg><b>1</b></span><span class="p" style="left:50%"><svg viewBox="0 0 28 28"><path d="M14 2l10.4 6v12L14 26 3.6 20V8z" fill="var(--light)" stroke="var(--ground)" stroke-width="2"/></svg><b>2</b></span></div>
+
+        <span></span>
+        <div class="lane axis"><span style="left:0;transform:none">00:40</span><span style="left:25%">00:47</span><span style="left:50%">00:55</span><span style="left:75%">01:02</span><span style="left:100%;transform:translateX(-100%)">01:10</span></div>
+
+        <div class="sep"></div>
+
+        <div class="th"><span class="n">Speech</span><span class="ms">M</span><span class="ms">S</span><span class="vol" style="--v:75%"></span></div>
+        <div class="track"><div class="clip" style="left:0;width:62%"><span class="nm">A · founder-talk <span class="link">🔗 follows Footage</span></span></div><div class="clip" style="left:62.5%;width:37.5%"><span class="nm">B</span></div></div>
+
+        <div class="th"><span class="n">Voiceover</span><span class="ms">M</span><span class="ms on">S</span><span class="vol" style="--v:60%"></span></div>
+        <div class="track"><div class="clip" style="left:18%;width:22%"><span class="nm">vo-pass2.wav</span></div><span class="ovl" style="left:33%;width:5%"></span></div>
+
+        <div class="th"><span class="n">Music</span><span class="ms">M</span><span class="ms">S</span><span class="vol" style="--v:45%"></span></div>
+        <div class="track" id="music"><div class="clip sel" style="left:0;width:100%"><span class="nm">bed.mp3 · loop</span>
+          <svg preserveAspectRatio="none" viewBox="0 0 100 40"><polyline points="0,38 5,12 44,12 47,26 68,26 71,12 95,12 100,38" fill="none" stroke="oklch(.84 .11 225)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+          <span class="fh" style="left:calc(5% - 4px)"></span><span class="fh" style="left:calc(95% - 4px)"></span>
+        </div><span class="ovl" style="left:33%;width:5%"></span>
+          <div class="ctx" style="left:52%;top:30px">
+            <div>Clip settings… <span>dbl-click</span></div><div>Mute</div>
+            <hr><div>Split <span>Ctrl+K</span></div><div>Duplicate</div><div>Replace…</div><div>Remove <span>Del</span></div>
+          </div>
+        </div>
+
+        <span></span>
+        <button class="addtrack">+ Add track</button>
+      </div>
+    </main>
+
+    <!-- 6 right panel -->
+    <aside class="side" style="position:relative">
+      <span class="co" style="left:-10px;top:10px">6</span>
+      <div class="tabs editstab"><span class="on">Edits<span class="num">4</span></span><span>Comments<span class="num">2</span></span><span>Clip</span></div>
+      <div class="tabs cliptab"><span>Edits<span class="num">4</span></span><span>Comments<span class="num">2</span></span><span class="on">Clip</span></div>
+      <div class="panel cliptab">
+        <div style="font-size:15px;font-weight:500">bed.mp3 <span style="color:var(--muted);font-size:12px;font-weight:400">on Music</span></div>
+        <div class="cs"><h4>Sound</h4>
+          <div class="wave"><svg style="position:absolute;inset:0;width:100%;height:100%" preserveAspectRatio="none" viewBox="0 0 100 40"><polyline points="0,38 5,12 44,12 47,26 68,26 71,12 95,12 100,38" fill="none" stroke="oklch(.84 .11 225)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg></div>
+          <div class="row">Level <span class="in">−6.0 dB</span></div>
+          <div class="row">Fade in <span class="in">0.50s</span></div>
+          <div class="row">Fade out <span class="in">1.00s</span></div>
+          <div class="row">Mute · Solo · Loop <span class="seg"><span>M</span><span>S</span><span class="on">Loop</span></span></div>
+        </div>
+        <div class="cs"><h4>Timing</h4>
+          <div class="row">Start <span class="in">00:40.00</span></div>
+          <div class="row">In <span class="in">00:00.00</span></div>
+          <div class="row">Out <span class="in">02:31.00</span></div>
+        </div>
+        <div class="cs"><h4>Placement</h4>
+          <div class="row"><span class="seg"><span>Follow footage</span><span class="on">Stay at time</span></span></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">No Picture section: this clip is sound only.</div>
+      </div>
+      <div class="panel editstab">
+        <div class="undo"><span>Undo ⌃Z</span><span>Redo</span><span style="margin-left:auto">since v2</span></div>
+        <ol style="display:flex;flex-direction:column;gap:12px">
+          <li class="c"><div class="w"><span class="num">1</span>Footage · 01:20.00</div><p>Snipped 3.8s</p></li>
+          <li class="c"><div class="w"><span class="num">2</span>Music · bed.mp3</div><p>Added at 00:40, looping, −6 dB</p></li>
+          <li class="c"><div class="w"><span class="num">3</span>Music · 00:57 to 01:07</div><p>Lowered to −14 dB under the voiceover</p></li>
+          <li class="c flag"><div class="w"><span class="num">4</span>Clip 03 · Stat</div><p>Its words were cut. Reattach or Stay at time before Save.</p></li>
+        </ol>
+      </div>
+      <div class="save editstab"><button class="btn">Save as v4 <span class="num">4</span></button><button class="q">Discard</button></div>
+    </aside>
+  </div>
+</div>
+
+<div class="sheet" id="sheet"><div class="box">
+  <nav><span class="on">Keyboard</span><span>Editing</span><span>Layout</span><span>Appearance</span></nav>
+  <div class="pane">
+    <h3>Keyboard <button class="ghost" style="font-size:12px">Reset all</button></h3>
+    <div class="kb">
+      <span>Select tool</span><kbd>V</kbd>
+      <span>Blade tool</span><kbd>B</kbd>
+      <span>Snip tool</span><kbd>S</kbd>
+      <span>Split at playhead</span><kbd class="rec">Press a key…</kbd>
+      <span class="clash">B is already Blade tool. Pick another key, or Replace to move it here.</span>
+      <span>Media rail</span><kbd>M</kbd>
+      <span>Trim start / end to playhead</span><kbd>[ ]</kbd>
+      <span>Move selected clip</span><kbd>← →</kbd>
+      <span>Pin a comment</span><kbd>P</kbd>
+      <span>Undo / Redo</span><kbd>Ctrl+Z / Ctrl+Shift+Z</kbd>
+    </div>
+  </div>
+</div></div>
+<script>
+const states = { open: ['open'], closed: [], reel: ['open', 'reel'] };
+document.querySelectorAll('.mk [data-s]').forEach(b => b.onclick = () => {
+  document.body.classList.remove('open', 'reel');
+  states[b.dataset.s].forEach(c => document.body.classList.add(c));
+  document.querySelectorAll('.mk [data-s]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.getElementById('iReel').toggleAttribute('aria-current', b.dataset.s === 'reel');
+  document.getElementById('iMed').toggleAttribute('aria-current', b.dataset.s === 'open');
+  document.getElementById('tog').textContent = b.dataset.s === 'closed' ? '»' : '«';
+});
+document.getElementById('menuBtn').onclick = (e) => { document.body.classList.toggle('menu'); e.target.setAttribute('aria-pressed', document.body.classList.contains('menu')); };
+document.getElementById('clipBtn').onclick = (e) => { document.body.classList.toggle('cliptabon'); e.target.setAttribute('aria-pressed', document.body.classList.contains('cliptabon')); };
+const toggleSet = () => { document.body.classList.toggle('settings'); document.getElementById('setBtn').setAttribute('aria-pressed', document.body.classList.contains('settings')); };
+document.getElementById('setBtn').onclick = toggleSet; document.getElementById('gear').onclick = toggleSet;
+document.getElementById('sheet').onclick = (e) => { if (e.target.id === 'sheet') toggleSet(); };
+document.getElementById('callBtn').onclick = (e) => { document.body.classList.toggle('nocall'); e.target.setAttribute('aria-pressed', !document.body.classList.contains('nocall')); };
+document.querySelectorAll('.rtabs button').forEach(t => t.onclick = () => document.querySelector('[data-s="' + t.dataset.t + '"]').click());
+document.getElementById('tog').onclick = () => document.querySelector(document.body.classList.contains('open') ? '[data-s="closed"]' : '[data-s="open"]').click();
+</script>
+</body>
+</html>
