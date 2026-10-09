@@ -1,7 +1,7 @@
 ---
 title: Audio and multiple-source implementation
 date: 2026-10-07
-status: In progress
+status: Done
 summary: Implement the confirmed import, edit, Save and render workflow across footage and code-only reels.
 spec: ../2026-10-07-audio-multiple-sources-grilling-decisions.md
 ---
@@ -365,3 +365,37 @@ Usage reached 95% five-hour and 37% weekly. Implementation stopped at the owner'
 ## Handoff 4 continuation, 2026-10-08
 
 Added AM40 Save and render, AM29/AM38 measured overload warning and render acknowledgement (UI, HTTP, CLI), a mono render-level parity fix, AM36 picture hold/Retry in preview, the A1 operation-payload and persisted plan-part audits with fixes in both engines, and A2 loop-cycle attachment mapping. Details, verification and remaining work: docs/session-summaries/2026-10-07-audio-multiple-sources-implementation-handoff-summary.md, section "Handoff 4 continuation". Status stays In progress.
+
+## First-stage acceptance reconciliation, 2026-10-08
+
+Completed the imported-media first stage. The continuation's second batch and the October 8 Review editor supplied the previously outstanding A3–A11 work, loop-cycle controls, caption retyping, nested graphic ancestry, dependency preservation, named-element editing and state/FAIL harness. The October 8 owner's track, library and control decisions supersede the earlier UI choices.
+
+The acceptance review found and fixed a remaining AM42 gap: independent sound in readable local scripts and literal module imports now reaches the saved-page contract check and refuses Final before queueing. Three regressions were observed failing first. Preview timing now compares the picture with actual scheduled Web Audio time within one 30 fps frame, and decoded multi-source output is compared across actual CLI, single and segmented renders at matching settings.
+
+The complete A1–A11 and S1–S12 evidence mapping, commands, corrections and limits are recorded in `docs/session-summaries/2026-10-08-open-plans-reconciliation-summary.md`. Its frontier supersedes all earlier unfinished lists in this plan and its handoffs. Recording, free layout and agent track support remain later work, outside this completed first stage. No git writes or external sends.
+
+Final verification:
+
+```text
+npm run typecheck
+Exit code: 0
+
+npm run build
+Exit code: 0 (subsequent production edits affect server contract checking only)
+
+npx vitest run --project unit --maxWorkers=4
+Test Files 58 passed (58)
+Tests 595 passed | 1 skipped (596)
+Duration 51.81s
+Exit code: 0
+
+npx playwright test --workers=1 --reporter=line
+110 passed (4.6m)
+Exit code: 0 (servers started before the local-script contract fix; UI unchanged)
+
+npx vitest run --project render
+Test Files 23 passed (23)
+Tests 100 passed (100)
+Duration 725.77s
+Exit code: 0 (after all code/test edits)
+```

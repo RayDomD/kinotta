@@ -25,7 +25,14 @@ says otherwise.
 - **The edit list and the hand-off are Kinotta's.** Never read, write or delete `reels/<slug>/edit-list.json`,
   `reels/<slug>/handoff.json` or `reels/<slug>/.save/`. They hold the owner's unsaved edits and the state of a
   batch; Kinotta carries the edits onto the version you write.
-- **The owner runs `kinotta`.** Never start it, and never start a server for it.
+- **The owner opens the editor.** Leave interactive `kinotta` startup to the owner.
+- **Render through `kinotta render` only.** When asked for a video, render an explicit saved
+  version with `kinotta render <slug> v<n> --preset draft|final|overlay`. The command joins the
+  editor's queue or hosts it headless. Use the shared queue rather than calling engine render
+  scripts directly. Final and Overlay require no contract issues. Respect the command's
+  plan-preservation and transparency refusals. Rendering does not require approval.
+  An overloaded mix requires the owner's explicit choice before using `--accept-overload`.
+  Approval belongs to the owner. Never approve or withdraw a version for them.
 - **`shots.json` is written last.** Its appearance is the editor's signal that a version is ready.
 - **The timing contract holds.** Read `reference/contract.md` before writing your first page in a
   session. `kinotta check` must pass before you tell the owner a version is ready.
@@ -178,7 +185,9 @@ footage, which stays where it is; its transcript is saved with the reel; long re
 
 - `reference/motion-broll.md`: how clips are planned and built (treatment, content rules, style
   defaults, gotchas). `$SKILL` there means this skill's folder. Where it and this section disagree,
-  this section wins: no plan table or approval, no MP4 render, no composite or viewer pages.
+  this section wins: v1 is the plan, the owner approves, and requested video files are made
+  through `kinotta render`. Build the composed version page for Kinotta rather than separate
+  composite or viewer pages.
 - `reference/engine-api.md`: how to write a clip, the names a reviewer pins, and composing a plan into
   one page. Read it before writing your first clip.
 - `engine/`, `scripts/`, `templates/`: the engine and its tools. The Geist fonts carry their licence
@@ -275,8 +284,9 @@ built page and the shot list go in the version.
 12. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
     list again, and repeat until it is clean.
 13. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is
-    illustrative, the words corrected in the transcript, and to run `kinotta` in this project. Say that Kinotta shows stills of the clips
-    until the Review phase, and that nothing is rendered to video yet.
+    illustrative, the words corrected in the transcript, and to run `kinotta` in this project.
+    The owner can play the clips in Review and render a saved version. If a video was requested,
+    use the render rule above and report the completed file or the command's refusal.
 
 Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.
 

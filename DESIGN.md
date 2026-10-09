@@ -175,7 +175,7 @@ Zero radius everywhere (`rounded.none`). Borders are 1.4 to 1.6px hairlines. The
 
 ### Navigation
 - **Rail rows (reels, sections, versions):** text rows with a 1.6px left border; the current row's border is ice (versions and sections) or ink (reels) and it carries `aria-current` and a text cue ("now", "storyboard", "changed 01", "Waiting").
-- **Phase nav:** Storyboard is current with an ink underline; Review and Picker are visible and inactive ("Not built yet").
+- **Phase nav:** Storyboard and Review share the same shell. The current phase has an ink underline. Approval and rendering live in Review following the 2026-10-06 Picker merge.
 
 ### Pinning (signature)
 Over the enlarged frame the cursor is the hex with a centre dot. The element under it gets an ice outline with glow, drawn in the editor, never inside the reel's page, and an ice name tag placed outside the element so it never covers the reel's content. A click drops a saved pin (D25): a small filled hex anchor on the exact spot and an ice tag with the comment number and the start of its text, placed outside the element and off the page's content, joined to the anchor by a hairline. Grid stills show the anchor and a number-only tag, stacked clear of nearby tags. The same number appears in the Pins lane and on the comment card.
@@ -195,6 +195,13 @@ The Review tab keeps the shell and swaps the grid for a player over time lanes, 
 - **Right column** (`rv-side`, `rv-tabs`, `rv-panelbody`, `rv-hint`, `rv-save`, `rv-undo`, `rv-handoff`, `rv-who`): Edits and Comments tabs, the edit cards with a Remove that shows on hover or focus, the Undo and Redo row, and the Save row. `rv-who` in the rail says who made a version.
 
 Keyboard: Space plays, arrows and Shift+arrows step a frame or a second, Home and End jump, S, B and V pick a tool, `[` and `]` mark a stretch at the playhead, Enter snips or cuts, Escape drops the selection, Ctrl+Z and Ctrl+Y undo and redo, and every control above is reachable by Tab. Motion follows the chrome speeds above; nothing on the Review tab animates over 380ms and reduced motion zeroes all of it.
+
+### Approval and rendering (operate mode, `web/src/Renders.tsx`)
+These are the former Picker components, merged into Review. `rv-actions` beside the title groups Approve or Withdraw, the `rv-approved` state and Render. Approval is an owner label and does not gate rendering. Messages use `pk-message` with status semantics.
+
+The Render popover uses `pk-preset` choices and aligned `pk-settings` fields for frame rate, size, quality and audio at cuts. Pending edits require an explicit saved-version or Save-and-render choice, with neither preselected. `pk-refusal` announces failed settings, contract refusals and overload warnings. Overload requires a separate acknowledgement. Loading and submission disable the affected action.
+
+The top-bar Renders popover holds the project queue (`pk-queue`, `pk-jobs`, `pk-job`, `pk-bar`) and the current reel's past files (`pk-past`, `pk-renders`, `pk-file`, `pk-actions`). Jobs have progress and Cancel. A ready notice offers Play and Show in folder. MP4 playback uses `pk-video` in Review with a way back to the version. ProRes Overlay offers Show in folder. Popovers keep the existing square borders, theme tokens and keyboard dismissal.
 
 ### New reel (operate mode, `web/src/NewReel.tsx`, `web/src/styles.css`)
 A single 640px column: heading, a lede, the list of videos in the project (`rv-pick`; each row is a button with the path, the Doto duration and the codec and size, the picked row has an ink left border and paper), then the name form (`rv-name`: label, field, ink Start reel button, and `rv-busy` or `rv-problem` text). Not yet built here: the drop zone (T42) and the brief form (T45); both need the same finish pass once merged.

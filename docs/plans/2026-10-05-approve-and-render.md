@@ -1,8 +1,8 @@
 ---
 title: Approve and Render phase
 date: 2026-10-05
-status: In Progress
-summary: Approve final versions and render them (Draft, Final, Overlay) from Picker or kinotta render
+status: Done
+summary: Approve versions and render Draft, Final or Overlay from Review or kinotta render.
 spec: docs/specs/2026-10-05-approve-and-render.md (#52)
 ---
 
@@ -36,8 +36,8 @@ spec: docs/specs/2026-10-05-approve-and-render.md (#52)
 
 ## Goal
 
-The owner approves the versions of a reel that are final, from Picker, and the rail marks them. Any version renders as
-a Draft; an approved one with its own plan and no contract issues renders as a Final MP4 or a transparent Overlay. A
+The owner approves the versions of a reel that are final, from Review (formerly Picker), and the rail marks them. Any version renders as
+a Draft; Final MP4 and transparent Overlay require no contract issues and respect the version's plan-preservation and transparency gates. Approval is a label, not a render gate (R19). A
 render runs in the background in one queue with progress and cancel, and lands in the reel's `renders/` folder. An
 agent's `kinotta render` uses the same engine and queue and can't approve. This answers the Intent: a version you like
 becomes a file you can send without leaving Kinotta.
@@ -95,3 +95,9 @@ in Lane B. Each ticket gets its own plan and session summary, as T29 to T47 did.
   `docs/mockups/2026-10-05-picker-layout.html`.
 - Intent approved by the owner. Goal, Approach, Steps, Risks and Checks written; tickets T48 to T59 in
   `docs/tickets-approve-render.md`. Status Approved.
+
+### 2026-10-08
+- Reconciled T58 and T59 with the current source, October 6 Review/Picker merge and October 8 editor audit. Corrected the skill's render rule and footage handover, documented the merged approval/render components in DESIGN.md, and confirmed the existing glossary definitions and removal of retired compositor references.
+- Updated the Goal for R19 and the settled Picker merge. The earlier implementation approach and layout choice remain historical records.
+- Current verification: typecheck and build pass, unit/engine checks pass 595 tests with one existing skip, all 110 browser checks pass, and the final complete render suite passes 100 tests in 23 files. Both presets' delivery gates and actual CLI behavior are covered by the render suite.
+- T58/T59 are Done. Acceptance mapping, commands, results and limits: `docs/session-summaries/2026-10-08-open-plans-reconciliation-summary.md`. No git writes or external sends.

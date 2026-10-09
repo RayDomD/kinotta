@@ -190,7 +190,7 @@ Chromium, found through Playwright's executable path rather than a PATH probe, w
 - [x] The message for a missing render tool names rendering; the one for transcription tools names reels from video
 - [x] The New reel "Needs on this machine" row still reads correctly
 
-## T58. Skill and glossary
+## T58. Skill and glossary — Done
 
 **What to build:** SKILL.md replaces "no MP4 render" with "render only through `kinotta render`" and names no approval
 command (R1; since R19, Final and Overlay don't need approval). References to `composite.py` go. CONTEXT.md updates
@@ -200,11 +200,11 @@ command (R1; since R19, Final and Overlay don't need approval). References to `c
 
 **Model:** small
 
-- [ ] SKILL.md tells an agent to render only through `kinotta render` and never to approve
-- [ ] No skill file references `composite.py`
-- [ ] CONTEXT.md defines Approval, Render and Preset as the spec gives them
+- [x] SKILL.md tells an agent to render only through `kinotta render` and never to approve
+- [x] No skill file references `composite.py`
+- [x] CONTEXT.md defines Approval, Render and Preset as the spec gives them
 
-## T59. Finish pass on Picker
+## T59. Finish pass on Picker — Done
 
 **What to build:** Lane B finish on the Picker page, the rail mark, the top bar indicator and the ready notice:
 `/impeccable critique`, `/impeccable audit`, the verbs they flag, then `/impeccable polish`. DESIGN.md records the
@@ -214,6 +214,8 @@ Picker components.
 
 **Model:** top
 
-- [ ] Critique and audit run; their P1 and P2 findings are fixed or recorded with the owner's call
-- [ ] DESIGN.md describes the Picker components
-- [ ] Full e2e suite passes
+- [x] Critique and audit run; their P1 and P2 findings are fixed or recorded with the owner's call
+- [x] DESIGN.md describes the Picker components
+- [x] Full e2e suite passes
+
+Closed 2026-10-08 against the settled Review/Picker merge, the October 8 editor audit and current verification. The former Picker components now live in Review. Evidence and limits: `docs/session-summaries/2026-10-08-open-plans-reconciliation-summary.md`.
