@@ -48,6 +48,33 @@ describe('contract issues', () => {
     expect((await writeVersion([SHOT('01', 0)], quiet).readVersion('r', 1)).issues).toEqual([]);
   });
 
+  it.each([
+    ['<script src="scene.js"></script>', 'new Audio("hit.wav").play();', 'new Audio'],
+    ['<script type="module" src="scene.js"></script>', 'import "./sound.js";', 'AudioContext'],
+    ['<script type="module">import "./sound.js";</script>', '', 'AudioContext'],
+  ])('reports independent sound in local scripts and imported modules: %s', async (markup, script, named) => {
+    const dir = emptyProject();
+    const versionDir = join(dir, 'reels', 'r', 'v1');
+    mkdirSync(versionDir, { recursive: true });
+    writeFileSync(join(versionDir, 'shots.json'), JSON.stringify({ contract: 1, duration: 10, shots: [SHOT('01', 0)] }));
+    writeFileSync(join(versionDir, 'index.html'), PAGE(SCENE('one', 0, 10) + markup));
+    writeFileSync(join(versionDir, 'scene.js'), script);
+    writeFileSync(join(versionDir, 'sound.js'), 'import "./scene.js"; new AudioContext();');
+    const issues = (await openProject(dir).readVersion('r', 1)).issues;
+    expect(issues).toEqual([{ code: 'page-sound', message: expect.stringContaining(named) }]);
+  });
+
+  it('allows a quiet local module cycle without treating timeline play as page sound', async () => {
+    const dir = emptyProject();
+    const versionDir = join(dir, 'reels', 'r', 'v1');
+    mkdirSync(versionDir, { recursive: true });
+    writeFileSync(join(versionDir, 'shots.json'), JSON.stringify({ contract: 1, duration: 10, shots: [SHOT('01', 0)] }));
+    writeFileSync(join(versionDir, 'index.html'), PAGE(SCENE('one', 0, 10) + '<script type="module" src="scene.js?v=1"></script>'));
+    writeFileSync(join(versionDir, 'scene.js'), 'import "./other.js"; tl.play();');
+    writeFileSync(join(versionDir, 'other.js'), 'import "./scene.js";');
+    expect((await openProject(dir).readVersion('r', 1)).issues).toEqual([]);
+  });
+
   it('lists each planted problem of the broken sample in plain words, and still reads the shots', async () => {
     const version = await openProject(copyFixture('broken-project')).readVersion('launch-teaser', 1);
 

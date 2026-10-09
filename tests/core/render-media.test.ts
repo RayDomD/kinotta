@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
 import { emptyProject } from '../helpers/project.ts';
 
 const RATE = 48000;
+const LAUNCHER = resolve(import.meta.dirname, '../../bin/kinotta.mjs');
 function ffmpeg(args: string[]): Buffer {
   const run = spawnSync('ffmpeg', ['-v', 'error', ...args], { maxBuffer: 64 * 1024 * 1024 });
   expect(run.status, run.stderr.toString()).toBe(0);
@@ -49,7 +50,7 @@ it('renders centered crop by default, Fit and adjusted framing for video and sti
   }
 });
 
-it('renders distinct takes, a gap and a picture insert while keeping the same whole-reel mix across segments', { timeout: 180_000 }, async () => {
+it('renders distinct takes, a gap and a picture insert with the same whole-reel mix in single, segmented and CLI renders', { timeout: 180_000 }, async () => {
   const dir = emptyProject();
   const version = join(dir, 'reels/demo/v1');
   mkdirSync(version, { recursive: true });
@@ -76,11 +77,20 @@ it('renders distinct takes, a gap and a picture insert while keeping the same wh
   } }));
 
   const audio: Float32Array[] = [];
-  for (const segments of [1, 2]) {
-    const project = openProject(dir, { renderSegments: segments });
-    const job = await project.whenRendered((await project.render({ reel: 'demo', version: 1, preset: 'draft', size: 'source', fps: 30 })).id);
-    expect(job.error).toBeUndefined();
-    const file = join(dir, job.output!);
+  for (const segments of [1, 2, 'cli'] as const) {
+    let file: string;
+    if (segments === 'cli') {
+      const run = spawnSync(process.execPath, [LAUNCHER, 'render', 'demo', 'v1', '--preset', 'draft', '--size', 'source', '--fps', '30'], { cwd: dir, encoding: 'utf8', timeout: 180_000 });
+      expect(run.status, run.stderr).toBe(0);
+      const last = run.stdout.trim().split(/\r?\n/).at(-1)!;
+      expect(last).toMatch(/^Rendered /);
+      file = last.replace(/^Rendered /, '');
+    } else {
+      const project = openProject(dir, { renderSegments: segments });
+      const job = await project.whenRendered((await project.render({ reel: 'demo', version: 1, preset: 'draft', size: 'source', fps: 30 })).id);
+      expect(job.error).toBeUndefined();
+      file = join(dir, job.output!);
+    }
     for (const [frame, expected] of [[7, [253, 0, 0]], [22, [0, 254, 0]], [45, [0, 0, 0]], [75, [0, 0, 254]]] as const) {
       const rgb = ffmpeg(['-i', file, '-vf', `select=eq(n\\,${frame}),scale=1:1`, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
       expected.forEach((value, channel) => expect(Math.abs(rgb[channel]! - value)).toBeLessThan(6));
@@ -95,10 +105,12 @@ it('renders distinct takes, a gap and a picture insert while keeping the same wh
     }
     audio.push(decoded);
   }
-  expect(audio[0]!.length).toBe(audio[1]!.length);
-  let difference = 0;
-  audio[0]!.forEach((sample, i) => { difference = Math.max(difference, Math.abs(sample - audio[1]![i]!)); });
-  expect(difference).toBeLessThan(0.00001);
+  for (const decoded of audio.slice(1)) {
+    expect(audio[0]!.length).toBe(decoded.length);
+    let difference = 0;
+    audio[0]!.forEach((sample, i) => { difference = Math.max(difference, Math.abs(sample - decoded[i]!)); });
+    expect(difference).toBeLessThan(0.00001);
+  }
 });
 
 it('switches picture and sound together within one output frame at a cut, at natural speed across frame rates (AM39, S9)', { timeout: 240_000 }, async () => {

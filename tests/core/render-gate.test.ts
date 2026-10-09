@@ -43,6 +43,16 @@ async function renders(project: Project, reel: string, version: number): Promise
 }
 
 describe('the render gate', () => {
+  it('refuses a Final when a local graphic script makes independent page sound', async () => {
+    const dir = tinyProject();
+    const version = join(dir, 'reels', 'tiny', 'v1');
+    writeFileSync(join(version, 'index.html'), TINY_PAGE.replace('</body>', '<script src="sound.js"></script></body>'));
+    writeFileSync(join(version, 'sound.js'), 'new Audio("hit.wav").play();');
+    const project = openProject(dir);
+    expect(await refusal(project, 'tiny', 1, 'final')).toContain('shared mix');
+    expect(project.renderJobs()).toEqual([]);
+  });
+
   it('renders a Final of a version that is not approved: pressing Render is the decision', { timeout: RENDER_TIMEOUT_MS }, async () => {
     const project = openProject(tinyProject());
 

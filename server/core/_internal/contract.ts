@@ -1,4 +1,6 @@
 import { parse } from 'node-html-parser';
+import { readFile } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import type { ContractIssue } from './types.ts';
 
 /**
@@ -19,7 +21,7 @@ import type { ContractIssue } from './types.ts';
  *   duplicate-element a data-el name is used twice in one scene
  *   page-sound        the page plays sound of its own, outside the shared mix (ADR 0005): an audio element, an
  *                     unmuted video element, or a script making sound (new Audio, AudioContext, speechSynthesis).
- *                     Inline markup and scripts only; a separate script file is not read.
+ *                     Inline scripts and readable local scripts, including literal module imports.
  *
  * Problems are returned, never thrown: a broken version still opens.
  */
@@ -56,11 +58,11 @@ const SOUND_SCRIPTS: ReadonlyArray<[RegExp, string]> = [
 ];
 
 /** What on a page makes sound the editor and the render never hear, or null when nothing does (AM42). */
-function pageSound(root: ReturnType<typeof parse>): string | null {
+function pageSound(root: ReturnType<typeof parse>, localScripts: string[]): string | null {
   const found: string[] = [];
   if (root.querySelector('audio')) found.push('an audio element');
   if (root.querySelectorAll('video').some((video) => !video.hasAttribute('muted'))) found.push('an unmuted video element');
-  const scripts = root.querySelectorAll('script').map((script) => script.text).join('\n');
+  const scripts = [...root.querySelectorAll('script').map((script) => script.text), ...localScripts].join('\n');
   for (const [pattern, name] of SOUND_SCRIPTS) if (pattern.test(scripts)) found.push(name);
   return found.length > 0 ? found.join(', ') : null;
 }
@@ -69,7 +71,7 @@ const secs = (n: number): string => `${Number(n.toFixed(2))}s`;
 const times = (n: number): string => (n === 2 ? 'twice' : `${n} times`);
 
 /** Reads the scene markup of a version page. `html` is null when the version has no index.html. */
-export function scanPage(html: string | null): PageScan {
+export function scanPage(html: string | null, localScripts: string[] = []): PageScan {
   if (html === null) return { scenes: [], issues: [{ code: 'no-page', message: 'the version has no index.html' }] };
   const scenes: PageScene[] = [];
   const issues: ContractIssue[] = [];
@@ -94,11 +96,38 @@ export function scanPage(html: string | null): PageScan {
   if (scenes.length === 0) {
     issues.unshift({ code: 'no-scenes', message: 'the page has no scenes with data-start and data-duration' });
   }
-  const sound = pageSound(root);
+  const sound = pageSound(root, localScripts);
   if (sound !== null) {
     issues.push({ code: 'page-sound', message: `the page plays its own sound (${sound}), which preview, Save and render leave out. Add the sound as a project source so it joins the shared mix.` });
   }
   return { scenes, issues };
+}
+
+/** Static module paths. Runtime-built imports and remotely loaded code cannot be inspected here. */
+const SCRIPT_IMPORT = /\b(?:from\s*|import\s*\(\s*|import\s+)(["'`])([^"'`$]+)\1/g;
+
+/** Check a saved page's local script graph without executing code or reading outside the project. */
+export async function scanVersionPage(html: string | null, versionDir: string, projectDir: string): Promise<PageScan> {
+  if (html === null) return scanPage(html);
+  const scripts: string[] = [];
+  const seen = new Set<string>();
+  async function readScript(reference: string, base: string): Promise<void> {
+    if (/^(?:[a-z]+:|\/\/|\/|#)/i.test(reference)) return;
+    const file = resolve(base, reference.split(/[?#]/)[0]!);
+    const path = relative(projectDir, file);
+    if (isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`) || seen.has(file)) return;
+    seen.add(file);
+    const text = await readFile(file, 'utf8').catch(() => null);
+    if (text === null) return;
+    scripts.push(text);
+    for (const match of text.matchAll(SCRIPT_IMPORT)) await readScript(match[2]!, dirname(file));
+  }
+  for (const script of parse(html).querySelectorAll('script')) {
+    const src = script.getAttribute('src');
+    if (src) await readScript(src, versionDir);
+    else for (const match of script.text.matchAll(SCRIPT_IMPORT)) await readScript(match[2]!, versionDir);
+  }
+  return scanPage(html, scripts);
 }
 
 interface ReadShot {

@@ -107,18 +107,43 @@ it('keeps the picture on the sound clock while playing', { timeout: TIMEOUT_MS }
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    // Observe scheduled sound time rather than the displayed clock from the preceding animation frame.
+    await page.addInitScript(() => {
+      const root = window as unknown as { soundClock: { source: AudioBufferSourceNode; when: number; offset: number } | null };
+      root.soundClock = null;
+      const start = AudioBufferSourceNode.prototype.start;
+      const stop = AudioBufferSourceNode.prototype.stop;
+      AudioBufferSourceNode.prototype.start = function(when = 0, offset = 0, duration?: number) {
+        root.soundClock = { source: this, when: when || this.context.currentTime, offset };
+        Reflect.apply(start, this, duration === undefined ? [when, offset] : [when, offset, duration]);
+      };
+      AudioBufferSourceNode.prototype.stop = function(when = 0) {
+        if (root.soundClock?.source === this) root.soundClock = null;
+        Reflect.apply(stop, this, [when]);
+      };
+    });
     await openEditor(page, server.url);
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect.poll(async () => (await sample(page)).clock).toBeGreaterThan(0.2);
     const offsets: number[] = [];
+    const scheduledOffsets: number[] = [];
     while (offsets.length < 20) {
       const now = await sample(page);
       if (now.clock >= 2.8) break;
       if (!now.waiting && now.picture !== null) offsets.push(Math.abs(now.picture - now.clock));
+      const scheduled = await page.evaluate(() => {
+        const sound = (window as unknown as { soundClock: { source: AudioBufferSourceNode; when: number; offset: number } | null }).soundClock;
+        const video = document.querySelector<HTMLVideoElement>('video.mv-picture');
+        const waiting = document.querySelector('[data-verify-unit="MediaEditor"]')?.getAttribute('data-verify-waiting') === 'true';
+        return sound && video && !waiting ? Math.abs(video.currentTime - (sound.offset + sound.source.context.currentTime - sound.when)) : null;
+      });
+      if (scheduled !== null) scheduledOffsets.push(scheduled);
       await page.waitForTimeout(50);
     }
     expect(offsets.length).toBeGreaterThan(10);
     expect(Math.max(...offsets)).toBeLessThan(SYNC_TOLERANCE);
+    expect(scheduledOffsets.length).toBeGreaterThan(10);
+    expect(Math.max(...scheduledOffsets), `picture versus scheduled sound: ${scheduledOffsets.join(', ')}`).toBeLessThan(1 / 30);
   } finally {
     await browser.close();
     await server.close();

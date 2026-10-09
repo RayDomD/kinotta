@@ -1,7 +1,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EDITS_CSS, isCodeOnly, readEditsCss } from './code-edits.ts';
-import { checkShotsAgainstPage, checkShotsFile, scanPage } from './contract.ts';
+import { checkShotsAgainstPage, checkShotsFile, scanVersionPage } from './contract.ts';
 import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
 import { SAFE_SLUG, addFootage } from './footage.ts';
@@ -151,7 +151,7 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
   // A version that breaks the contract still opens (S5): problems become issues, not errors.
   const { file: parsed, problem } = await readShotsFile(versionDir);
   const file = parsed ?? {};
-  const page = scanPage(await readPage(versionDir));
+  const page = await scanVersionPage(await readPage(versionDir), versionDir, projectDir);
   const fileCheck = checkShotsFile(parsed, problem);
   const hasDuration = !fileCheck.issues.some((i) => i.code === 'no-duration') && parsed !== null;
   const lastStart = Math.max(0, ...fileCheck.shots.map((s) => s.start));
