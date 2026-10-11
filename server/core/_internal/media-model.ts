@@ -20,6 +20,9 @@ export interface MediaSource {
   audio?: boolean;
 }
 
+/** A picture rectangle in fractions of the reel canvas. Framing applies inside this rectangle. */
+export interface PictureRegion { x: number; y: number; width: number; height: number }
+
 /** One independent use of a source. Main placements play in sequence order. */
 export interface SourcePlacement {
   id: string;
@@ -46,6 +49,9 @@ export interface SourcePlacement {
   origin?: string;
   /** Fill by cropping by default. Position is the fraction of spare crop/padding space, from left/top to right/bottom. */
   framing?: { mode: 'crop' | 'fit'; x?: number; y?: number };
+  region?: PictureRegion;
+  /** Explicit picture stack, back to front. Absent retains the legacy main-then-inserts order. */
+  layer?: number;
   /** Follow this main footage occurrence's source moment. Null or absent stays on reel time. */
   attachment?: { placement: string; time: number; offset?: number } | null;
 }
@@ -166,6 +172,8 @@ export function mediaTimeline(media: MediaPlan, authoredDuration = 0): MediaTime
     if (track !== undefined && (!modelName(track) || !tracks.has(track) || placement.role === 'insert' || placement.role === 'gap')) throw new KinottaError('invalid', 'A sound placement needs an existing track. Inserts and gaps have no track.');
     if (placement.origin !== undefined && !modelName(placement.origin)) throw new KinottaError('invalid', 'A placement origin needs an identity.');
     if (placement.role === 'gap') {
+      if ('region' in placement) throw new KinottaError('invalid', 'A gap cannot have a picture region.');
+      if ('layer' in placement) throw new KinottaError('invalid', 'A gap cannot have a picture layer.');
       if (!Number.isFinite(placement.duration) || placement.duration <= 0) throw new KinottaError('invalid', 'A gap needs a positive duration.');
     } else {
       if ([placement.mute, placement.speech, placement.loop].some((value) => value !== undefined && typeof value !== 'boolean')) throw new KinottaError('invalid', 'Mute, speech and loop must be boolean flags.');
@@ -184,6 +192,16 @@ export function mediaTimeline(media: MediaPlan, authoredDuration = 0): MediaTime
       }
       const source = sources.get(placement.source);
       if (!source) throw new KinottaError('invalid', `Source ${placement.source} is missing.`);
+      if (placement.layer !== undefined && (source.kind === 'audio' || placement.role === 'audio' || !Number.isInteger(placement.layer) || placement.layer < 0)) throw new KinottaError('invalid', 'A picture layer needs a nonnegative whole number.');
+      if (placement.region !== undefined) {
+        const r = placement.region;
+        if (!modelObject(r) || source.kind === 'audio' || placement.role === 'audio'
+          || ![r.x, r.y, r.width, r.height].every(Number.isFinite)
+          || r.x < 0 || r.y < 0 || r.width <= 0 || r.height <= 0
+          || r.x + r.width > 1 + RANGE_JOIN_TOLERANCE || r.y + r.height > 1 + RANGE_JOIN_TOLERANCE) {
+          throw new KinottaError('invalid', 'A picture region needs positive dimensions and must fit inside the canvas.');
+        }
+      }
       const soundOnTrack = placement.role !== 'insert' && source.kind !== 'image' && source.audio !== false;
       if (media.tracks !== undefined && soundOnTrack && placement.track === undefined) throw new KinottaError('invalid', 'A sound placement needs an existing track.');
       if (placement.track !== undefined && !soundOnTrack) throw new KinottaError('invalid', 'Only footage or audio with sound can belong to a track.');
@@ -236,6 +254,22 @@ export function mediaTimeline(media: MediaPlan, authoredDuration = 0): MediaTime
 export function placementTime(timeline: MediaTimeline, id: string, sourceTime: number): number | null {
   const placement = timeline.placements.find((p) => p.id === id);
   return placement && placement.role !== 'gap' && sourceTime >= placement.in && sourceTime < placement.out ? placement.at + sourceTime - placement.in : null;
+}
+
+/** The top visible picture under a canvas point, so feedback targets the correct occurrence. */
+export function pictureAt(timeline: MediaTimeline, time: number, x: number, y: number) {
+  return pictureOrder(timeline).reverse().find((p) => {
+    if (p.role === 'gap' || p.role === 'audio' || p.attachmentBroken || time < p.at || time >= p.at + p.duration) return false;
+    const r = p.region ?? { x: 0, y: 0, width: 1, height: 1 };
+    return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+  });
+}
+
+/** Visual ordering is independent of main-sequence timing and audio-track ordering. */
+export function pictureOrder(timeline: MediaTimeline) {
+  return timeline.placements.filter((p) => p.role !== 'gap' && p.role !== 'audio')
+    .map((p, index) => ({ p, order: p.role !== 'gap' ? p.layer ?? index : index, index }))
+    .sort((a, b) => a.order - b.order || a.index - b.index).map(({ p }) => p);
 }
 
 /** Every surviving continuous part of one occurrence's source range, in reel order. A cut alone is not a break. */

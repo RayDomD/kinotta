@@ -87,6 +87,8 @@ def media_timeline(media, authored_duration=0):
             sys.exit('A sound placement needs an existing track. Inserts and gaps have no track.')
         if 'origin' in p and not name(p['origin']): sys.exit('A placement origin needs an identity.')
         if p['role'] == 'gap':
+            if 'region' in p: sys.exit('A gap cannot have a picture region.')
+            if 'layer' in p: sys.exit('A gap cannot have a picture layer.')
             if not finite(p.get('duration')) or p['duration'] <= 0: sys.exit('A gap needs a positive duration.')
         else:
             if any(flag in p and not isinstance(p[flag], bool) for flag in ('mute', 'speech', 'loop')): sys.exit('Mute, speech and loop must be boolean flags.')
@@ -104,6 +106,12 @@ def media_timeline(media, authored_duration=0):
                 previous = point['at']
             source = sources.get(p.get('source')) if name(p.get('source')) else None
             if not source: sys.exit(f'Source {p.get("source")} is missing.')
+            if 'layer' in p and (source['kind'] == 'audio' or p['role'] == 'audio' or not isinstance(p['layer'], int) or isinstance(p['layer'], bool) or p['layer'] < 0):
+                sys.exit('A picture layer needs a nonnegative whole number.')
+            if 'region' in p:
+                r = p['region']
+                if not isinstance(r, dict) or source['kind'] == 'audio' or p['role'] == 'audio' or not all(finite(r.get(k)) for k in ('x', 'y', 'width', 'height')) or r['x'] < 0 or r['y'] < 0 or r['width'] <= 0 or r['height'] <= 0 or r['x'] + r['width'] > 1 + 1e-6 or r['y'] + r['height'] > 1 + 1e-6:
+                    sys.exit('A picture region needs positive dimensions and must fit inside the canvas.')
             sound_on_track = p['role'] != 'insert' and source['kind'] != 'image' and source.get('audio') is not False
             if 'tracks' in media and sound_on_track and 'track' not in p: sys.exit('A sound placement needs an existing track.')
             if 'track' in p and not sound_on_track: sys.exit('Only footage or audio with sound can belong to a track.')

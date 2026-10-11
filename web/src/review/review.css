@@ -3,6 +3,11 @@
 .rv-main .head { margin-bottom: 0; }
 
 .mv-picture { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: black; }
+.mv-picture-layers { position: absolute; inset: 0; pointer-events: none; }
+.mv-picture-layer { position: absolute; overflow: hidden; background: black; }
+.mv-region-selection { position: absolute; z-index: 8; outline: 1px solid var(--light); pointer-events: none; }
+.mv-region-move { position: absolute; top: 0; left: 0; max-width: 100%; padding: 3px 6px; font-size: 12px; color: var(--ground); background: var(--light); border: 0; pointer-events: auto; cursor: move; touch-action: none; }
+.mv-region-resize { position: absolute; width: 16px; height: 16px; bottom: 0; right: 0; border: 2px solid var(--ground); background: var(--light); pointer-events: auto; cursor: nwse-resize; touch-action: none; }
 .mv-graphics { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
 .mv-heading, .mv-placement-head, .mv-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mv-heading { justify-content: space-between; }

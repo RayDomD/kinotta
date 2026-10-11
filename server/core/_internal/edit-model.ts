@@ -3,7 +3,7 @@ import { pieceMap } from './pieces.ts';
 import type { Piece } from './pieces.ts';
 import type { TranscriptWord } from './types.ts';
 import type { MediaPlacement, MediaPlan, MediaSource, MediaTrack, SourcePlacement } from './media-model.ts';
-import { legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords } from './media-model.ts';
+import { legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords, pictureOrder } from './media-model.ts';
 
 /** An attached graphic must retain its whole source range to one microsecond. */
 const ATTACHED_RANGE_TOLERANCE = 1e-6;
@@ -297,7 +297,7 @@ export interface PlacementChangeOperation {
   id: string;
   kind: 'placement-change';
   placement: string;
-  changes: Partial<Pick<SourcePlacement, 'track' | 'in' | 'out' | 'at' | 'duration' | 'loop' | 'speech' | 'gain' | 'mute' | 'fadeIn' | 'fadeOut' | 'volume' | 'framing' | 'attachment'>>;
+  changes: Partial<Pick<SourcePlacement, 'track' | 'in' | 'out' | 'at' | 'duration' | 'loop' | 'speech' | 'gain' | 'mute' | 'fadeIn' | 'fadeOut' | 'volume' | 'framing' | 'region' | 'layer' | 'attachment'>>;
 }
 
 export interface PlacementRemoveOperation {
@@ -775,7 +775,7 @@ function applyPlacementAdd(sources: Sources, op: PlacementAddOperation): Sources
 function applyPlacementChange(sources: Sources, op: PlacementChangeOperation): Sources {
   const media = editableMedia(sources);
   if (!media.placements.some((p) => p.id === op.placement)) throw new KinottaError('invalid', `Placement ${op.placement} is missing.`);
-  const allowed = new Set(['track', 'in', 'out', 'at', 'duration', 'loop', 'speech', 'gain', 'mute', 'fadeIn', 'fadeOut', 'volume', 'framing', 'attachment']);
+  const allowed = new Set(['track', 'in', 'out', 'at', 'duration', 'loop', 'speech', 'gain', 'mute', 'fadeIn', 'fadeOut', 'volume', 'framing', 'region', 'layer', 'attachment']);
   if (!op.changes || Object.keys(op.changes).some((key) => !allowed.has(key))) throw new KinottaError('invalid', 'A placement change cannot replace its identity or source.');
   const current = mediaTimeline(media, sources.plan.duration ?? 0).placements.find((p) => p.id === op.placement)!;
   const changes = current.role !== 'gap' && current.attachment && op.changes.at !== undefined && !Object.hasOwn(op.changes, 'attachment')
@@ -799,10 +799,15 @@ function applyPlacementRemove(sources: Sources, op: PlacementRemoveOperation): S
 function applyPlacementLayer(sources: Sources, op: PlacementLayerOperation): Sources {
   const media = editableMedia(sources);
   const p = media.placements.find((placement) => placement.id === op.placement);
-  if (!p || p.role !== 'insert' || media.sources.find((source) => source.id === p.source)?.kind === 'audio') throw new KinottaError('invalid', 'Choose an insert picture to change its front/back order.');
+  if (!p || p.role === 'gap' || p.role === 'audio' || media.sources.find((source) => source.id === p.source)?.kind === 'audio') throw new KinottaError('invalid', 'Choose a picture to change its front/back order.');
   if (op.direction !== 'front' && op.direction !== 'back') throw new KinottaError('invalid', 'Picture order must be front or back.');
+  const pictures = pictureOrder(mediaTimeline(media, sources.plan.duration)).filter((picture) => picture.id !== p.id);
+  const ordered = op.direction === 'front' ? [...pictures, p] : [p, ...pictures];
+  const layers = new Map(ordered.map((picture, layer) => [picture.id, layer]));
+  // Retain the old insert array ordering as well as the explicit stack for callers reading raw plans.
   const others = media.placements.filter((placement) => placement.id !== p.id);
-  return withMedia(sources, { ...media, placements: op.direction === 'front' ? [...others, p] : [p, ...others] });
+  const placements = op.direction === 'front' ? [...others, p] : [p, ...others];
+  return withMedia(sources, { ...media, placements: placements.map((placement) => layers.has(placement.id) ? { ...placement, layer: layers.get(placement.id)! } : placement) });
 }
 
 function applyPlacementMove(sources: Sources, op: PlacementMoveOperation): Sources {
@@ -941,7 +946,7 @@ function applyPlacementDetach(sources: Sources, op: PlacementDetachOperation): S
   if (!p || p.role !== 'insert' || p.attachmentBroken || p.duration <= 0 || !source || source.kind !== 'video' || source.audio === false) throw new KinottaError('invalid', 'Detach sound from an available video insert.');
   const id = `${p.id}~${op.id}`;
   if (media.placements.some((candidate) => candidate.id === id)) throw new KinottaError('invalid', 'Detached sound needs a new identity.');
-  const { framing: _framing, attachmentBroken: _broken, origin: _origin, ...sound } = p;
+  const { framing: _framing, region: _region, layer: _layer, attachmentBroken: _broken, origin: _origin, ...sound } = p;
   const audio: SourcePlacement = { ...sound, id, role: 'audio', track: op.track, attachment: null, mute: p.mute ?? true };
   return withMedia(sources, { ...media, placements: [...media.placements.map((candidate) => candidate.id === p.id ? { ...candidate, mute: true, speech: false } : candidate), audio] });
 }
@@ -1085,7 +1090,7 @@ export function describeOperation(op: Operation): { target: string; text: string
     case 'placement-add':
       return { target: `Placement ${op.placement.id}`, text: 'Added media' };
     case 'placement-change':
-      return { target: `Placement ${op.placement}`, text: op.changes.framing ? 'Changed picture framing' : Object.hasOwn(op.changes, 'attachment') ? op.changes.attachment ? 'Attached to footage' : 'Changed to Stay at time' : 'Changed timing or speech selection' };
+      return { target: `Placement ${op.placement}`, text: op.changes.region ? 'Changed picture region' : op.changes.layer !== undefined ? 'Changed picture order' : op.changes.framing ? 'Changed picture framing' : Object.hasOwn(op.changes, 'attachment') ? op.changes.attachment ? 'Attached to footage' : 'Changed to Stay at time' : 'Changed timing or speech selection' };
     case 'placement-remove':
       return { target: `Placement ${op.placement}`, text: 'Removed media' };
     case 'placement-move':

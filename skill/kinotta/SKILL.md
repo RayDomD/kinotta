@@ -1,6 +1,6 @@
 ---
 name: kinotta
-description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll over a video, and build the next version from a pasted comment batch. Use when the user asks for a reel, brand intro, showreel, storyboard or b-roll to review in Kinotta, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's.
+description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll, native media and audio tracks, and build the next version from a pasted comment batch. Use when the user asks for a Kinotta reel, brand intro, showreel, storyboard, b-roll, audio-track changes or picture layout, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's.
 ---
 
 # Kinotta
@@ -12,6 +12,10 @@ HTML page, with no footage. Footage reels are sections 5 and 6.
 
 The project folder is the one you are running in. Every path below is relative to it unless it
 says otherwise.
+
+When a plan has `media`, or the request adds sound, changes audio tracks or changes picture layout,
+read `reference/native-media.md` before building or rebuilding. Its native-media rules apply to
+both code-only and footage reels and replace the legacy single-video plan/copy instructions below.
 
 ## Hard rules
 
@@ -343,6 +347,10 @@ Kinotta Save writes the owner's edits into the plan, so the plan can hold fields
 in `reels/<slug>/plan.json` when that file exists (a reel started from a video in Kinotta), else
 `motion/plan.json`. Edit that one file and compose from it. Keep these fields exactly as you find them when
 you rebuild; losing one undoes an edit the owner made:
+
+- `media`: keep the sources, placement identities, sequence, tracks, track assignments, regions,
+  framing, envelopes, attachments and occurrence-specific words. Follow `reference/native-media.md`
+  when changing any of these or preserving native sources in a new version.
 
 - `pieces`: `[{ "in", "out" }, …]`, the stretches of the video the reel is made of, in reel order. The
   plan's times (clip `in` and `out`, words, sections) stay in **source** time; `build.py` and `shots.py`

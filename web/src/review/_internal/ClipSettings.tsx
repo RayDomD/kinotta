@@ -66,7 +66,22 @@ export function ClipSettings({ placements, media, timeline, editable, emptyHint,
             </>}
             {p.role !== 'audio' && media.sources.find((s) => s.id === p.source)!.kind !== 'audio' && <>
               <h3>Picture</h3>
-              {p.role === 'insert' && <div className="mv-controls"><button type="button" className="rv-tool" disabled={!editable} onClick={() => void edits!.add({ kind: 'placement-layer', placement: p.id, direction: 'front' })}>Bring to front</button><button type="button" className="rv-tool" disabled={!editable} onClick={() => void edits!.add({ kind: 'placement-layer', placement: p.id, direction: 'back' })}>Send to back</button></div>}
+              <label>Picture layout <select aria-label={`Picture layout for ${p.id}`} value="" disabled={!editable} onChange={(e) => {
+                const presets = { full: { x: 0, y: 0, width: 1, height: 1 }, left: { x: 0, y: 0, width: 0.5, height: 1 }, right: { x: 0.5, y: 0, width: 0.5, height: 1 }, top: { x: 0, y: 0, width: 1, height: 0.5 }, bottom: { x: 0, y: 0.5, width: 1, height: 0.5 }, inset: { x: 0.65, y: 0.65, width: 0.3, height: 0.3 } };
+                const region = presets[e.target.value as keyof typeof presets];
+                if (region) change(p.id, { region });
+              }}><option value="">Choose layout</option><option value="full">Full frame</option><option value="left">Left half</option><option value="right">Right half</option><option value="top">Top half</option><option value="bottom">Bottom half</option><option value="inset">Picture in picture</option></select></label>
+              <span className="meta">Position and size as % of the canvas. Drag Move picture or its corner in the frame.</span>
+              {(['x', 'y', 'width', 'height'] as const).map((field) => {
+                const region = p.region ?? { x: 0, y: 0, width: 1, height: 1 };
+                const name = { x: 'Left', y: 'Top', width: 'Width', height: 'Height' }[field];
+                const percent = Number((region[field] * 100).toFixed(2));
+                return <label key={field}>{name} % <input aria-label={`${name} region for ${p.id}`} type="number" min={field === 'width' || field === 'height' ? 0.01 : 0} max="100" step="0.01" defaultValue={percent} disabled={!editable} onBlur={(e) => {
+                  const value = Number(e.target.value) / 100;
+                  if (Number(e.target.value) !== percent) change(p.id, { region: { ...region, [field]: value } });
+                }} /></label>;
+              })}
+              {<div className="mv-controls"><button type="button" className="rv-tool" disabled={!editable} onClick={() => void edits!.add({ kind: 'placement-layer', placement: p.id, direction: 'front' })}>Bring to front</button><button type="button" className="rv-tool" disabled={!editable} onClick={() => void edits!.add({ kind: 'placement-layer', placement: p.id, direction: 'back' })}>Send to back</button></div>}
               <label>Framing <select aria-label={`Framing for ${p.id}`} value={p.framing?.mode ?? 'crop'} disabled={!editable} onChange={(e) => change(p.id, { framing: { ...p.framing, mode: e.target.value as 'crop' | 'fit' } })}><option value="crop">Crop to fill</option><option value="fit">Fit whole picture</option></select></label>
               {(['x', 'y'] as const).map((axis) => <label key={axis}>{axis === 'x' ? 'Horizontal' : 'Vertical'} % <input aria-label={`${axis === 'x' ? 'Horizontal' : 'Vertical'} framing for ${p.id}`} type="number" min="0" max="100" step="1" defaultValue={(p.framing?.[axis] ?? 0.5) * 100} disabled={!editable} onBlur={(e) => { const value = Number(e.target.value) / 100; if (value !== (p.framing?.[axis] ?? 0.5)) change(p.id, { framing: { ...p.framing, mode: p.framing?.mode ?? 'crop', [axis]: value } }); }} /></label>)}
             </>}

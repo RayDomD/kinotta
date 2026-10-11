@@ -8,6 +8,18 @@ export function malformedMediaCases() {
   const track = { id: 'speech', name: 'Speech', order: 0, gain: 1, mute: false };
   const withTrack = (changes: object) => ({ ...media, tracks: [{ ...track, ...changes }], placements: [{ ...placement, track: 'speech' }] });
   return [
+    { name: 'negative picture layer', value: withPlacement({ layer: -1 }), error: 'layer' },
+    { name: 'fractional picture layer', value: withPlacement({ layer: 0.5 }), error: 'layer' },
+    { name: 'boolean picture layer', value: withPlacement({ layer: true }), error: 'layer' },
+    { name: 'gap picture layer', value: { ...media, placements: [{ id: 'take', role: 'gap', duration: 3, layer: 0 }] }, error: 'layer' },
+    { name: 'gap picture region', value: { ...media, placements: [{ id: 'take', role: 'gap', duration: 3, region: { x: 0, y: 0, width: 1, height: 1 } }] }, error: 'region' },
+    { name: 'audio picture region', value: { ...media, placements: [{ ...placement, role: 'audio', at: 0, region: { x: 0, y: 0, width: 1, height: 1 } }], sequence: [] }, error: 'region' },
+    { name: "null region", value: withPlacement({ region: null }), error: 'region' },
+    { name: "missing region dimensions", value: withPlacement({ region: {} }), error: 'region' },
+    { name: "negative region position", value: withPlacement({ region: {"x": -0.1, "y": 0, "width": 0.5, "height": 1} }), error: 'region' },
+    { name: "region outside canvas", value: withPlacement({ region: {"x": 0.8, "y": 0, "width": 0.5, "height": 1} }), error: 'region' },
+    { name: "zero region width", value: withPlacement({ region: {"x": 0, "y": 0, "width": 0, "height": 1} }), error: 'region' },
+    { name: "boolean region height", value: withPlacement({ region: {"x": 0, "y": 0, "width": 1, "height": true} }), error: 'region' },
     { name: 'null tracks', value: { ...media, tracks: null }, error: 'tracks' },
     { name: 'null track', value: { ...media, tracks: [null] }, error: 'track' },
     { name: 'numeric track identity', value: withTrack({ id: 1 }), error: 'track' },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { NativeLanes } from './NativeLanes.tsx';
+import { PictureLayers } from './PictureLayers.tsx';
 import { actionForKey, keyChord } from './editor-settings.ts';
 import type { EditorAction } from './editor-settings.ts';
 import { EditorToolbar } from './EditorToolbar.tsx';
@@ -14,7 +15,7 @@ import { MediaLibrary } from './MediaLibrary.tsx';
 import type { LibraryRow } from './MediaLibrary.tsx';
 import { MediaPreview } from './MediaPreview.tsx';
 import { ClipSettings } from './ClipSettings.tsx';
-import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
+import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
 import type { MediaSource, MediaTimeline, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
@@ -41,8 +42,6 @@ const CAPTION_AT = 0.005;
 const SOURCE_TIME_PRECISION = 1_000_000;
 const PIN_FRAME_WINDOW = 1 / 30;
 const SNIP_PREVIEW_LEAD = 2;
-/** While playing, the picture is put back on the sound's clock only when it is more than a frame (at 30 fps) away. */
-const PICTURE_DRIFT = 1 / 30;
 /** Edits arrive in bursts (a drag, typed levels): the mix is measured once they settle. */
 const OVERLOAD_SETTLE_MS = 400;
 
@@ -117,7 +116,6 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [replacing, setReplacing] = useState<Record<string, string>>({});
   const [waveforms, setWaveforms] = useState<Record<string, MediaWaveform>>({});
   const [sourceRoot, setSourceRoot] = useState(initialRoot ?? null);
-  const video = useRef<HTMLVideoElement>(null);
   const editable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
   const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.number } : undefined), [base, reel.slug, version!.number]);
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
@@ -181,13 +179,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     clipOf: (scene) => clipIdForScene(scene, elementClips),
     onChange: editable && !pinning ? (change) => changeElement.current(change) : undefined,
   }), [elementOffsets, elementClips, editable, pinning]);
-  const active = timeline.placements.filter((p) => !p.attachmentBroken && p.role !== 'gap' && p.role !== 'audio' && time >= p.at && time < p.at + p.duration);
+  const active = pictureOrder(timeline).filter((p) => !p.attachmentBroken && time >= p.at && time < p.at + p.duration);
   const picture = active.at(-1);
   const source = picture && picture.role !== 'gap' ? media.sources.find((s) => s.id === picture.source) : undefined;
   const framing = picture && picture.role !== 'gap' ? picture.framing : undefined;
   const moment = timelineMoment(timeline, time);
   const followable = !!moment && media.sources.find((s) => s.id === moment.source)?.kind === 'video';
-  const pictureStyle = { objectFit: framing?.mode === 'fit' ? 'contain' as const : 'cover' as const, objectPosition: `${(framing?.x ?? 0.5) * 100}% ${(framing?.y ?? 0.5) * 100}%` };
   const savedPinMoment = (at: number, placement?: string, sourceTime?: number) => {
     const mapped = remapMediaMoment(timeline, savedTimeline, at, { placement, sourceTime });
     if (mapped.removed) throw new Error('Save this new or changed moment as a version before pinning it.');
@@ -198,7 +195,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   };
   const pickFrame = (pick: FramePick) => {
     try {
-      const target = picture ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
+      const target = pictureAt(timeline, time, pick.x, pick.y) ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
       const saved = savedPinMoment(time, target?.id);
       workspace.setPanelTab('comments');
       setPinDraft({ pin: { kind: 'frame', shot: '', ...saved, ...pick }, label: `Frame at ${time.toFixed(2)}s` });
@@ -286,45 +283,27 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     }
     return () => { current = false; };
   }, [media.sources, base, reel.slug, version!.number]);
-  // The picture runs on the sound's clock. Until the video is actually playing, the sound and the clock hold, so a picture
-  // that cannot keep up pauses the reel rather than drifting (AM36). A picture that fails stops playback with Retry.
-  const [pictureRunning, setPictureRunning] = useState(false);
+  const [pictureRunning, setPictureRunning] = useState<Record<string, boolean>>({});
   const [pictureErrors, setPictureErrors] = useState<Record<string, string>>({});
   const [pictureAttempts, setPictureAttempts] = useState<Record<string, number>>({});
-  const pictureError = source ? pictureErrors[source.id] ?? null : null;
+  const pictureError = active.map((p) => p.role !== 'gap' ? pictureErrors[p.source] : undefined).find(Boolean) ?? null;
   const placementsHere = timeline.placements.filter((p) => time >= p.at && time < p.at + p.duration);
   const soundFailureHere = placementsHere.some((p) => p.role !== 'gap' && playback.failures[p.source]);
   const speechFailureHere = placementsHere.some((p) => p.role !== 'gap' && usesSpeech(p) && speech[p.source]?.state === 'failed');
-  const videoPicture = source?.kind === 'video';
-  const waitingForPicture = playing && videoPicture && !pictureRunning && pictureError === null;
+  const waitingForPicture = playing && active.some((p) => !pictureRunning[p.id]) && pictureError === null;
   useEffect(() => { playback.hold(waitingForPicture); }, [waitingForPicture, playback.hold]);
-  useEffect(() => { setPictureRunning(false); }, [source?.id]);
-  const pictureFailed = (message: string) => {
-    if (source) setPictureErrors((before) => ({ ...before, [source.id]: message }));
-    if (playing) void playback.toggle();
-  };
-  useEffect(() => {
-    const element = video.current;
-    if (!element || !picture || picture.role === 'gap' || pictureError !== null) return;
-    const target = picture.in + time - picture.at;
-    if (!playing) {
-      element.pause();
-      if (Math.abs(element.currentTime - target) > 1 / 60) element.currentTime = target;
-    } else if (element.paused) {
-      element.currentTime = target;
-      element.play().catch((failure: unknown) => {
-        // A pause or a new source interrupting play() is not a failure of the picture.
-        if (failure instanceof DOMException && failure.name === 'AbortError') return;
-        pictureFailed(`The picture for ${source?.name ?? source?.path.split('/').at(-1) ?? 'this placement'} could not be played.`);
-      });
-    } else if (pictureRunning && Math.abs(element.currentTime - target) > PICTURE_DRIFT) element.currentTime = target;
-  }, [time, playing, picture, version, pictureRunning, pictureError]);
+  const pictureStatus = useCallback((id: string, ready: boolean) => {
+    setPictureRunning((before) => before[id] === ready ? before : { ...before, [id]: ready });
+  }, []);
+  const pictureFailed = useCallback((id: string, message: string) => {
+    setPictureErrors((before) => ({ ...before, [id]: message }));
+  }, []);
+  useEffect(() => { if (pictureError && playing) void playback.toggle(); }, [pictureError, playing, playback.toggle]);
   const retryPicture = (id = source?.id) => {
     if (!id) return;
     setPictureErrors((before) => { const next = { ...before }; delete next[id]; return next; });
     setPictureAttempts((before) => ({ ...before, [id]: (before[id] ?? 0) + 1 }));
-    setPictureRunning(false);
-    if (source?.id === id) video.current?.load();
+    setPictureRunning((before) => Object.fromEntries(Object.entries(before).filter(([key]) => !active.some((p) => p.id === key && p.role !== 'gap' && p.source === id))));
   };
   const change = (id: string, changes: Partial<SourcePlacement>) => { if (editable) void edits!.add({ kind: 'placement-change', placement: id, changes }); };
   const isImage = (p: Placed) => p.role !== 'gap' && media.sources.find((s) => s.id === p.source)?.kind === 'image';
@@ -470,10 +449,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
     <div className="rv-well">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
-        {source?.kind === 'image' && <img className="mv-picture" style={pictureStyle} alt={source.name ?? source.path.split('/').at(-1)} src={`${sourceUrl(source.id)}${pictureAttempts[source.id] ? `?retry=${pictureAttempts[source.id]}` : ''}`} onError={() => pictureFailed(`The picture for ${source.name ?? source.path.split('/').at(-1)} could not be loaded.`)} />}
-        {source?.kind === 'video' && <video key={source.id} ref={video} className="mv-picture" style={pictureStyle} src={sourceUrl(source.id)} muted playsInline preload="auto"
-          onPlaying={() => setPictureRunning(true)} onWaiting={() => setPictureRunning(false)} onSeeking={() => setPictureRunning(false)} onPause={() => setPictureRunning(false)}
-          onError={() => pictureFailed(`The picture for ${source.name ?? source.path.split('/').at(-1)} could not be loaded.`)} />}
+        <PictureLayers pictures={active} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
         <PagePlayer className="rv-page" title="Authored graphics" pageUrl={versionPageUrl(reel.slug, version!.number)} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}

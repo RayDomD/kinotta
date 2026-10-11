@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { audioExpression } from './media-audio.ts';
-import { mediaTimeline, trackGain } from './media-model.ts';
+import { mediaTimeline, pictureOrder, trackGain } from './media-model.ts';
 import type { MediaPlan, MediaSource, SourcePlacement } from './media-model.ts';
 import { KinottaError } from './errors.ts';
 
@@ -63,7 +63,8 @@ export function mediaRenderArgs(media: MediaPlan, planDir: string, overlay: stri
   const sounds: string[] = [];
   let picture = 'base';
   let input = 1;
-  for (const p of timeline.placements) {
+  const pictures = pictureOrder(timeline);
+  for (const p of [...pictures, ...timeline.placements.filter((p) => p.role === 'audio' || p.role === 'gap')]) {
     if (p.role === 'gap' || p.duration <= 0) continue;
     const source = media.sources.find((s) => s.id === p.source)!;
     const visible = p.role !== 'audio' && source.kind !== 'audio';
@@ -75,11 +76,17 @@ export function mediaRenderArgs(media: MediaPlan, planDir: string, overlay: stri
       const trim = source.kind === 'image' ? `trim=duration=${p.duration}` : `trim=start=${p.in}:end=${p.out}`;
       const x = p.framing?.x ?? 0.5;
       const y = p.framing?.y ?? 0.5;
+      const region = p.region ?? { x: 0, y: 0, width: 1, height: 1 };
+      // Picture filters work in whole pixels, including regions narrower than one output pixel.
+      const left = Math.min(width - 1, Math.round(region.x * width));
+      const top = Math.min(height - 1, Math.round(region.y * height));
+      const regionWidth = Math.max(1, Math.min(width - left, Math.round(region.width * width)));
+      const regionHeight = Math.max(1, Math.min(height - top, Math.round(region.height * height)));
       const framing = p.framing?.mode === 'fit'
-        ? `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)*${x}:(oh-ih)*${y}`
-        : `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-ow)*${x}:(ih-oh)*${y}`;
+        ? `scale=${regionWidth}:${regionHeight}:force_original_aspect_ratio=decrease,pad=${regionWidth}:${regionHeight}:(ow-iw)*${x}:(oh-ih)*${y}`
+        : `scale=${regionWidth}:${regionHeight}:force_original_aspect_ratio=increase,crop=${regionWidth}:${regionHeight}:(iw-ow)*${x}:(ih-oh)*${y}`;
       graph.push(`[${input}:v]${trim},setpts=PTS-STARTPTS,fps=${fps},${framing},setsar=1,format=rgba,setpts=PTS+${p.at}/TB[v${input}]`);
-      graph.push(`[${picture}][v${input}]overlay=eof_action=pass:repeatlast=0:enable='gte(t,${p.at})*lt(t,${p.at + p.duration})'[p${input}]`);
+      graph.push(`[${picture}][v${input}]overlay=x=${left}:y=${top}:eof_action=pass:repeatlast=0:enable='gte(t,${p.at})*lt(t,${p.at + p.duration})'[p${input}]`);
       picture = `p${input}`;
     }
     if (audible) {

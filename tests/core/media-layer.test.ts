@@ -9,10 +9,10 @@ it('changes insert drawing order without changing timing, sequence, sound or sou
   expect(mediaTimeline(forward.plan.media!, 3).placements.at(-1)?.id).toBe('back');
   expect(forward.plan.media?.sequence).toEqual(sources.plan.media?.sequence);
   expect(forward.plan.media?.sources).toEqual(sources.plan.media?.sources);
-  expect(forward.plan.media?.placements.find((p) => p.id === 'back')).toEqual(sources.plan.media?.placements.find((p) => p.id === 'back'));
+  expect(forward.plan.media?.placements.find((p) => p.id === 'back')).toMatchObject(sources.plan.media!.placements.find((p) => p.id === 'back')!);
   const backward = applyOperation(forward, { id: 'down', kind: 'placement-layer', placement: 'back', direction: 'back' });
   expect(mediaTimeline(backward.plan.media!, 3).placements.at(-1)?.id).toBe('front');
   expect(JSON.stringify(sources)).toBe(snapshot);
-  expect(() => applyOperation(sources, { id: 'bad', kind: 'placement-layer', placement: 'gap', direction: 'front' })).toThrow('insert picture');
+  expect(() => applyOperation(sources, { id: 'bad', kind: 'placement-layer', placement: 'gap', direction: 'front' })).toThrow('Choose a picture');
   expect(() => applyOperation(sources, JSON.parse('{"id":"bad","kind":"placement-layer","placement":"back","direction":"sideways"}'))).toThrow('front or back');
 });
