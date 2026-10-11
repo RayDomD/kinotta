@@ -23,25 +23,31 @@ it('brings an insert picture to front, sends it back, undoes it and saves the sa
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
+    // Keep edits in flight long enough to catch waits that only check picture presence.
+    await page.route('**/edits', async (route) => {
+      if (route.request().method() === 'POST') await new Promise((resolve) => setTimeout(resolve, 200));
+      await route.continue();
+    });
     const frame = page.locator('.rv-frame');
-    await frame.getByAltText('green', { exact: true }).waitFor();
+    const front = () => frame.locator('.mv-picture-layer').last().getAttribute('data-verify-id');
+    await expect.poll(front).toBe('green');
     // Keyboard selection also reaches a bar covered by an overlapping insert.
     await page.getByRole('region', { name: 'Media timeline' }).getByRole('button', { name: /^red, insert,/ }).press('Enter');
     const clip = page.getByRole('region', { name: 'Clip settings' });
     await clip.getByRole('button', { name: 'Bring to front', exact: true }).click();
-    await frame.getByAltText('red', { exact: true }).waitFor();
+    await expect.poll(front).toBe('red');
     await clip.getByRole('button', { name: 'Send to back', exact: true }).click();
-    await frame.getByAltText('green', { exact: true }).waitFor();
+    await expect.poll(front).toBe('green');
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).focus();
     await page.keyboard.press('Control+z');
-    await frame.getByAltText('red', { exact: true }).waitFor();
+    await expect.poll(front).toBe('red');
     await page.getByRole('tab', { name: /^Edits/ }).click();
     const saved = page.waitForResponse((response) => response.url().endsWith('/save') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /^Save as v2/ }).click();
     const response = await saved;
     expect(response.status(), await response.text()).toBe(200);
     await expect.poll(async () => (await server.project.readVersion('founder-talk', 2)).media?.placements.at(-1)?.id).toBe('red');
-    await frame.getByAltText('red', { exact: true }).waitFor();
+    await expect.poll(front).toBe('red');
     const job = await server.project.whenRendered((await server.project.render({ reel: 'founder-talk', version: 2, preset: 'draft', size: 'source', fps: 30 })).id);
     expect(job.error).toBeUndefined();
     const decoded = spawnSync('ffmpeg', ['-v', 'error', '-i', join(dir, job.output!), '-vf', 'scale=1:1', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);

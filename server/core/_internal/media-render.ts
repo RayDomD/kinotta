@@ -51,7 +51,8 @@ export function mediaMixArgs(media: MediaPlan, planDir: string, duration: number
   if (!sounds.length) return null;
   graph.push(mixSounds(sounds, timeline.duration));
   graph.push(`[a]asetnsamples=n=${Math.max(1, Math.round(window * RATE))}:p=0,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.Peak_level:file=-[out]`);
-  return [...args, '-filter_complex', graph.join(';'), '-map', '[out]', '-f', 'null', '-'];
+  // Bound padded silence at the output too: FFmpeg can otherwise keep measuring past the reel end.
+  return [...args, '-filter_complex', graph.join(';'), '-map', '[out]', '-t', String(timeline.duration), '-f', 'null', '-'];
 }
 
 /** One whole-reel composition after the authored graphics' frames have been rendered. */
