@@ -8,3 +8,6 @@ playwright-report/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Rendered videos
+/reels/*/renders/
