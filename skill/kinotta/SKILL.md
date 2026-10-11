@@ -17,6 +17,9 @@ When a plan has `media`, or the request adds sound, changes audio tracks or chan
 read `reference/native-media.md` before building or rebuilding. Its native-media rules apply to
 both code-only and footage reels and replace the legacy single-video plan/copy instructions below.
 
+When adding sound effects, voiceover or a generated music bed, read `reference/sound.md`
+for bundled effects, optional generators and their placement workflow.
+
 ## Hard rules
 
 - **Versions are frozen.** Never edit, rename or delete a `reels/<slug>/v<n>/` folder that exists.

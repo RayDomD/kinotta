@@ -4,6 +4,8 @@ import type { ToolCheck, ToolId, ToolStatus, ToolUse } from './types.ts';
 
 /** Looks the package up without importing it; importing loads the speech model runtime and is slow. */
 const WHISPER_PROBE = 'import importlib.util, sys; sys.exit(0 if importlib.util.find_spec("faster_whisper") else 1)';
+const KOKORO_PROBE = 'import importlib.util, sys; sys.exit(0 if all(importlib.util.find_spec(name) for name in ("kokoro_onnx", "soundfile")) else 1)';
+const STABLE_AUDIO_PROBE = 'import importlib.util, sys; sys.exit(0 if all(importlib.util.find_spec(name) for name in ("torch", "diffusers", "soundfile", "transformers", "sentencepiece")) else 1)';
 const PYTHON_CANDIDATES: Array<[string, string[]]> = [
   ['python3', []],
   ['python', []],
@@ -23,12 +25,12 @@ export interface CheckOptions {
 function hints(platform: NodeJS.Platform): Record<ToolId, string> {
   const ffmpeg = platform === 'win32' ? 'winget install ffmpeg' : platform === 'darwin' ? 'brew install ffmpeg' : 'sudo apt install ffmpeg';
   const python = platform === 'win32' ? 'winget install Python.Python.3.12' : platform === 'darwin' ? 'brew install python' : 'sudo apt install python3 python3-pip';
-  return { python, ffmpeg, 'faster-whisper': 'pip install faster-whisper (needs Python 3 first)', chromium: 'npx playwright install chromium' };
+  return { python, ffmpeg, 'faster-whisper': 'pip install faster-whisper (needs Python 3 first)', chromium: 'npx playwright install chromium', 'kokoro-onnx': 'pip install kokoro-onnx soundfile (owner supplies local model and voices files)', 'stable-audio': 'Owner installs CUDA-compatible Torch, diffusers, transformers, sentencepiece and soundfile, and supplies licensed local Stable Audio Open weights' };
 }
 
-const NAMES: Record<ToolId, string> = { python: 'Python 3', ffmpeg: 'ffmpeg', 'faster-whisper': 'faster-whisper', chromium: 'Chromium' };
+const NAMES: Record<ToolId, string> = { python: 'Python 3', ffmpeg: 'ffmpeg', 'faster-whisper': 'faster-whisper', chromium: 'Chromium', 'kokoro-onnx': 'Kokoro voiceover (optional)', 'stable-audio': 'Stable Audio Open (optional)' };
 
-const USES: Record<ToolId, ToolUse[]> = { python: ['video'], ffmpeg: ['video', 'render'], 'faster-whisper': ['video'], chromium: ['render'] };
+const USES: Record<ToolId, ToolUse[]> = { python: ['video'], ffmpeg: ['video', 'render'], 'faster-whisper': ['video'], chromium: ['render'], 'kokoro-onnx': [], 'stable-audio': [] };
 
 /** The startup message's heading for each use, in print order. */
 const USE_HEADINGS: Array<[ToolUse, string]> = [
@@ -62,16 +64,20 @@ async function findPython(run: Run): Promise<[string, string[]] | null> {
 export async function checkTools({ run = tryCommand, platform = process.platform, findChromium = playwrightChromium }: CheckOptions = {}): Promise<ToolCheck> {
   const hint = hints(platform);
   const python = await findPython(run);
-  const [ffmpeg, whisper, chromium] = await Promise.all([
+  const [ffmpeg, whisper, chromium, kokoro, stableAudio] = await Promise.all([
     run('ffmpeg', ['-version']),
     python ? run(python[0], [...python[1], '-c', WHISPER_PROBE]) : Promise.resolve(null),
     findChromium().catch(() => false),
+    python ? run(python[0], [...python[1], '-c', KOKORO_PROBE]) : Promise.resolve(null),
+    python ? run(python[0], [...python[1], '-c', STABLE_AUDIO_PROBE]) : Promise.resolve(null),
   ]);
   const found: Record<ToolId, boolean> = {
     python: python !== null,
     ffmpeg: ffmpeg?.code === 0,
     'faster-whisper': whisper?.code === 0,
     chromium,
+    'kokoro-onnx': kokoro?.code === 0,
+    'stable-audio': stableAudio?.code === 0,
   };
   const tools: ToolStatus[] = (Object.keys(NAMES) as ToolId[]).map((id) => ({
     id,
@@ -90,5 +96,5 @@ export function missingToolsMessage(check: ToolCheck): string | null {
     const lines = check.missing.filter((tool) => tool.neededFor.includes(use)).map((tool) => `  ${tool.name}: ${tool.hint}`);
     return lines.length === 0 ? [] : [`${heading}\n${lines.join('\n')}`];
   });
-  return blocks.join('\n');
+  return blocks.length ? blocks.join('\n') : null;
 }

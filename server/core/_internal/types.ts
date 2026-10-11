@@ -662,7 +662,7 @@ export interface StartedReel {
 /** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
 export type Transcriber = (videoFile: string, onProgress?: (processedSeconds: number) => void) => Promise<TranscriptWord[]>;
 
-export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
+export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium' | 'kokoro-onnx' | 'stable-audio';
 
 /** What a tool is for: starting a reel from a video, or rendering. */
 export type ToolUse = 'video' | 'render';
