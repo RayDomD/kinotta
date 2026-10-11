@@ -79,7 +79,7 @@ export async function codeSources(versionDir: string): Promise<{ sources: Source
 
 /** Throws `invalid` unless every operation is a move or scale of an element, the only edit a reel built from code takes. */
 export function assertCodeOnlyOperations(operations: readonly Operation[]): void {
-  const allowed = new Set(['element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-remove', 'placement-replace', 'word-text', 'word-timing', 'phrase-text']);
+  const allowed = new Set(['element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-replace', 'word-text', 'word-timing', 'phrase-text']);
   if (operations.some((op) => !allowed.has(op.kind) || ((op.kind === 'placement-add' || op.kind === 'placement-replace') && op.placement.role !== 'audio'))) {
     throw new KinottaError('invalid', 'This reel is built from code, so only elements can be moved or scaled. To change its timing, ask your agent for a new version.');
   }

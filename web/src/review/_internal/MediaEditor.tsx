@@ -15,6 +15,7 @@ import { MediaLibrary } from './MediaLibrary.tsx';
 import type { LibraryRow } from './MediaLibrary.tsx';
 import { MediaPreview } from './MediaPreview.tsx';
 import { ClipSettings } from './ClipSettings.tsx';
+import { SoundSettings } from './SoundSettings.tsx';
 import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
 import type { MediaSource, MediaTimeline, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
@@ -485,7 +486,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
       onDetach={(id, track) => void edits!.add({ kind: 'placement-detach', placement: id, track })}
       onReorderTrack={(id, index) => void edits!.add({ kind: 'track-move', track: id, index })}
-      onSelect={(id, inspect) => { setSelectedGraphic(null); setSelected(id); if (inspect) workspace.setPanelTab('clip'); }} onSeek={playback.seek} onKey={onPlacementKey}
+      onSelect={(id, inspect) => { setSelectedGraphic(null); setSelected(id); if (inspect || (media.placements.find((p) => p.id === id)?.role === 'audio' && workspace.panelTab !== 'sound')) workspace.setPanelTab('clip'); }} onSeek={playback.seek} onKey={onPlacementKey}
       onMenu={(id, x, y) => { setSelectedGraphic(null); setSelected(id); setClipMenu({ id, x, y }); }}
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
@@ -526,6 +527,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
 
     {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s of footage`}</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={() => runAction('apply')}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
     {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={edits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
+    {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} />, workspace.soundHost)}
     {workspace.sectionHost && (authored.sections ?? []).some((s) => s.partOf) && createPortal(<section aria-label="Continuous sections"><div className="label">Surviving section spans</div><nav className="secs">{authored.sections!.map((s) => <button type="button" key={s.id} onClick={() => playback.seek(s.start)}><span className="nm">{s.name}</span><span className="sub">{s.start.toFixed(2)}–{s.end.toFixed(2)}s</span></button>)}</nav></section>, workspace.sectionHost)}
     {workspace.clipHost && selectedGraphic && createPortal(<section className="editor-graphic-settings" aria-label="Graphics attachments"><h2>Clip settings</h2>{(edited.clips ?? []).filter((c) => c.id === selectedGraphic).map((c) => {
       const mapped = authored.clips!.find((clip) => clip.id === c.id)!;

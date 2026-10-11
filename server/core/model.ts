@@ -8,5 +8,7 @@ export { captionPhrases, legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks
 export type { GapPlacement, MediaCaptionPhrase, MediaMoment, MediaPlacement, MediaPlan, MediaSource, MediaTimeline, MediaTrack, PictureRegion, SourcePlacement } from './_internal/media-model.ts';
 export { audioFades, audioGain, describeOverload, mixAt } from './_internal/media-audio.ts';
 export type { MixSample } from './_internal/media-audio.ts';
+export { DUCK_DEFAULTS, MAX_DUCK_DB, MIN_DUCK_RAMP, MAX_DUCK_RAMP, duckSpeechSpans, duckVolume } from './_internal/media-duck.ts';
+export type { DuckSettings, SpeechSpan } from './_internal/media-duck.ts';
 export { BUILT_BY_YOU, CLIP_ROOT, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, mediaEditingPlan, mediaPlanTimeline, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';
 export type { CaptionOffset, CaptionPhrasePositionOperation, CaptionPositionOperation, CaptionsPlan, ClipAttachmentOperation, ClipSlideOperation, ClipSplitOperation, ClipState, ClipTrimOperation, CutOperation, ElementOffset, ElementOffsetOperation, MovePieceOperation, NewOperation, Operation, PhrasePosition, PhraseTextOperation, Plan, PlanClip, SnipOperation, Sources, WordTextOperation, WordTimingOperation } from './_internal/edit-model.ts';

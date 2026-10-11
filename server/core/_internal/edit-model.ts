@@ -4,6 +4,8 @@ import type { Piece } from './pieces.ts';
 import type { TranscriptWord } from './types.ts';
 import type { MediaPlacement, MediaPlan, MediaSource, MediaTrack, SourcePlacement } from './media-model.ts';
 import { legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords, pictureOrder } from './media-model.ts';
+import { duckVolume } from './media-duck.ts';
+import type { DuckSettings, SpeechSpan } from './media-duck.ts';
 
 /** An attached graphic must retain its whole source range to one microsecond. */
 const ATTACHED_RANGE_TOLERANCE = 1e-6;
@@ -300,6 +302,14 @@ export interface PlacementChangeOperation {
   changes: Partial<Pick<SourcePlacement, 'track' | 'in' | 'out' | 'at' | 'duration' | 'loop' | 'speech' | 'gain' | 'mute' | 'fadeIn' | 'fadeOut' | 'volume' | 'framing' | 'region' | 'layer' | 'attachment'>>;
 }
 
+/** Frozen speech spans in placement-local seconds. Later moves carry the points with the clip. */
+export interface PlacementDuckOperation extends DuckSettings {
+  id: string;
+  kind: 'placement-duck';
+  placement: string;
+  spans: SpeechSpan[];
+}
+
 export interface PlacementRemoveOperation {
   id: string;
   kind: 'placement-remove';
@@ -355,6 +365,7 @@ export type Operation =
   | PlacementDetachOperation
   | PlacementAddOperation
   | PlacementChangeOperation
+  | PlacementDuckOperation
   | PlacementRemoveOperation
   | PlacementMoveOperation
   | PlacementLayerOperation
@@ -967,6 +978,14 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyPlacementAdd(sources, op);
     case 'placement-change':
       return applyPlacementChange(sources, op);
+    case 'placement-duck': {
+      const media = editableMedia(sources);
+      const target = mediaTimeline(media, sources.plan.duration).placements.find((p) => p.id === op.placement);
+      if (!target || target.role !== 'audio' || target.attachmentBroken) throw new KinottaError('invalid', 'Ducking needs an available audio clip.');
+      const volume = duckVolume(op.spans, target.duration, target.gain ?? 1, op);
+      if (!volume.length && op.amount !== 0) return sources;
+      return applyPlacementChange(sources, { id: op.id, kind: 'placement-change', placement: op.placement, changes: { volume } });
+    }
     case 'placement-remove':
       return applyPlacementRemove(sources, op);
     case 'placement-move':
@@ -1024,6 +1043,7 @@ export function operationTouches(op: Operation, section: { start: number; end: n
       return true;
     case 'placement-add':
     case 'placement-change':
+    case 'placement-duck':
     case 'placement-remove':
     case 'placement-move':
     case 'placement-layer':
@@ -1091,6 +1111,8 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: `Placement ${op.placement.id}`, text: 'Added media' };
     case 'placement-change':
       return { target: `Placement ${op.placement}`, text: op.changes.region ? 'Changed picture region' : op.changes.layer !== undefined ? 'Changed picture order' : op.changes.framing ? 'Changed picture framing' : Object.hasOwn(op.changes, 'attachment') ? op.changes.attachment ? 'Attached to footage' : 'Changed to Stay at time' : 'Changed timing or speech selection' };
+    case 'placement-duck':
+      return { target: `Placement ${op.placement}`, text: `Lowered music under speech by ${op.amount} dB` };
     case 'placement-remove':
       return { target: `Placement ${op.placement}`, text: 'Removed media' };
     case 'placement-move':

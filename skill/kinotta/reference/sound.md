@@ -40,6 +40,37 @@ Copy each used source's exact bytes into the new version and rewrite its paths
 as described in `native-media.md`. Keep the authored page's timing contract.
 Write `shots.json` last and run `kinotta check <slug> v<n>`.
 
+## Ducking music under speech
+
+The owner selects an audio clip in Review, then opens **Sound** in the right
+sidebar. Choose a separate speech track, set the amount in dB and the ramp
+times, then **Apply ducking**. The chosen track needs transcribed word times.
+Applying replaces the selected clip's volume points. Undo restores the old
+points. The new points stay draggable in the timeline and Save preserves them.
+
+For an agent-built native plan, use the read-only command:
+
+```text
+kinotta duck --plan <plan.json> --placement <music-placement-id> --speech-track <voice-track-id> --amount 12 --attack 0.15 --release 0.4
+```
+
+It prints a `placement-duck` operation with a snapshot of speech spans in the
+music placement's local seconds. It writes no files and never touches the
+owner's edit list. Apply the returned operation to the agent's working plan
+through `applyOperation` from `server/core/model.ts`, then build the next
+version through the existing native-media workflow. Supply source `words` or
+placement corrections in the plan first. Trims, placement offsets and loops
+are reflected in the returned spans.
+
+Amount ranges from 0 to 24 dB. Attack and release range from 0.01 to 5 seconds.
+Words separated by at most 0.3 seconds share a dip. Overlapping attack/release
+ramps also share a dip, so the music does not bounce between close passages.
+No overlapping speech leaves existing points alone. An amount of zero clears
+the envelope to the clip's initial gain. Fades, track gain and mute still apply.
+The stored points are a snapshot, so apply again after changing speech timing.
+Preview and render use the existing volume-point envelope without limiting or
+normalizing the mix.
+
 ## Kokoro voiceover
 
 Optional packages: `pip install kokoro-onnx soundfile`. The owner supplies local
