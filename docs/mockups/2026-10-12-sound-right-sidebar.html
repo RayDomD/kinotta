@@ -1,0 +1,100 @@
+<h2>Detailed sound controls in the right sidebar</h2>
+<p class="subtitle">Select a music clip in the timeline, then open Sound in the existing settings sidebar. The preview and timeline stay visible while you adjust the mix.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Kinotta · Evening story · Review / Edit</div>
+  <div style="display:flex;flex-wrap:wrap;align-items:stretch">
+    <div class="mockup-body" style="flex:1 1 480px;min-width:0">
+      <div class="label">Preview</div>
+      <div class="placeholder" style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:#202625;color:#eeeee9;border-style:solid">
+        <div><p style="font-size:24px">The story starts here.</p><p>Scene 02 · Presenter</p></div>
+      </div>
+      <p style="margin:16px 0"><button class="mock-button" type="button">Play</button> &nbsp; <strong>00:08.40</strong> / 00:24.00 &nbsp; <button class="mock-button" type="button">Undo</button> <button class="mock-button" type="button">Save version</button></p>
+      <div class="section">
+        <div class="label">Timeline · Snap on · Beats on</div>
+        <svg viewBox="0 0 700 224" width="100%" role="img" aria-label="Editor timeline with scene clips, voice passages and selected music clip. Beat ticks and editable volume points appear on the music clip.">
+          <g fill="currentColor" font-size="11"><text x="90" y="17">00:00</text><text x="280" y="17">00:08</text><text x="480" y="17">00:16</text><text x="660" y="17">00:24</text><text x="3" y="48">Scenes</text><text x="3" y="94">Voice</text><text x="3" y="149">Music</text></g>
+          <g fill="currentColor" opacity=".08"><rect x="90" y="29" width="188" height="32"/><rect x="283" y="29" width="208" height="32"/><rect x="496" y="29" width="194" height="32"/><rect x="160" y="77" width="190" height="32"/><rect x="480" y="77" width="150" height="32"/></g>
+          <g fill="currentColor" font-size="11"><text x="100" y="50">01 · Opening</text><text x="293" y="50">02 · Presenter</text><text x="506" y="50">03 · Turning point</text><text x="170" y="98">Here’s where the story begins…</text><text x="490" y="98">The turning point.</text></g>
+          <rect x="90" y="126" width="600" height="63" fill="var(--selected-bg)" stroke="var(--accent)" stroke-width="2"/>
+          <text x="100" y="141" font-size="10" fill="currentColor">evening-bed.wav</text>
+          <path d="M110 145V153M130 145V153M150 145V153M190 145V153M210 145V153M230 145V153M270 145V153M290 145V153M310 145V153M350 145V153M370 145V153M390 145V153M430 145V153M450 145V153M470 145V153M510 145V153M530 145V153M550 145V153M590 145V153M610 145V153M630 145V153M670 145V153" stroke="currentColor" opacity=".3"/>
+          <path d="M90 145V159M170 145V159M250 145V159M330 145V159M410 145V159M490 145V159M570 145V159M650 145V159" stroke="var(--accent)" stroke-width="2"/>
+          <path d="M90 164H146L160 180H350L370 164H466L480 180H630L650 164H690" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <g fill="var(--accent)"><circle cx="146" cy="164" r="3"/><circle cx="160" cy="180" r="3"/><circle cx="350" cy="180" r="3"/><circle cx="370" cy="164" r="3"/><circle cx="466" cy="164" r="3"/><circle cx="480" cy="180" r="3"/><circle cx="630" cy="180" r="3"/><circle cx="650" cy="164" r="3"/></g>
+          <path d="M300 23V201" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="90" y="218" font-size="11" fill="currentColor">Drag a volume point to refine the dip. Beat ticks guide cuts and clip edges.</text>
+        </svg>
+      </div>
+      <div class="mockup">
+        <div class="mockup-header">When you need more room</div>
+        <div class="mockup-body"><p>The Sound tab keeps the full controls together. Its content scrolls independently, so the timeline stays in place. Clip ducking and shared track EQ have separate headings.</p></div>
+      </div>
+    </div>
+
+    <aside style="flex:0 1 350px;min-width:300px;border-left:1px solid var(--border);background:var(--bg-secondary)">
+      <div class="mock-nav" style="display:flex;gap:18px;padding:15px 18px;border-bottom:1px solid var(--border)"><span>Comments</span><span>Clip</span><strong style="color:var(--accent)">Sound</strong></div>
+      <div class="mockup-body" style="max-height:720px;overflow-y:auto;padding:18px">
+        <div class="label">Selected clip</div>
+        <h3>evening-bed.wav</h3>
+        <p class="subtitle">Music track · 00:00–00:24</p>
+
+        <div class="section">
+          <h3>Clip volume</h3>
+          <label>Level &nbsp; <strong>−9 dB</strong><br><input type="range" min="-36" max="6" value="-9" aria-label="Clip volume" style="width:100%"></label>
+          <p><label>Fade in <input class="mock-input" type="number" value="0.5" min="0" step="0.1" style="width:65px"> s</label> &nbsp; <label>Out <input class="mock-input" type="number" value="0.5" min="0" step="0.1" style="width:65px"> s</label></p>
+        </div>
+
+        <div class="section">
+          <div class="label">This clip</div>
+          <h3>Lower music under speech</h3>
+          <label>Speech <select aria-label="Speech track"><option>Voice track</option><option>Presenter track</option></select></label>
+          <p class="subtitle">Use transcript timing to create editable volume points.</p>
+          <label>Amount &nbsp; <strong>12 dB lower</strong><br><input type="range" min="0" max="24" value="12" aria-label="Duck amount" style="width:100%"></label>
+          <p><label>Lower before speech <input class="mock-input" type="number" value="0.15" min="0" step="0.05" style="width:65px"> s</label></p>
+          <p><label>Recover after speech <input class="mock-input" type="number" value="0.4" min="0" step="0.05" style="width:65px"> s</label></p>
+          <svg viewBox="0 0 300 60" width="100%" role="img" aria-label="Music volume drops during speech and recovers after it"><rect x="62" y="4" width="145" height="47" fill="currentColor" opacity=".07"/><path d="M0 17H47L62 44H207L231 17H300" fill="none" stroke="var(--accent)" stroke-width="2"/><text x="113" y="22" fill="currentColor" font-size="10">Speech</text><g fill="var(--accent)"><circle cx="47" cy="17" r="3"/><circle cx="62" cy="44" r="3"/><circle cx="207" cy="44" r="3"/><circle cx="231" cy="17" r="3"/></g></svg>
+          <p class="subtitle">Applying replaces this clip’s volume points. Undo restores them.</p>
+          <button class="mock-button" type="button">Apply ducking</button>
+        </div>
+
+        <div class="section">
+          <div class="label">Entire Music track</div>
+          <h3>Track EQ</h3>
+          <p class="subtitle">Applies to all 3 clips on Music.</p>
+          <label>Preset <select aria-label="Track EQ preset"><option>Flat</option><option selected>Make room for speech</option><option>Reduce rumble</option><option>Soften highs</option></select></label>
+          <svg viewBox="0 0 300 62" width="100%" role="img" aria-label="EQ frequency curve"><path d="M0 24H300" stroke="currentColor" opacity=".2"/><path d="M0 56C18 56 24 24 51 24H141C161 24 171 39 192 39S221 24 244 24H300" fill="none" stroke="var(--accent)" stroke-width="2"/><text x="0" y="12" font-size="9" fill="currentColor">20 Hz</text><text x="255" y="12" font-size="9" fill="currentColor">20 kHz</text></svg>
+          <div class="mock-sidebar" style="padding:10px;margin-bottom:8px">
+            <p><strong>Low cut</strong> &nbsp; <label><input type="checkbox" checked> On</label></p>
+            <p><label>Frequency <input class="mock-input" type="number" value="80" style="width:68px"> Hz</label></p>
+            <p><label>Q <input class="mock-input" type="number" value="0.7" step="0.1" style="width:68px"></label> &nbsp; <button class="mock-button" type="button">Remove</button></p>
+          </div>
+          <div class="mock-sidebar" style="padding:10px;margin-bottom:8px">
+            <p><strong>Mid dip</strong> &nbsp; <label><input type="checkbox" checked> On</label></p>
+            <p><label>Frequency <input class="mock-input" type="number" value="2500" style="width:68px"> Hz</label></p>
+            <p><label>Gain <input class="mock-input" type="number" value="-3" style="width:60px"> dB</label> &nbsp; <label>Q <input class="mock-input" type="number" value="0.8" step="0.1" style="width:60px"></label></p>
+            <button class="mock-button" type="button">Remove</button>
+          </div>
+          <button class="mock-button" type="button">Add filter</button> &nbsp; <label><input type="checkbox"> Bypass EQ</label>
+        </div>
+
+        <div class="section">
+          <div class="label">Music source · evening-bed.wav</div>
+          <h3>Beats</h3>
+          <p><strong>120 BPM</strong> &nbsp; <button class="mock-button" type="button">Detect again</button></p>
+          <label><input type="checkbox" checked> Show beat ticks</label><br>
+          <label><input type="checkbox" checked> Emphasize downbeats</label><br>
+          <label><input type="checkbox" checked> Snap edits to beats</label>
+          <p class="subtitle">Uses the timeline’s Snap switch. Ticks follow trim and loops.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="detailed-sound-right-sidebar" onclick="toggleSelect(this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSelect(this)}">
+    <div class="letter">A</div><div class="content"><h3>Use this right sidebar</h3><p>Detailed Sound tab beside the preview and timeline, with its own scrolling.</p></div>
+  </div>
+</div>
+<p class="subtitle">Layout preview only. Audio, detection, EQ and Apply are not connected.</p>

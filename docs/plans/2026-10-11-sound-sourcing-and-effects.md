@@ -1,7 +1,7 @@
 ---
 title: Sound sourcing and effects
 date: 2026-10-11
-status: Approved
+status: In Progress
 summary: Bundled sound effects, ducking, track EQ, Kokoro voiceover and optional Stable Audio generation, with preview matching render.
 spec:
 ---
@@ -19,11 +19,10 @@ spec:
   - Stable Audio Open on Python 3.14: neither `stable-audio-tools` nor the `diffusers` route has been installed or run on the owner's machine (RTX 4060 Laptop, 8 GB video memory, 16 GB RAM). Phase 5 starts by proving one generation.
   - Stability AI Community License terms for paid client work: the model card defers to stability.ai/license. The owner checks this before using generated sound commercially.
   - MusicGen as a second generator for music beds: left open by the owner. Stable Audio Open is the only generator for now. Revisit if its beds are poor in phase 5; MusicGen's weights are recalled as non-commercial (CC-BY-NC), unchecked.
-  - Whether the agent's duck is a skill script or a `kinotta` command (phase 2 decides; the skill may not touch the edit list).
 
 ## Goal
 
-Ship five independent phases, each usable alone: bundled sound effects, ducking, track EQ, Kokoro voiceover, Stable Audio generation. Editor surfaces for them come last.
+Ship six independent phases, each usable alone: bundled sound effects, ducking, track EQ, Kokoro voiceover, Stable Audio generation and beat editing. Editor surfaces for the first five are phase 6.
 
 ## Approach
 
@@ -51,6 +50,11 @@ Decisions taken with the owner on 2026-10-11:
 4. Test in `tests/engine/`: every manifest entry has its file, and a plan built per the reference passes `pieces.py` validation.
 
 ### Phase 2. Ducking
+
+Implemented locally on 2026-10-12. Audio selection opens Clip settings in the right sidebar, and the Sound tab follows the selected clip. Detailed duck controls create editable volume points through a `placement-duck` operation, with Undo and Save using the existing edit history. Speech spans are frozen in clip-local time, so reapply after changing speech timing.
+
+- D8: The agent uses `kinotta duck --plan <file> --placement <id> --speech-track <id>` to print an operation without writing files or touching the owner's edit list. Apply it to the agent's working plan through the shared model, then build a new version.
+- D9: Amount is 0–24 dB. Attack and release are 0.01–5 seconds. Word gaps up to 0.3 seconds and overlapping ramps share a dip. No overlapping speech preserves existing points. Muted or silent speech does not trigger ducking.
 
 1. `server/core/_internal/media-duck.ts`: a pure function from speech spans (word times joined across short gaps) and a strength to `volume` points for one placement, with attack and release ramps.
 2. Expose it to the owner as an edit operation in `edit-model.ts`, and to the agent by the route the open question settles.
@@ -83,6 +87,25 @@ Decisions taken with the owner on 2026-10-11:
 1. Mockups through `ui-preview` first, after checking `docs/mockups/` for the media library and clip settings.
 2. A sound-effects shelf in the media library, and duck and EQ controls in clip settings.
 
+Approved sound controls mockup: [Detailed right sidebar](../mockups/2026-10-12-sound-right-sidebar.html), selected by the owner on 2026-10-12. Selecting an audio clip opens its settings in the right sidebar. The owner opens the Sound tab for the detailed controls, and the sidebar follows the selected audio clip. The panel scrolls independently while the preview and timeline remain visible.
+
+- D5: Detailed duck controls apply to the selected clip. Applying ducking replaces its volume points, with Undo restoring them. Amount, speech track, attack and release remain visible.
+- D6: EQ controls apply to the selected clip's entire track. Show presets, editable filters and bypass, with the shared scope stated beside the controls.
+- D7: Beat controls live in the same Sound tab. Show beat ticks inside the music clip, emphasize downbeats, and let beat snapping follow the existing timeline Snap switch. Ticks follow trim and loops.
+
+The sound-effects shelf remains to be previewed. This approval settles the duck, EQ and beat controls only.
+
+### Phase 7. Beat editing
+
+The owner approved beat markers and controls in the same `ui-preview` session as ducking and EQ on 2026-10-12. Follow the approved mockup and D7 above.
+
+1. Detection: a skill script that reads a music file and writes beat times, tempo and downbeats. Choose the library at the start of the phase and prove it on Python 3.14 (`librosa` is the candidate, unverified).
+2. Store beats with the music source so they are computed once per file and frozen with a version's copy.
+3. Markers: beats drawn as ticks on the music placement's bar in the timeline, following its `in`, `at` and loop.
+4. Snapping: beats join the editor's existing snap points (`snapPoints` in `placement-edits.ts`) for cuts, clip edges and sound placements.
+5. Skill: `reference/sound.md` tells the agent to place scene changes and effects on beats when a reel is cut to music.
+6. Tests: detection on a click track of known tempo, marker positions for a trimmed and a looped placement, and snapping to the nearest beat.
+
 ## Risks
 
 - Biquad responses may differ slightly between FFmpeg and Web Audio at extreme `q` or near the band edge. The phase 3 test sets the tolerance and the parameter ranges are narrowed to what passes.
@@ -106,3 +129,17 @@ Decisions taken with the owner on 2026-10-11:
 - MusicGen left as an open question; Stable Audio Open stays the only generator.
 - Added the open-source constraint and a provider seam in phase 5. Recorded that D4 conflicts with Pixabay's standalone-distribution term; phase 1 waits on the owner.
 - Owner kept D4 for now. Phase 1 is unblocked.
+- Torch 2.11.0+cu128 and diffusers 0.41.0 installed on the owner's machine; CUDA sees the RTX 4060 and `StableAudioPipeline` imports. The gated model download still needs the owner's Hugging Face login.
+- Added phase 7, beat editing (detection, markers, snapping), at the owner's request. Beat markers join the duck and EQ controls in the `ui-preview` session.
+
+- Step 0 first run: reproduced the stacking wait race with delayed edit requests. The test now waits on drawing order. Windows Restart Manager identified FFmpeg overload analysis holding tone.wav. A concurrent regression reproduced indefinite padded silence, fixed by bounding measurement output to reel duration. Final validation is in the handoff brief.
+- Phase 1 first run: copied the 19 effects, unmodified manifest and credits from HyperFrames b211fc7cb845c6838cbdb1860506c2fda2804787 with Apache-2.0 notice and licence. Added sound.md and cross-engine validation.
+- Phase 4 first run: added local-file Kokoro voiceover, optional package detection and reference instructions. kokoro-onnx 0.4.7 and soundfile 0.14.0 install/import passed on Python 3.14.3. Synthesis is unproven because local model and voices files were not supplied.
+- Phase 5 first run: added local-only Stable Audio provider script, optional package detection and reference fallback. Torch/diffusers imports passed. The gated transformer weights returned HTTP 401, so live generation is unproven. No login, licence acceptance or model download was attempted.
+- First run leaves changes uncommitted under the standing agent-loop git-write prohibition. Phases 2, 3, 6 and 7 remain for the owner-led UI decisions.
+
+### 2026-10-12
+- First run validation complete: both intermittent browser tests passed 10 consecutive runs after a UI rebuild. Typecheck passed. The full suite passed twice consecutively with four workers, each with 87 files and 720 tests passed, plus the existing live-transcription skip. Default-worker timing failures and the worker-limit deviation are recorded in the brief.
+- The sound reference plan passed pieces.py validation and kinotta check in a temporary project. Stop report written in docs/session-summaries/2026-10-12-sound-sourcing-summary.md. Kokoro synthesis and Stable Audio generation remain unproven at their documented owner gates. Work is local and uncommitted under the standing contract.
+- Owner approved detailed sound controls in the existing right sidebar. Selecting an audio clip opens its settings, then the Sound tab exposes clip ducking, track EQ and source beat controls. Saved the approved mockup in docs/mockups/2026-10-12-sound-right-sidebar.html. The sound-effects shelf still needs its own preview.
+- Implemented phase 2 and its approved Sound sidebar controls, one phase at a time. Added editable duck points, transcript mapping for trims and loops, a read-only agent command, and Undo/Save/render checks. Track EQ, beats and the effects shelf remain pending. Validation is recorded in docs/session-summaries/2026-10-12-ducking-summary.md.
