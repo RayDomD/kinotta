@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { MediaCaptionPhrase, PlanClip, mediaWords } from '../../../../server/core/model.ts';
 import type { TimeWindow } from './timeline.ts';
+import { TIMELINE_ROW_HEIGHT, stackRows } from './timeline.ts';
 
 const MIN_WORD_DURATION = 0.02;
 const MIN_OPEN_WORD_WIDTH = 64;
@@ -48,6 +49,18 @@ export function EditorialLanes({ children, win, words, phrases, graphics, editab
     }
   }, [opened]);
   const openPhrase = opened === null ? undefined : phrases[opened];
+  const [captionWidth, setCaptionWidth] = useState(0);
+  useEffect(() => {
+    const lane = root.current?.querySelector('[data-row="captions"] .native-lane-bars');
+    if (!lane) return;
+    const measure = () => setCaptionWidth(lane.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(lane);
+    return () => observer.disconnect();
+  }, [phrases.length]);
+  const graphicRows = stackRows(graphics, (clip) => ({ start: clip.in, end: clip.out }));
+  const captionRows = stackRows(phrases, (phrase) => ({ start: phrase.start, end: phrase === openPhrase ? Math.max(phrase.end, captionWidth > 0 ? phrase.start + (phrase.words.length * MIN_OPEN_WORD_WIDTH + 2) / captionWidth * length : Infinity) : phrase.end }));
   const visibleWords = openPhrase && editingPhrase === null ? words.filter((word) => openPhrase.words.some((item) => item.start === word.start && item.placement === word.placement)) : [];
   useEffect(() => {
     const close = () => { setOpened(null); setEditingWord(null); setEditingPhrase(null); };
@@ -57,7 +70,7 @@ export function EditorialLanes({ children, win, words, phrases, graphics, editab
     return () => { document.removeEventListener('click', outside, true); document.removeEventListener('keydown', key); };
   }, []);
   const gesture = useRef<{ x: number; width: number; edge: 'start' | 'end' | 'move'; word?: Word; graphic?: string } | null>(null);
-  const place = (start: number, end: number): CSSProperties => ({ left: `${(start - win.start) / length * 100}%`, width: `${Math.max(0.02, end - start) / length * 100}%` });
+  const place = (start: number, end: number, row = 0): CSSProperties => ({ top: row * TIMELINE_ROW_HEIGHT + 5, bottom: 'auto', height: TIMELINE_ROW_HEIGHT - 10, left: `${(start - win.start) / length * 100}%`, width: `${Math.max(0.02, end - start) / length * 100}%` });
   const begin = (event: PointerEvent<HTMLElement>, edge: 'start' | 'end' | 'move', item: { word?: Word; graphic?: string }) => {
     if (!editable || item.graphic && !graphicEditable || event.button !== 0) return;
     if (item.graphic && graphics.find((clip) => clip.id === item.graphic)?.attachmentBroken) return;
@@ -84,13 +97,13 @@ export function EditorialLanes({ children, win, words, phrases, graphics, editab
     const drag = gesture.current;
     if (drag?.graphic) onGraphicPreview({ id: drag.graphic, edge: drag.edge, delta: (event.clientX - drag.x) / drag.width * length });
   }} onPointerCancel={() => { gesture.current = null; onGraphicPreview(null); }}>
-    {graphics.length > 0 && <div className="native-lane" data-row="graphics"><strong>Graphics</strong><div className="native-lane-bars">{graphics.map((clip) => <button key={clip.id} type="button" className={`native-clip editorial-graphic${clip.attachmentBroken ? ' editorial-broken' : ''}`} data-graphic={clip.id} data-verify-broken-graphic={String(!!clip.attachmentBroken)} aria-pressed={selectedGraphic === clip.id} style={place(clip.in, clip.out)} onClick={() => onGraphic(clip.id, false)} onDoubleClick={() => onGraphic(clip.id, true)} onKeyDown={(event) => onGraphicKey(event, clip.id)} onContextMenu={(event) => { event.preventDefault(); onGraphic(clip.id, true); }} onPointerDown={(event) => begin(event, 'move', { graphic: clip.id })} onPointerUp={end}>
+    {graphics.length > 0 && <div className="native-lane" data-row="graphics"><strong>Graphics</strong><div className="native-lane-bars" style={{ minHeight: graphicRows.count * TIMELINE_ROW_HEIGHT }}>{graphics.map((clip) => <button key={clip.id} type="button" className={`native-clip editorial-graphic${clip.attachmentBroken ? ' editorial-broken' : ''}`} data-graphic={clip.id} data-verify-broken-graphic={String(!!clip.attachmentBroken)} aria-pressed={selectedGraphic === clip.id} style={place(clip.in, clip.out, graphicRows.rows.get(clip))} onClick={() => onGraphic(clip.id, false)} onDoubleClick={() => onGraphic(clip.id, true)} onKeyDown={(event) => onGraphicKey(event, clip.id)} onContextMenu={(event) => { event.preventDefault(); onGraphic(clip.id, true); }} onPointerDown={(event) => begin(event, 'move', { graphic: clip.id })} onPointerUp={end}>
       <span>{clip.title ?? clip.id}{clip.attachmentBroken ? ' · Reattach' : ''}</span>
       {clip.slid && <span className="rv-off">off its words</span>}
       {graphicEditable && !clip.attachmentBroken && (['start', 'end'] as const).map((edge) => <span key={edge} className={`native-trim native-trim-${edge}`} aria-label={`Trim graphic ${edge} ${clip.id}`} onPointerDown={(event) => begin(event, edge, { graphic: clip.id })} onPointerUp={end} />)}
     </button>)}</div></div>}
     {children}
-    {phrases.length > 0 && <div className="native-lane" data-row="captions"><strong>Captions</strong><div className="native-lane-bars">{phrases.map((phrase, index) => <div key={index} data-caption={index} data-start={phrase.start} data-end={phrase.end} className={`editorial-text-bar${opened === index ? ' editorial-caption-open' : ''}`} style={{ ...place(phrase.start, phrase.end), ...(opened === index ? { minWidth: `${phrase.words.length * MIN_OPEN_WORD_WIDTH + 2}px` } : {}) }} onDoubleClick={() => { if (editable) { setEditingWord(null); setEditingPhrase(index); } }}>
+    {phrases.length > 0 && <div className="native-lane" data-row="captions"><strong>Captions</strong><div className="native-lane-bars" style={{ minHeight: captionRows.count * TIMELINE_ROW_HEIGHT }}>{phrases.map((phrase, index) => <div key={index} data-caption={index} data-start={phrase.start} data-end={phrase.end} className={`editorial-text-bar${opened === index ? ' editorial-caption-open' : ''}`} style={{ ...place(phrase.start, phrase.end, captionRows.rows.get(phrase)), ...(opened === index ? { minWidth: `${phrase.words.length * MIN_OPEN_WORD_WIDTH + 2}px` } : {}) }} onDoubleClick={() => { if (editable) { setEditingWord(null); setEditingPhrase(index); } }}>
       {editingPhrase === index ? <input aria-label={`Caption at ${phrase.start.toFixed(2)}`} defaultValue={phrase.words.map((word) => word.text).join(' ')} autoFocus onBlur={(event) => { if (event.target.value !== phrase.words.map((word) => word.text).join(' ')) onPhrase(index, event.target.value); setEditingPhrase(null); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { event.preventDefault(); setEditingPhrase(null); } }} /> : opened !== index ? <button type="button" title="Open words. Double-click or press F2 to retype this caption." aria-expanded={false} aria-label={`Open caption at ${phrase.start.toFixed(2)}`} onClick={() => { setEditingWord(null); setOpened(index); }} onKeyDown={(event) => { if (event.key === 'F2' && editable) { event.preventDefault(); setOpened(index); setEditingPhrase(index); } }}>{phrase.words.map((word) => word.text).join(' ')}</button> : visibleWords.map((word) => {
       const id = `${word.placement}:${word.start}`;
       return <div key={id} className="editorial-text-bar editorial-word" data-word={id} data-source-start={word.sourceStart} data-source-end={word.sourceStart! + word.end - word.start} style={{ position: 'relative', top: 0, bottom: 0, flex: word.end - word.start, minWidth: MIN_OPEN_WORD_WIDTH }} onContextMenu={(event) => { if (canPin) { event.preventDefault(); onPin(word); } }}>

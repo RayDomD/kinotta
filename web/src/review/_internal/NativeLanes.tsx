@@ -9,6 +9,7 @@ import { MEDIA_DRAG_TYPE } from './MediaLibrary.tsx';
 import { actionForKey, keyChord } from './editor-settings.ts';
 import type { EditorSettings } from './editor-settings.ts';
 import type { TimeWindow } from './timeline.ts';
+import { SOUND_ROW_HEIGHT, TIMELINE_ROW_HEIGHT, stackRows } from './timeline.ts';
 
 const SNAP_REACH = 0.05;
 const MAX_GAIN = 2;
@@ -204,7 +205,13 @@ export function NativeLanes(props: Props) {
       onChange(p.id, { at: Math.max(0, p.at + delta), ...(target && p.role === 'audio' ? { track: target } : {}) });
     }
   };
-  const bars = (placements: Placed[], sound = false) => <div className="native-lane-bars" onPointerDown={(event) => { if (event.target === event.currentTarget && tool === 'snip' && timeline.placements[0]) begin(event, timeline.placements[0], 'move'); }} onPointerMove={move} onPointerUp={end} onClick={(event) => {
+  const bars = (placements: Placed[], sound = false) => {
+    const rowHeight = sound ? SOUND_ROW_HEIGHT : TIMELINE_ROW_HEIGHT;
+    const layout = stackRows(placements, (p) => {
+      const start = p.attachmentBroken ? Math.max(win.start, Math.min(p.at, win.start + win.length - Math.min(BROKEN_CLIP_SPAN, win.length))) : p.at;
+      return { start, end: start + (p.attachmentBroken ? Math.min(BROKEN_CLIP_SPAN, win.length) : p.duration) };
+    });
+    return <div className="native-lane-bars" style={{ minHeight: Math.max(1, layout.count) * rowHeight }} onPointerDown={(event) => { if (event.target === event.currentTarget && tool === 'snip' && timeline.placements[0]) begin(event, timeline.placements[0], 'move'); }} onPointerMove={move} onPointerUp={end} onClick={(event) => {
     if (event.target !== event.currentTarget) return;
     const box = event.currentTarget.getBoundingClientRect();
     onSeek(Math.max(0, Math.min(timeline.duration, win.start + (event.clientX - box.left) / box.width * duration)));
@@ -221,7 +228,7 @@ export function NativeLanes(props: Props) {
       const displayedDuration = placement.attachmentBroken ? Math.min(BROKEN_CLIP_SPAN, win.length) : placement.duration;
       const speechState = placement.role !== 'gap' && (placement.speech ?? placement.role === 'main') ? speech[placement.source] : undefined;
       const failedKind = placement.role === 'gap' ? null : sound && soundErrors[placement.source] ? 'sound' : sound && speechState?.state === 'failed' ? 'speech' : !sound && pictureErrors[placement.source] ? 'picture' : null;
-      return <Fragment key={placement.id}><button type="button" className={`native-clip${sound ? ' native-sound' : ''}${placement.attachmentBroken ? ' editorial-broken' : ''}`} data-placement={placement.id} data-verify-broken-placement={String(!!placement.attachmentBroken)} aria-pressed={selected === placement.id} aria-label={`${label}, ${placement.role}, ${placement.at.toFixed(2)} to ${(placement.at + placement.duration).toFixed(2)} seconds`} style={{ left: `${(displayedAt - win.start) / duration * 100}%`, width: `${displayedDuration / duration * 100}%` }} onClick={() => onSelect(placement.id, false)} onDoubleClick={() => onSelect(placement.id, true)} onContextMenu={(event) => { event.preventDefault(); onMenu(placement.id, event.clientX, event.clientY); }} onKeyDown={(event) => onKey(event, placement)} onPointerDown={(event) => begin(event, placement, sound ? 'sound' : 'move')} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { gesture.current = null; clearShown(); setVolumeDraft(null); }}>
+      return <Fragment key={placement.id}><button type="button" className={`native-clip${sound ? ' native-sound' : ''}${placement.attachmentBroken ? ' editorial-broken' : ''}`} data-placement={placement.id} data-verify-stack-row={layout.rows.get(placement)} data-verify-broken-placement={String(!!placement.attachmentBroken)} aria-pressed={selected === placement.id} aria-label={`${label}, ${placement.role}, ${placement.at.toFixed(2)} to ${(placement.at + placement.duration).toFixed(2)} seconds`} style={{ top: (layout.rows.get(placement) ?? 0) * rowHeight + 5, bottom: 'auto', height: rowHeight - 10, left: `${(displayedAt - win.start) / duration * 100}%`, width: `${displayedDuration / duration * 100}%` }} onClick={() => onSelect(placement.id, false)} onDoubleClick={() => onSelect(placement.id, true)} onContextMenu={(event) => { event.preventDefault(); onMenu(placement.id, event.clientX, event.clientY); }} onKeyDown={(event) => onKey(event, placement)} onPointerDown={(event) => begin(event, placement, sound ? 'sound' : 'move')} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { gesture.current = null; clearShown(); setVolumeDraft(null); }}>
         {!placement.attachmentBroken && sound && wave?.state === 'ready' && placement.role !== 'gap' && <svg className="native-waveform" viewBox="0 0 1000 32" preserveAspectRatio="none" aria-label={`Source waveform for ${placement.id}`} role="img"><polyline points={Array.from({ length: 128 }, (_, index) => {
           const local = placement.duration * index / 128;
           const sourceTime = placement.in + (placement.loop ? local % (placement.out - placement.in) : local);
@@ -248,9 +255,10 @@ export function NativeLanes(props: Props) {
           onChange(placement.id, { volume: volume.map((was, i) => i === index ? { at, gain } : was) });
         }} />)}</svg>}
         {sound && !placement.attachmentBroken && placement.role !== 'gap' && editable && (['fadeIn', 'fadeOut'] as const).map((edge) => <span key={edge} className="native-fade" aria-label={`${edge === 'fadeIn' ? 'Fade in' : 'Fade out'} ${placement.id}`} style={{ left: `${(edge === 'fadeIn' ? placement[edge] ?? 0 : placement.duration - (placement[edge] ?? 0)) / placement.duration * 100}%` }} onPointerDown={(event) => begin(event, placement, edge)} />)}
-      </button>{sound && speechState && ['queued', 'running'].includes(speechState.state) && <span className="native-retry" role="status" style={{ left: `${Math.max(0, (placement.at - win.start) / duration * 100)}%` }}>Transcribing speech…</span>}{placement.role !== 'gap' && placement.at + placement.duration > win.start && placement.at < win.start + win.length && failedKind && <button type="button" className="native-retry" aria-label={`Retry ${failedKind} for ${placement.id}`} title={failedKind === 'speech' && speechState?.state === 'failed' ? speechState.error : sound ? soundErrors[placement.source] : pictureErrors[placement.source]} style={{ left: `${Math.max(0, (placement.at - win.start) / duration * 100)}%` }} onClick={() => onRetry(placement.source, failedKind)}>Retry {failedKind}</button>}</Fragment>;
+      </button>{sound && speechState && ['queued', 'running'].includes(speechState.state) && <span className="native-retry" role="status" style={{ top: (layout.rows.get(placement) ?? 0) * rowHeight + 8, left: `${Math.max(0, (placement.at - win.start) / duration * 100)}%` }}>Transcribing speech…</span>}{placement.role !== 'gap' && placement.at + placement.duration > win.start && placement.at < win.start + win.length && failedKind && <button type="button" className="native-retry" aria-label={`Retry ${failedKind} for ${placement.id}`} title={failedKind === 'speech' && speechState?.state === 'failed' ? speechState.error : sound ? soundErrors[placement.source] : pictureErrors[placement.source]} style={{ top: (layout.rows.get(placement) ?? 0) * rowHeight + 8, left: `${Math.max(0, (placement.at - win.start) / duration * 100)}%` }} onClick={() => onRetry(placement.source, failedKind)}>Retry {failedKind}</button>}</Fragment>;
     })}
   </div>;
+  };
   return <section className="native-lanes" aria-label="Media timeline" {...verifyAttrs(selected, timeline.placements.length, win, beatSettings.showBeats, snap && beatSettings.beatSnap)} onDragOver={(event) => { if (editable && event.dataTransfer.types.includes(MEDIA_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }} onDrop={(event) => {
     const path = event.dataTransfer.getData(MEDIA_DRAG_TYPE);
     const lane = (event.target as HTMLElement).closest<HTMLElement>('.native-lane');
