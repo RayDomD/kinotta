@@ -198,7 +198,7 @@
 .editorial-text-bar > button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-2); padding: 4px 7px; flex: 1; }
 .editorial-text-bar > input { width: 100%; min-width: 0; font: inherit; font-size: 11px; color: var(--ink); background: var(--ground-deep); border: 0; padding: 4px 6px; }
 .editorial-text-bar .editorial-word-pin { flex: 0 0 18px; padding: 2px; color: var(--light); }
-.editorial-text-bar .native-trim { width: 4px; touch-action: none; }
+.editorial-text-bar .native-trim { width: 4px; max-width: none; background: var(--light-wash); touch-action: none; }
 .editorial-pin { position: absolute; top: 10px; transform: translateX(-50%); width: 24px; height: 24px; border: 1px solid var(--light); border-radius: 50%; font-size: 11px; color: var(--ink); background: var(--card); }
 .editorial-broken { border-color: oklch(.65 .19 30); }
 .editorial-graphic { touch-action: none; }
@@ -249,9 +249,15 @@
 .native-clip span { overflow: hidden; text-overflow: ellipsis; }
 .native-clip { touch-action: none; }
 .native-clip > span:not(.native-trim):not(.native-fade):not(.native-beat) { position: relative; z-index: 1; }
-.native-trim { position: absolute; top: 0; bottom: 0; width: 5px; z-index: 3; cursor: ew-resize; background: var(--light-wash); }
-.native-trim-start { left: 0; }
-.native-trim-end { right: 0; }
+/* Only a dragged clip is transformed: a transform at rest would trap its handles under an overlapping clip. */
+.native-clip[data-dragging] { transform: translate(var(--drag-x, 0px), var(--drag-y, 0px)); z-index: 6; cursor: grabbing; box-shadow: 0 6px 16px oklch(0 0 0 / .35); }
+.native-lane:has([data-dragging]) { position: relative; z-index: 5; }
+.native-lane:has([data-dragging]) .native-lane-bars { overflow: visible; clip-path: inset(-100vh 0); }
+.native-trim { --end: var(--muted); --end-width: 4px; position: absolute; top: 0; bottom: 0; width: 10px; max-width: 35%; z-index: 3; cursor: ew-resize; }
+.native-trim-start { left: 0; background: linear-gradient(to right, var(--end) var(--end-width), transparent var(--end-width)); }
+.native-trim-end { right: 0; background: linear-gradient(to left, var(--end) var(--end-width), transparent var(--end-width)); }
+.native-clip:hover .native-trim, .native-clip:focus-visible .native-trim { --end: var(--ink-2); }
+.native-clip[aria-pressed="true"] .native-trim { --end: var(--light); --end-width: 6px; }
 .native-fade { position: absolute; top: 0; width: 7px; height: 7px; transform: translateX(-50%); z-index: 4; cursor: ew-resize; border-radius: 50%; background: var(--light); }
 .native-waveform, .native-volume { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .native-waveform { opacity: .3; }

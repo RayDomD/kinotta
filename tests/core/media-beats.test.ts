@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { applyOperation, mediaTimeline, placementBeats } from '../../server/core/model.ts';
 import type { Sources } from '../../server/core/model.ts';
-import { snapDelta, snapPoints, snapTime } from '../../web/src/review/_internal/placement-edits.ts';
+import { magnetDelta, snapDelta, snapPoints, snapTime } from '../../web/src/review/_internal/placement-edits.ts';
 
 it('freezes source beats and maps a trimmed loop to markers and nearest snap points', () => {
   const initial: Sources = { words: [], plan: { duration: 8, media: { schema: 1,
@@ -31,4 +31,13 @@ it('keeps nudging past a beat the edge was rounded short of', () => {
     stops.push(edge);
   }
   expect(stops).toEqual([1.2, 1.23, 1.33]);
+});
+
+it('lets a dragged clip pass an edge and lands on one only within reach', () => {
+  // A clip from 1 to 3 dragged past the playhead at 2 is not stopped by it.
+  expect(magnetDelta([1, 3], 1.4, [2], 0.05)).toBe(1.4);
+  // Let go with its start 0.03s short of 2, it lands on 2.
+  expect(magnetDelta([1, 3], 0.97, [2], 0.05)).toBe(1);
+  // Its end can land on an edge too, and the nearer edge wins.
+  expect(magnetDelta([1, 3], 0.52, [3.5, 1.56], 0.05)).toBe(0.5);
 });

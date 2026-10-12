@@ -1,7 +1,7 @@
 ---
 title: editor-keys-drag-handles
 date: 2026-10-12
-status: Draft
+status: In Progress
 summary: Shortcuts work wherever focus is, the toolbar works on sound in code-built reels, clips follow the pointer, and trim handles are visible.
 spec:
 ---
@@ -15,7 +15,7 @@ spec:
 - Constraints: A code-built reel's picture timing still changes only through the agent. Motion follows the craft checklist: transform and opacity only, nothing animated on a drag.
 - Out of scope: The track layout (`2026-10-12-timeline-tracks.md`). Undo across a Save, which `2026-10-12-live-edits-freeze-at-render.md` removes.
 - Open questions:
-  - O1: Which handle design (mockup session screen `clip-handles`).
+  - O1: settled. Thick ends on every clip, brighter when selected (option C of the `clip-handles` screen).
 
 ## Goal
 
@@ -53,3 +53,9 @@ Findings, measured in the running editor on `kinotta-showcase` v14:
 
 ### 2026-10-12
 - Plan created from findings in the running editor. Awaiting approval and the handle choice.
+- Approved. Handles: thick ends on every clip (option C).
+- F1 fixed: `MediaEditor.tsx` hears keys on the window. A control outside the editor keeps its plain keys; chords with a modifier reach the editor from anywhere.
+- F3 fixed: `placement-split` allowed on code-built reels; Blade and Split enabled there; disabled toolbar buttons give their reason in the tooltip.
+- F4 fixed: a drag is drawn on the clip's element (move, carry to another track, trim) and the clip stays where it is dropped (`useEdits` lands the list in the render that ends `busy`). Deviation: pointer drags now snap only within reach of an edge (`magnetDelta`). The old rule stopped a dragged clip at the first edge it crossed, so it could not pass the playhead. Keyboard nudges keep `snapDelta`.
+- F5 fixed: 10px hit area, a 4px end on every clip, 6px in the accent when selected. Mockup: `docs/mockups/2026-10-12-clip-handles.html`.
+- Test: `tests/core/render-editor-keys-drag.test.ts`, and a `magnetDelta` case in `tests/core/media-beats.test.ts`.

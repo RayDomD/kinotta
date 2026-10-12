@@ -440,14 +440,23 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (action === 'select' || action === 'snap') return true;
     if (action === 'play') return ready && timeline.duration > 0 && !pictureError;
     if (!editable || edits!.busy) return false;
-    if (action === 'blade' || action === 'snip' || action === 'gap') return !version!.code;
+    if (action === 'snip' || action === 'gap') return !version!.code;
     if (action === 'apply') return !!snipRange && !version!.code;
-    if (action === 'split') return !version!.code && !!selectedPlacement && splittable(selectedPlacement);
+    if (action === 'split') return !!selectedPlacement && splittable(selectedPlacement);
     if (action === 'duplicate' || action === 'remove') return !!selected && !!selectedPlacement;
     if (action === 'pin') return !!onSaveComment && !playing && time < timeline.duration && !pinSaving;
     if (action === 'undo') return edits!.list?.canUndo === true;
     if (action === 'redo') return edits!.list?.canRedo === true;
     return true;
+  };
+  /** Why a toolbar button is off, for its tooltip. */
+  const disabledReason = (action: EditorAction): string | null => {
+    if (enabled(action)) return null;
+    if (!editable) return 'This version is read-only.';
+    if (version!.code && (action === 'snip' || action === 'gap')) return 'Built from code: ask your agent to change picture timing.';
+    if (action === 'split') return 'Put the playhead inside a clip.';
+    if (action === 'duplicate') return 'Select a clip first.';
+    return null;
   };
   const runAction = (action: EditorAction, fast = false) => {
     if (action === 'zoomIn' || action === 'zoomOut') { zoom(action === 'zoomIn' ? 0.5 : 2); return; }
@@ -475,14 +484,26 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     }
     else if (action === 'apply' && snipRange && !version!.code) void edits!.add({ kind: 'placement-snip', ...snipRange }).then((ok) => { if (ok) { playback.seek(snipRange.from); setSnipRange(null); setTool('select'); } });
   };
-  return <main className="main rv-main" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '')} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)} onKeyDown={(event) => {
-    if (event.defaultPrevented || workspace.settingsOpen || (event.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"]')) return;
-    const chord = keyChord(event.nativeEvent);
+  // Shortcuts are heard on the window: the page opens with focus on the body, and a click on empty timeline leaves it there.
+  const main = useRef<HTMLElement>(null);
+  const onWindowKey = useRef<(event: globalThis.KeyboardEvent) => void>(() => undefined);
+  onWindowKey.current = (event) => {
+    const target = event.target as HTMLElement;
+    if (event.defaultPrevented || workspace.settingsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"]')) return;
+    // A control outside the editor keeps its own plain keys (Space presses a focused button); a chord with a modifier still reaches the editor.
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && !main.current?.contains(target) && target.closest('button, a, summary, [role="tab"], [role="menuitem"]')) return;
+    const chord = keyChord(event);
     const shiftedAction = event.shiftKey ? actionForKey(workspace.settings.keys, chord.replace('Shift+', '')) : null;
     const action = actionForKey(workspace.settings.keys, chord) ?? (shiftedAction && ['left', 'right', 'up', 'down'].includes(shiftedAction) ? shiftedAction : null);
     if (!action || action === 'rail' || action === 'settings' || (action === 'apply' && !enabled(action))) return;
     event.preventDefault(); runAction(action, event.shiftKey);
-  }}>
+  };
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent): void => onWindowKey.current(event);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  return <main ref={main} className="main rv-main" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '')} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
     <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>
     {error && <p role="alert">{error}</p>}
     {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
@@ -508,8 +529,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
       </div>
     </div>
-    <EditorToolbar tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
-    {version!.code && <p className="meta">Built from code: only elements can be moved. To change timing, ask your agent for a new version.</p>}
+    <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
+    {version!.code && <p className="meta">Built from code: sound can be edited and elements moved. To change picture timing, ask your agent for a new version.</p>}
     {pinError && <p role="alert">{pinError}</p>}
     {pinDraft && workspace.pinHost && createPortal(<form aria-label="New review pin" className="mv-placement mv-pin-draft" onSubmit={(e) => { e.preventDefault(); void savePin(); }}>
       <p>{pinDraft.label}</p><label>Comment <textarea aria-label="Pin comment" value={pinText} disabled={pinSaving} onChange={(e) => setPinText(e.target.value)} autoFocus /></label>
@@ -521,7 +542,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     </section>
     <NativeLanes media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} solo={solo}
       overview={<TimelineOverview timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />}
-      tool={tool} range={snipRange} onRange={selectSnip} onBlade={(p, at) => { if (!version!.code && at - p.at > SPLIT_MARGIN && p.at + p.duration - at > SPLIT_MARGIN) void edits!.add({ kind: 'placement-split', placement: p.id, at: at - p.at }); }}
+      tool={tool} range={snipRange} onRange={selectSnip} onBlade={(p, at) => { if (at - p.at > SPLIT_MARGIN && p.at + p.duration - at > SPLIT_MARGIN) void edits!.add({ kind: 'placement-split', placement: p.id, at: at - p.at }); }}
       onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
       onDetach={(id, track) => void edits!.add({ kind: 'placement-detach', placement: id, track })}
       onReorderTrack={(id, index) => void edits!.add({ kind: 'track-move', track: id, index })}
@@ -557,7 +578,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       }}>
         <button type="button" role="menuitem" autoFocus onClick={inspect}>Clip settings…</button>
         <button type="button" role="menuitemcheckbox" aria-checked={p.role !== 'gap' && (p.mute ?? p.role === 'insert')} disabled={!editable || edits!.busy || p.role === 'gap' || !hasSound(p.source)} onClick={() => act(() => { if (p.role !== 'gap') change(p.id, { mute: !(p.mute ?? p.role === 'insert') }); })}>Mute</button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!version!.code || !splittable(p)} onClick={() => act(() => split(p))}>Split{workspace.settings.keys.split && <kbd>{workspace.settings.keys.split}</kbd>}</button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !splittable(p)} onClick={() => act(() => split(p))}>Split{workspace.settings.keys.split && <kbd>{workspace.settings.keys.split}</kbd>}</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || p.role === 'gap'} onClick={() => { inspect(); requestAnimationFrame(() => workspace.clipHost?.querySelector<HTMLSelectElement>('select[aria-label^="Replace "]')?.focus()); }}>Replace…</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id }); })}>Remove</button>

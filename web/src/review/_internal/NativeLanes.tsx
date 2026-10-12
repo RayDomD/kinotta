@@ -1,9 +1,9 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { placementBeats } from '../../../../server/core/model.ts';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { MediaPlan, MediaTimeline, MediaTrack, SourcePlacement } from '../../../../server/core/model.ts';
 import type { MediaSpeech, MediaWaveform } from '../../api/index.ts';
-import { trimToPlayhead, snapDelta, snapPoints, snapTime } from './placement-edits.ts';
+import { magnetDelta, trimToPlayhead, snapPoints, snapTime } from './placement-edits.ts';
 import type { EditorTool } from './EditorToolbar.tsx';
 import { MEDIA_DRAG_TYPE } from './MediaLibrary.tsx';
 import { actionForKey, keyChord } from './editor-settings.ts';
@@ -16,6 +16,10 @@ const POINT_SEPARATION = 0.000001;
 const POINT_GAIN_STEP = 0.1;
 /** A lost footage attachment stays visible as a repair marker, even beyond the surviving reel. */
 const BROKEN_CLIP_SPAN = 0.5;
+/** A clip being trimmed is never drawn narrower than this (pixels). */
+const MIN_DRAG_WIDTH = 2;
+/** A press that moves less than this many pixels is a click: it moves nothing and snaps to nothing. */
+const DRAG_THRESHOLD = 4;
 
 type Placed = MediaTimeline['placements'][number];
 interface Props {
@@ -62,11 +66,53 @@ function verifyAttrs(selected: string | null, count: number, win: TimeWindow, sh
 }
 
 /** Placement bars and named sound owners share one timeline coordinate system. */
-export function NativeLanes({ children, overview, media, beatSettings, timeline, win, time, selected, editable, solo, onSelect, onMenu, onSeek, onKey, onTrack, onSolo, onAddTrack, onRemoveTrack, onChange, onMove, onDetach, onReorderTrack, waveforms, soundErrors, pictureErrors, speech, onRetry, snap, nudge, keys, overload, tool, range, onRange, onBlade, onMediaDrop }: Props) {
+export function NativeLanes(props: Props) {
+  const { children, overview, media, beatSettings, timeline, win, time, selected, editable, solo, onSelect, onMenu, onSeek, onKey, onTrack, onSolo, onAddTrack, onRemoveTrack, onChange, onReorderTrack, waveforms, soundErrors, pictureErrors, speech, onRetry, snap, nudge, keys, overload, tool, range, onRange, onBlade, onMediaDrop } = props;
   const duration = win.length;
   const tracks = [...(media.tracks ?? [])].sort((a, b) => a.order - b.order);
-  const gesture = useRef<{ placement: Placed; kind: 'move' | 'sound' | 'start' | 'end' | 'fadeIn' | 'fadeOut' | 'volume'; x: number; y: number; width: number; height: number; point?: number } | null>(null);
-  const [offset, setOffset] = useState(0);
+  const gesture = useRef<{ placement: Placed; kind: 'move' | 'sound' | 'start' | 'end' | 'fadeIn' | 'fadeOut' | 'volume'; x: number; y: number; width: number; height: number; point?: number; el: HTMLElement; points: number[] } | null>(null);
+  // A drag is drawn on the clip's own element, outside React, so the lanes are not rendered again for every pointer move.
+  const shown = useRef<{ el: HTMLElement; left: string; width: string; box: number; offset: number; draftLeft?: string; draftWidth?: string } | null>(null);
+  const clearShown = () => {
+    const was = shown.current;
+    if (!was) return;
+    shown.current = null;
+    const style = was.el.style;
+    // React has already written a dropped clip's new place; only a value this drag wrote is put back.
+    if (was.draftLeft !== undefined && style.left === was.draftLeft) style.left = was.left;
+    if (was.draftWidth !== undefined && style.width === was.draftWidth) style.width = was.width;
+    style.removeProperty('--drag-x'); style.removeProperty('--drag-y');
+    delete was.el.dataset.dragging;
+  };
+  // A dropped clip stays where it was let go until its edit has landed (or was refused), so it never jumps back first.
+  useEffect(() => { if (editable && !gesture.current) clearShown(); }, [timeline, editable]);
+  const dragSeconds = (drag: NonNullable<typeof gesture.current>, clientX: number) => {
+    const p = drag.placement;
+    if (Math.abs(clientX - drag.x) < DRAG_THRESHOLD) return 0;
+    const raw = (clientX - drag.x) / drag.width * duration;
+    const edges = drag.kind === 'start' ? [p.at] : drag.kind === 'end' ? [p.at + p.duration] : [p.at, p.at + p.duration];
+    return snap && ['move', 'sound', 'start', 'end'].includes(drag.kind) ? magnetDelta(edges, raw, drag.points, SNAP_REACH) : raw;
+  };
+  /** Whether the whole clip travels with the pointer: a move, or a sound clip carried along or onto another track. */
+  const carried = (drag: NonNullable<typeof gesture.current>) => drag.kind === 'move' || drag.kind === 'sound' && drag.placement.role === 'audio';
+  const showDrag = (drag: NonNullable<typeof gesture.current>, event: PointerEvent<HTMLElement>) => {
+    if (!carried(drag) && drag.kind !== 'start' && drag.kind !== 'end') return;
+    if (!shown.current && Math.abs(event.clientX - drag.x) < DRAG_THRESHOLD && Math.abs(event.clientY - drag.y) < DRAG_THRESHOLD) return;
+    const style = drag.el.style;
+    const base = shown.current ??= { el: drag.el, left: style.left, width: style.width, box: drag.el.offsetWidth, offset: drag.el.offsetLeft };
+    const px = dragSeconds(drag, event.clientX) / duration * drag.width;
+    if (drag.kind === 'start') {
+      const by = Math.min(px, base.box - MIN_DRAG_WIDTH);
+      base.draftLeft = style.left = `${base.offset + by}px`;
+      base.draftWidth = style.width = `${base.box - by}px`;
+    } else if (drag.kind === 'end') {
+      base.draftWidth = style.width = `${Math.max(MIN_DRAG_WIDTH, base.box + px)}px`;
+    } else {
+      style.setProperty('--drag-x', `${px}px`);
+      if (drag.kind === 'sound') style.setProperty('--drag-y', `${event.clientY - drag.y}px`);
+    }
+    drag.el.dataset.dragging = 'true';
+  };
   const [volumeDraft, setVolumeDraft] = useState<{ id: string; index: number; at: number; gain: number } | null>(null);
   const selection = useRef<{ from: number; left: number; width: number } | null>(null);
   const pointAt = (p: Exclude<Placed, { role: 'gap' }>, index: number, at: number) => Math.max((p.volume?.[index - 1]?.at ?? -POINT_SEPARATION) + POINT_SEPARATION, Math.min((p.volume?.[index + 1]?.at ?? p.duration + POINT_SEPARATION) - POINT_SEPARATION, at));
@@ -82,7 +128,9 @@ export function NativeLanes({ children, overview, media, beatSettings, timeline,
       selection.current = { from: at, left: box.left, width: box.width };
       event.currentTarget.setPointerCapture(event.pointerId); return;
     }
-    gesture.current = { placement, kind, x: event.clientX, y: event.clientY, width: box.width, height: event.currentTarget.closest('.native-clip')!.getBoundingClientRect().height, point };
+    const el = event.currentTarget.closest<HTMLElement>('.native-clip')!;
+    clearShown();
+    gesture.current = { placement, kind, x: event.clientX, y: event.clientY, width: box.width, height: el.getBoundingClientRect().height, point, el, points: snapPoints(timeline, placement.id, time, beatSettings.beatSnap ? media : undefined) };
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelect(placement.id, false);
   };
@@ -99,13 +147,21 @@ export function NativeLanes({ children, overview, media, beatSettings, timeline,
       setVolumeDraft({ id: drag.placement.id, index: drag.point, at: pointAt(drag.placement, drag.point, point.at + (event.clientX - drag.x) / drag.width * duration), gain: Math.max(0, Math.min(MAX_GAIN, point.gain - (event.clientY - drag.y) / drag.height * MAX_GAIN)) });
       return;
     }
-    setOffset((event.clientX - gesture.current.x) / gesture.current.width * duration);
+    showDrag(drag, event);
   };
   const end = (event: PointerEvent<HTMLElement>) => {
     if (selection.current) { move(event); selection.current = null; return; }
     const drag = gesture.current;
     if (!drag) return;
-    gesture.current = null; setOffset(0); setVolumeDraft(null);
+    gesture.current = null; setVolumeDraft(null);
+    // The edit is sent through the callbacks; when none is, the clip goes back to where it was.
+    let sent = false;
+    const onChange: Props['onChange'] = (id, changes) => { sent = true; props.onChange(id, changes); };
+    const onMove: Props['onMove'] = (id, index) => { sent = true; props.onMove(id, index); };
+    const onDetach: Props['onDetach'] = (id, track) => { sent = true; props.onDetach(id, track); };
+    try { drop(drag, event, onChange, onMove, onDetach); } finally { if (!sent) clearShown(); }
+  };
+  const drop = (drag: NonNullable<typeof gesture.current>, event: PointerEvent<HTMLElement>, onChange: Props['onChange'], onMove: Props['onMove'], onDetach: Props['onDetach']) => {
     const p = drag.placement;
     const rawDelta = (event.clientX - drag.x) / drag.width * duration;
     if (drag.kind === 'volume' && p.role !== 'gap' && drag.point !== undefined) {
@@ -115,9 +171,8 @@ export function NativeLanes({ children, overview, media, beatSettings, timeline,
       if (Math.abs(at - point.at) > POINT_SEPARATION || Math.abs(gain - point.gain) > POINT_SEPARATION) onChange(p.id, { volume: p.volume!.map((was, index) => index === drag.point ? { at, gain } : was) });
       return;
     }
-    const edges = drag.kind === 'start' ? [p.at] : drag.kind === 'end' ? [p.at + p.duration] : [p.at, p.at + p.duration];
-    const delta = snap && ['move', 'sound', 'start', 'end'].includes(drag.kind) ? snapDelta(edges, rawDelta, snapPoints(timeline, p.id, time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : rawDelta;
-    const target = document.elementsFromPoint(event.clientX, event.clientY).map((element) => element.closest<HTMLElement>('[data-track]')).find(Boolean)?.dataset.track;
+    const delta = dragSeconds(drag, event.clientX);
+    const target = document.elementsFromPoint(event.clientX, event.clientY).filter((element) => !drag.el.contains(element)).map((element) => element.closest<HTMLElement>('[data-track]')).find(Boolean)?.dataset.track;
     if (drag.kind === 'sound' && target && p.role === 'insert') { onDetach(p.id, target); return; }
     if (drag.kind === 'sound' && target && p.role !== 'gap' && p.track !== target) {
       onChange(p.id, { track: target, ...(p.role === 'audio' && Math.abs(delta) >= 0.01 ? { at: Math.max(0, p.at + delta) } : {}) }); return;
@@ -154,7 +209,7 @@ export function NativeLanes({ children, overview, media, beatSettings, timeline,
       const displayedDuration = placement.attachmentBroken ? Math.min(BROKEN_CLIP_SPAN, win.length) : placement.duration;
       const speechState = placement.role !== 'gap' && (placement.speech ?? placement.role === 'main') ? speech[placement.source] : undefined;
       const failedKind = placement.role === 'gap' ? null : sound && soundErrors[placement.source] ? 'sound' : sound && speechState?.state === 'failed' ? 'speech' : !sound && pictureErrors[placement.source] ? 'picture' : null;
-      return <Fragment key={placement.id}><button type="button" className={`native-clip${sound ? ' native-sound' : ''}${placement.attachmentBroken ? ' editorial-broken' : ''}`} data-placement={placement.id} data-verify-broken-placement={String(!!placement.attachmentBroken)} aria-pressed={selected === placement.id} aria-label={`${label}, ${placement.role}, ${placement.at.toFixed(2)} to ${(placement.at + placement.duration).toFixed(2)} seconds`} style={{ left: `${(displayedAt - win.start + (gesture.current?.placement.id === placement.id && gesture.current.kind === 'move' ? offset : 0)) / duration * 100}%`, width: `${displayedDuration / duration * 100}%` }} onClick={() => onSelect(placement.id, false)} onDoubleClick={() => onSelect(placement.id, true)} onContextMenu={(event) => { event.preventDefault(); onMenu(placement.id, event.clientX, event.clientY); }} onKeyDown={(event) => onKey(event, placement)} onPointerDown={(event) => begin(event, placement, sound ? 'sound' : 'move')} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { gesture.current = null; setOffset(0); setVolumeDraft(null); }}>
+      return <Fragment key={placement.id}><button type="button" className={`native-clip${sound ? ' native-sound' : ''}${placement.attachmentBroken ? ' editorial-broken' : ''}`} data-placement={placement.id} data-verify-broken-placement={String(!!placement.attachmentBroken)} aria-pressed={selected === placement.id} aria-label={`${label}, ${placement.role}, ${placement.at.toFixed(2)} to ${(placement.at + placement.duration).toFixed(2)} seconds`} style={{ left: `${(displayedAt - win.start) / duration * 100}%`, width: `${displayedDuration / duration * 100}%` }} onClick={() => onSelect(placement.id, false)} onDoubleClick={() => onSelect(placement.id, true)} onContextMenu={(event) => { event.preventDefault(); onMenu(placement.id, event.clientX, event.clientY); }} onKeyDown={(event) => onKey(event, placement)} onPointerDown={(event) => begin(event, placement, sound ? 'sound' : 'move')} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { gesture.current = null; clearShown(); setVolumeDraft(null); }}>
         {!placement.attachmentBroken && sound && wave?.state === 'ready' && placement.role !== 'gap' && <svg className="native-waveform" viewBox="0 0 1000 32" preserveAspectRatio="none" aria-label={`Source waveform for ${placement.id}`} role="img"><polyline points={Array.from({ length: 128 }, (_, index) => {
           const local = placement.duration * index / 128;
           const sourceTime = placement.in + (placement.loop ? local % (placement.out - placement.in) : local);

@@ -64,8 +64,12 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
 
   const add = useCallback(
     async (operation: NewOperation) => {
-      const list = await run((reel) => addOperation(reel, operation));
-      if (list !== null && slug !== undefined) setLoaded({ slug, list });
+      // The list lands in the same render that ends `busy`, so a dragged clip goes straight to its new place.
+      const list = await run(async (reel) => {
+        const next = await addOperation(reel, operation);
+        setLoaded({ slug: reel, list: next });
+        return next;
+      });
       return list !== null;
     },
     [run, slug],
@@ -73,8 +77,7 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
 
   const change = useCallback(
     async (task: (reel: string) => Promise<EditList>) => {
-      const list = await run(task);
-      if (list !== null && slug !== undefined) setLoaded({ slug, list });
+      await run(async (reel) => setLoaded({ slug: reel, list: await task(reel) }));
     },
     [run, slug],
   );
