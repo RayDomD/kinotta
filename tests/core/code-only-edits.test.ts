@@ -23,11 +23,11 @@ describe('editing a reel built from code', () => {
     expect((await project.readVersion(REEL, 2)).code).toMatchObject({ scenes: expect.arrayContaining(['cube-lands', 'cta']), offsets: {} });
   });
 
-  it('refuses every timing edit, with the reason, and a scene the page does not have', async () => {
+  it('refuses timeline cuts, caption offsets, and a scene the page does not have', async () => {
     const { project } = setup();
 
-    for (const op of [{ kind: 'snip' as const, from: 1, to: 2 }, { kind: 'cut' as const, at: 3 }, { kind: 'clip-slide' as const, clip: 'cta', delta: 1 }, { kind: 'caption-position' as const, x: 1, y: 1 }]) {
-      await expect(project.addOperation(REEL, op)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('only elements can be moved') });
+    for (const op of [{ kind: 'snip' as const, from: 1, to: 2 }, { kind: 'cut' as const, at: 3 }, { kind: 'caption-position' as const, x: 1, y: 1 }]) {
+      await expect(project.addOperation(REEL, op)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('Move or trim its shots') });
     }
     await expect(project.addOperation(REEL, move('no-such-scene', 'cube', 1, 1))).rejects.toMatchObject({ code: 'invalid' });
     expect((await project.readEditList(REEL)).operations).toHaveLength(0);

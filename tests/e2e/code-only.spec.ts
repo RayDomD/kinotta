@@ -24,10 +24,10 @@ test('drag an element on a code-only reel, Save, and see it moved in the next ve
   const tools = review(page).getByRole('toolbar', { name: 'Timeline tools' });
   await expect(tools).toBeVisible();
 
-  // Timing is the agent's: Blade and Snip are off, with the reason on show.
+  // Whole-reel cuts stay off. Shots move independently on the Picture row.
   await expect(tools.getByRole('button', { name: /^Blade/ })).toBeDisabled();
   await expect(tools.getByRole('button', { name: /^Snip/ })).toBeDisabled();
-  await expect(review(page).getByText(/Built from code: only elements can be moved/)).toBeVisible();
+  await expect(review(page).getByText(/Drag or trim shots in the Picture row/)).toBeVisible();
 
   // The first scene is on show at the start: click its cube, drag it.
   const frame = page.frameLocator('iframe[title="Authored graphics"]');

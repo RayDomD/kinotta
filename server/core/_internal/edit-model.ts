@@ -121,6 +121,8 @@ export interface PlanClip {
 
 /** The plan a reel's sources hold. Only the fields an operation touches are named; the rest passes through. */
 export interface Plan {
+  /** Authored page scene timings are free of footage bounds. Sound remains on reel time. */
+  codeTiming?: boolean;
   media?: MediaPlan;
   /** Source seconds of the video. */
   duration?: number;
@@ -654,9 +656,11 @@ function applyClipTrim(sources: Sources, op: ClipTrimOperation): Sources {
   }
   const placement = clip.placement && sources.plan.media?.placements.find((p) => p.id === clip.placement || p.origin === clip.placement);
   const duration = placement && placement.role !== 'gap' ? sources.plan.media!.sources.find((s) => s.id === placement.source)?.duration : sources.plan.duration;
-  if (typeof duration === 'number' && to > duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot run past the end of the footage.');
+  if (!sources.plan.codeTiming && typeof duration === 'number' && to > duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot run past the end of the footage.');
   if (Math.abs(from - clip.in) <= MIN_SNIP && Math.abs(to - clip.out) <= MIN_SNIP) throw new KinottaError('invalid', `Clip ${op.clip} already runs there.`);
-  return { ...sources, plan: withClip(sources.plan, index, fitStates({ ...clip, in: from, out: to })) };
+  const plan = withClip(sources.plan, index, fitStates({ ...clip, in: from, out: to }));
+  if (plan.codeTiming) plan.duration = Math.max(plan.duration ?? 0, to);
+  return { ...sources, plan };
 }
 
 function applyClipAttachment(sources: Sources, op: ClipAttachmentOperation): Sources {
@@ -690,8 +694,10 @@ function applyClipSlide(sources: Sources, op: ClipSlideOperation): Sources {
   if (from < 0) throw new KinottaError('invalid', 'A clip cannot slide before the start of the footage.');
   const placement = clip.placement && sources.plan.media?.placements.find((p) => p.id === clip.placement || p.origin === clip.placement);
   const duration = placement && placement.role !== 'gap' ? sources.plan.media!.sources.find((s) => s.id === placement.source)?.duration : sources.plan.duration;
-  if (typeof duration === 'number' && to > duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot slide past the end of the footage.');
-  return { ...sources, plan: withClip(sources.plan, index, { ...clip, in: from, out: to, slid: true }) };
+  if (!sources.plan.codeTiming && typeof duration === 'number' && to > duration + MIN_SNIP) throw new KinottaError('invalid', 'A clip cannot slide past the end of the footage.');
+  const plan = withClip(sources.plan, index, { ...clip, in: from, out: to, slid: true });
+  if (plan.codeTiming) plan.duration = Math.max(plan.duration ?? 0, to);
+  return { ...sources, plan };
 }
 
 function applyElementOffset(sources: Sources, op: ElementOffsetOperation): Sources {

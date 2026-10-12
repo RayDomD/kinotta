@@ -60,7 +60,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const base = version!.media!;
   const ops = useMemo(() => edits?.list?.operations.filter((op) => !edits.list!.flagged?.[op.id]) ?? [], [edits?.list]);
   const edited = useMemo(() => {
-    const sources = applyOperations(legacySources ?? { plan: { media: base, duration: version!.duration, clips: version!.clips, captions: version!.captions, sections: version!.mediaSections ?? version!.sections }, words: version!.transcript ?? [] }, ops);
+    const sources = applyOperations(legacySources ?? { plan: { media: base, codeTiming: !!version!.code, duration: version!.duration, clips: version!.clips, captions: version!.captions, sections: version!.mediaSections ?? version!.sections }, words: version!.transcript ?? [] }, ops);
     return legacySources ? mediaEditingPlan(sources) : sources.plan;
   }, [base, version, ops, legacySources]);
   const media = useMemo(() => mediaWithTracks(edited.media!), [edited.media]);
@@ -89,7 +89,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         : { id: 'preview', kind: 'clip-trim', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }]).plan);
     } catch { return authored; }
   }, [authored, edited, graphicDraft]);
-  const timeline = useMemo(() => mediaTimeline(media, version!.duration), [media, version!.duration]);
+  const timeline = useMemo(() => mediaTimeline(media, previewAuthored.duration ?? version!.duration), [media, previewAuthored.duration, version!.duration]);
   const laneGraphics = useMemo(() => (previewAuthored.clips ?? []).map((clip) => {
     if (!clip.attachmentBroken) return clip;
     const source = edited.clips?.find((item) => item.id === clip.id);
@@ -164,6 +164,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (found && !found.moment.removed) playback.seek(found.moment.time);
   }, [reveal]);
   const graphicTiming = useMemo(() => ({
+    duration: timeline.duration,
     clipOf: (scene: string) => {
       const saved = version!.clips ?? [];
       const id = clipIdForScene(scene, saved);
@@ -172,9 +173,9 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     },
     spans: new Map((previewAuthored.clips ?? []).map((c) => [c.id, c.attachmentBroken ? { start: 0, end: 0 } : { start: c.in, end: c.out }])),
     offset: 0,
-  }), [previewAuthored, version, time]);
+  }), [previewAuthored, version, time, timeline.duration]);
   // Named elements stay movable with media: a code-only page's scenes, or a footage reel's graphic clips (S10).
-  const elementClips = useMemo(() => (version!.code ? codeClips(version!.code) : version!.clips ?? []), [version]);
+  const elementClips = useMemo(() => (version!.clips ?? (version!.code ? codeClips(version!.code) : [])), [version]);
   const elementOffsets = useMemo(() => clipOffsets(elementClips, edits?.list?.operations ?? []), [elementClips, edits?.list]);
   const changeElement = useRef<(change: ElementChange) => Promise<void>>(async () => undefined);
   changeElement.current = async ({ clip, element, x, y, scale }) => {
@@ -530,7 +531,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       </div>
     </div>
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
-    {version!.code && <p className="meta">Built from code: sound can be edited and elements moved. To change picture timing, ask your agent for a new version.</p>}
+    {version!.code && <p className="meta">Drag or trim shots in the Picture row. Sound stays in place.</p>}
     {pinError && <p role="alert">{pinError}</p>}
     {pinDraft && workspace.pinHost && createPortal(<form aria-label="New review pin" className="mv-placement mv-pin-draft" onSubmit={(e) => { e.preventDefault(); void savePin(); }}>
       <p>{pinDraft.label}</p><label>Comment <textarea aria-label="Pin comment" value={pinText} disabled={pinSaving} onChange={(e) => setPinText(e.target.value)} autoFocus /></label>
@@ -554,7 +555,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    {(pictures) => <EditorialLanes win={win} words={words} phrases={phrases} graphics={laneGraphics} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy && !version!.code} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+    {(pictures) => <EditorialLanes win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
       onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
@@ -600,7 +601,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <p>{c.title ?? c.id}{mapped.attachmentBroken ? ' attachment is missing or interrupted. Trim it or attach it to a new footage range before Save.' : ` · ${mapped.in.toFixed(2)}–${mapped.out.toFixed(2)}s`}</p>
         <div className="mv-controls">
           <h3>Timing</h3>
-          {(['in', 'out'] as const).map((edge) => <label key={edge}>{edge === 'in' ? 'In' : 'Out'} <input aria-label={`Graphic ${edge} ${c.id}`} type="number" min="0" step="0.01" defaultValue={c[edge]} key={c[edge]} disabled={!editable || !!version!.code} onBlur={(event) => { const value = Number(event.target.value); if (value !== c[edge]) void edits!.add({ kind: 'clip-trim', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), in: edge === 'in' ? value : c.in, out: edge === 'out' ? value : c.out }); }} /></label>)}
+          {(['in', 'out'] as const).map((edge) => <label key={edge}>{edge === 'in' ? 'In' : 'Out'} <input aria-label={`Graphic ${edge} ${c.id}`} type="number" min="0" step="0.01" defaultValue={c[edge]} key={c[edge]} disabled={!editable} onBlur={(event) => { const value = Number(event.target.value); if (value !== c[edge]) void edits!.add({ kind: 'clip-trim', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), in: edge === 'in' ? value : c.in, out: edge === 'out' ? value : c.out }); }} /></label>)}
           <h3>Picture</h3>
           {(['x', 'y', 'scale'] as const).map((field) => { const offset = c.offsets?.['@clip'] ?? { x: 0, y: 0, scale: 1 }; return <label key={field}>{field === 'x' ? 'Horizontal' : field === 'y' ? 'Vertical' : 'Scale'} <input aria-label={`Graphic ${field} ${c.id}`} type="number" step={field === 'scale' ? 0.1 : 1} defaultValue={offset[field]} key={offset[field]} disabled={!editable} onBlur={(event) => { const value = Number(event.target.value); if (value !== offset[field]) void edits!.add({ kind: 'element-offset', clip: c.id, element: '@clip', ...offset, [field]: value }); }} /></label>; })}
           <h3>Placement</h3>

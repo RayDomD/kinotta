@@ -8,6 +8,7 @@ const MIN_WORD_DURATION = 0.02;
 const MIN_OPEN_WORD_WIDTH = 64;
 type Word = ReturnType<typeof mediaWords>[number];
 interface Props {
+  picture?: boolean;
   children?: ReactNode;
   win: TimeWindow;
   words: readonly Word[];
@@ -32,7 +33,7 @@ function verifyAttrs(words: number, graphics: number, broken: number, win: TimeW
 }
 
 /** Native source identities stay on words and graphics while their bars show reel time. */
-export function EditorialLanes({ children, win, words, phrases, graphics, editable, graphicEditable, nudge, canPin, selectedGraphic, onGraphic, onGraphicKey, onGraphicDrag, onGraphicPreview, onWord, onRetime, onPin, onPhrase }: Props) {
+export function EditorialLanes({ children, win, words, phrases, graphics, picture = false, editable, graphicEditable, nudge, canPin, selectedGraphic, onGraphic, onGraphicKey, onGraphicDrag, onGraphicPreview, onWord, onRetime, onPin, onPhrase }: Props) {
   const length = win.length;
   const [editingWord, setEditingWord] = useState<string | null>(null);
   const [editingPhrase, setEditingPhrase] = useState<number | null>(null);
@@ -69,7 +70,7 @@ export function EditorialLanes({ children, win, words, phrases, graphics, editab
     document.addEventListener('click', outside, true); document.addEventListener('keydown', key);
     return () => { document.removeEventListener('click', outside, true); document.removeEventListener('keydown', key); };
   }, []);
-  const gesture = useRef<{ x: number; width: number; edge: 'start' | 'end' | 'move'; word?: Word; graphic?: string } | null>(null);
+  const gesture = useRef<{ x: number; width: number; length: number; edge: 'start' | 'end' | 'move'; word?: Word; graphic?: string } | null>(null);
   const place = (start: number, end: number, row = 0): CSSProperties => ({ top: row * TIMELINE_ROW_HEIGHT + 5, bottom: 'auto', height: TIMELINE_ROW_HEIGHT - 10, left: `${(start - win.start) / length * 100}%`, width: `${Math.max(0.02, end - start) / length * 100}%` });
   const begin = (event: PointerEvent<HTMLElement>, edge: 'start' | 'end' | 'move', item: { word?: Word; graphic?: string }) => {
     if (!editable || item.graphic && !graphicEditable || event.button !== 0) return;
@@ -77,14 +78,14 @@ export function EditorialLanes({ children, win, words, phrases, graphics, editab
     event.preventDefault(); event.stopPropagation();
     const caption = event.currentTarget.closest<HTMLElement>('[data-caption]');
     const width = item.word && caption ? caption.getBoundingClientRect().width / (Number(caption.dataset.end) - Number(caption.dataset.start)) * length : event.currentTarget.closest('.native-lane-bars')!.getBoundingClientRect().width;
-    gesture.current = { x: event.clientX, width, edge, ...item };
+    gesture.current = { x: event.clientX, width, length, edge, ...item };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const end = (event: PointerEvent<HTMLElement>) => {
     const drag = gesture.current;
     if (!drag) return;
     gesture.current = null;
-    const delta = (event.clientX - drag.x) / drag.width * length;
+    const delta = (event.clientX - drag.x) / drag.width * drag.length;
     if (Math.abs(delta) < 0.01) { onGraphicPreview(null); return; }
     if (drag.graphic) { onGraphicDrag(drag.graphic, drag.edge, delta); return; }
     if (!drag.word) return;
@@ -95,9 +96,9 @@ export function EditorialLanes({ children, win, words, phrases, graphics, editab
   };
   return <section ref={root} className="editorial-lanes" aria-label="Graphics and captions" {...verifyAttrs(words.length, graphics.length, graphics.filter((clip) => clip.attachmentBroken).length, win, opened, visibleWords.length)} onPointerMove={(event) => {
     const drag = gesture.current;
-    if (drag?.graphic) onGraphicPreview({ id: drag.graphic, edge: drag.edge, delta: (event.clientX - drag.x) / drag.width * length });
+    if (drag?.graphic) onGraphicPreview({ id: drag.graphic, edge: drag.edge, delta: (event.clientX - drag.x) / drag.width * drag.length });
   }} onPointerCancel={() => { gesture.current = null; onGraphicPreview(null); }}>
-    {graphics.length > 0 && <div className="native-lane" data-row="graphics"><strong>Graphics</strong><div className="native-lane-bars" style={{ minHeight: graphicRows.count * TIMELINE_ROW_HEIGHT }}>{graphics.map((clip) => <button key={clip.id} type="button" className={`native-clip editorial-graphic${clip.attachmentBroken ? ' editorial-broken' : ''}`} data-graphic={clip.id} data-verify-broken-graphic={String(!!clip.attachmentBroken)} aria-pressed={selectedGraphic === clip.id} style={place(clip.in, clip.out, graphicRows.rows.get(clip))} onClick={() => onGraphic(clip.id, false)} onDoubleClick={() => onGraphic(clip.id, true)} onKeyDown={(event) => onGraphicKey(event, clip.id)} onContextMenu={(event) => { event.preventDefault(); onGraphic(clip.id, true); }} onPointerDown={(event) => begin(event, 'move', { graphic: clip.id })} onPointerUp={end}>
+    {graphics.length > 0 && <div className="native-lane" data-row="graphics"><strong>{picture ? 'Picture' : 'Graphics'}</strong><div className="native-lane-bars" style={{ minHeight: graphicRows.count * TIMELINE_ROW_HEIGHT }}>{graphics.map((clip) => <button key={clip.id} type="button" className={`native-clip editorial-graphic${clip.attachmentBroken ? ' editorial-broken' : ''}`} data-graphic={clip.id} data-verify-broken-graphic={String(!!clip.attachmentBroken)} aria-pressed={selectedGraphic === clip.id} style={place(clip.in, clip.out, graphicRows.rows.get(clip))} onClick={() => onGraphic(clip.id, false)} onDoubleClick={() => onGraphic(clip.id, true)} onKeyDown={(event) => onGraphicKey(event, clip.id)} onContextMenu={(event) => { event.preventDefault(); onGraphic(clip.id, true); }} onPointerDown={(event) => begin(event, 'move', { graphic: clip.id })} onPointerUp={end}>
       <span>{clip.title ?? clip.id}{clip.attachmentBroken ? ' · Reattach' : ''}</span>
       {clip.slid && <span className="rv-off">off its words</span>}
       {graphicEditable && !clip.attachmentBroken && (['start', 'end'] as const).map((edge) => <span key={edge} className={`native-trim native-trim-${edge}`} aria-label={`Trim graphic ${edge} ${clip.id}`} onPointerDown={(event) => begin(event, edge, { graphic: clip.id })} onPointerUp={end} />)}

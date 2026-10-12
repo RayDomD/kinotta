@@ -110,7 +110,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
   // Clips: the plan's, in source time, with the unsaved trims and slides applied, placed on the edited timeline. A version without a plan shows its shots' clips.
-  const planClips = useMemo(() => (version?.code ? codeClips(version.code) : version?.clips), [version]);
+  const planClips = useMemo(() => (version?.clips ?? (version?.code ? codeClips(version.code) : undefined)), [version]);
   const clips = useMemo(
     () => (planClips && pieces ? editedClips(planClips, operations, pieces) : remapped(clipSpans(version?.shots ?? []), moved)),
     [version, planClips, pieces, operations, moved],

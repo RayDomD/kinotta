@@ -126,7 +126,7 @@ export interface Version {
   builtBy?: string;
   /**
    * Code-only reels only (no footage, no plan): the names of the page's scenes, and the element offsets its `kinotta-edits.css`
-   * holds, by scene then element (`@clip` is the scene itself). Only these can be edited.
+   * holds, by scene then element (`@clip` is the scene itself). `clips` carries scene timing and storyboard titles.
    */
   code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
   /** Set when the version has no shots: the request to copy for b-roll over its transcript. */

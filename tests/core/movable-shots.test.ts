@@ -1,0 +1,31 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, it } from 'vitest';
+import { openProject } from '../../server/core/index.ts';
+import { copyFixture } from '../helpers/project.ts';
+
+it('moves and trims code scenes freely, preserves sound, and reopens saved timing and storyboard names', async () => {
+  const dir = copyFixture('showreel-project');
+  const project = openProject(dir);
+  const reel = 'product-showreel';
+  const original = readFileSync(join(dir, 'reels', reel, 'v2/index.html'), 'utf8');
+  writeFileSync(join(dir, 'reels', reel, 'v2/sound.wav'), 'frozen sound bytes');
+  expect((await project.readVersion(reel, 2)).clips).toContainEqual(expect.objectContaining({ id: 'cta', title: 'Call to action', in: 12.2, out: 15 }));
+  await project.addOperation(reel, { kind: 'placement-add', source: { id: 'sound', kind: 'audio', path: 'sound.wav', duration: 2 }, placement: { id: 'sound', role: 'audio', source: 'sound', at: 1, in: 0, out: 2 } });
+  await project.addOperation(reel, { kind: 'clip-slide', clip: 'cta', delta: 4 });
+  await project.addOperation(reel, { kind: 'clip-slide', clip: 'cube-lands', delta: 2 });
+  await project.addOperation(reel, { kind: 'clip-trim', clip: 'cube-lands', in: 2, out: 3 });
+  expect((await project.undoEdit(reel)).operations).toHaveLength(3);
+  expect((await project.redoEdit(reel)).operations).toHaveLength(4);
+  await project.saveEdits(reel);
+  const saved = await openProject(dir).readVersion(reel, 3);
+  expect(saved.duration).toBe(19);
+  expect(saved.media?.placements).toContainEqual(expect.objectContaining({ id: 'sound', at: 1, in: 0, out: 2 }));
+  expect(saved.clips).toContainEqual(expect.objectContaining({ id: 'cta', title: 'Call to action', in: 16.2, out: 19 }));
+  expect(saved.clips).toContainEqual(expect.objectContaining({ id: 'cube-lands', title: 'Cube lands', in: 2, out: 3 }));
+  expect(saved.shots.find((shot) => shot.number === '01')?.start).toBe(2);
+  expect(saved.issues).toEqual([]);
+  expect(readFileSync(join(dir, 'reels', reel, 'v2/index.html'), 'utf8')).toBe(original);
+  expect(readFileSync(join(dir, 'reels', reel, 'v3/index.html'), 'utf8')).toContain('data-start="16.2" data-duration="2.8"');
+  await expect(project.addOperation(reel, { kind: 'clip-slide', clip: 'cta', delta: -20 })).rejects.toMatchObject({ code: 'invalid' });
+});

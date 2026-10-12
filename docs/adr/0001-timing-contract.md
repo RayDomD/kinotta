@@ -2,6 +2,16 @@
 
 Audio amendment, 2026-10-07: [ADR 0005](0005-all-sound-uses-shared-mix.md) narrows independent page audio for the new media model. The visual timing and element contract below remains in force.
 
+Shot timing amendment, 2026-10-12: code-built pages read each scene's current `data-start` and
+`data-duration` on every `seek(t)`. Scene animation uses time relative to that current start.
+The editor rewrites those attributes during a drag, and Save writes them into the next version.
+Shots move freely, leaving background gaps or overlapping in document paint order. Each scene
+keeps its own exit animation, independent of its neighbours. Sound remains on reel time. Moving
+the last shot later extends the reel. Moving it earlier preserves the existing reel length.
+Scene identity is stable. Saved storyboard entries retain a `scene` name so reordered or
+overlapping scenes keep their titles. Static checks validate markup, but cannot prove a script
+reads live timing. Verify a moved scene by seeking both inside and outside its new range.
+
 Claude builds each version as an HTML page with free choice of technique (CSS, canvas, three.js,
 Web Audio), bound by three rules: every scene carries its start time and length, every element
 carries a stable name, and the page exposes a function that jumps it to any second. We chose this

@@ -1,6 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { EDITS_CSS, isCodeOnly, readEditsCss } from './code-edits.ts';
+import { EDITS_CSS, codeSources, isCodeOnly, readEditsCss } from './code-edits.ts';
 import { checkShotsAgainstPage, checkShotsFile, scanVersionPage } from './contract.ts';
 import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
@@ -170,7 +170,10 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
   if (typeof file.builtBy === 'string' && file.builtBy.trim() !== '') version.builtBy = file.builtBy;
-  if (await isCodeOnly(projectDir, reelDir)) version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
+  if (await isCodeOnly(projectDir, reelDir)) {
+    version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
+    if (parsed && page.scenes.length > 0) version.clips = (await codeSources(versionDir)).sources.plan.clips;
+  }
   const withFootage = await addFootage(projectDir, reelDir, versionDir, version);
   if (withFootage.shots.length > 0) return withFootage;
   return { ...withFootage, brollRequest: brollRequest(slug, (await readTitle(reelDir)) ?? slug, number) };

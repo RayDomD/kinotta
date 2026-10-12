@@ -4,7 +4,7 @@ import { BUILT_BY_YOU, applyOperations, operationTouches } from './edit-model.ts
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { handoffReason, readHandoff } from './handoff.ts';
-import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
+import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, sceneForShot, writeEdits, writeSceneTiming } from './code-edits.ts';
 import { freezePageDependencies } from './graphic-preservation.ts';
 import { preserveMedia } from './media-preservation.ts';
 import { withSpeech } from './media-speech.ts';
@@ -81,6 +81,7 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
     // Files the page uses from outside its version folder are frozen too, so the new version cannot change later (AM33).
     await freezePageDependencies(stage);
     await writeEdits(stage, offsetsOf(edited));
+    await writeSceneTiming(stage, sources, edited);
     if (edited.plan.media) {
       const media = await preserveMedia(from, stage, await withSpeech(projectDir, from, edited.plan.media));
       await writeJsonAtomic(join(stage, MEDIA_SIDECAR_FILE), { media, duration: edited.plan.duration });
@@ -91,8 +92,21 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
     const sections = (await readVersion(projectDir, slug, newest)).sections;
     // A section changed when a scene whose offsets differ plays inside it: what comparing the pages finds too.
     const moved = new Set(changedScenes(offsetsOf(sources), offsetsOf(edited)));
+    for (const clip of edited.plan.clips ?? []) {
+      const before = sources.plan.clips?.find((c) => c.id === clip.id);
+      if (before?.in !== clip.in || before?.out !== clip.out) moved.add(clip.id);
+    }
     const spans = scenes.filter((s) => moved.has(s.name));
-    const changedSections = sections.filter((sec) => spans.some((s) => s.start < sec.end && s.start + s.duration > sec.start)).map((sec) => sec.id);
+    const changedSections = sections.filter((sec) => spans.some((s) => s.start < sec.end && s.start + s.duration > sec.start) || (edited.plan.clips ?? []).some((c) => moved.has(c.id) && c.in < sec.end && c.out > sec.start)).map((sec) => sec.id);
+    const timingChanged = list.operations.some((op) => op.kind === 'clip-slide' || op.kind === 'clip-trim');
+    if (timingChanged) {
+      shots.duration = edited.plan.duration;
+      shots.shots = (shots.shots as { start: number; title: string; scene?: string }[]).map((shot) => {
+        const scene = sceneForShot(shot, scenes);
+        const clip = edited.plan.clips?.find((c) => c.id === scene?.name);
+        return clip ? { ...shot, scene: clip.id, start: clip.in } : shot;
+      }).sort((a, b) => a.start - b.start);
+    }
     await writeFile(join(stage, 'shots.json'), `${JSON.stringify({ ...shots, changedSections, builtBy: BUILT_BY_YOU }, null, 2)}
 `, 'utf8');
   } catch (err) {

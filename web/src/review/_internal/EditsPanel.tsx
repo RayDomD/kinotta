@@ -92,7 +92,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
           </div>
         )}
         {editable && operations.length === 0 && media && <p className="meta rv-hint">Import media from the library, then adjust each placement's range, timing and sound. Changes play in preview. Save preserves them in a new version.</p>}
-        {editable && operations.length === 0 && codeOnly && !media && <p className="meta rv-hint">No edits yet. Click an element in the frame and drag it to move it, or drag its corner to scale it. The arrow keys nudge it. This reel is built from code, so its timing is changed by your agent.</p>}
+        {editable && operations.length === 0 && codeOnly && !media && <p className="meta rv-hint">No edits yet. Drag a shot in the Picture row to move it, or its edges to trim it. Click an element in the frame to move it, or drag its corner to scale it. The arrow keys nudge the element.</p>}
         {editable && operations.length === 0 && !codeOnly && !media && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it. Click an element in the frame to move it; the arrow keys nudge it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
           <div className="rv-undo">
@@ -138,7 +138,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
             </button>
             <button type="button" className="quiet-link" disabled={!idle} onClick={() => void edits?.discard()}>Discard</button>
           </div>
-          <div className="hint">{awaitingV1 ? 'Save is on once the transcript is done and v1 is built. Your edits are kept and apply to v1.' : media ? `Preserves the media and edits in v${nextVersion}.` : codeOnly ? `Writes the moves into kinotta-edits.css beside the page and saves v${nextVersion}.` : `Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
+          <div className="hint">{awaitingV1 ? 'Save is on once the transcript is done and v1 is built. Your edits are kept and apply to v1.' : media ? `Preserves the media and edits in v${nextVersion}.` : codeOnly ? `Preserves shot timing and element moves in v${nextVersion}.` : `Writes the edits into the reel's plan and builds v${nextVersion}, about a second.`}</div>
         </div>
       )}
     </>

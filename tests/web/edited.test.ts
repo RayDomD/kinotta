@@ -166,6 +166,9 @@ describe('clipIdForScene', () => {
 });
 
 describe('codeClips', () => {
+  it('keeps a scene with a shared name prefix attached to its own clip', () => {
+    expect(clipIdForScene('logo-lockup', [{ id: 'logo', in: 0, out: 1 }, { id: 'logo-lockup', in: 1, out: 2 }])).toBe('logo-lockup');
+  });
   const clips = codeClips({ scenes: ['cube-lands', 'cta'], offsets: { cta: { '@clip': { x: 0, y: 12, scale: 1 } } } });
 
   it('stands each scene of a code-only page in as a clip, carrying the offsets its stylesheet holds', () => {

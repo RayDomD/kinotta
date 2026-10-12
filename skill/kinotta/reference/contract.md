@@ -1,6 +1,17 @@
 # The timing contract
 
 Every version is one HTML page the editor controls through time (ADR 0001 in the Kinotta repo).
+For code-built reels, each scene is a movable shot on the Picture row. On every `seek(t)`, read
+its current `data-start` and `data-duration`, and animate using `t - start`. Keep scene names
+stable. A scene shows only during its own range, gaps show the page background, and overlapping
+scenes paint in document order. Exit animations belong to their scene and work independently of
+the next scene. Sound stays on the shared mix's reel time. Derive animation bounds from the
+current scene attributes so a shot moved beyond the original reel length still plays.
+
+Before handing off a page, change one scene's timing in the browser and seek inside and outside
+its new range. Restore the original attributes afterward. A cached or hard-coded schedule fails
+this check. `kinotta check` validates timing markup, but cannot prove arbitrary script behavior.
+
 The editor loads `v<n>/index.html?render` in a 1920x1080 frame, calls `seek(t)` for each shot's
 start, waits two animation frames (or 500ms, whichever comes first), and shows the result as that shot's still. A click on a still
 lands on the `data-el` element under it.
@@ -104,6 +115,8 @@ window.seek(0);
 - `contract` is `1`. `duration` is a number in seconds.
 - Each shot has a unique `number` (two-digit string), a numeric `start`, a `title` and a
   `description` of what happens, including the motion the storyboard doesn't show yet.
+- Set `scene` to its page scene's stable `data-scene` name. Kinotta uses it to keep titles with
+  their shots when scenes overlap or change order. Older shot lists are matched by scene timing.
 - Starts are ascending and every start is before `duration`.
 - `changedSections` goes in v2 and later only: the ids of the sections this version changed, such as
   `"changedSections": ["reel"]`. A reel with no `sections` has one section with id `reel`.

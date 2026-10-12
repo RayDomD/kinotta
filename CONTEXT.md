@@ -39,6 +39,9 @@ _Avoid_: Node, layer, component
 
 **Clip**:
 A generated graphic with its own timing on the reel, such as animated b-roll or a lower third.
+On a code-built reel, each page scene is a clip on the Picture row, named from the storyboard.
+Moves and trims change picture timing independently of sound. Gaps show the page background,
+and overlapping shots occupy separate timeline rows and paint in page document order.
 _Avoid_: Footage take, placement, segment
 
 **Source**:
