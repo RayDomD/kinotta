@@ -140,7 +140,7 @@
 /* right column: Edits and Comments */
 .rv-side { border-left: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .rv-side > .comments { border-left: 0; flex: 1; min-height: 0; }
-.rv-tabs { display: flex; gap: 2px; padding: 14px 18px 0; border-bottom: 1px solid var(--rule); }
+.rv-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 14px 18px 0; border-bottom: 1px solid var(--rule); }
 .rv-tabs button { padding: 6px 10px 8px; font-size: 14px; color: var(--muted); border-bottom: 1.6px solid transparent; transition: color var(--t-color) var(--ease); }
 .rv-tabs button:hover { color: var(--ink); }
 .rv-tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; border-color: var(--ink); }
@@ -223,6 +223,7 @@
 .editor-media-preview strong { font-size: 12px; font-weight: 500; color: var(--ink); }
 .editor-media-preview span { font-size: 10px; color: var(--muted); }
 .editor-media-preview[aria-pressed="true"] strong { color: var(--light); }
+.editor-effect-preview span { white-space: normal; line-height: 1.4; }
 .editor-media-add { width: 24px; height: 24px; align-self: center; font-size: 18px; color: var(--light); border: 1px solid var(--rule); border-radius: 0; }
 .editor-media-problem { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--ink-2); }
 .editor-media-problem select { width: 100%; min-width: 0; background: var(--ground-deep); color: var(--ink); border: 1px solid var(--rule); padding: 4px; }
@@ -247,7 +248,7 @@
 .native-clip { position: absolute; top: 5px; bottom: 5px; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 0; background: var(--card); color: var(--ink); font: inherit; font-size: 11px; white-space: nowrap; text-align: left; }
 .native-clip span { overflow: hidden; text-overflow: ellipsis; }
 .native-clip { touch-action: none; }
-.native-clip > span:not(.native-trim):not(.native-fade) { position: relative; z-index: 1; }
+.native-clip > span:not(.native-trim):not(.native-fade):not(.native-beat) { position: relative; z-index: 1; }
 .native-trim { position: absolute; top: 0; bottom: 0; width: 5px; z-index: 3; cursor: ew-resize; background: var(--light-wash); }
 .native-trim-start { left: 0; }
 .native-trim-end { right: 0; }
@@ -306,3 +307,6 @@
 .editor-window { position: absolute; inset-block: 4px; border: 1px solid var(--ink-2); background: var(--light-wash); cursor: grab; }
 .editor-window:focus-visible { outline: 1px solid var(--light); outline-offset: -2px; }
 .rv-hint { overflow-wrap: anywhere; }
+
+.native-beat { position: absolute; top: 20px; height: 7px; border-left: 1px solid currentColor; opacity: 0.4; pointer-events: none; z-index: 2; }
+.native-beat.downbeat { height: 12px; border-left: 2px solid var(--light); opacity: 1; }

@@ -71,6 +71,34 @@ The stored points are a snapshot, so apply again after changing speech timing.
 Preview and render use the existing volume-point envelope without limiting or
 normalizing the mix.
 
+## Beats and music cuts
+
+Optional runtime: `pip install librosa==0.11.0`. Tested on Python 3.14.3 with
+Numba 0.68.0. FFmpeg decodes the original file locally. No audio or model is fetched.
+
+```text
+python <skill>/scripts/beats.py assets/music.wav assets/music-beats.json
+```
+
+Copy the output object into the music source's `beats` field: `{ tempo, beats,
+downbeats }`, with ordered source times in seconds. Keep it with the source in
+the plan so each version freezes both the grid and the exact audio bytes.
+The editor's Detect beats button caches by content hash. Detect again explicitly
+replaces that cache and adds a source-beats edit, with Undo and Save available.
+
+The tracker estimates tempo and beats. Downbeats are an accent-based estimate
+in four-beat bars, not a verified musical meter. Listen before using them.
+For another meter, pass `--beats-per-bar 3` (1–12 accepted). To correct the bar
+phase, pass `--first-downbeat 2`, the zero-based index of the first downbeat in
+the detected beat list. Silence produces zero tempo and empty lists.
+See the [Librosa beat tracker](https://librosa.org/doc/0.11.0/generated/librosa.beat.beat_track.html).
+
+When cutting to music, place scene changes and sound effects on mapped beats.
+For each placement, subtract its `in`, add its reel `at`, and repeat by the
+trimmed source range for loops. Ignore beats outside the trim or placement.
+The Sound sidebar controls tick visibility and downbeat emphasis separately
+from snapping. Snap edits to beats also requires the timeline Snap switch.
+
 ## Kokoro voiceover
 
 Optional packages: `pip install kokoro-onnx soundfile`. The owner supplies local
@@ -87,14 +115,17 @@ python <skill>/scripts/transcript.py --audio assets/voice.wav assets/voice-trans
 Transcribe the generated WAV with the existing transcript script. Use its real
 word times for captions and later ducking. Probe the WAV duration, register it as
 an audio source with those words, and place it on a `voice` track with role
-`audio`, `in: 0`, `out` equal to the measured duration, and the intended reel `at`.
+`audio`, `speech: true` (so the Sound tab can duck music under it), `in: 0`, `out` equal to the measured duration, and the intended reel `at`.
 Preserve the source and transcript with the new version per `native-media.md`.
 
-Verification on 2026-10-11: Python 3.14.3 installed kokoro-onnx 0.4.7 and
-soundfile 0.14.0, and both imported. Live synthesis remains unproven because
-local Kokoro model and voices files were not supplied. Argument validation is tested.
+Verification on 2026-10-12: Python 3.14.3 with kokoro-onnx 0.4.7 and
+soundfile 0.14.0 generated an 8.11-second, 24 kHz FLOAT WAV with `af_sarah`
+using the owner's local v1.0 model and voices files. The existing cached Whisper
+model transcribed 22 timed words in offline mode. The WAV played in Chromium
+and Save preserved its exact bytes and source word times. Review transcript text,
+especially names: Whisper spelled “Kinotta” as “Kinata” in the proof.
 
-## Stable Audio Open (optional, unproven)
+## Stable Audio Open (optional)
 
 Use `stabilityai/stable-audio-open-1.0` for effects outside the bundled set or
 short music beds. The owner handles the gated model's access and licence terms,
@@ -115,8 +146,14 @@ and short entry/exit fades. Listen for loop seams. A poor loop is a reason to as
 for an owner-supplied music track. Keep levels explicit and preserve exact bytes
 in the new version per `native-media.md`.
 
-Verification on 2026-10-11: `python -c "import torch, diffusers"` passed on
-Python 3.14.3. An unauthenticated HEAD request for the model's transformer weights
-returned HTTP 401. No login, licence acceptance, Torch installation or model
-download was attempted. Live generation and a working CUDA install remain unproven.
-When unavailable, use bundled effects and ask the owner for a music file.
+Verification on 2026-10-12: a complete owner-supplied Diffusers snapshot generated
+a 12-second stereo, 44.1 kHz FLOAT WAV on the RTX 4060 Laptop GPU in CUDA half
+precision, with downloads disabled. The working install was Python 3.14.3,
+Torch 2.11.0+cu128, Diffusers 0.41.0, Transformers 5.19.0, Accelerate 1.15.0,
+SentencePiece 0.2.2 and Soundfile 0.14.0. Snapshot revision:
+`f21265c1e2710b3bd2386596943f0007f55f802e`.
+Browser playback, exact-byte Save and a Draft render at fixed 0.35 placement gain
+with fades passed. Keep generated FLOAT WAVs unchanged and choose explicit mix
+levels: this source peaked slightly above full scale before placement gain.
+When the tool or local model is unavailable, use bundled effects and ask the
+owner for a music file. Audition generation quality and loop seams before use.

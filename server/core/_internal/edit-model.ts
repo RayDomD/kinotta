@@ -3,7 +3,8 @@ import { pieceMap } from './pieces.ts';
 import type { Piece } from './pieces.ts';
 import type { TranscriptWord } from './types.ts';
 import type { MediaPlacement, MediaPlan, MediaSource, MediaTrack, SourcePlacement } from './media-model.ts';
-import { legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords, pictureOrder } from './media-model.ts';
+import { legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords, pictureOrder, validateBeats } from './media-model.ts';
+import type { BeatGrid } from './media-model.ts';
 import { duckVolume } from './media-duck.ts';
 import type { DuckSettings, SpeechSpan } from './media-duck.ts';
 
@@ -352,12 +353,14 @@ export interface PlacementReplaceOperation {
 }
 
 export interface TrackAddOperation { id: string; kind: 'track-add'; track: MediaTrack }
-export interface TrackChangeOperation { id: string; kind: 'track-change'; track: string; changes: Partial<Pick<MediaTrack, 'name' | 'gain' | 'mute'>> }
+export interface SourceBeatsOperation { id: string; kind: 'source-beats'; source: string; beats: BeatGrid }
+export interface TrackChangeOperation { id: string; kind: 'track-change'; track: string; changes: Partial<Pick<MediaTrack, 'name' | 'gain' | 'mute' | 'eq' | 'eqBypass'>> }
 export interface TrackMoveOperation { id: string; kind: 'track-move'; track: string; index: number }
 export interface TrackRemoveOperation { id: string; kind: 'track-remove'; track: string }
 export interface PlacementDetachOperation { id: string; kind: 'placement-detach'; placement: string; track: string }
 
 export type Operation =
+  | SourceBeatsOperation
   | TrackAddOperation
   | TrackChangeOperation
   | TrackMoveOperation
@@ -935,7 +938,7 @@ function applyTrack(sources: Sources, op: TrackAddOperation | TrackChangeOperati
     const index = tracks.findIndex((t) => t.id === op.track);
     if (index < 0) throw new KinottaError('invalid', `Track ${op.track} is missing.`);
     if (op.kind === 'track-change') {
-      if (!isRecord(op.changes) || Object.keys(op.changes).some((key) => !['name', 'gain', 'mute'].includes(key))) throw new KinottaError('invalid', 'A track change can set only its name, gain or mute.');
+      if (!isRecord(op.changes) || Object.keys(op.changes).some((key) => !['name', 'gain', 'mute', 'eq', 'eqBypass'].includes(key))) throw new KinottaError('invalid', 'A track change can set only its name, gain, mute or EQ.');
       tracks[index] = { ...tracks[index]!, ...op.changes };
     } else if (op.kind === 'track-move') {
       if (!Number.isInteger(op.index) || op.index < 0 || op.index >= tracks.length) throw new KinottaError('invalid', 'Choose an existing track position.');
@@ -967,6 +970,14 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
   if (sources.plan.media && (op.kind === 'snip' || op.kind === 'cut' || op.kind === 'move-piece')) throw new KinottaError('invalid', 'This reel uses native placements. Trim, split or move its named placement instead.');
   if (!sources.plan.media && (op.kind.startsWith('track-') || op.kind.startsWith('placement-') || op.kind === 'clip-attachment' || op.kind === 'clip-split' || ('placement' in op && typeof op.placement === 'string'))) sources = { ...sources, plan: mediaEditingPlan(sources) };
   switch (op.kind) {
+    case 'source-beats': {
+      const media = editableMedia(sources);
+      const source = media.sources.find((s) => s.id === op.source);
+      if (!source || source.kind === 'image' || source.audio === false) throw new KinottaError('invalid', 'Beat detection needs an audible source.');
+      if (!op.beats) throw new KinottaError('invalid', 'Beat timing is missing.');
+      validateBeats(op.beats, source.duration);
+      return withMedia(sources, { ...media, sources: media.sources.map((s) => s.id === source.id ? { ...s, beats: op.beats } : s) });
+    }
     case 'track-add':
     case 'track-change':
     case 'track-move':
@@ -1035,6 +1046,8 @@ export function applyOperations(sources: Sources, ops: readonly Operation[]): So
 /** Whether an operation changes what a section (a span of source seconds) shows, beyond moving it on the timeline. */
 export function operationTouches(op: Operation, section: { start: number; end: number }): boolean {
   switch (op.kind) {
+    case 'source-beats':
+      return false;
     case 'track-add':
     case 'track-change':
     case 'track-move':
@@ -1097,10 +1110,12 @@ const clock = (seconds: number): string => {
 /** What the Edits panel shows for an operation: the part of the reel it is about, and what it did, in plain words. */
 export function describeOperation(op: Operation): { target: string; text: string } {
   switch (op.kind) {
+    case 'source-beats':
+      return { target: op.source, text: 'Updated source beat timing' };
     case 'track-add':
       return { target: op.track.name, text: 'Added audio track' };
     case 'track-change':
-      return { target: `Track ${op.track}`, text: 'Changed track name, volume or mute' };
+      return { target: `Track ${op.track}`, text: op.changes.eq !== undefined || op.changes.eqBypass !== undefined ? 'Changed track EQ' : 'Changed track name, volume or mute' };
     case 'track-move':
       return { target: `Track ${op.track}`, text: 'Reordered audio track' };
     case 'track-remove':

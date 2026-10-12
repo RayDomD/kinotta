@@ -30,6 +30,9 @@ const MEDIA_ROUTE = /^\/media\/([^/]+)$/;
 const VERSION_MEDIA_ROUTE = /^\/media\/([^/]+)\/(\d+)\/([^/]+)$/;
 const WAVEFORM_API = /^\/api\/media\/([^/]+)\/waveform$/;
 const SPEECH_API = /^\/api\/media\/([^/]+)\/speech$/;
+const BEATS_API = /^\/api\/media\/([^/]+)\/beats$/;
+const SOUND_EFFECT_API = /^\/api\/sound-effects\/([^/]+)$/;
+const SOUND_EFFECT_ROUTE = /^\/sound-effects\/([^/]+)$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
 const HEARTBEAT_MS = 25_000;
@@ -338,6 +341,7 @@ export function createHandler(project: Project, webRoot: string) {
       const versionMediaRoute = VERSION_MEDIA_ROUTE.exec(pathname);
       const waveformRoute = WAVEFORM_API.exec(pathname);
       const speechRoute = SPEECH_API.exec(pathname);
+      const beatsRoute = BEATS_API.exec(pathname);
       const editsRoute = EDITS_API.exec(pathname);
       const saveRoute = SAVE_API.exec(pathname);
     const saveAndRenderRoute = SAVE_AND_RENDER_API.exec(pathname);
@@ -404,6 +408,11 @@ export function createHandler(project: Project, webRoot: string) {
         const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
         const imported = await project.importVideo(name, req);
         sendJson(res, imported.copied ? 201 : 200, imported);
+      } else if (SOUND_EFFECT_API.test(pathname) && req.method === 'POST') {
+        const id = safeDecode(SOUND_EFFECT_API.exec(pathname)![1]!);
+        if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');
+        const imported = await project.importSoundEffect(id);
+        sendJson(res, imported.copied ? 201 : 200, imported);
       } else if (pathname === '/api/media' && req.method === 'POST') {
         const imported = await project.importMedia(searchParams.get('name') ?? '', req);
         sendJson(res, imported.copied ? 201 : 200, imported);
@@ -415,6 +424,12 @@ export function createHandler(project: Project, webRoot: string) {
         const body = await readJsonBody(req) as { source?: unknown; path?: unknown };
         if (typeof body.source !== 'string' || typeof body.path !== 'string') throw new BadRequest(400, 'Choose a source and project media path.');
         sendJson(res, 200, await project.relinkMedia(body.source, body.path));
+      } else if (beatsRoute && req.method === 'POST') {
+        const source = safeDecode(beatsRoute[1]!);
+        const reel = searchParams.get('reel');
+        const version = Number(searchParams.get('version'));
+        if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
+        sendJson(res, 200, await project.detectMediaBeats(source, reel ? { reel, version } : undefined, searchParams.get('fresh') === 'true'));
       } else if (speechRoute && (req.method === 'GET' || req.method === 'POST')) {
         const source = safeDecode(speechRoute[1]!);
         const reel = searchParams.get('reel');
@@ -424,6 +439,12 @@ export function createHandler(project: Project, webRoot: string) {
         sendJson(res, 200, req.method === 'POST' ? await project.transcribeMedia(source, saved) : await project.mediaSpeech(source, saved));
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
+      } else if (pathname === '/api/sound-effects') {
+        sendJson(res, 200, { effects: await project.soundEffects() });
+      } else if (SOUND_EFFECT_ROUTE.test(pathname)) {
+        const id = safeDecode(SOUND_EFFECT_ROUTE.exec(pathname)![1]!);
+        if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');
+        await sendRanged(req, res, await project.soundEffectFile(id));
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
       } else if (mediaRoute || versionMediaRoute) {

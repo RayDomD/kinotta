@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { mediaUrl } from '../../api/index.ts';
 import type { MediaEntry } from '../../api/index.ts';
 
-function verifyAttrs(entry: MediaEntry, failed: boolean) {
+type PreviewEntry = Pick<MediaEntry, 'id' | 'name' | 'kind'>;
+function verifyAttrs(entry: PreviewEntry, failed: boolean) {
   return { 'data-verify-unit': 'MediaPreview', 'data-verify-kind': entry.kind, 'data-verify-error': String(failed), 'data-verify-id': entry.id };
 }
 
-export function MediaPreview({ entry, onClose }: { entry: MediaEntry; onClose: () => void }) {
+export function MediaPreview({ entry, sourceUrl, onClose }: { entry: PreviewEntry; sourceUrl?: string; onClose: () => void }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const url = `${mediaUrl(entry.id)}${attempt ? `?retry=${attempt}` : ''}`;
+  const url = `${sourceUrl ?? mediaUrl(entry.id)}${attempt ? `?retry=${attempt}` : ''}`;
   return <div className="editor-media-frame" {...verifyAttrs(entry, failed)}>
     <div className="editor-media-frame-title"><span>{entry.name}</span><button type="button" onClick={onClose} aria-label="Close media preview">Close</button></div>
     {entry.kind === 'image' && <img key={attempt} alt={`Preview of ${entry.name}`} src={url} onError={() => setFailed(true)} />}

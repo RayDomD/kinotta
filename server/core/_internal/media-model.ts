@@ -15,9 +15,19 @@ export interface MediaSource {
   duration: number;
   /** Cached source speech, in source seconds. Placement corrections never change it. */
   words?: TranscriptWord[];
+  /** Frozen music timing in source seconds. Downbeats are an estimated bar accent. */
+  beats?: BeatGrid;
   /** SHA-256 of the exact original bytes, populated at import or preservation. */
   contentHash?: string;
   audio?: boolean;
+}
+
+export interface BeatGrid { tempo: number; beats: number[]; downbeats: number[] }
+
+export function validateBeats(value: BeatGrid | undefined, duration: number): void {
+  if (value === undefined) return;
+  const ordered = (times: unknown): times is number[] => Array.isArray(times) && times.every((time, index) => Number.isFinite(time) && time >= 0 && time < duration && (index === 0 || time > times[index - 1]));
+  if (!value || !Number.isFinite(value.tempo) || value.tempo < 0 || !ordered(value.beats) || !ordered(value.downbeats) || value.downbeats.some((time) => !value.beats.includes(time)) || (value.beats.length > 0 && value.tempo === 0)) throw new KinottaError('invalid', 'Beat timing needs a nonnegative tempo, ordered source times and downbeats from the beat list.');
 }
 
 /** A picture rectangle in fractions of the reel canvas. Framing applies inside this rectangle. */
@@ -71,7 +81,26 @@ export interface MediaTrack {
   order: number;
   gain: number;
   mute: boolean;
+  eq?: TrackFilter[];
+  eqBypass?: boolean;
 }
+
+export interface TrackFilter {
+  type: 'highpass' | 'lowpass' | 'peaking' | 'lowshelf' | 'highshelf';
+  frequency: number;
+  gain?: number;
+  /** Linear quality factor. Shelves use a fixed slope and ignore Q. */
+  q?: number;
+  enabled?: boolean;
+}
+export const EQ_TYPES = ['highpass', 'lowpass', 'peaking', 'lowshelf', 'highshelf'] as const;
+export const EQ_MIN_HZ = 20;
+export const EQ_MAX_HZ = 20000;
+export const EQ_MAX_DB = 24;
+export const EQ_MIN_Q = 0.1;
+export const EQ_MAX_Q = 10;
+export const EQ_DEFAULT_Q = Math.SQRT1_2;
+export const EQ_MAX_FILTERS = 8;
 
 export interface MediaPlan {
   schema: 1;
@@ -151,6 +180,14 @@ export function mediaTimeline(media: MediaPlan, authoredDuration = 0): MediaTime
     if (!modelObject(track) || !modelName(track.id) || !modelName(track.name) || !Number.isInteger(track.order) || track.order < 0 || !Number.isFinite(track.gain) || track.gain < 0 || track.gain > 2 || typeof track.mute !== 'boolean') throw new KinottaError('invalid', 'A track needs an identity, name, nonnegative whole order, gain between zero and two, and boolean mute.');
     if (tracks.has(track.id) || orders.has(track.order)) throw new KinottaError('invalid', 'Each track needs a unique identity and order.');
     tracks.add(track.id); orders.add(track.order);
+    if (track.eqBypass !== undefined && typeof track.eqBypass !== 'boolean') throw new KinottaError('invalid', 'EQ bypass must be boolean.');
+    if (track.eq !== undefined && (!Array.isArray(track.eq) || track.eq.length > EQ_MAX_FILTERS)) throw new KinottaError('invalid', 'Track EQ needs a list of at most eight filters.');
+    for (const filter of track.eq ?? []) {
+      if (!modelObject(filter) || !EQ_TYPES.includes(filter.type) || !Number.isFinite(filter.frequency) || filter.frequency < EQ_MIN_HZ || filter.frequency > EQ_MAX_HZ
+        || (filter.gain !== undefined && (!Number.isFinite(filter.gain) || Math.abs(filter.gain) > EQ_MAX_DB))
+        || (filter.q !== undefined && (!Number.isFinite(filter.q) || filter.q < EQ_MIN_Q || filter.q > EQ_MAX_Q))
+        || (filter.enabled !== undefined && typeof filter.enabled !== 'boolean')) throw new KinottaError('invalid', 'EQ filters need a supported type, 20–20000 Hz, gain within ±24 dB and Q from 0.1 to 10.');
+    }
   }
   const sources = new Map<string, MediaSource>();
   for (const source of media.sources) {
@@ -160,6 +197,7 @@ export function mediaTimeline(media: MediaPlan, authoredDuration = 0): MediaTime
     if (!['video', 'image', 'audio'].includes(source.kind)) throw new KinottaError('invalid', 'A source kind must be video, image or audio.');
     if (source.audio !== undefined && typeof source.audio !== 'boolean') throw new KinottaError('invalid', 'Source audio must be a boolean.');
     validateWords(source.words);
+    validateBeats(source.beats, source.duration);
     sources.set(source.id, source);
   }
   const byId = new Map<string, MediaPlacement>();

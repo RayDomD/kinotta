@@ -4,11 +4,6 @@
     "duration": 2.5,
     "description": "Soft melodic chime — gentle positive beat: success/confirmation or a lighthearted transition. Sync to the visual moment."
   },
-  "click-soft": {
-    "file": "click-soft.mp3",
-    "duration": 0.37,
-    "description": "Quiet short click — low-key UI tap / soft selection. Short accent, sync exactly to the on-screen action."
-  },
   "click": {
     "file": "click.mp3",
     "duration": 0.37,
@@ -83,11 +78,6 @@
     "file": "whoosh-cinematic.mp3",
     "duration": 5.54,
     "description": "Cinematic whoosh build (~5.5s) — sweeping scene transition. Align so the swell peaks on the cut."
-  },
-  "whoosh-short": {
-    "file": "whoosh-short.mp3",
-    "duration": 0.57,
-    "description": "Short whoosh — quick swipe/slide accent, fast element move, snappy transition. Sync to the motion."
   },
   "whoosh": {
     "file": "whoosh.mp3",

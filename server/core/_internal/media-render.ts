@@ -3,8 +3,8 @@ import { audioExpression } from './media-audio.ts';
 import { mediaTimeline, pictureOrder, trackGain } from './media-model.ts';
 import type { MediaPlan, MediaSource, SourcePlacement } from './media-model.ts';
 import { KinottaError } from './errors.ts';
+import { MEDIA_AUDIO_RATE as RATE, trackEqFilters } from './media-eq.ts';
 
-const RATE = 48000;
 /**
  * Mono plays at full level on both sides, as the browser preview's Web Audio up-mix plays it. FFmpeg's own mono to stereo
  * conversion lowers it by 3 dB, which made a mono source render quieter than it previewed. Stereo passes unchanged.
@@ -22,7 +22,8 @@ function isAudible(p: TimedPlacement, source: MediaSource, media: MediaPlan): bo
 function placementSound(p: TimedPlacement, input: number, media: MediaPlan): string {
   const loop = p.loop ? `,aloop=loop=-1:size=${Math.round((p.out - p.in) * RATE)}` : '';
   const envelope = `(${audioExpression(p, p.duration)})*${trackGain(media, p)}`;
-  return `[${input}:a]${UPMIX},aresample=${RATE},aformat=channel_layouts=stereo,atrim=start=${p.in}:end=${p.out},asetpts=PTS-STARTPTS${loop},atrim=duration=${p.duration},aeval=exprs='val(0)*(${envelope})|val(1)*(${envelope})':channel_layout=stereo,adelay=${Math.round(p.at * RATE)}S:all=1[a${input}]`;
+  const eq = trackEqFilters(media.tracks?.find((track) => track.id === p.track));
+  return `[${input}:a]${UPMIX},aresample=${RATE},aformat=channel_layouts=stereo,atrim=start=${p.in}:end=${p.out},asetpts=PTS-STARTPTS${loop},atrim=duration=${p.duration},aeval=exprs='val(0)*(${envelope})|val(1)*(${envelope})':channel_layout=stereo${eq ? `,${eq}` : ''},adelay=${Math.round(p.at * RATE)}S:all=1[a${input}]`;
 }
 
 /** The whole-reel mix, labelled `[a]`: summed without normalizing or limiting (AM38), cut at the reel end (AM41). */

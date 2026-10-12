@@ -3,6 +3,9 @@
  * app imports these from here, so the editor previews an edit with the same code Save uses.
  */
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
+export { placementBeats } from './_internal/media-beat-model.ts';
+export { validateBeats } from './_internal/media-model.ts';
+export type { BeatGrid } from './_internal/media-model.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export { captionPhrases, legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords, pictureAt, pictureOrder, placementTime, remapMediaMoment, timelineMoment, trackGain } from './_internal/media-model.ts';
 export type { GapPlacement, MediaCaptionPhrase, MediaMoment, MediaPlacement, MediaPlan, MediaSource, MediaTimeline, MediaTrack, PictureRegion, SourcePlacement } from './_internal/media-model.ts';
@@ -10,5 +13,8 @@ export { audioFades, audioGain, describeOverload, mixAt } from './_internal/medi
 export type { MixSample } from './_internal/media-audio.ts';
 export { DUCK_DEFAULTS, MAX_DUCK_DB, MIN_DUCK_RAMP, MAX_DUCK_RAMP, duckSpeechSpans, duckVolume } from './_internal/media-duck.ts';
 export type { DuckSettings, SpeechSpan } from './_internal/media-duck.ts';
+export { EQ_TYPES, EQ_MIN_HZ, EQ_MAX_HZ, EQ_MAX_DB, EQ_MIN_Q, EQ_MAX_Q, EQ_DEFAULT_Q, EQ_MAX_FILTERS } from './_internal/media-model.ts';
+export type { TrackFilter } from './_internal/media-model.ts';
+export { MEDIA_AUDIO_RATE, EQ_PRESETS, activeTrackEq, trackEqFilters, webAudioEqQ } from './_internal/media-eq.ts';
 export { BUILT_BY_YOU, CLIP_ROOT, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, mediaEditingPlan, mediaPlanTimeline, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';
 export type { CaptionOffset, CaptionPhrasePositionOperation, CaptionPositionOperation, CaptionsPlan, ClipAttachmentOperation, ClipSlideOperation, ClipSplitOperation, ClipState, ClipTrimOperation, CutOperation, ElementOffset, ElementOffsetOperation, MovePieceOperation, NewOperation, Operation, PhrasePosition, PhraseTextOperation, Plan, PlanClip, SnipOperation, Sources, WordTextOperation, WordTimingOperation } from './_internal/edit-model.ts';

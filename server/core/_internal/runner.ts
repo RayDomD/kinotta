@@ -1,6 +1,7 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
+import type { BeatGrid } from './media-model.ts';
 
 /**
  * The one place Kinotta starts the skill's scripts (E3), its renderer, ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
@@ -11,6 +12,7 @@ const SKILL_DIR = resolve(import.meta.dirname, '../../../skill/kinotta');
 const BUILD_SCRIPT = resolve(SKILL_DIR, 'engine/build.py');
 const SHOTS_SCRIPT = resolve(SKILL_DIR, 'scripts/shots.py');
 const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
+const BEATS_SCRIPT = resolve(SKILL_DIR, 'scripts/beats.py');
 const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const BUILD_TIMEOUT_MS = 120_000;
@@ -26,6 +28,11 @@ const PAGE_INFO_TIMEOUT_MS = 60_000;
 const CANCELLED = 'The render was cancelled.';
 
 const exec = promisify(execFile);
+
+/** Local beat analysis emits JSON, with the same optional runtime as the skill command. */
+export async function detectAudioBeats(file: string): Promise<BeatGrid> {
+  return JSON.parse(await run(PYTHON, [BEATS_SCRIPT, file])) as BeatGrid;
+}
 
 /** Runs a command for the startup tool check and returns its exit code and output, or null when it cannot start. Never throws. */
 export const tryCommand = (command: string, args: string[]): Promise<{ code: number; output: string } | null> =>

@@ -33,6 +33,9 @@ export type EditorAction = (typeof EDITOR_ACTIONS)[number]['id'];
 export interface EditorSettings {
   keys: Record<EditorAction, string>;
   snap: boolean;
+  showBeats: boolean;
+  emphasizeDownbeats: boolean;
+  beatSnap: boolean;
   nudge: number;
   fade: number;
   gap: number;
@@ -46,6 +49,7 @@ const STORAGE_KEY = 'kinotta.editor.settings';
 export const DEFAULT_SETTINGS: EditorSettings = {
   keys: Object.fromEntries(EDITOR_ACTIONS.map((action) => [action.id, action.key])) as Record<EditorAction, string>,
   snap: true, nudge: 0.1, fade: 0.2, gap: 1,
+  showBeats: true, emphasizeDownbeats: true, beatSnap: true,
   railOpen: false, toolbarLabels: false, timecode: 'seconds', theme: 'dark', accent: 'ice',
 };
 
@@ -97,7 +101,7 @@ function validated(value: unknown): EditorSettings {
       if (typeof key === 'string') defaults.keys[action.id] = normalizeKey(key);
     }
   }
-  for (const key of ['snap', 'railOpen', 'toolbarLabels'] as const) if (typeof stored[key] === 'boolean') defaults[key] = stored[key];
+  for (const key of ['snap', 'railOpen', 'toolbarLabels', 'showBeats', 'emphasizeDownbeats', 'beatSnap'] as const) if (typeof stored[key] === 'boolean') defaults[key] = stored[key];
   for (const key of ['nudge', 'fade', 'gap'] as const) {
     const number = stored[key];
     if (typeof number === 'number' && Number.isFinite(number) && (key === 'fade' ? number >= 0 : number > 0)) defaults[key] = number;

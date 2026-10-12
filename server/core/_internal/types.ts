@@ -1,6 +1,6 @@
 import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
-import type { MediaPlan, MediaSource } from './media-model.ts';
+import type { BeatGrid, MediaPlan, MediaSource } from './media-model.ts';
 
 export interface ReelSummary {
   /** Folder name under reels/. */
@@ -250,7 +250,19 @@ export interface TranscriptionProgress {
   error?: string;
 }
 
+export interface SoundEffect {
+  id: string;
+  name: string;
+  file: string;
+  /** Approximate catalogue duration. Imported media uses the probed file duration. */
+  duration: number;
+  description: string;
+}
+
 export interface Project {
+  soundEffects(): Promise<SoundEffect[]>;
+  soundEffectFile(id: string): Promise<string>;
+  importSoundEffect(id: string): Promise<ImportedMedia>;
   importMedia(name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedMedia>;
   referenceMedia(path: string): Promise<ImportedMedia>;
   /** Supported media inside the project, outside reels/, that the library does not hold yet. */
@@ -263,6 +275,8 @@ export interface Project {
   mediaSpeech(source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech>;
   /** Transcribes a source in the background unless its words are cached or already coming. Also the retry. */
   transcribeMedia(source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech>;
+  /** Analyze verified source bytes once, or explicitly replace the cached grid. */
+  detectMediaBeats(source: string, saved?: { reel: string; version: number }, fresh?: boolean): Promise<BeatGrid>;
   readMediaModel(slug: string): Promise<MediaEditingModel>;
   /** The project folder's name. */
   name: string;

@@ -1,4 +1,5 @@
-import type { MediaPlacement, MediaTimeline, SourcePlacement } from '../../../../server/core/model.ts';
+import { placementBeats } from '../../../../server/core/model.ts';
+import type { MediaPlan, MediaPlacement, MediaTimeline, SourcePlacement } from '../../../../server/core/model.ts';
 import type { MediaEntry } from '../../api/index.ts';
 
 type Placed = MediaTimeline['placements'][number];
@@ -6,17 +7,19 @@ type Placed = MediaTimeline['placements'][number];
 /** Moves smaller than this are rounding, not a different position. */
 const EPSILON = 1e-6;
 const round = (seconds: number): number => Math.round(seconds * 100) / 100;
+/** A snapped edge is stored rounded to 0.01 s, so it can rest this far short of the point it snapped to. */
+const REACHED = 0.005 + EPSILON;
 
 /**
  * The move to make when snapping is on: an edge that would pass the playhead or a cut stops on it instead. A point the
- * edge already sits on is not a stop, so the next press moves past it.
+ * edge already sits on, within the rounding it was stored with, is not a stop, so the next press moves past it.
  */
 export function snapDelta(edges: readonly number[], delta: number, points: readonly number[], reach: number): number {
   let best: number | null = null;
   for (const edge of edges) {
     for (const point of points) {
       const distance = point - edge;
-      if (Math.sign(distance) !== Math.sign(delta) || Math.abs(distance) <= EPSILON) continue;
+      if (Math.sign(distance) !== Math.sign(delta) || Math.abs(distance) <= REACHED) continue;
       if (Math.abs(distance) <= Math.abs(delta) + reach + EPSILON && (best === null || Math.abs(distance) < Math.abs(best))) best = distance;
     }
   }
@@ -24,8 +27,8 @@ export function snapDelta(edges: readonly number[], delta: number, points: reado
 }
 
 /** The edges a move can stop on: the playhead and every placement's start and end, except the moving one. */
-export function snapPoints(timeline: MediaTimeline, moving: string, playhead: number): number[] {
-  return [playhead, ...timeline.placements.filter((p) => p.id !== moving).flatMap((p) => [p.at, p.at + p.duration])];
+export function snapPoints(timeline: MediaTimeline, moving: string, playhead: number, media?: MediaPlan): number[] {
+  return [playhead, ...timeline.placements.filter((p) => p.id !== moving).flatMap((p) => [p.at, p.at + p.duration, ...(media ? placementBeats(media, p.id, timeline.duration).map((beat) => beat.at) : [])])];
 }
 
 /** Pointer cuts land on the nearest nearby edge, regardless of approach direction. */

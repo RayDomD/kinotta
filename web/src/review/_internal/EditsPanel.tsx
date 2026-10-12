@@ -43,6 +43,7 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   if (op.kind === 'clip-attachment') return `placement ${op.placement}`;
   if (op.kind === 'clip-split') return `clip ${op.clip}`;
   if (op.kind === 'placement-add' || op.kind === 'placement-change' || op.kind === 'placement-remove' || op.kind === 'placement-move' || op.kind === 'placement-layer' || op.kind === 'placement-replace' || op.kind === 'placement-split') return 'media placement';
+  if (op.kind === 'source-beats') return 'music source';
   const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   if (op.kind === 'caption-position') return 'all captions';
   if (op.kind === 'clip-trim') return formatTransport(toTimeline(before, op.in) ?? 0);

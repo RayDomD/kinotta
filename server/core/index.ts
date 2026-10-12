@@ -9,6 +9,8 @@ import { footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
 import { importMedia, listMedia, listProjectMedia, mediaFile, mediaWaveform, referenceMedia, relinkMedia } from './_internal/media-library.ts';
 import { createMediaSpeech } from './_internal/media-speech.ts';
+import { createMediaBeats } from './_internal/media-beats.ts';
+import { soundEffects, soundEffectFile, importSoundEffect } from './_internal/sound-effects.ts';
 import { listReels } from './_internal/reels.ts';
 import { checkRenderChoice, prepareRender, runRender } from './_internal/render.ts';
 import { mixOverload } from './_internal/media-overload.ts';
@@ -30,6 +32,7 @@ export type { NewOperation, Operation, SnipOperation } from './_internal/edit-mo
 export { checkTools, missingToolsMessage };
 export { versionIssues } from './_internal/footage-issues.ts';
 export type {
+  SoundEffect,
   MediaSpeech,
   MediaWaveform,
   ProjectMediaFile,
@@ -100,12 +103,16 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const transcriptions = createTranscriptions(emit);
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
+  const beats = createMediaBeats(dir);
   const render = async (request: RenderRequest): Promise<RenderJob> => {
     const task = await prepareRender(dir, request);
     if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    soundEffects,
+    soundEffectFile,
+    importSoundEffect: (id) => importSoundEffect(dir, id),
     importMedia: (name, body) => importMedia(dir, name, body),
     referenceMedia: (path) => referenceMedia(dir, path),
     listProjectMedia: () => listProjectMedia(dir),
@@ -115,6 +122,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     listMedia: (filter) => listMedia(dir, filter),
     mediaSpeech: (source, saved) => speech.status(source, saved),
     transcribeMedia: (source, saved) => speech.start(source, saved),
+    detectMediaBeats: beats,
     readMediaModel: (slug) => readMediaModel(dir, slug),
     name: basename(dir),
     reelsDir: join(dir, 'reels'),

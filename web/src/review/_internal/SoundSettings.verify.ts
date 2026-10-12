@@ -1,12 +1,23 @@
 export const fixtures = [
+  { name: 'no-beats', description: 'Selected music with no frozen beat grid' },
+  { name: 'detecting-beats', description: 'A local analysis is running and cannot be started twice' },
+  { name: 'detected-beats', description: 'Source beats and estimated downbeats are frozen with an edit' },
+  { name: 'failed-beats', description: 'Detection error retains the existing grid and allows retry' },
   { name: 'empty', description: 'No selected audio clip' },
   { name: 'busy', description: 'Applying an edit disables Apply' },
   { name: 'ready', description: 'Selected music with overlapping transcribed speech' },
+  { name: 'eq', description: 'Track filters shared by the selected clips' },
+  { name: 'bypassed', description: 'Track EQ retained while bypassed' },
   { name: 'unavailable', description: 'No overlapping words or a read-only version' },
   { name: 'error', description: 'Invalid ramp or rejected edit shows its reason' },
   { name: 'inconsistent', description: 'FAIL: Apply enabled while busy', fail: true },
 ] as const;
 export const invariants = [
+  { description: 'beat status is known', check: (root: Element) => ['idle', 'detecting', 'ready', 'error'].includes(root.getAttribute('data-verify-beat-status') ?? '') },
+  { description: 'beat count is a nonnegative integer', check: (root: Element) => /^(0|[1-9]\d*)$/.test(root.getAttribute('data-verify-beat-count') ?? '') },
+  { description: 'detecting disables another detection', check: (root: Element) => root.getAttribute('data-verify-beat-status') !== 'detecting' || Array.from(root.querySelectorAll('button')).some((button) => button.textContent === 'Detecting beats…' && button.disabled) },
+  { description: 'EQ count is within the supported chain size', check: (root: Element) => { const n = Number(root.getAttribute('data-verify-eq-count')); return Number.isInteger(n) && n >= 0 && n <= 8; } },
+  { description: 'EQ bypass is boolean', check: (root: Element) => ['true', 'false'].includes(root.getAttribute('data-verify-eq-bypass') ?? '') },
   { description: 'unit is named', check: (root: Element) => root.getAttribute('data-verify-unit') === 'SoundSettings' },
   { description: 'empty matches selected count', check: (root: Element) => (root.getAttribute('data-verify-empty') === 'true') === (root.getAttribute('data-verify-count') === '0') },
   { description: 'status is known', check: (root: Element) => ['empty', 'busy', 'ready', 'unavailable', 'error'].includes(root.getAttribute('data-verify-status') ?? '') },

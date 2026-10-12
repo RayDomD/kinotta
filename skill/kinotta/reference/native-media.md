@@ -14,6 +14,49 @@ Use `reels/<slug>/plan.json` when present, otherwise the plan named by the reel 
 
 For an older plan without tracks, use unity-gain, unmuted defaults: main speech shares `track:speech` named Speech, and each existing sound placement gets `track:<placement-id>` named after its source. Leave the existing source and placement identities intact. Do not persist this migration into an existing frozen version.
 
+### Source beats
+
+An audio or audible video source can carry optional `beats` timing:
+
+```text
+"beats": { "tempo": 120, "beats": [0, 0.5, 1, 1.5], "downbeats": [0] }
+```
+
+Times are ordered, unique source seconds within the source duration. Downbeats
+must belong to the beat list. Tempo is finite and nonnegative, and must be
+positive for a nonempty grid. An empty grid represents no detected pulse.
+Save freezes the grid with the source. A source-beats operation replaces it for
+every placement of that source without changing the audio. Markers follow trim,
+reel placement and loops. See `sound.md` for detection and bar-phase correction.
+
+### Track EQ
+
+A track may add `eq`, an ordered list of at most eight filters, and `eqBypass`
+(boolean, default false). Each filter is `{ type, frequency, gain?, q?, enabled? }`.
+Types are `highpass`, `lowpass`, `peaking`, `lowshelf` and `highshelf`. Frequency
+is 20–20000 Hz. Gain is −24 to +24 dB, default zero, used by peaking and shelves.
+Q is a linear factor from 0.1 to 10, default 0.7071067811865476, used by cut
+filters and peaking. Shelves have a fixed slope and ignore Q. `enabled` defaults
+to true. Bypass retains the filter settings while skipping the entire chain.
+
+```text
+{ "id": "music", "name": "Music", "order": 1, "gain": 0.5, "mute": false,
+  "eq": [{ "type": "highpass", "frequency": 80 },
+         { "type": "peaking", "frequency": 2500, "gain": -3, "q": 0.8 }] }
+```
+
+EQ follows the placement envelope and track gain. Every placement on the track
+gets the same filter chain in preview and render. Both use 48 kHz processing.
+The Sound sidebar provides presets, editable filters, per-filter On and track
+Bypass. Changes use the existing track edit, Undo and Save. Preserve EQ when
+copying or changing unrelated track properties. Boosts can overload the mix,
+and overload measurement includes EQ. No normalization or limiter is added.
+
+The cut-filter Q conversion follows the [Web Audio specification](https://www.w3.org/TR/webaudio/#dom-biquadfilternode-q).
+Rendering uses FFmpeg's highpass, lowpass, equalizer, lowshelf and highshelf
+filters in double precision. The shelf variants match the browser's response,
+as verified by the sweep test, unlike bass and treble's alternate formulas.
+
 The following valid native mix places speech and music on independent tracks. Replace the example files with actual project files and their probed durations before building. The quiet Music track combines with the bed's own gain and fades. `solo` is preview-only editor state and must not be authored into a plan.
 
 ```json
