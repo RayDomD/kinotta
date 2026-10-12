@@ -1,7 +1,7 @@
 ---
 title: editor-keys-drag-handles
 date: 2026-10-12
-status: In Progress
+status: Done
 summary: Shortcuts work wherever focus is, the toolbar works on sound in code-built reels, clips follow the pointer, and trim handles are visible.
 spec:
 ---
@@ -59,3 +59,4 @@ Findings, measured in the running editor on `kinotta-showcase` v14:
 - F4 fixed: a drag is drawn on the clip's element (move, carry to another track, trim) and the clip stays where it is dropped (`useEdits` lands the list in the render that ends `busy`). Deviation: pointer drags now snap only within reach of an edge (`magnetDelta`). The old rule stopped a dragged clip at the first edge it crossed, so it could not pass the playhead. Keyboard nudges keep `snapDelta`.
 - F5 fixed: 10px hit area, a 4px end on every clip, 6px in the accent when selected. Mockup: `docs/mockups/2026-10-12-clip-handles.html`.
 - Test: `tests/core/render-editor-keys-drag.test.ts`, and a `magnetDelta` case in `tests/core/media-beats.test.ts`.
+- Handoff verification completed: build and typecheck pass; native trim test passes; full Vitest run has 772 passes, 3 timing failures and 1 skip. All three failing files pass with one worker (19 tests). No clean single full-suite run is claimed. See the session summary for evidence and the single-context UI review.
