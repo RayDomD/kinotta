@@ -136,8 +136,18 @@ The owner supplies a complete local Diffusers snapshot outside the repository.
 The script loads local files only and uses half precision on CUDA.
 
 ```text
-python <skill>/scripts/generate_audio.py --prompt "Soft ambient synth bed, no speech" --seconds 12 --model <local-diffusers-snapshot> assets/bed.wav
+kinotta generate-audio --prompt "Soft ambient synth bed, no speech" --seconds 12 [--seed 7] --out assets/bed.wav
 ```
+
+`kinotta generate-audio` is the same service as the editor's Generate section at
+the top of the Sound tab. It adds the WAV to the project library, so the owner
+can play and reuse it, and `--out` also copies it beside a code-only plan. It
+prints one JSON line with the file, duration, prompt, length and seed. The same
+prompt, length and seed give the same sound. One generation runs at a time and
+takes about half a minute, so generate once per request and audition the result
+before iterating. The model folder comes from `KINOTTA_STABLE_AUDIO_MODEL`; when
+that is unset the command says so and you fall back as below. The raw
+`scripts/generate_audio.py --model <folder>` still works for scripting.
 
 Probe the WAV's duration and add it as an audio source. Use an `sfx` track for
 effects and a `music` track for beds. For a longer bed, use an audio placement
@@ -157,3 +167,14 @@ with fades passed. Keep generated FLOAT WAVs unchanged and choose explicit mix
 levels: this source peaked slightly above full scale before placement gain.
 When the tool or local model is unavailable, use bundled effects and ask the
 owner for a music file. Audition generation quality and loop seams before use.
+
+## Sound requests in comments
+
+A pinned comment such as "add pulse sound" at 00:08 arrives in the `Kinotta
+comments:` batch with its reel time. Answer it in the next version:
+
+1. Prefer a bundled effect that fits, since it is instant and its licence is known. Read the manifest descriptions.
+2. Otherwise generate once with `kinotta generate-audio`, naming the sound in the prompt as the comment does, and a length that fits the moment.
+3. Place it at the comment's time on the right track: an effect on `sfx`, a bed on `music`, with the placement settings above. Do not move or retime anything else.
+4. In `answers.md`, say which source you used. For a generated one, record the prompt, length and seed so the owner can ask for a variation.
+5. If the comment is vague, choose, state the choice in `answers.md`, and keep it easy to swap. If generation is unavailable, use the nearest bundled effect and say so.

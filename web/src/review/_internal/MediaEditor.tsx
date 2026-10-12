@@ -20,8 +20,8 @@ import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanT
 import type { MediaSource, MediaTimeline, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
-import { detectMediaBeats, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl } from '../../api/index.ts';
-import type { SoundEffect, MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
+import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl } from '../../api/index.ts';
+import type { GeneratedAudio, SoundEffect, MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
 import { PagePlayer } from '../../stage/index.ts';
 import type { CaptionMove, CaptionText, ElementChange, ElementEditing, FramePick } from '../../stage/index.ts';
 import type { ReviewProps } from './Review.tsx';
@@ -381,6 +381,16 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     } catch (failure) { setLibraryError(failure instanceof Error ? failure.message : 'This effect could not be added.'); }
     finally { setUploading(false); }
   };
+  const selectedAudio = media.placements.find((p): p is SourcePlacement => p.id === selected && p.role === 'audio');
+  const musicTrack = media.tracks?.find((track) => track.id === selectedAudio?.track) ?? media.tracks?.find((track) => /^music$/i.test(track.name));
+  const addGenerated = async (sound: GeneratedAudio) => {
+    if (!editable || edits!.busy) throw new Error('This version is read-only.');
+    const at = time;
+    const track = musicTrack?.id ?? crypto.randomUUID();
+    if (!musicTrack) await edits!.add({ kind: 'track-add', track: { id: track, name: 'Music', order: Math.max(-1, ...(media.tracks ?? []).map((existing) => existing.order)) + 1, gain: 1, mute: false } });
+    await add(sound, 'audio', at, track);
+    await loadLibrary();
+  };
   const upload = async (file: File) => {
     setUploading(true); setFailedImport(null);
     try { await importMedia(file); await loadLibrary(); }
@@ -556,7 +566,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
 
     {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s of footage`}</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={() => runAction('apply')}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
     {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={edits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
-    {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} onDetect={(id, fresh) => detectMediaBeats(id, savedFor(id), fresh)} />, workspace.soundHost)}
+    {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} onDetect={(id, fresh) => detectMediaBeats(id, savedFor(id), fresh)} generate={generateAudio} generatedTrackName={musicTrack?.name ?? 'Music'} onAddGenerated={addGenerated} />, workspace.soundHost)}
     {workspace.sectionHost && (authored.sections ?? []).some((s) => s.partOf) && createPortal(<section aria-label="Continuous sections"><div className="label">Surviving section spans</div><nav className="secs">{authored.sections!.map((s) => <button type="button" key={s.id} onClick={() => playback.seek(s.start)}><span className="nm">{s.name}</span><span className="sub">{s.start.toFixed(2)}–{s.end.toFixed(2)}s</span></button>)}</nav></section>, workspace.sectionHost)}
     {workspace.clipHost && selectedGraphic && createPortal(<section className="editor-graphic-settings" aria-label="Graphics attachments"><h2>Clip settings</h2>{(edited.clips ?? []).filter((c) => c.id === selectedGraphic).map((c) => {
       const mapped = authored.clips!.find((clip) => clip.id === c.id)!;

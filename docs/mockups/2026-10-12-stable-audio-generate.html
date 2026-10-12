@@ -1,0 +1,42 @@
+<h2>Generate sound: section at the TOP of the Sound tab (decided 2026-10-12)</h2>
+<p class="subtitle">A collapsible "Generate sound" section, in the same style as Ducking, Track EQ and Beats. It works even when no clip is selected.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Clip selected · Sound tab · section collapsed</div>
+    <div class="mockup-body">
+      <div class="mock-sidebar">
+        <div class="label">Selected clip · evening-bed.wav · Music track</div>
+        <div class="label">Clip volume · Fades</div>
+        <div class="label">Lower music under speech</div>
+        <div class="label">Track EQ</div>
+        <div class="label">Beats</div>
+        <div class="section"><p><strong>▸ Generate sound</strong> <span class="subtitle">local Stable Audio</span></p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Section open · generating, then ready</div>
+    <div class="mockup-body">
+      <div class="mock-sidebar">
+        <p><strong>▾ Generate sound</strong></p>
+        <input class="mock-input" value="Warm ambient synth bed, no vocals" onclick="event.stopPropagation()">
+        <p>Length 12 s &nbsp; Seed 42 <span class="subtitle">(blank = random)</span> &nbsp; <button class="mock-button" onclick="event.stopPropagation()">Generate</button></p>
+        <p>Generating… 18 s &nbsp; <u>Cancel</u></p>
+        <div class="section"><strong>Warm ambient synth bed</strong> <span class="subtitle">12.0 s · seed 42</span>
+          <p>Play &nbsp; <strong>Add on Music at playhead</strong> &nbsp; Keep in library &nbsp; Discard</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Nothing selected · Sound tab</div>
+  <div class="mockup-body"><div class="mock-sidebar">
+    <p class="subtitle">Select an audio clip to adjust its sound.</p>
+    <div class="section"><p><strong>▾ Generate sound</strong> <span class="subtitle">still available: the result goes to the library, or onto a track you pick</span></p></div>
+  </div></div>
+</div>
+
+<p class="subtitle">Decided: the section sits at the top of the Sound tab, as in the open-section view above; the collapsed bottom view is superseded. Destination with nothing selected: library only, or a track picker.</p>

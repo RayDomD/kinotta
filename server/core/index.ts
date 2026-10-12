@@ -11,6 +11,7 @@ import { importMedia, listMedia, listProjectMedia, mediaFile, mediaWaveform, ref
 import { createMediaSpeech } from './_internal/media-speech.ts';
 import { createMediaBeats } from './_internal/media-beats.ts';
 import { soundEffects, soundEffectFile, importSoundEffect } from './_internal/sound-effects.ts';
+import { createAudioGeneration } from './_internal/audio-generation.ts';
 import { listReels } from './_internal/reels.ts';
 import { checkRenderChoice, prepareRender, runRender } from './_internal/render.ts';
 import { mixOverload } from './_internal/media-overload.ts';
@@ -31,6 +32,7 @@ export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
 export { checkTools, missingToolsMessage };
 export { versionIssues } from './_internal/footage-issues.ts';
+export type { AudioGenerationRequest, GeneratedAudio } from './_internal/audio-generation.ts';
 export type {
   SoundEffect,
   MediaSpeech,
@@ -104,6 +106,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
   const beats = createMediaBeats(dir);
+  const generateAudio = createAudioGeneration(dir);
   const render = async (request: RenderRequest): Promise<RenderJob> => {
     const task = await prepareRender(dir, request);
     if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
@@ -123,6 +126,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     mediaSpeech: (source, saved) => speech.status(source, saved),
     transcribeMedia: (source, saved) => speech.start(source, saved),
     detectMediaBeats: beats,
+    generateAudio,
     readMediaModel: (slug) => readMediaModel(dir, slug),
     name: basename(dir),
     reelsDir: join(dir, 'reels'),

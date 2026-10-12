@@ -13,7 +13,7 @@ export { audioFades, audioGain, describeOverload, mixAt } from './_internal/medi
 export type { MixSample } from './_internal/media-audio.ts';
 export { DUCK_DEFAULTS, MAX_DUCK_DB, MIN_DUCK_RAMP, MAX_DUCK_RAMP, duckSpeechSpans, duckVolume } from './_internal/media-duck.ts';
 export type { DuckSettings, SpeechSpan } from './_internal/media-duck.ts';
-export { EQ_TYPES, EQ_MIN_HZ, EQ_MAX_HZ, EQ_MAX_DB, EQ_MIN_Q, EQ_MAX_Q, EQ_DEFAULT_Q, EQ_MAX_FILTERS } from './_internal/media-model.ts';
+export { MAX_GENERATED_SECONDS, EQ_TYPES, EQ_MIN_HZ, EQ_MAX_HZ, EQ_MAX_DB, EQ_MIN_Q, EQ_MAX_Q, EQ_DEFAULT_Q, EQ_MAX_FILTERS } from './_internal/media-model.ts';
 export type { TrackFilter } from './_internal/media-model.ts';
 export { MEDIA_AUDIO_RATE, EQ_PRESETS, activeTrackEq, trackEqFilters, webAudioEqQ } from './_internal/media-eq.ts';
 export { BUILT_BY_YOU, CLIP_ROOT, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, mediaEditingPlan, mediaPlanTimeline, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';

@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { ProjectEvent, RenderJob, RenderRequest } from './core/index.ts';
+import type { AudioGenerationRequest, GeneratedAudio, ProjectEvent, RenderJob, RenderRequest } from './core/index.ts';
 import { readPortFile } from './port-file.ts';
 
 /** Every call `kinotta` makes to a running Kinotta server goes through here. */
@@ -113,4 +113,12 @@ export async function queueRender(url: string, request: RenderRequest, onProgres
     stream.abort();
     throw err;
   }
+}
+
+/** Generates a sound on the server and waits for it, which takes about half a minute. Throws `ServerError` with the server's reason on a refusal. */
+export async function requestGeneratedAudio(url: string, request: AudioGenerationRequest): Promise<GeneratedAudio> {
+  const res = await fetch(`${url}/api/media/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) });
+  const body = (await res.json().catch(() => null)) as (GeneratedAudio & { error?: string }) | null;
+  if (!res.ok || body === null) throw new ServerError(body?.error ?? `The server refused the sound: HTTP ${res.status}`);
+  return body;
 }

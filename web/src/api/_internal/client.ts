@@ -1,5 +1,5 @@
 import type { CaptionsPlan, ElementOffset, MediaPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
-import type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
+import type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {
   slug: string;
@@ -18,7 +18,7 @@ export interface ReelListing {
 }
 
 export interface ToolStatus {
-  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
+  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium' | 'kokoro-onnx' | 'stable-audio';
   name: string;
   present: boolean;
   hint: string;
@@ -437,6 +437,9 @@ export const fetchProjectMedia = async (): Promise<ProjectMediaFile[]> => (await
 export const referenceMedia = (path: string): Promise<ImportedMedia> => requestJson('/api/media/reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) });
 export const relinkMedia = (source: string, path: string): Promise<MediaEntry> => requestJson('/api/media/relink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, path }) });
 export const importMedia = (file: File): Promise<ImportedMedia> => requestJson(`/api/media?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+/** Generates a sound on this machine and adds it to the library. Takes about half a minute. Aborting stops the model. */
+export const generateAudio = (request: { prompt: string; seconds: number; seed?: number }, signal?: AbortSignal): Promise<GeneratedAudio> =>
+  requestJson('/api/media/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request), signal });
 export const fetchSoundEffects = async (): Promise<SoundEffect[]> => (await getJson<{ effects: SoundEffect[] }>('/api/sound-effects')).effects;
 export const soundEffectUrl = (id: string): string => `/sound-effects/${encodeURIComponent(id)}`;
 export const importSoundEffect = (id: string): Promise<ImportedMedia> => requestJson(`/api/sound-effects/${encodeURIComponent(id)}`, { method: 'POST' });

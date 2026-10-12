@@ -4,6 +4,8 @@ import type { DuckSettings, MediaPlan, MediaTimeline, SourcePlacement, SpeechSpa
 import type { EditsState } from './useEdits.ts';
 import type { BeatGrid } from '../../../../server/core/model.ts';
 import { useEditorWorkspace } from './EditorWorkspace.tsx';
+import { SoundGenerate } from './SoundGenerate.tsx';
+import type { GeneratedAudio } from '../../api/index.ts';
 
 interface Props {
   placement: (SourcePlacement & { at: number; duration: number; attachmentBroken?: boolean }) | undefined;
@@ -13,6 +15,10 @@ interface Props {
   edits: EditsState | undefined;
   change: (id: string, changes: Partial<SourcePlacement>) => void;
   onDetect: (source: string, fresh: boolean) => Promise<BeatGrid>;
+  generate: (request: { prompt: string; seconds: number; seed?: number }, signal: AbortSignal) => Promise<GeneratedAudio>;
+  /** The track a generated sound is added to: the selected clip's, else Music. */
+  generatedTrackName: string;
+  onAddGenerated: (sound: GeneratedAudio) => Promise<void>;
 }
 function verifyAttrs(p: Props['placement'], ready: boolean, busy: boolean, error: string | null) {
   return { 'data-verify-unit': 'SoundSettings', 'data-verify-count': p ? 1 : 0, 'data-verify-empty': String(!p),
@@ -22,7 +28,7 @@ function verifyAttrs(p: Props['placement'], ready: boolean, busy: boolean, error
 }
 
 /** Detailed sound controls in the existing independently scrolling right sidebar. */
-export function SoundSettings({ placement: p, media, timeline, editable, edits, change, onDetect }: Props) {
+export function SoundSettings({ placement: p, media, timeline, editable, edits, change, onDetect, generate, generatedTrackName, onAddGenerated }: Props) {
   const workspace = useEditorWorkspace();
   const [detecting, setDetecting] = useState(false);
   const [beatError, setBeatError] = useState<string | null>(null);
@@ -60,6 +66,7 @@ export function SoundSettings({ placement: p, media, timeline, editable, edits, 
   const sound = !!source && source.kind !== 'image' && source.audio !== false;
   const curve = p && points.map((point) => `${point.at / p.duration * 300},${48 - point.gain / Math.max(p.gain ?? 1, 0.001) * 38}`).join(' ');
   return <section className="mv-placements editor-clip-settings" aria-label="Sound settings" {...verifyAttrs(p, ready, detecting || (edits?.busy ?? false), error)} data-verify-eq-count={eq.length} data-verify-eq-bypass={String(track?.eqBypass ?? false)} data-verify-beat-status={beatError ? 'error' : detecting ? 'detecting' : source?.beats ? 'ready' : 'idle'} data-verify-beat-count={source?.beats?.beats.length ?? 0}>
+    <SoundGenerate editable={editable} targetName={generatedTrackName} generate={generate} onAdd={onAddGenerated} />
     {!p ? <p className="meta">Select an audio clip to adjust its sound.</p> : <div className="mv-placement">
       <div className="mv-placement-head"><strong>{source?.name ?? source?.path.split('/').at(-1)}</strong><span>{p.at.toFixed(2)}–{(p.at + p.duration).toFixed(2)}s</span></div>
       {!sound ? <p className="meta">This source has no sound.</p> : <>

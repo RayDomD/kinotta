@@ -424,6 +424,13 @@ export function createHandler(project: Project, webRoot: string) {
         const body = await readJsonBody(req) as { source?: unknown; path?: unknown };
         if (typeof body.source !== 'string' || typeof body.path !== 'string') throw new BadRequest(400, 'Choose a source and project media path.');
         sendJson(res, 200, await project.relinkMedia(body.source, body.path));
+      } else if (pathname === '/api/media/generate' && req.method === 'POST') {
+        const body = await readJsonBody(req) as { prompt?: unknown; seconds?: unknown; seed?: unknown };
+        if (typeof body.prompt !== 'string' || typeof body.seconds !== 'number' || (body.seed !== undefined && typeof body.seed !== 'number')) throw new BadRequest(400, 'Generating a sound needs a prompt, a length in seconds and optionally a whole-number seed.');
+        // Closing the page mid-run stops the model rather than leaving the GPU busy for nobody.
+        const stop = new AbortController();
+        res.on('close', () => { if (!res.writableEnded) stop.abort(); });
+        sendJson(res, 200, await project.generateAudio({ prompt: body.prompt, seconds: body.seconds, seed: body.seed }, stop.signal));
       } else if (beatsRoute && req.method === 'POST') {
         const source = safeDecode(beatsRoute[1]!);
         const reel = searchParams.get('reel');

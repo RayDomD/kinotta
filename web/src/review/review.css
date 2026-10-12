@@ -281,6 +281,10 @@
 .editor-clip-host { min-width: 0; overflow-y: auto; }
 .editor-clip-settings > ol { margin: 0; padding: 0; list-style: none; }
 .editor-clip-settings .mv-placement { border: 0; border-radius: 0; padding: 12px; }
+.editor-clip-settings .editor-generate { flex-direction: column; align-items: stretch; padding: 12px; border-bottom: 1px solid var(--hairline); }
+.editor-generate label { justify-content: space-between; }
+.editor-generate input[type=text] { flex: 1; min-width: 0; }
+.editor-generate audio { width: 100%; }
 .editor-clip-settings .mv-controls { flex-direction: column; align-items: stretch; }
 .editor-clip-settings .mv-controls label { min-width: 0; }
 .editor-clip-settings .mv-placement-head { flex-wrap: wrap; }

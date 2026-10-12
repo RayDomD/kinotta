@@ -18,7 +18,8 @@ read `reference/native-media.md` before building or rebuilding. Its native-media
 both code-only and footage reels and replace the legacy single-video plan/copy instructions below.
 
 When adding sound effects, voiceover or a generated music bed, read `reference/sound.md`
-for bundled effects, optional generators and their placement workflow.
+for bundled effects, optional generators and their placement workflow. A comment that asks for
+a sound ("add pulse sound") is answered the same way: see "Sound requests in comments" there.
 
 ## Hard rules
 

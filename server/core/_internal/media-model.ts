@@ -101,6 +101,8 @@ export const EQ_MIN_Q = 0.1;
 export const EQ_MAX_Q = 10;
 export const EQ_DEFAULT_Q = Math.SQRT1_2;
 export const EQ_MAX_FILTERS = 8;
+/** The longest sound the local generator is asked for. The generator script enforces the same limit. */
+export const MAX_GENERATED_SECONDS = 47;
 
 export interface MediaPlan {
   schema: 1;
