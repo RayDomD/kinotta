@@ -360,11 +360,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       if (trimmed) change(p.id, trimmed);
     }
   };
-  const add = async (entry: MediaEntry, role: SourcePlacement['role'], at = time, track?: string, index?: number, effect = false) => {
+  const add = async (entry: MediaEntry, role: SourcePlacement['role'], at = time, track?: string, index?: number, effect = false, layer?: number) => {
     const source: MediaSource = { id: entry.id, name: entry.name, kind: entry.kind, path: `${sourceRoot}/${entry.path}`, duration: entry.duration, audio: entry.audio, contentHash: entry.contentHash, words: entry.words };
     const existing = media.sources.find((s) => s.id === source.id);
     const fades = entry.kind !== 'image' && entry.audio !== false ? { fadeIn: workspace.settings.fade, fadeOut: workspace.settings.fade } : {};
-    await edits!.add({ kind: 'placement-add', source: existing ? undefined : source, placement: { id: crypto.randomUUID(), role, source: entry.id, in: 0, out: entry.duration, ...fades, ...(effect ? { gain: EFFECT_GAIN, fadeIn: 0, fadeOut: 0 } : {}), ...(entry.kind === 'image' ? { duration: 3 } : {}), ...(role !== 'main' ? { at } : {}), ...(track ? { track } : {}) }, ...(index !== undefined ? { index } : {}) });
+    await edits!.add({ kind: 'placement-add', source: existing ? undefined : source, placement: { id: crypto.randomUUID(), role, source: entry.id, in: 0, out: entry.duration, ...fades, ...(effect ? { gain: EFFECT_GAIN, fadeIn: 0, fadeOut: 0 } : {}), ...(entry.kind === 'image' ? { duration: 3 } : {}), ...(role !== 'main' ? { at } : {}), ...(track ? { track } : {}), ...(layer !== undefined && role === 'insert' ? { layer } : {}) }, ...(index !== undefined ? { index } : {}) });
   };
   const addEffect = async (effect: SoundEffect) => {
     if (!editable || uploading || edits!.busy) return;
@@ -414,7 +414,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     } catch (failure) { setLibraryError(failure instanceof Error ? failure.message : 'This media could not be used.'); }
     finally { setUploading(false); }
   };
-  const dropMedia = (path: string, role: SourcePlacement['role'], at: number, track?: string) => {
+  const dropMedia = (path: string, role: SourcePlacement['role'], at: number, track?: string, layer?: number) => {
     const entry = library.find((item) => item.path === path);
     const file = projectFiles.find((item) => item.path === path);
     const row = entry ? { path, name: entry.name, kind: entry.kind, entry } : file;
@@ -432,7 +432,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
           index += 1;
         }
       }
-      await add(chosen, role, at, track, index);
+      await add(chosen, role, at, track, index, false, layer);
     });
   };
   const selectedPlacement = timeline.placements.find((p) => p.id === selected) ?? timeline.placements.find((p) => media.sequence.includes(p.id) && p.at <= time && p.at + p.duration > time);
@@ -540,8 +540,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <section className="editor-timeline-view" aria-label="Timeline view">
       <div className="editor-timeline-controls"><span>Timeline</span><button type="button" className="rv-tool" aria-label="Zoom in timeline" disabled={win.length <= Math.min(2, windowTotal)} onClick={() => runAction('zoomIn')}>+</button><button type="button" className="rv-tool" aria-label="Zoom out timeline" disabled={win.length >= windowTotal} onClick={() => runAction('zoomOut')}>−</button><button type="button" className="rv-tool" onClick={() => runAction('fit')}>Fit timeline</button><label>Pan <input aria-label="Pan timeline" type="range" min="0" max={windowTotal - win.length} step="0.01" value={win.start} disabled={win.length >= windowTotal} onChange={(event) => setRawWindow({ ...win, start: Number(event.target.value) })} /></label></div>
     </section>
-    <NativeLanes media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} solo={solo}
-      overview={<TimelineOverview timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />}
+    <NativeLanes media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} pictureEditable={!version!.code} solo={solo}
+      overview={<>
+        <div className="native-lane editor-ruler"><strong>Time</strong><div className="native-lane-bars" aria-label="Timeline ruler" onClick={(event) => { if (event.target !== event.currentTarget) return; const box = event.currentTarget.getBoundingClientRect(); playback.seek(win.start + (event.clientX - box.left) / box.width * win.length); }}>{tickTimes(win).map((tick) => <button type="button" key={tick} style={{ transform: tick === win.start + win.length ? 'translateX(-100%)' : undefined, left: `${(tick - win.start) / win.length * 100}%` }} onClick={() => playback.seek(tick)}>{workspace.settings.timecode === 'frames' ? `${Math.round(tick * FRAME_RATE)}f` : `${tick}s`}</button>)}{shownPins.map((pin) => <button type="button" key={pin.id} className="editorial-pin" aria-label={`${pin.number}. ${pin.text}${pin.moment.removed ? '. Moment removed' : ''}`} disabled={pin.moment.removed || !!pin.state} style={{ left: `${(Math.min(timeline.duration, pin.moment.time) - win.start) / win.length * 100}%` }} onClick={() => playback.seek(pin.moment.time)}>{pin.number}</button>)}</div></div>
+        <TimelineOverview timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />
+      </>}
       tool={tool} range={snipRange} onRange={selectSnip} onBlade={(p, at) => { if (at - p.at > SPLIT_MARGIN && p.at + p.duration - at > SPLIT_MARGIN) void edits!.add({ kind: 'placement-split', placement: p.id, at: at - p.at }); }}
       onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
       onDetach={(id, track) => void edits!.add({ kind: 'placement-detach', placement: id, track })}
@@ -551,15 +554,14 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    <EditorialLanes duration={timeline.duration} win={win} words={words} phrases={phrases} graphics={laneGraphics} pins={shownPins} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy && !version!.code} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
-      onSeek={playback.seek} onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
+    {(pictures) => <EditorialLanes win={win} words={words} phrases={phrases} graphics={laneGraphics} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy && !version!.code} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+      onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
       onGraphicPreview={setGraphicDraft}
       onGraphic={(id, inspect) => { setSelected(null); setSelectedGraphic(id); if (inspect) workspace.setPanelTab('clip'); }}
       onGraphicKey={(event, id) => { if (actionForKey(workspace.settings.keys, keyChord(event.nativeEvent)) === 'apply' && !snipRange) { event.preventDefault(); event.stopPropagation(); setSelected(null); setSelectedGraphic(id); workspace.setPanelTab('clip'); } }}
-      onGraphicDrag={(id, edge, delta) => { const c = edited.clips?.find((clip) => clip.id === id); if (!c) { setGraphicDraft(null); return; } void edits!.add(edge === 'move' ? { kind: 'clip-slide', clip: id, ...(c.placement ? { placement: c.placement } : {}), delta } : { kind: 'clip-trim', clip: id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }).then(() => setGraphicDraft(null)); }} />
-      <div className="native-lane editor-ruler"><strong>Time</strong><div className="native-lane-bars" aria-label="Timeline ruler" onClick={(event) => { if (event.target !== event.currentTarget) return; const box = event.currentTarget.getBoundingClientRect(); playback.seek(win.start + (event.clientX - box.left) / box.width * win.length); }}>{tickTimes(win).map((tick) => <button type="button" key={tick} style={{ transform: tick === win.start + win.length ? 'translateX(-100%)' : undefined, left: `${(tick - win.start) / win.length * 100}%` }} onClick={() => playback.seek(tick)}>{workspace.settings.timecode === 'frames' ? `${Math.round(tick * FRAME_RATE)}f` : `${tick}s`}</button>)}</div></div>
+      onGraphicDrag={(id, edge, delta) => { const c = edited.clips?.find((clip) => clip.id === id); if (!c) { setGraphicDraft(null); return; } void edits!.add(edge === 'move' ? { kind: 'clip-slide', clip: id, ...(c.placement ? { placement: c.placement } : {}), delta } : { kind: 'clip-trim', clip: id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }).then(() => setGraphicDraft(null)); }}>{pictures}</EditorialLanes>}
     </NativeLanes>
     {clipMenu && (() => {
       const p = timeline.placements.find((item) => item.id === clipMenu.id);

@@ -23,12 +23,14 @@ it('hears shortcuts with nothing focused, splits sound on a code-built reel, and
     const lanes = page.getByRole('region', { name: 'Media timeline' });
     const clip = lanes.locator('[data-placement="sound-use"]');
     await clip.waitFor();
+    expect(await lanes.locator('.native-lane > strong').allTextContents()).toEqual(['Time', 'Reel', 'Graphics']);
     const clock = async () => Number(await review.getAttribute('data-verify-clock'));
     /** The clip's body, clear of its end handle and of any badge at its start. */
     const GRAB = 30;
     const operations = async () => (await server.project.readEditList('product-showreel')).operations;
     /** The editor has taken the last edit in and accepts the next one. */
     const settled = () => expect.poll(() => page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Blade', exact: true }).isEnabled()).toBe(true);
+    await settled();
 
     // Nothing is focused, as when the page has just opened or empty timeline was clicked.
     await page.evaluate(() => (document.activeElement as HTMLElement).blur());

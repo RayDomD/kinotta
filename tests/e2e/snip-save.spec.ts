@@ -314,6 +314,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await startReel(page, 'Words talk');
   const cards = page.getByRole('list', { name: 'Edits' }).getByRole('listitem');
   const word = (index: number): Locator => review(page).locator('.editorial-word').nth(index);
+  await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();
   await word(1).scrollIntoViewIfNeeded();
 
   // Clicking a word opens its text; Enter saves the fix, which is listed and marked on the word.
@@ -348,6 +349,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   expect(words[1].text).toBe('where');
   expect(words[1].end).toBeGreaterThan(1.5);
   expect(first[1].text).toBe('there');
+  await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();
   await expect(word(1).getByRole('button', { name: /^Edit word/ })).toHaveText('where');
   await expect(cards).toHaveCount(0);
 });
@@ -442,7 +444,8 @@ test('a caption is retyped in the frame, with a word added, and the page shows i
   // The picture, the Captions lane and the Words lane show it with no rebuild.
   await expect(caption).toHaveText('hello out there');
   await expect(caption.locator('[data-t]')).toHaveCount(3);
-  await expect(review(page).locator('.editorial-lanes .native-lane').nth(1).locator('.editorial-text-bar > button').first()).toHaveText('hello out there');
+  await expect(review(page).locator('[data-row="captions"]').locator('.editorial-text-bar > button').first()).toHaveText('hello out there');
+  await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();
   await expect(review(page).getByRole('button', { name: /^Edit word/ })).toHaveText(['hello', 'out', 'there']);
 
   // Escape leaves a caption as it was.

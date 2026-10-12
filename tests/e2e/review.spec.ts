@@ -52,7 +52,7 @@ test('a picked video plays with its captions, and the keyboard and the lanes dri
   await startReel(page, 'Play talk');
   await expect.poll(() => reviewClockText(page)).toMatch(/^00:00\.00 \/ 00:12\.0\d$/);
   await expect(review(page).getByRole('region', { name: 'Media timeline' })).toBeVisible();
-  await expect(review(page).locator('.editorial-lanes .native-lane').nth(1).locator('.editorial-text-bar > button')).toHaveText('hello there');
+  await expect(review(page).locator('[data-row="captions"]').locator('.editorial-text-bar > button')).toHaveText('hello there');
 
   // Play moves the footage and the timecode; pause stops both.
   await review(page).getByRole('button', { name: 'Play', exact: true }).click();

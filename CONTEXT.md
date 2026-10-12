@@ -65,6 +65,10 @@ _Avoid_: B-roll track, layer
 An arrangement showing different pictures at the same moment in separate regions of the reel's frame.
 _Avoid_: Picture-in-picture
 
+**Picture track**:
+A timeline row for pictures. Picture 1 holds the main cut. Higher picture tracks hold inserts grouped by their front-to-back layer order. Graphics and captions have their own rows.
+_Avoid_: Video track, picture lane
+
 **Free layout**:
 An arrangement of several source placements in custom regions of the reel's frame, each with its own timing and framing. Regions can overlap, with an order deciding which picture is in front.
 _Avoid_: Two-source preset

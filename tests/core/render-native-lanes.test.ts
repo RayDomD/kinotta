@@ -26,6 +26,7 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
   writeFileSync(join(reel, 'plan.json'), JSON.stringify({ duration: 4, clips: [], media: media('../../') }));
   writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, clips: [], media: media('../../../') }));
   const server = await startServer({ projectDir: dir, port: 0 });
+  await server.project.addOperation('founder-talk', { kind: 'placement-add', placement: { id: 'upper', role: 'insert', source: 'take', layer: 9, at: 2, in: 0, out: 1, mute: true } });
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -33,8 +34,11 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const lanes = page.getByRole('region', { name: 'Media timeline' });
-    const last = async () => (await server.project.readEditList('founder-talk')).operations.at(-1)!;
+    const last = async () => { await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 5000 }).toBe(true); return (await server.project.readEditList('founder-talk')).operations.at(-1)!; };
     await lanes.locator('[data-placement="sound"]').waitFor();
+    expect(await lanes.locator('[data-role="insert"] > strong').allTextContents()).toEqual(['Picture 3', 'Picture 2']);
+    expect(await lanes.locator('[data-role="insert"]').first().getAttribute('data-picture-layer')).toBe('9');
+    expect(await lanes.locator('[data-role="insert"]').first().locator('[data-placement="upper"]').count()).toBe(1);
     await expect.poll(() => page.getByLabel('Track name music').isEnabled()).toBe(true);
     await lanes.scrollIntoViewIfNeeded();
     const music = (await lanes.locator('[data-track="music"] .native-lane-bars').boundingBox())!;
@@ -93,6 +97,7 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     const actualDraggedGain = dragged.kind === 'placement-change' ? dragged.changes.volume![0]!.gain : NaN;
     await point.press('ArrowDown');
     await expect.poll(async () => { const op = await last(); return op.kind === 'placement-change' ? op.changes.volume?.[0]?.gain : null; }).toBeCloseTo(actualDraggedGain - 0.1, 6);
+    await expect.poll(() => toolbar.getByRole('button', { name: 'Blade', exact: true }).isEnabled()).toBe(true);
     await point.press('Delete');
     await expect.poll(last).toMatchObject({ kind: 'placement-change', placement: 'sound', changes: { volume: [] } });
     await expect.poll(() => point.count()).toBe(0);
@@ -108,6 +113,7 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     await page.keyboard.press('b');
     expect(await toolbar.getAttribute('data-verify-tool')).toBe('blade');
     const picture = lanes.locator('[data-role="main"]').locator('[data-placement="footage"]');
+    await expect.poll(() => toolbar.getByRole('button', { name: 'Blade', exact: true }).isEnabled()).toBe(true);
     await picture.click({ position: { x: (await picture.boundingBox())!.width / 2, y: 15 } });
     await expect.poll(last).toMatchObject({ kind: 'placement-split', placement: 'footage', at: 2 });
     await toolbar.getByRole('button', { name: 'Snip', exact: true }).click();

@@ -1,7 +1,7 @@
 ---
 title: timeline-tracks
 date: 2026-10-12
-status: Draft
+status: Done
 summary: Time on top with the pins on it; Footage, Inserts and Clips become picture tracks like the sound tracks; Words open inside a caption.
 spec:
 ---
@@ -16,8 +16,8 @@ spec:
 - Out of scope: New editing abilities on picture tracks beyond what Footage, Inserts and Clips do today. Shots as parts.
 - Open questions:
   - O1: settled. No model change. Picture placements already carry `layer`, the front-to-back order free layout uses, so picture tracks are drawn from it.
-  - O2: Does the Reel overview strip stay as a thin row under Time, or move into the Time row itself? Recommended: a thin row under Time, as in the mockup.
-  - O3: The mockup shows Mute and Solo on picture tracks. Hiding a picture track is a new ability with a render change behind it. Recommended: picture track headers carry a name only in this pass.
+  - O2: settled. Reel stays as a thin row under Time, as in the mockup.
+  - O3: settled. Picture track headers carry a name only in this pass. Mute and Solo would need new editing and render behavior.
 
 ## Goal
 
@@ -63,3 +63,7 @@ While media is dragged from the library, an empty "New picture track" row appear
 ### 2026-10-12
 - Plan created with Intent only. The owner approved the layout in the mockup; option A for words was the recommendation and is assumed.
 - Goal, Approach and Steps written. O1 settled from the code: `layer` already orders pictures. Awaiting approval, with O2 and O3.
+- Owner approved the plan with both recommendations: Reel remains a thin row under Time and picture headers carry names only. Implementation follows verification of the editor fixes.
+- Built the approved track layout, ruler pins, conditional rows, layer grouping and library drop row. Caption selection opens words with a minimum width, Escape and outside-click close them, and double-click or F2 retypes the phrase. Enter transfers focus into the words and Escape restores it.
+- The audit found pointer-only word timing handles. Added keyboard focus and arrow-key retiming using the configured nudge and the existing word-timing operation, with a failing test before implementation.
+- Verification completed: build/typecheck, 12 focused core/browser cases across runs, and all 41 selected e2e cases across the initial run and a 21-case rerun. Two keyboard-related e2e cases passed again after the final accessibility change. Critique and audit ran in this chat at the owner's request. See the session summary for exact evidence and deviations.

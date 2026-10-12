@@ -23,7 +23,7 @@ const DRAG_THRESHOLD = 4;
 
 type Placed = MediaTimeline['placements'][number];
 interface Props {
-  children?: ReactNode;
+  children?: (pictures: ReactNode) => ReactNode;
   overview?: ReactNode;
   media: MediaPlan;
   beatSettings: Pick<EditorSettings, 'showBeats' | 'emphasizeDownbeats' | 'beatSnap'>;
@@ -32,6 +32,7 @@ interface Props {
   time: number;
   selected: string | null;
   editable: boolean;
+  pictureEditable: boolean;
   solo: string[];
   onSelect: (id: string, inspect: boolean) => void;
   onMenu: (id: string, x: number, y: number) => void;
@@ -58,7 +59,7 @@ interface Props {
   range: { from: number; to: number } | null;
   onRange: (range: { from: number; to: number } | null) => void;
   onBlade: (placement: Placed, at: number) => void;
-  onMediaDrop: (path: string, role: SourcePlacement['role'], at: number, track?: string) => void;
+  onMediaDrop: (path: string, role: SourcePlacement['role'], at: number, track?: string, layer?: number) => void;
 }
 
 function verifyAttrs(selected: string | null, count: number, win: TimeWindow, showBeats: boolean, beatSnap: boolean) {
@@ -70,6 +71,17 @@ export function NativeLanes(props: Props) {
   const { children, overview, media, beatSettings, timeline, win, time, selected, editable, solo, onSelect, onMenu, onSeek, onKey, onTrack, onSolo, onAddTrack, onRemoveTrack, onChange, onReorderTrack, waveforms, soundErrors, pictureErrors, speech, onRetry, snap, nudge, keys, overload, tool, range, onRange, onBlade, onMediaDrop } = props;
   const duration = win.length;
   const tracks = [...(media.tracks ?? [])].sort((a, b) => a.order - b.order);
+  const pictureLayers = timeline.placements.filter((p) => p.role !== 'audio' && p.role !== 'gap').map((p, index) => ({ placement: p, layer: p.role !== 'gap' ? p.layer ?? index : index }));
+  const pictures = pictureLayers.filter(({ placement }) => placement.role === 'insert');
+  const layers = [...new Set(pictures.map(({ layer }) => layer))].sort((a, b) => b - a);
+  const main = timeline.placements.filter((p) => p.role === 'main' || p.role === 'gap');
+  const [libraryDrag, setLibraryDrag] = useState(false);
+  useEffect(() => {
+    const start = (event: DragEvent) => { if (editable && props.pictureEditable && event.dataTransfer?.types.includes(MEDIA_DRAG_TYPE)) setLibraryDrag(true); };
+    const finish = () => setLibraryDrag(false);
+    window.addEventListener('dragstart', start); window.addEventListener('dragend', finish); window.addEventListener('drop', finish);
+    return () => { window.removeEventListener('dragstart', start); window.removeEventListener('dragend', finish); window.removeEventListener('drop', finish); };
+  }, [editable, props.pictureEditable]);
   const gesture = useRef<{ placement: Placed; kind: 'move' | 'sound' | 'start' | 'end' | 'fadeIn' | 'fadeOut' | 'volume'; x: number; y: number; width: number; height: number; point?: number; el: HTMLElement; points: number[] } | null>(null);
   // A drag is drawn on the clip's own element, outside React, so the lanes are not rendered again for every pointer move.
   const shown = useRef<{ el: HTMLElement; left: string; width: string; box: number; offset: number; draftLeft?: string; draftWidth?: string } | null>(null);
@@ -246,12 +258,17 @@ export function NativeLanes(props: Props) {
     event.preventDefault();
     const box = lane.querySelector('.native-lane-bars')!.getBoundingClientRect();
     const at = Math.max(0, Math.min(timeline.duration, win.start + (event.clientX - box.left) / box.width * duration));
-    onMediaDrop(path, lane.dataset.track ? 'audio' : lane.dataset.role as 'main' | 'insert', snap ? snapTime(at, snapPoints(timeline, '', time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : at, lane.dataset.track);
+    onMediaDrop(path, lane.dataset.track ? 'audio' : lane.dataset.role as 'main' | 'insert', snap ? snapTime(at, snapPoints(timeline, '', time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : at, lane.dataset.track, lane.dataset.pictureLayer === undefined ? undefined : Number(lane.dataset.pictureLayer));
   }}>
     {overview}
-    <div className="native-lane" data-role="main"><strong>Footage</strong>{bars(timeline.placements.filter((p) => p.role === 'main' || p.role === 'gap'))}</div>
-    <div className="native-lane" data-role="insert"><strong>Inserts</strong>{bars(timeline.placements.filter((p) => p.role === 'insert'))}</div>
-    {children}
+    {(() => {
+      const rows = <>
+        {libraryDrag && <div className="native-lane" data-role="insert" data-picture-layer={Math.max(-1, ...pictureLayers.map((p) => p.layer)) + 1}><strong>New picture track</strong>{bars([])}</div>}
+        {layers.map((layer, index) => <div className="native-lane" data-role="insert" data-picture-layer={layer} key={layer}><strong>Picture {layers.length - index + 1}</strong>{bars(pictures.filter((p) => p.layer === layer).map((p) => p.placement))}</div>)}
+        {main.length > 0 && <div className="native-lane" data-role="main"><strong>Picture 1</strong>{bars(main)}</div>}
+      </>;
+      return children ? children(rows) : rows;
+    })()}
     {tracks.map((track, index) => <div className="native-lane native-track" key={track.id} data-track={track.id}>
       <div className="native-track-header">
         <button type="button" className="native-track-remove" aria-label={`Remove ${track.name} track`} title={timeline.placements.some((p) => p.role !== 'gap' && p.track === track.id) ? 'Move or remove its clips before removing this track.' : 'Remove empty track'} disabled={!editable || timeline.placements.some((p) => p.role !== 'gap' && p.track === track.id)} onClick={() => onRemoveTrack(track.id)}>×</button>

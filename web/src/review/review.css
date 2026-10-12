@@ -199,6 +199,11 @@
 .editorial-text-bar > input { width: 100%; min-width: 0; font: inherit; font-size: 11px; color: var(--ink); background: var(--ground-deep); border: 0; padding: 4px 6px; }
 .editorial-text-bar .editorial-word-pin { flex: 0 0 18px; padding: 2px; color: var(--light); }
 .editorial-text-bar .native-trim { width: 4px; max-width: none; background: var(--light-wash); touch-action: none; }
+.editorial-word .native-trim:focus-visible { outline: 2px solid var(--light); outline-offset: 0; background: var(--light); }
+.editorial-caption-open { z-index: 2; border-color: var(--light); }
+.editorial-caption-open .editorial-word { top: 0; bottom: 0; }
+.editor-ruler button:not(.editorial-pin) { top: auto; bottom: 0; }
+.editor-ruler .editorial-pin { top: 2px; padding: 0; border: 1px solid var(--light); background: var(--card); color: var(--ink); z-index: 2; }
 .editorial-pin { position: absolute; top: 10px; transform: translateX(-50%); width: 24px; height: 24px; border: 1px solid var(--light); border-radius: 50%; font-size: 11px; color: var(--ink); background: var(--card); }
 .editorial-broken { border-color: oklch(.65 .19 30); }
 .editorial-graphic { touch-action: none; }
@@ -242,7 +247,7 @@
 .editor-timeline-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; }
 .editor-timeline-controls label { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .editor-timeline-controls input { min-width: 0; width: 120px; accent-color: var(--light); }
-.editor-ruler { min-height: 30px; }
+.editor-ruler { min-height: 48px; }
 .editor-ruler > strong { padding-block: 8px; }
 .editor-ruler button { position: absolute; top: 0; padding: 6px 3px; border: 0; border-left: 1px solid var(--rule); color: var(--ink-2); background: transparent; font: 700 11px Doto, monospace; }
 .native-clip { position: absolute; top: 5px; bottom: 5px; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 0; background: var(--card); color: var(--ink); font: inherit; font-size: 11px; white-space: nowrap; text-align: left; }
@@ -311,8 +316,8 @@
 .native-track-header > input { min-height: 24px; padding-right: 52px; }
 .editorial-pin { top: 5px; }
 .editor-media-frame > [role="alert"] { position: absolute; inset: auto 8px 8px; padding: 8px; background: var(--ground); color: var(--ink); font-size: 12px; }
-.editor-overview { min-height: 28px; }
-.editor-overview > strong { padding-block: 6px; }
+.editor-overview { min-height: 22px; }
+.editor-overview > strong { padding-block: 3px; }
 .editor-overview .rv-over { height: auto; cursor: pointer; touch-action: none; }
 .editor-window { position: absolute; inset-block: 4px; border: 1px solid var(--ink-2); background: var(--light-wash); cursor: grab; }
 .editor-window:focus-visible { outline: 1px solid var(--light); outline-offset: -2px; }

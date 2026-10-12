@@ -59,7 +59,8 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect(versions(page)).toContainText('Saved by you');
   await expect(review(page).getByRole('progressbar', { name: 'Transcription' })).toHaveCount(0);
-  await expect(review(page).locator('.editorial-lanes .native-lane').nth(1).locator('.editorial-text-bar > button')).toHaveText('hello there');
+  await expect(review(page).locator('[data-row="captions"]').locator('.editorial-text-bar > button')).toHaveText('hello there');
+  await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();
   await expect(review(page).locator('.editorial-word')).toHaveCount(2);
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('list', { name: 'Edits' })).not.toContainText('No longer applies');
