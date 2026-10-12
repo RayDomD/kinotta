@@ -27,6 +27,10 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const analyses = new Set();
+    page.on('request', (request) => { if (/\/(overload|waveform)(?:\?|$)/.test(request.url())) analyses.add(request); });
+    page.on('requestfinished', (request) => analyses.delete(request));
+    page.on('requestfailed', (request) => analyses.delete(request));
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -83,6 +87,8 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     await expect.poll(last).toMatchObject({ kind: 'placement-add', index: 1, placement: { source: film.id, role: 'main', in: 0, out: 2 } });
     const operations = (await server.project.readEditList('founder-talk')).operations;
     expect(operations.at(-2)).toMatchObject({ kind: 'placement-split', placement: 'gap', at: 2 });
+    // Native mix analysis also holds the original file until FFmpeg exits.
+    await expect.poll(() => analyses.size, { timeout: 20_000 }).toBe(0);
     // Close the player requests before simulating an externally moved file on Windows.
     await page.goto('about:blank');
     await expect.poll(() => { try { renameSync(join(dir, 'tone.wav'), join(dir, 'moved.wav')); return true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EBUSY') return false; throw error; } }, { timeout: 5_000 }).toBe(true);

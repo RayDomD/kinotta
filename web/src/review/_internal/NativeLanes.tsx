@@ -1,4 +1,5 @@
 import { Fragment, useRef, useState } from 'react';
+import { placementBeats } from '../../../../server/core/model.ts';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { MediaPlan, MediaTimeline, MediaTrack, SourcePlacement } from '../../../../server/core/model.ts';
 import type { MediaSpeech, MediaWaveform } from '../../api/index.ts';
@@ -21,6 +22,7 @@ interface Props {
   children?: ReactNode;
   overview?: ReactNode;
   media: MediaPlan;
+  beatSettings: Pick<EditorSettings, 'showBeats' | 'emphasizeDownbeats' | 'beatSnap'>;
   timeline: MediaTimeline;
   win: TimeWindow;
   time: number;
@@ -55,12 +57,12 @@ interface Props {
   onMediaDrop: (path: string, role: SourcePlacement['role'], at: number, track?: string) => void;
 }
 
-function verifyAttrs(selected: string | null, count: number, win: TimeWindow) {
-  return { 'data-verify-unit': 'NativeLanes', 'data-verify-selected': selected ?? '', 'data-verify-count': count, 'data-verify-window-start': win.start, 'data-verify-window-length': win.length };
+function verifyAttrs(selected: string | null, count: number, win: TimeWindow, showBeats: boolean, beatSnap: boolean) {
+  return { 'data-verify-unit': 'NativeLanes', 'data-verify-selected': selected ?? '', 'data-verify-count': count, 'data-verify-window-start': win.start, 'data-verify-window-length': win.length, 'data-verify-beats-visible': String(showBeats), 'data-verify-beat-snap': String(beatSnap) };
 }
 
 /** Placement bars and named sound owners share one timeline coordinate system. */
-export function NativeLanes({ children, overview, media, timeline, win, time, selected, editable, solo, onSelect, onMenu, onSeek, onKey, onTrack, onSolo, onAddTrack, onRemoveTrack, onChange, onMove, onDetach, onReorderTrack, waveforms, soundErrors, pictureErrors, speech, onRetry, snap, nudge, keys, overload, tool, range, onRange, onBlade, onMediaDrop }: Props) {
+export function NativeLanes({ children, overview, media, beatSettings, timeline, win, time, selected, editable, solo, onSelect, onMenu, onSeek, onKey, onTrack, onSolo, onAddTrack, onRemoveTrack, onChange, onMove, onDetach, onReorderTrack, waveforms, soundErrors, pictureErrors, speech, onRetry, snap, nudge, keys, overload, tool, range, onRange, onBlade, onMediaDrop }: Props) {
   const duration = win.length;
   const tracks = [...(media.tracks ?? [])].sort((a, b) => a.order - b.order);
   const gesture = useRef<{ placement: Placed; kind: 'move' | 'sound' | 'start' | 'end' | 'fadeIn' | 'fadeOut' | 'volume'; x: number; y: number; width: number; height: number; point?: number } | null>(null);
@@ -74,7 +76,7 @@ export function NativeLanes({ children, overview, media, timeline, win, time, se
     const lane = event.currentTarget.closest('.native-lane-bars')!;
     const box = lane.getBoundingClientRect();
     const rawAt = Math.max(0, Math.min(timeline.duration, win.start + (event.clientX - box.left) / box.width * duration));
-    const at = snap && tool !== 'select' ? snapTime(rawAt, snapPoints(timeline, '', time), SNAP_REACH) : rawAt;
+    const at = snap && tool !== 'select' ? snapTime(rawAt, snapPoints(timeline, '', time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : rawAt;
     if (tool === 'blade') { onBlade(placement, at); return; }
     if (tool === 'snip') {
       selection.current = { from: at, left: box.left, width: box.width };
@@ -87,7 +89,7 @@ export function NativeLanes({ children, overview, media, timeline, win, time, se
   const move = (event: PointerEvent<HTMLElement>) => {
     if (selection.current) {
       const rawAt = Math.max(0, Math.min(timeline.duration, win.start + (event.clientX - selection.current.left) / selection.current.width * duration));
-      const at = snap ? snapTime(rawAt, snapPoints(timeline, '', time), SNAP_REACH) : rawAt;
+      const at = snap ? snapTime(rawAt, snapPoints(timeline, '', time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : rawAt;
       onRange({ from: Math.min(selection.current.from, at), to: Math.max(selection.current.from, at) }); return;
     }
     if (!gesture.current) return;
@@ -114,7 +116,7 @@ export function NativeLanes({ children, overview, media, timeline, win, time, se
       return;
     }
     const edges = drag.kind === 'start' ? [p.at] : drag.kind === 'end' ? [p.at + p.duration] : [p.at, p.at + p.duration];
-    const delta = snap && ['move', 'sound', 'start', 'end'].includes(drag.kind) ? snapDelta(edges, rawDelta, snapPoints(timeline, p.id, time), SNAP_REACH) : rawDelta;
+    const delta = snap && ['move', 'sound', 'start', 'end'].includes(drag.kind) ? snapDelta(edges, rawDelta, snapPoints(timeline, p.id, time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : rawDelta;
     const target = document.elementsFromPoint(event.clientX, event.clientY).map((element) => element.closest<HTMLElement>('[data-track]')).find(Boolean)?.dataset.track;
     if (drag.kind === 'sound' && target && p.role === 'insert') { onDetach(p.id, target); return; }
     if (drag.kind === 'sound' && target && p.role !== 'gap' && p.track !== target) {
@@ -160,6 +162,7 @@ export function NativeLanes({ children, overview, media, timeline, win, time, se
           return `${index * 1000 / 127},${16 + (index % 2 ? -1 : 1) * Math.min(1, peak) * 15}`;
         }).join(' ')} /></svg>}
         <span>{label}{placement.attachmentBroken ? ' · Reattach' : ''}</span>{placement.role === 'insert' && source?.audio !== false && source?.kind === 'video' && <span className="native-insert-sound" aria-label={placement.mute ?? true ? 'Insert sound muted' : 'Insert sound on'} onPointerDown={(event) => begin(event, placement, 'sound')}>{placement.mute ?? true ? 'Muted' : 'Sound'}</span>}
+        {sound && beatSettings.showBeats && placementBeats(media, placement.id, timeline.duration).map((beat) => <span key={beat.at} className={`native-beat${beat.downbeat && beatSettings.emphasizeDownbeats ? ' downbeat' : ''}`} data-at={beat.at} data-downbeat={String(beat.downbeat)} aria-hidden="true" style={{ left: `${(beat.at - placement.at) / placement.duration * 100}%` }} />)}
         {editable && !placement.attachmentBroken && (['start', 'end'] as const).map((edge) => <span key={edge} className={`native-trim native-trim-${edge}`} aria-label={`Trim ${edge} ${placement.id}`} onPointerDown={(event) => begin(event, placement, edge)} />)}
         {sound && !placement.attachmentBroken && placement.role !== 'gap' && <svg className="native-volume" viewBox="0 0 100 100" preserveAspectRatio="none" onPointerDown={(event) => begin(event, placement, 'sound')} onDoubleClick={(event) => {
           event.stopPropagation();
@@ -181,14 +184,14 @@ export function NativeLanes({ children, overview, media, timeline, win, time, se
       </button>{sound && speechState && ['queued', 'running'].includes(speechState.state) && <span className="native-retry" role="status" style={{ left: `${Math.max(0, (placement.at - win.start) / duration * 100)}%` }}>Transcribing speech…</span>}{placement.role !== 'gap' && placement.at + placement.duration > win.start && placement.at < win.start + win.length && failedKind && <button type="button" className="native-retry" aria-label={`Retry ${failedKind} for ${placement.id}`} title={failedKind === 'speech' && speechState?.state === 'failed' ? speechState.error : sound ? soundErrors[placement.source] : pictureErrors[placement.source]} style={{ left: `${Math.max(0, (placement.at - win.start) / duration * 100)}%` }} onClick={() => onRetry(placement.source, failedKind)}>Retry {failedKind}</button>}</Fragment>;
     })}
   </div>;
-  return <section className="native-lanes" aria-label="Media timeline" {...verifyAttrs(selected, timeline.placements.length, win)} onDragOver={(event) => { if (editable && event.dataTransfer.types.includes(MEDIA_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }} onDrop={(event) => {
+  return <section className="native-lanes" aria-label="Media timeline" {...verifyAttrs(selected, timeline.placements.length, win, beatSettings.showBeats, snap && beatSettings.beatSnap)} onDragOver={(event) => { if (editable && event.dataTransfer.types.includes(MEDIA_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }} onDrop={(event) => {
     const path = event.dataTransfer.getData(MEDIA_DRAG_TYPE);
     const lane = (event.target as HTMLElement).closest<HTMLElement>('.native-lane');
     if (!editable || !path || !lane || !lane.dataset.track && !['main', 'insert'].includes(lane.dataset.role ?? '')) return;
     event.preventDefault();
     const box = lane.querySelector('.native-lane-bars')!.getBoundingClientRect();
     const at = Math.max(0, Math.min(timeline.duration, win.start + (event.clientX - box.left) / box.width * duration));
-    onMediaDrop(path, lane.dataset.track ? 'audio' : lane.dataset.role as 'main' | 'insert', snap ? snapTime(at, snapPoints(timeline, '', time), SNAP_REACH) : at, lane.dataset.track);
+    onMediaDrop(path, lane.dataset.track ? 'audio' : lane.dataset.role as 'main' | 'insert', snap ? snapTime(at, snapPoints(timeline, '', time, beatSettings.beatSnap ? media : undefined), SNAP_REACH) : at, lane.dataset.track);
   }}>
     {overview}
     <div className="native-lane" data-role="main"><strong>Footage</strong>{bars(timeline.placements.filter((p) => p.role === 'main' || p.role === 'gap'))}</div>

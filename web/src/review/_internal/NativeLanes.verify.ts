@@ -1,4 +1,6 @@
 export const fixtures = [
+  { name: 'beats', description: 'Music beat ticks follow trim and loops and emphasize downbeats' },
+  { name: 'hidden-beats', description: 'Hidden ticks do not disable snapping' },
   { name: 'empty', description: 'Empty sequence with an empty sound track' },
   { name: 'placed', description: 'Footage and independent sound in their lanes' },
   { name: 'selected', description: 'The selected placement has highlighted bars' },
@@ -7,6 +9,8 @@ export const fixtures = [
 ] as const;
 
 export const invariants = [
+  { description: 'hidden beats have no ticks', check: (root: Element) => root.getAttribute('data-verify-beats-visible') !== 'false' || !root.querySelector('.native-beat') },
+  { description: 'beat settings are boolean', check: (root: Element) => ['data-verify-beats-visible', 'data-verify-beat-snap'].every((name) => ['true', 'false'].includes(root.getAttribute(name) ?? '')) },
   { description: 'unit is named', check: (root: Element) => root.getAttribute('data-verify-unit') === 'NativeLanes' },
   { description: 'placement count is a nonnegative integer', check: (root: Element) => /^(0|[1-9]\d*)$/.test(root.getAttribute('data-verify-count') ?? '') },
   { description: 'the timeline window has a nonnegative start and positive length', check: (root: Element) => Number.isFinite(Number(root.getAttribute('data-verify-window-start'))) && Number(root.getAttribute('data-verify-window-start')) >= 0 && Number(root.getAttribute('data-verify-window-length')) > 0 },

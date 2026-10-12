@@ -15,12 +15,13 @@ import { MediaLibrary } from './MediaLibrary.tsx';
 import type { LibraryRow } from './MediaLibrary.tsx';
 import { MediaPreview } from './MediaPreview.tsx';
 import { ClipSettings } from './ClipSettings.tsx';
+import { SoundSettings } from './SoundSettings.tsx';
 import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
 import type { MediaSource, MediaTimeline, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
-import { fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl } from '../../api/index.ts';
-import type { MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
+import { detectMediaBeats, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl } from '../../api/index.ts';
+import type { SoundEffect, MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
 import { PagePlayer } from '../../stage/index.ts';
 import type { CaptionMove, CaptionText, ElementChange, ElementEditing, FramePick } from '../../stage/index.ts';
 import type { ReviewProps } from './Review.tsx';
@@ -44,6 +45,8 @@ const PIN_FRAME_WINDOW = 1 / 30;
 const SNIP_PREVIEW_LEAD = 2;
 /** Edits arrive in bursts (a drag, typed levels): the mix is measured once they settle. */
 const OVERLOAD_SETTLE_MS = 400;
+/** Bundled effects start below speech without changing their source bytes. */
+const EFFECT_GAIN = 0.35;
 
 type Placed = MediaTimeline['placements'][number];
 
@@ -106,6 +109,10 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const solo = useMemo(() => soloState.filter((id) => media.tracks?.some((track) => track.id === id)), [soloState, media.tracks]);
   useEffect(() => { if (solo.length !== soloState.length) setSolo(solo); }, [solo, soloState]);
   const [library, setLibrary] = useState<MediaEntry[]>([]);
+  const [effects, setEffects] = useState<SoundEffect[]>([]);
+  const [effectsLoading, setEffectsLoading] = useState(true);
+  const [effectsError, setEffectsError] = useState<string | null>(null);
+  const [previewEffect, setPreviewEffect] = useState<SoundEffect | null>(null);
   const [uploading, setUploading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [failedImport, setFailedImport] = useState<{ file: File; error: string } | null>(null);
@@ -126,7 +133,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   };
   const togglePlayback = () => {
     if (!playing && snipRange) playback.seek(Math.max(0, snipRange.from - SNIP_PREVIEW_LEAD));
-    setPreviewEntry(null); void playback.toggle();
+    setPreviewEntry(null); setPreviewEffect(null); void playback.toggle();
   };
   useEffect(() => {
     if (section) playback.seek(authored.sections?.find((candidate) => candidate.id === section.id || candidate.partOf === section.id)?.start ?? section.start);
@@ -267,6 +274,13 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   // Shots, overlays and code scenes are where authored graphics live. Without them the page draws nothing.
   const graphicsAbsent = version!.shots.length === 0 && version!.overlays.length === 0 && !version!.code;
 
+  const loadEffects = useCallback(async () => {
+    setEffectsLoading(true); setEffectsError(null);
+    try { setEffects(await fetchSoundEffects()); }
+    catch (failure) { setEffectsError(failure instanceof Error ? failure.message : 'Effects could not be loaded.'); }
+    finally { setEffectsLoading(false); }
+  }, []);
+  useEffect(() => { void loadEffects(); }, [loadEffects]);
   const loadLibrary = useCallback(() => fetchMedia().then(setLibrary, (failure: unknown) => setLibraryError(failure instanceof Error ? failure.message : 'The library could not be loaded.')), []);
   const loadProjectFiles = useCallback(() => fetchProjectMedia().then(setProjectFiles, (failure: unknown) => setLibraryError(failure instanceof Error ? failure.message : 'The project files could not be loaded.')), []);
   useEffect(() => { void loadLibrary(); void loadProjectFiles(); }, [loadLibrary, loadProjectFiles]);
@@ -338,7 +352,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         return;
       }
       const step = sign * workspace.settings.nudge * (event.shiftKey ? SHIFT_NUDGE_FACTOR : 1);
-      const delta = snap ? snapDelta([p.at, p.at + p.duration], step, snapPoints(timeline, p.id, time), SNAP_REACH) : step;
+      const delta = snap ? snapDelta([p.at, p.at + p.duration], step, snapPoints(timeline, p.id, time, workspace.settings.beatSnap ? media : undefined), SNAP_REACH) : step;
       change(p.id, { at: Math.max(0, Math.round((p.at + delta) * 100) / 100) });
     } else if (action === 'trimStart' || action === 'trimEnd') {
       event.preventDefault();
@@ -346,11 +360,26 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       if (trimmed) change(p.id, trimmed);
     }
   };
-  const add = async (entry: MediaEntry, role: SourcePlacement['role'], at = time, track?: string, index?: number) => {
+  const add = async (entry: MediaEntry, role: SourcePlacement['role'], at = time, track?: string, index?: number, effect = false) => {
     const source: MediaSource = { id: entry.id, name: entry.name, kind: entry.kind, path: `${sourceRoot}/${entry.path}`, duration: entry.duration, audio: entry.audio, contentHash: entry.contentHash, words: entry.words };
     const existing = media.sources.find((s) => s.id === source.id);
     const fades = entry.kind !== 'image' && entry.audio !== false ? { fadeIn: workspace.settings.fade, fadeOut: workspace.settings.fade } : {};
-    await edits!.add({ kind: 'placement-add', source: existing ? undefined : source, placement: { id: crypto.randomUUID(), role, source: entry.id, in: 0, out: entry.duration, ...fades, ...(entry.kind === 'image' ? { duration: 3 } : {}), ...(role !== 'main' ? { at } : {}), ...(track ? { track } : {}) }, ...(index !== undefined ? { index } : {}) });
+    await edits!.add({ kind: 'placement-add', source: existing ? undefined : source, placement: { id: crypto.randomUUID(), role, source: entry.id, in: 0, out: entry.duration, ...fades, ...(effect ? { gain: EFFECT_GAIN, fadeIn: 0, fadeOut: 0 } : {}), ...(entry.kind === 'image' ? { duration: 3 } : {}), ...(role !== 'main' ? { at } : {}), ...(track ? { track } : {}) }, ...(index !== undefined ? { index } : {}) });
+  };
+  const addEffect = async (effect: SoundEffect) => {
+    if (!editable || uploading || edits!.busy) return;
+    const at = time;
+    setUploading(true); setLibraryError(null);
+    try {
+      const entry = await importSoundEffect(effect.id);
+      const existing = media.tracks?.find((track) => /^(effects|sfx)$/i.test(track.name));
+      const track = existing?.id ?? crypto.randomUUID();
+      if (!existing) await edits!.add({ kind: 'track-add', track: { id: track, name: 'Effects', order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } });
+      await add(entry, 'audio', at, track, undefined, true);
+      setPreviewEntry(null); setPreviewEffect(null);
+      await loadLibrary();
+    } catch (failure) { setLibraryError(failure instanceof Error ? failure.message : 'This effect could not be added.'); }
+    finally { setUploading(false); }
   };
   const upload = async (file: File) => {
     setUploading(true); setFailedImport(null);
@@ -452,6 +481,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <PictureLayers pictures={active} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
         <PagePlayer className="rv-page" title="Authored graphics" pageUrl={versionPageUrl(reel.slug, version!.number)} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
+        {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}
       </div>
@@ -479,13 +509,13 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <section className="editor-timeline-view" aria-label="Timeline view">
       <div className="editor-timeline-controls"><span>Timeline</span><button type="button" className="rv-tool" aria-label="Zoom in timeline" disabled={win.length <= Math.min(2, windowTotal)} onClick={() => runAction('zoomIn')}>+</button><button type="button" className="rv-tool" aria-label="Zoom out timeline" disabled={win.length >= windowTotal} onClick={() => runAction('zoomOut')}>−</button><button type="button" className="rv-tool" onClick={() => runAction('fit')}>Fit timeline</button><label>Pan <input aria-label="Pan timeline" type="range" min="0" max={windowTotal - win.length} step="0.01" value={win.start} disabled={win.length >= windowTotal} onChange={(event) => setRawWindow({ ...win, start: Number(event.target.value) })} /></label></div>
     </section>
-    <NativeLanes media={media} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} solo={solo}
+    <NativeLanes media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} solo={solo}
       overview={<TimelineOverview timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />}
       tool={tool} range={snipRange} onRange={selectSnip} onBlade={(p, at) => { if (!version!.code && at - p.at > SPLIT_MARGIN && p.at + p.duration - at > SPLIT_MARGIN) void edits!.add({ kind: 'placement-split', placement: p.id, at: at - p.at }); }}
       onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
       onDetach={(id, track) => void edits!.add({ kind: 'placement-detach', placement: id, track })}
       onReorderTrack={(id, index) => void edits!.add({ kind: 'track-move', track: id, index })}
-      onSelect={(id, inspect) => { setSelectedGraphic(null); setSelected(id); if (inspect) workspace.setPanelTab('clip'); }} onSeek={playback.seek} onKey={onPlacementKey}
+      onSelect={(id, inspect) => { setSelectedGraphic(null); setSelected(id); if (inspect || (media.placements.find((p) => p.id === id)?.role === 'audio' && workspace.panelTab !== 'sound')) workspace.setPanelTab('clip'); }} onSeek={playback.seek} onKey={onPlacementKey}
       onMenu={(id, x, y) => { setSelectedGraphic(null); setSelected(id); setClipMenu({ id, x, y }); }}
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
@@ -526,6 +556,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
 
     {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s of footage`}</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={() => runAction('apply')}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
     {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={edits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
+    {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} onDetect={(id, fresh) => detectMediaBeats(id, savedFor(id), fresh)} />, workspace.soundHost)}
     {workspace.sectionHost && (authored.sections ?? []).some((s) => s.partOf) && createPortal(<section aria-label="Continuous sections"><div className="label">Surviving section spans</div><nav className="secs">{authored.sections!.map((s) => <button type="button" key={s.id} onClick={() => playback.seek(s.start)}><span className="nm">{s.name}</span><span className="sub">{s.start.toFixed(2)}–{s.end.toFixed(2)}s</span></button>)}</nav></section>, workspace.sectionHost)}
     {workspace.clipHost && selectedGraphic && createPortal(<section className="editor-graphic-settings" aria-label="Graphics attachments"><h2>Clip settings</h2>{(edited.clips ?? []).filter((c) => c.id === selectedGraphic).map((c) => {
       const mapped = authored.clips!.find((clip) => clip.id === c.id)!;
@@ -556,9 +587,9 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       </div>;
     })}</section>, workspace.clipHost)}
 
-    {workspace.mediaHost && createPortal(<MediaLibrary entries={library} files={projectFiles} editable={editable} busy={uploading} error={libraryError} failedImport={failedImport} preview={previewEntry ? previewPath : null}
-      onUpload={upload} onPreview={(row) => void useRow(row, (entry) => { playback.seek(time); setPreviewPath(row.path); setPreviewEntry({ ...entry, name: row.name }); })}
-      onAdd={(row) => void useRow(row, async (entry) => { await add(entry, entry.kind === 'audio' ? 'audio' : 'insert'); setPreviewEntry(null); })}
+    {workspace.mediaHost && createPortal(<MediaLibrary entries={library} files={projectFiles} effects={effects} effectsLoading={effectsLoading} effectsError={effectsError} effectPreview={previewEffect?.id ?? null} onEffectsRetry={() => void loadEffects()} onEffectAdd={(effect) => void addEffect(effect)} onEffectPreview={(effect) => { playback.seek(time); setPreviewEntry(null); setPreviewEffect(effect); }} editable={editable} busy={uploading || !!edits?.busy} error={libraryError} failedImport={failedImport} preview={previewEntry ? previewPath : null}
+      onUpload={upload} onPreview={(row) => void useRow(row, (entry) => { playback.seek(time); setPreviewEffect(null); setPreviewPath(row.path); setPreviewEntry({ ...entry, name: row.name }); })}
+      onAdd={(row) => void useRow(row, async (entry) => { await add(entry, entry.kind === 'audio' ? 'audio' : 'insert'); setPreviewEntry(null); setPreviewEffect(null); })}
       onRetry={() => { setLibraryError(null); void Promise.all([loadLibrary(), loadProjectFiles()]); }}
       onRelink={(id, path) => void libraryAction(() => relinkMedia(id, path))} />, workspace.mediaHost)}
   </main>;

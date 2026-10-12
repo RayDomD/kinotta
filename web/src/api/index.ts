@@ -31,5 +31,7 @@ export type {
   WordPin,
 } from './_internal/client.ts';
 export { importVideo } from './_internal/client.ts';
-export { fetchMedia, fetchMediaModel, fetchProjectMedia, fetchSpeech, fetchWaveform, importMedia, mediaBytes, mediaUrl, referenceMedia, relinkMedia, transcribeMedia } from './_internal/client.ts';
+export { fetchSoundEffects, soundEffectUrl, importSoundEffect } from './_internal/client.ts';
+export type { SoundEffect } from '../../../server/core/index.ts';
+export { detectMediaBeats, fetchMedia, fetchMediaModel, fetchProjectMedia, fetchSpeech, fetchWaveform, importMedia, mediaBytes, mediaUrl, referenceMedia, relinkMedia, transcribeMedia } from './_internal/client.ts';
 export type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../server/core/index.ts';

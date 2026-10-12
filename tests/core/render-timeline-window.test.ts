@@ -68,7 +68,8 @@ it('pans and zooms all native lanes together, seeks on the ruler and keeps edits
       for (const open of [true, false]) {
         const tab = page.getByRole('tab', { name: 'Media rail', exact: true });
         if ((await tab.getAttribute('aria-selected') === 'true') !== open) await tab.click();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        const overflow = await page.evaluate(() => ({ width: window.innerWidth, scroll: document.documentElement.scrollWidth, elements: Array.from(document.querySelectorAll('body *')).filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1).slice(0, 10).map((el) => ({ tag: el.tagName, class: el.className, text: el.textContent, parent: el.parentElement?.className, right: el.getBoundingClientRect().right })) }));
+        expect(overflow.scroll <= overflow.width, JSON.stringify({ open, ...overflow })).toBe(true);
       }
     }
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).focus();

@@ -1,11 +1,15 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { DUCK_DEFAULTS, applyOperation, duckSpeechSpans, mediaWithTracks } from './core/model.ts';
+import type { NewOperation, Plan } from './core/model.ts';
 import { checkTools, missingToolsMessage, openProject, versionIssues, type Project, type RenderJob, type RenderPreset, type RenderRequest } from './core/index.ts';
 import { findEditor, queueRender } from './editor-client.ts';
 import { DEFAULT_PORT, startServer, type RunningServer } from './main.ts';
 
 const CHECK_COMMAND = 'kinotta check <reel> [version] [--project <dir>]';
 const CHECK_USAGE = `Usage: ${CHECK_COMMAND}`;
+const DUCK_USAGE = 'Usage: kinotta duck --plan <file> --placement <id> --speech-track <id> [--amount <dB>] [--attack <seconds>] [--release <seconds>]';
 const RENDER_PRESETS: readonly RenderPreset[] = ['draft', 'final', 'overlay'];
 /** `kinotta render`'s setting flags (R3) and the values each takes. They apply to one render and are never saved (R16). */
 const SETTING_FLAGS = {
@@ -177,7 +181,37 @@ async function render(args: string[]): Promise<number> {
   }
 }
 
+/** Prints a frozen duck operation. The agent may apply its points to a plan, never the owner's edit list. */
+async function duck(args: string[]): Promise<number> {
+  const flags: Record<string, string> = {};
+  const allowed = new Set(['plan', 'placement', 'speech-track', 'amount', 'attack', 'release']);
+  for (let i = 0; i < args.length; i += 2) {
+    const flag = args[i]?.slice(2);
+    const value = args[i + 1];
+    if (!args[i]?.startsWith('--') || !flag || !allowed.has(flag) || value === undefined || value.startsWith('--') || flag in flags) {
+      console.error(DUCK_USAGE); return 1;
+    }
+    flags[flag] = value;
+  }
+  if (!flags.plan || !flags.placement || !flags['speech-track']) { console.error(DUCK_USAGE); return 1; }
+  try {
+    const plan = JSON.parse(await readFile(resolve(flags.plan), 'utf8')) as Plan;
+    if (!plan.media) throw new Error('Ducking needs a native media plan with transcribed source words.');
+    const media = mediaWithTracks(plan.media);
+    const settings = { ...DUCK_DEFAULTS, ...Object.fromEntries(['amount', 'attack', 'release'].filter((key) => flags[key] !== undefined).map((key) => [key, Number(flags[key])])) };
+    const spans = duckSpeechSpans(media, flags.placement, flags['speech-track'], plan.duration);
+    const operation: NewOperation = { kind: 'placement-duck', placement: flags.placement, spans, ...settings };
+    applyOperation({ plan: { ...plan, media }, words: [] }, { ...operation, id: 'check' });
+    console.log(JSON.stringify(operation));
+    return 0;
+  } catch (error) { console.error((error as Error).message); return 1; }
+}
+
 export async function main(argv: string[]): Promise<void> {
+  if (argv[0] === 'duck') {
+    process.exitCode = await duck(argv.slice(1));
+    return;
+  }
   if (argv[0] === 'check') {
     process.exitCode = await check(argv.slice(1));
     return;

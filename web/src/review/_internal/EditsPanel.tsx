@@ -38,10 +38,12 @@ function whereOn(pieces: readonly Piece[], operations: readonly Operation[], ind
   const op = operations[index]!;
   if (op.kind === 'track-add' || op.kind === 'track-change' || op.kind === 'track-move' || op.kind === 'track-remove') return 'audio track';
   if (op.kind === 'placement-detach') return 'insert sound';
+  if (op.kind === 'placement-duck') return 'music clip';
   if (op.kind === 'placement-snip') return `${formatTransport(op.from)} to ${formatTransport(op.to)}`;
   if (op.kind === 'clip-attachment') return `placement ${op.placement}`;
   if (op.kind === 'clip-split') return `clip ${op.clip}`;
   if (op.kind === 'placement-add' || op.kind === 'placement-change' || op.kind === 'placement-remove' || op.kind === 'placement-move' || op.kind === 'placement-layer' || op.kind === 'placement-replace' || op.kind === 'placement-split') return 'media placement';
+  if (op.kind === 'source-beats') return 'music source';
   const before = pieceMap(editedList(pieces, operations.slice(0, index)), 0);
   if (op.kind === 'caption-position') return 'all captions';
   if (op.kind === 'clip-trim') return formatTransport(toTimeline(before, op.in) ?? 0);
@@ -145,7 +147,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
 
 /** The right column of the Review tab: Edits (the edit list, Save and Discard) and Comments. */
 export function ReviewSide(props: ReviewSideProps) {
-  const { panelTab: tab, setPanelTab: setTab, setClipHost, setPinHost } = useEditorWorkspace();
+  const { panelTab: tab, setPanelTab: setTab, setClipHost, setSoundHost, setPinHost } = useEditorWorkspace();
   const count = props.edits?.list?.operations.length ?? 0;
   return (
     <div className="rv-side" {...verifyAttrs(tab, props.edits?.list ?? null)}>
@@ -157,11 +159,13 @@ export function ReviewSide(props: ReviewSideProps) {
           Comments{props.commentCount > 0 && <span className="dot">{props.commentCount}</span>}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'clip'} onClick={() => setTab('clip')}>Clip</button>
+        {props.media && <button type="button" role="tab" aria-selected={tab === 'sound'} onClick={() => setTab('sound')}>Sound</button>}
       </div>
       {tab === 'edits' && <EditsTab {...props} />}
       <div className="editor-pin-host" ref={setPinHost} hidden={tab !== 'comments'} />
       {tab === 'comments' && props.comments}
       <div className="editor-clip-host" ref={setClipHost} hidden={tab !== 'clip'} />
+      <div className="editor-clip-host" ref={setSoundHost} hidden={tab !== 'sound'} />
     </div>
   );
 }

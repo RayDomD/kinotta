@@ -8,6 +8,19 @@ export function malformedMediaCases() {
   const track = { id: 'speech', name: 'Speech', order: 0, gain: 1, mute: false };
   const withTrack = (changes: object) => ({ ...media, tracks: [{ ...track, ...changes }], placements: [{ ...placement, track: 'speech' }] });
   return [
+    ...[
+      null, { tempo: true, beats: [], downbeats: [] }, { tempo: -1, beats: [], downbeats: [] },
+      { tempo: 120, beats: [1, 0.5], downbeats: [] }, { tempo: 120, beats: [1, 1], downbeats: [] },
+      { tempo: 120, beats: [3], downbeats: [] }, { tempo: 120, beats: [true], downbeats: [] },
+      { tempo: 120, beats: [1], downbeats: [0.5] }, { tempo: 0, beats: [1], downbeats: [] },
+    ].map((beats, index) => ({ name: `invalid beat grid ${index}`, value: withSource({ beats }), error: 'Beat' })),
+    ...[
+      { eq: null }, { eq: {} }, { eq: [null] }, { eq: [{ type: 'compressor', frequency: 80 }] },
+      { eq: [{ type: 'highpass', frequency: 0 }] }, { eq: [{ type: 'highpass', frequency: true }] },
+      { eq: [{ type: 'peaking', frequency: 2500, gain: 25 }] }, { eq: [{ type: 'peaking', frequency: 2500, q: 0 }] },
+      { eq: [{ type: 'peaking', frequency: 2500, q: true }] }, { eq: [{ type: 'lowshelf', frequency: 100, enabled: 1 }] },
+      { eqBypass: 'false' }, { eq: Array.from({ length: 9 }, () => ({ type: 'highpass', frequency: 80 })) },
+    ].map((changes, index) => ({ name: `invalid EQ ${index}`, value: withTrack(changes), error: 'EQ' })),
     { name: 'negative picture layer', value: withPlacement({ layer: -1 }), error: 'layer' },
     { name: 'fractional picture layer', value: withPlacement({ layer: 0.5 }), error: 'layer' },
     { name: 'boolean picture layer', value: withPlacement({ layer: true }), error: 'layer' },

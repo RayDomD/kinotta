@@ -37,6 +37,16 @@ function overloadedReel() {
 }
 
 describe('mix overload (AM29, AM38)', () => {
+  it('finishes concurrent measurements of repeated uses of one sound', { timeout: 15_000 }, async () => {
+    const dir = copyFixture('footage-project');
+    const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', join(dir, 'tone.wav')], { encoding: 'utf8' });
+    expect(generated.status, generated.stderr).toBe(0);
+    const media = { schema: 1, sources: [{ id: 'tone', kind: 'audio', path: '../../tone.wav', duration: 2 }], placements: [1, 2].map((at) => ({ id: `tone-${at}`, role: 'audio', source: 'tone', at, in: 0, out: 2, fadeIn: 0.2, fadeOut: 0.2 })), sequence: [] };
+    writeFileSync(join(dir, 'reels', REEL, 'plan.json'), JSON.stringify({ duration: 4, clips: [], media }));
+    const project = openProject(dir);
+    const results = await Promise.all(Array.from({ length: 6 }, () => project.mixOverload(REEL)));
+    expect(results).toEqual(Array.from({ length: 6 }, () => ({ spans: [] })));
+  });
   it('finds where the rendered mix passes full scale, with its peak, and nowhere else', async () => {
     const { project } = overloadedReel();
 

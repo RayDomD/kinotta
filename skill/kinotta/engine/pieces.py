@@ -66,6 +66,11 @@ def media_timeline(media, authored_duration=0):
             sys.exit('A track needs an identity, name, nonnegative whole order, gain between zero and two, and boolean mute.')
         if track['id'] in tracks or track['order'] in orders: sys.exit('Each track needs a unique identity and order.')
         tracks.add(track['id']); orders.add(track['order'])
+        if 'eqBypass' in track and not isinstance(track['eqBypass'], bool): sys.exit('EQ bypass must be boolean.')
+        if 'eq' in track and (not isinstance(track['eq'], list) or len(track['eq']) > 8): sys.exit('Track EQ needs a list of at most eight filters.')
+        for filt in track.get('eq', []):
+            if not isinstance(filt, dict) or filt.get('type') not in ('highpass', 'lowpass', 'peaking', 'lowshelf', 'highshelf') or not finite(filt.get('frequency')) or not 20 <= filt['frequency'] <= 20000 or ('gain' in filt and (not finite(filt['gain']) or abs(filt['gain']) > 24)) or ('q' in filt and (not finite(filt['q']) or not 0.1 <= filt['q'] <= 10)) or ('enabled' in filt and not isinstance(filt['enabled'], bool)):
+                sys.exit('EQ filters need a supported type, 20–20000 Hz, gain within ±24 dB and Q from 0.1 to 10.')
     sources, placements = {}, {}
     for source in media['sources']:
         if not isinstance(source, dict): sys.exit('A source needs an identity, path and valid duration.')
@@ -76,6 +81,12 @@ def media_timeline(media, authored_duration=0):
         if source.get('kind') not in ('video', 'image', 'audio'): sys.exit('A source kind must be video, image or audio.')
         if 'audio' in source and not isinstance(source['audio'], bool): sys.exit('Source audio must be a boolean.')
         if 'words' in source: words(source['words'])
+        if 'beats' in source:
+            grid = source['beats']
+            def ordered(times):
+                return isinstance(times, list) and all(finite(t) and 0 <= t < source['duration'] and (i == 0 or t > times[i - 1]) for i, t in enumerate(times))
+            if not isinstance(grid, dict) or not finite(grid.get('tempo')) or grid['tempo'] < 0 or not ordered(grid.get('beats')) or not ordered(grid.get('downbeats')) or any(t not in grid['beats'] for t in grid['downbeats']) or (grid['beats'] and grid['tempo'] == 0):
+                sys.exit('Beat timing needs a nonnegative tempo, ordered source times and downbeats from the beat list.')
         sources[id_] = source
     for p in media['placements']:
         if not isinstance(p, dict): sys.exit('A placement needs an identity.')

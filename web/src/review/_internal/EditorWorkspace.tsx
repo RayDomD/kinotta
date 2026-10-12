@@ -17,12 +17,14 @@ interface Workspace {
   setMediaHost: Dispatch<SetStateAction<HTMLDivElement | null>>;
   clipHost: HTMLDivElement | null;
   setClipHost: Dispatch<SetStateAction<HTMLDivElement | null>>;
+  soundHost: HTMLDivElement | null;
+  setSoundHost: Dispatch<SetStateAction<HTMLDivElement | null>>;
   pinHost: HTMLDivElement | null;
   setPinHost: Dispatch<SetStateAction<HTMLDivElement | null>>;
   sectionHost: HTMLDivElement | null;
   setSectionHost: Dispatch<SetStateAction<HTMLDivElement | null>>;
-  panelTab: 'edits' | 'comments' | 'clip';
-  setPanelTab: Dispatch<SetStateAction<'edits' | 'comments' | 'clip'>>;
+  panelTab: 'edits' | 'comments' | 'clip' | 'sound';
+  setPanelTab: Dispatch<SetStateAction<'edits' | 'comments' | 'clip' | 'sound'>>;
 }
 const Context = createContext<Workspace | null>(null);
 
@@ -43,15 +45,16 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mediaHost, setMediaHost] = useState<HTMLDivElement | null>(null);
   const [clipHost, setClipHost] = useState<HTMLDivElement | null>(null);
+  const [soundHost, setSoundHost] = useState<HTMLDivElement | null>(null);
   const [pinHost, setPinHost] = useState<HTMLDivElement | null>(null);
   const [sectionHost, setSectionHost] = useState<HTMLDivElement | null>(null);
-  const [panelTab, setPanelTab] = useState<'edits' | 'comments' | 'clip'>('edits');
+  const [panelTab, setPanelTab] = useState<'edits' | 'comments' | 'clip' | 'sound'>('edits');
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
     document.documentElement.dataset.accent = settings.accent;
     saveEditorSettings(settings);
   }, [settings]);
-  return <Context.Provider value={{ settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab }}>
+  return <Context.Provider value={{ settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab }}>
     <div className="editor-workspace" {...verifyAttrs(settings, railOpen, railTab, settingsOpen)} onKeyDown={(event) => {
       const target = event.target as HTMLElement;
       if (event.defaultPrevented || settingsOpen || target.closest('input, textarea, select, [contenteditable="true"]') || !target.closest('[data-review-shell="true"]')) return;

@@ -123,7 +123,10 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
     await page.keyboard.press('Control+z');
     await expect.poll(last).toMatchObject({ kind: 'placement-split', placement: 'footage' });
+    // Selecting sound opens Clip settings. History controls live in Edits.
+    await page.getByRole('tab', { name: /^Edits/ }).click();
     await expect.poll(() => page.getByRole('button', { name: /^Redo/ }).isEnabled()).toBe(true);
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
     await page.keyboard.press('Control+y');
     await expect.poll(last).toMatchObject({ kind: 'placement-snip', from: 1, to: 3 });
     await page.getByRole('button', { name: 'Settings', exact: true }).click();

@@ -31,6 +31,18 @@ function block(message: string | null, header: string): string[] {
 }
 
 describe('checkTools', () => {
+  it('reports Stable Audio as optional and checks all of its Python packages without importing the model', async () => {
+    const run: Run = async (command, args) => args.at(-1)?.includes('diffusers') ? { code: 1, output: '' } : machine(ALL)(command, args);
+    const check = await checkTools({ run, findChromium: chromium(true) });
+    expect(check.tools.find((tool) => tool.id === 'stable-audio')).toMatchObject({ present: false, neededFor: [] });
+    expect(missingToolsMessage(check)).toBeNull();
+  });
+  it('reports Kokoro as optional without making video or rendering depend on it', async () => {
+    const run: Run = async (command, args) => args.at(-1)?.includes('kokoro_onnx') ? { code: 1, output: '' } : machine(ALL)(command, args);
+    const check = await checkTools({ run, findChromium: chromium(true) });
+    expect(check.tools.find((tool) => tool.id === 'kokoro-onnx')).toMatchObject({ present: false, neededFor: [], hint: 'pip install kokoro-onnx soundfile (owner supplies local model and voices files)' });
+    expect(missingToolsMessage(check)).toBeNull();
+  });
   it('reports nothing missing and prints no message when everything is installed', async () => {
     const check = await checkTools({ run: machine(ALL), findChromium: chromium(true) });
     expect(check.missing).toEqual([]);
@@ -48,12 +60,12 @@ describe('checkTools', () => {
   it('names faster-whisper when Python lacks it, and finds Python as py -3', async () => {
     const check = await checkTools({ run: machine(['py -3 --version', 'ffmpeg -version']), findChromium: chromium(true) });
     expect(check.tools.find((tool) => tool.id === 'python')?.present).toBe(true);
-    expect(check.missing.map((tool) => tool.id)).toEqual(['faster-whisper']);
+    expect(check.missing.map((tool) => tool.id)).toEqual(['faster-whisper', 'kokoro-onnx', 'stable-audio']);
   });
 
   it('names Python and faster-whisper for reels from video only when there is no Python 3', async () => {
     const check = await checkTools({ run: machine(['ffmpeg -version']), platform: 'darwin', findChromium: chromium(true) });
-    expect(check.missing.map((tool) => tool.id)).toEqual(['python', 'faster-whisper']);
+    expect(check.missing.map((tool) => tool.id)).toEqual(['python', 'faster-whisper', 'kokoro-onnx', 'stable-audio']);
     const message = missingToolsMessage(check);
     expect(block(message, VIDEO_HEADER)).toEqual(['  Python 3: brew install python', '  faster-whisper: pip install faster-whisper (needs Python 3 first)']);
     expect(message).not.toContain(RENDER_HEADER);
@@ -79,6 +91,8 @@ describe('checkTools', () => {
       ffmpeg: ['video', 'render'],
       'faster-whisper': ['video'],
       chromium: ['render'],
+      'kokoro-onnx': [],
+      'stable-audio': [],
     });
   });
 

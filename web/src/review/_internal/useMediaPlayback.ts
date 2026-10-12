@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { audioFades, audioGain, mediaTimeline, mediaWithTracks, trackGain } from '../../../../server/core/model.ts';
+import { MEDIA_AUDIO_RATE, activeTrackEq, webAudioEqQ, audioFades, audioGain, mediaTimeline, mediaWithTracks, trackGain } from '../../../../server/core/model.ts';
 import type { MediaPlan } from '../../../../server/core/model.ts';
 import { mediaBytes } from '../../api/index.ts';
 
@@ -13,6 +13,7 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
   const context = useRef<AudioContext | null>(null);
   const buffers = useRef(new Map<string, AudioBuffer>());
   const nodes = useRef<AudioBufferSourceNode[]>([]);
+  const effects = useRef<AudioNode[]>([]);
   const position = useRef(0);
   const anchor = useRef({ time: 0, clock: 0 });
   const [time, setTime] = useState(0);
@@ -26,10 +27,12 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
   const stop = useCallback(() => {
     for (const node of nodes.current) { try { node.stop(); } catch { /* Already ended. */ } node.disconnect(); }
     nodes.current = [];
+    for (const node of effects.current) node.disconnect();
+    effects.current = [];
   }, []);
 
   useEffect(() => {
-    context.current = new AudioContext();
+    context.current = new AudioContext({ sampleRate: MEDIA_AUDIO_RATE });
     return () => { stop(); void context.current?.close(); context.current = null; };
   }, [stop]);
 
@@ -96,7 +99,16 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
       }
       const track = ctx.createGain();
       track.gain.value = trackGain(tracked, p);
-      source.connect(volume).connect(fadeStart).connect(fadeEnd).connect(track).connect(ctx.destination);
+      effects.current.push(volume, fadeStart, fadeEnd, track);
+      let output: AudioNode = source.connect(volume).connect(fadeStart).connect(fadeEnd).connect(track);
+      for (const filter of activeTrackEq(tracked.tracks?.find((track) => track.id === p.track))) {
+        const biquad = ctx.createBiquadFilter();
+        biquad.type = filter.type; biquad.frequency.value = filter.frequency;
+        biquad.gain.value = filter.gain ?? 0; biquad.Q.value = webAudioEqQ(filter);
+        output.connect(biquad); output = biquad;
+        effects.current.push(biquad);
+      }
+      output.connect(ctx.destination);
       source.start(start, p.in + (p.loop ? local % (p.out - p.in) : local), remaining);
       nodes.current.push(source);
     }

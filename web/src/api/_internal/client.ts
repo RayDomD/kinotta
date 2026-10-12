@@ -1,5 +1,5 @@
 import type { CaptionsPlan, ElementOffset, MediaPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
-import type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../../server/core/index.ts';
+import type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {
   slug: string;
@@ -426,12 +426,20 @@ const speechPath = (source: string, saved?: { reel: string; version: number }): 
   return `/api/media/${encodeURIComponent(source)}/speech?${params}`;
 };
 export const fetchSpeech = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => getJson(speechPath(source, saved));
+export const detectMediaBeats = (source: string, saved?: { reel: string; version: number }, fresh = false): Promise<import('../../../../server/core/model.ts').BeatGrid> => {
+  const params = new URLSearchParams({ fresh: String(fresh) });
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
+  return requestJson(`/api/media/${encodeURIComponent(source)}/beats?${params}`, { method: 'POST' });
+};
 /** Starts the source's transcription, or retries a failed one. Cached words come straight back. */
 export const transcribeMedia = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => requestJson(speechPath(source, saved), { method: 'POST' });
 export const fetchProjectMedia = async (): Promise<ProjectMediaFile[]> => (await getJson<{ files: ProjectMediaFile[] }>('/api/media/project')).files;
 export const referenceMedia = (path: string): Promise<ImportedMedia> => requestJson('/api/media/reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) });
 export const relinkMedia = (source: string, path: string): Promise<MediaEntry> => requestJson('/api/media/relink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, path }) });
 export const importMedia = (file: File): Promise<ImportedMedia> => requestJson(`/api/media?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+export const fetchSoundEffects = async (): Promise<SoundEffect[]> => (await getJson<{ effects: SoundEffect[] }>('/api/sound-effects')).effects;
+export const soundEffectUrl = (id: string): string => `/sound-effects/${encodeURIComponent(id)}`;
+export const importSoundEffect = (id: string): Promise<ImportedMedia> => requestJson(`/api/sound-effects/${encodeURIComponent(id)}`, { method: 'POST' });
 export async function mediaBytes(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url);
   if (!response.ok) throw new Error('The sound could not be loaded. Check the source and retry.');
