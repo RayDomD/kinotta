@@ -4,7 +4,7 @@ import { BUILT_BY_YOU, applyOperations, operationTouches } from './edit-model.ts
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { handoffReason, readHandoff } from './handoff.ts';
-import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, sceneForShot, writeEdits, writeSceneTiming } from './code-edits.ts';
+import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, sceneForShot, stillTime, writeEdits, writeSceneTiming } from './code-edits.ts';
 import { freezePageDependencies } from './graphic-preservation.ts';
 import { preserveMedia } from './media-preservation.ts';
 import { withSpeech } from './media-speech.ts';
@@ -104,7 +104,7 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
       shots.shots = (shots.shots as { start: number; title: string; scene?: string }[]).map((shot) => {
         const scene = sceneForShot(shot, scenes);
         const clip = edited.plan.clips?.find((c) => c.id === scene?.name);
-        return clip ? { ...shot, scene: clip.id, start: clip.in } : shot;
+        return scene && clip ? { ...shot, scene: clip.id, start: stillTime(shot.start, scene, clip) } : shot;
       }).sort((a, b) => a.start - b.start);
     }
     await writeFile(join(stage, 'shots.json'), `${JSON.stringify({ ...shots, changedSections, builtBy: BUILT_BY_YOU }, null, 2)}

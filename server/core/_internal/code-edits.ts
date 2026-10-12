@@ -87,22 +87,58 @@ export function sceneForShot(shot: CodeShot, scenes: readonly PageScene[]): Page
     ?? scenes.find((scene) => scene.start <= shot.start && scene.start + scene.duration > shot.start);
 }
 
-/** Update markup only when picture timing changed. The page still owns its animation code. */
-export async function writeSceneTiming(dir: string, before: Sources, after: Sources): Promise<void> {
-  if (JSON.stringify(before.plan.clips?.map((c) => [c.id, c.in, c.out])) === JSON.stringify(after.plan.clips?.map((c) => [c.id, c.in, c.out]))) return;
-  const file = join(dir, PAGE_FILE);
-  const root = parse(await readFile(file, 'utf8'));
-  for (const node of root.querySelectorAll('[data-scene]')) {
-    const clip = after.plan.clips?.find((c) => c.id === node.getAttribute('data-scene'));
-    if (!clip) continue;
-    node.setAttribute('data-start', String(clip.in));
-    node.setAttribute('data-duration', String(Number((clip.out - clip.in).toFixed(6))));
+/**
+ * Where a shot's still is drawn once its scene plays as `clip`: the same distance from the scene's start, or from
+ * its end when a trim left that moment outside the shot.
+ */
+export function stillTime(shotStart: number, scene: PageScene, clip: { in: number; out: number }): number {
+  const fromStart = shotStart - scene.start;
+  const fromEnd = scene.start + scene.duration - shotStart;
+  const at = fromStart < clip.out - clip.in ? clip.in + fromStart : clip.out - fromEnd;
+  return Number(Math.max(clip.in, at).toFixed(6));
+}
+
+/** The end of the opening tag that starts at `from`, past any `>` inside a quoted value. */
+function openingTagEnd(html: string, from: number): number {
+  let quote = '';
+  for (let i = from; i < html.length; i++) {
+    const char = html[i]!;
+    if (quote) { if (char === quote) quote = ''; } else if (char === '"' || char === "'") quote = char;
+    else if (char === '>') return i + 1;
   }
-  const durationScript = root.querySelector('script[data-kinotta-duration]');
-  const durationCode = `window.DURATION = ${after.plan.duration};`;
-  if (durationScript) durationScript.set_content(durationCode);
-  else (root.querySelector('body') ?? root).insertAdjacentHTML('beforeend', `<script data-kinotta-duration>${durationCode}</script>`);
-  await writeFile(file, root.toString(), 'utf8');
+  return html.length;
+}
+
+const DURATION_SCRIPT = /<script data-kinotta-duration>[^<]*<\/script>/;
+
+/**
+ * Writes changed picture timing into the page: each moved scene's `data-start` and `data-duration`, and the reel
+ * length when it changed. Only those values are replaced in the source, so the rest of the agent's page is untouched.
+ */
+export async function writeSceneTiming(dir: string, before: Sources, after: Sources): Promise<void> {
+  const file = join(dir, PAGE_FILE);
+  const source = await readFile(file, 'utf8');
+  let html = source;
+  // Last scene first, so the positions of the scenes still to rewrite hold.
+  const nodes = parse(source).querySelectorAll('[data-scene]').sort((a, b) => b.range[0] - a.range[0]);
+  for (const node of nodes) {
+    const id = node.getAttribute('data-scene');
+    const clip = after.plan.clips?.find((c) => c.id === id);
+    const was = before.plan.clips?.find((c) => c.id === id);
+    if (!clip || (was?.in === clip.in && was?.out === clip.out)) continue;
+    const [from] = node.range;
+    const to = openingTagEnd(html, from);
+    const set = (tag: string, name: string, value: number): string => tag.replace(new RegExp(`(\\s${name}\\s*=\\s*)("[^"]*"|'[^']*'|[^\\s>]+)`), (_, lead: string) => `${lead}"${value}"`);
+    const tag = set(set(html.slice(from, to), 'data-start', clip.in), 'data-duration', Number((clip.out - clip.in).toFixed(6)));
+    html = html.slice(0, from) + tag + html.slice(to);
+  }
+  if (before.plan.duration !== after.plan.duration) {
+    const script = `<script data-kinotta-duration>window.DURATION = ${after.plan.duration};</script>`;
+    const body = html.lastIndexOf('</body>');
+    if (DURATION_SCRIPT.test(html)) html = html.replace(DURATION_SCRIPT, () => script);
+    else html = body < 0 ? html + script : html.slice(0, body) + script + html.slice(body);
+  }
+  if (html !== source) await writeFile(file, html, 'utf8');
 }
 
 /** Code pages take free shot timing, element offsets, and sound edits, without cutting the whole reel. */
