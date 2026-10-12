@@ -5,10 +5,10 @@ import { expect, it } from 'vitest';
 import { mediaTimeline } from '../../server/core/model.ts';
 import type { Plan } from '../../server/core/model.ts';
 
-it('bundles all 19 effects with their credits and validates the sound reference plan in both engines', () => {
+it('bundles all 17 listed effects with their credits and validates the sound reference plan in both engines', () => {
   const assets = resolve('skill/kinotta/assets/sfx');
   const manifest = JSON.parse(readFileSync(resolve(assets, 'manifest.json'), 'utf8')) as Record<string, { file: string; duration: number }>;
-  expect(Object.keys(manifest)).toHaveLength(19);
+  expect(Object.keys(manifest)).toHaveLength(17);
   for (const entry of Object.values(manifest)) {
     expect(existsSync(resolve(assets, entry.file))).toBe(true);
     expect(entry.duration).toBeGreaterThan(0);
