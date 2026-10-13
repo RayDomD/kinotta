@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewer, transport and clips</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap">
+<style>
+:root{--ground:oklch(.184 .004 106);--deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--raised:oklch(.246 .005 90);--ink:oklch(.945 .004 106);--ink2:oklch(.82 .007 106);--muted:oklch(.64 .008 106);--rule:oklch(.945 .004 106 / .14);--hair:oklch(.945 .004 106 / .24);--light:oklch(.84 .11 225);--wash:oklch(.84 .11 225 / .07);--still:oklch(.13 .006 50);--tb:#0d0f17;--tp:#151826;--tr:#262a3d;--tt:#e6e8f2;--tm:#8b90a8;--ta:#6366f1}
+*{box-sizing:border-box;margin:0}
+body{background:var(--deep);color:var(--ink);font:15px/1.5 Outfit,"Segoe UI",sans-serif;padding:32px 24px 80px}
+.page{max-width:1240px;margin:0 auto}
+h1{font-size:26px;font-weight:500;letter-spacing:-.5px}
+.lede{color:var(--ink2);max-width:72ch;margin:8px 0 0}
+section{margin-top:52px}
+h2{font-size:20px;font-weight:500}
+.say{color:var(--ink2);max-width:76ch;margin:4px 0 16px}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.cols.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opt{border:1px solid var(--rule);background:var(--ground);padding:14px}
+.opt.rec{border-color:var(--light)}
+.opt h3{font-size:15px;font-weight:500;display:flex;gap:10px;align-items:baseline}
+.opt h3 b{font:800 14px Doto,monospace;color:var(--light)}
+.opt h3 em{font-style:normal;font-size:12px;color:var(--light);margin-left:auto}
+.opt p{color:var(--muted);font-size:13.5px;margin-top:8px}
+.cap{font-size:12px;color:var(--muted);margin-bottom:6px}
+/* screen schematic */
+.scr{aspect-ratio:16/10;border:1px solid var(--hair);display:grid;grid-template-columns:1fr 24%;grid-template-rows:6% 1fr;font-size:11px;color:var(--muted);margin-top:12px;background:var(--ground)}
+.scr .bar{grid-column:1/-1;border-bottom:1px solid var(--rule)}
+.scr .mid{display:flex;flex-direction:column;min-height:0}
+.scr .pic{background:#f3e9d8;color:#c2410c;display:grid;place-items:center;font-weight:600;margin:0 auto;aspect-ratio:16/9}
+.scr .void{display:grid;place-items:center;flex:none}
+.scr .tl{flex:1;border-top:1px solid var(--rule);display:grid;place-items:center;background:repeating-linear-gradient(0deg,transparent 0 11px,var(--rule) 11px 12px)}
+.scr .insp{border-left:1px solid var(--rule);display:grid;place-items:center}
+.scr.focus{grid-template-columns:1fr}
+/* transport */
+.tbar{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--rule);background:var(--ground);margin-top:10px;flex-wrap:wrap}
+.hexbtn{width:30px;height:32px;background:var(--ink);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;color:var(--ground);font-size:12px;flex:none}
+.tool{border:1px solid var(--hair);min-width:30px;height:30px;display:grid;place-items:center;color:var(--ink2);font-size:13px;padding:0 6px}
+.tool.on{border-color:var(--light);color:var(--light);background:var(--wash)}
+.tc{font:800 17px Doto,monospace;font-variant-numeric:tabular-nums}.tc span{color:var(--muted);font-size:13px}
+.scrub{flex:1;min-width:260px;height:30px;position:relative}
+.scrub .line{position:absolute;left:0;right:0;top:14px;height:2px;background:var(--hair)}
+.scrub .done{position:absolute;left:0;top:14px;height:2px;background:var(--ink);width:41%}
+.scrub .tick{position:absolute;top:9px;width:1px;height:12px;background:var(--hair)}
+.scrub .head{position:absolute;left:41%;top:4px;width:2px;height:22px;background:var(--ink)}
+.scrub .pin{position:absolute;top:0;width:14px;height:15px;margin-left:-7px;background:var(--light);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);color:var(--ground);font:800 9px Doto,monospace;display:grid;place-items:center}
+.scrub .lab{position:absolute;top:21px;font-size:10px;color:var(--muted);white-space:nowrap}
+.theirs{background:var(--tb);color:var(--tt);font:12px system-ui;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-top:10px}
+.theirs .sq{border:1px solid var(--tr);border-radius:6px;padding:4px 8px}
+.theirs .ln{flex:1;height:3px;background:var(--tr);border-radius:2px;position:relative}.theirs .ln::after{content:"";position:absolute;left:88%;top:-4px;width:11px;height:11px;border-radius:50%;background:var(--ta)}
+.keys{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:13px;color:var(--ink2)}
+kbd{font:800 12px Doto,monospace;border:1px solid var(--hair);padding:1px 6px;color:var(--ink);margin-right:5px}
+/* clips */
+.track{border:1px solid var(--rule);background:var(--ground);padding:10px;margin-top:10px}
+.clip{height:44px;border:1px solid var(--hair);display:flex;align-items:flex-end;position:relative;overflow:hidden;font-size:12px;color:var(--ink)}
+.clip .nm{background:oklch(.184 .004 106 / .82);padding:1px 7px}
+.clip.sel{border-color:var(--light)}
+.thumbs{position:absolute;inset:0;display:flex}.thumbs i{flex:1;border-right:1px solid oklch(.184 .004 106 / .5)}
+.badge{position:absolute;right:6px;top:5px;font:800 11px Doto,monospace;background:var(--ground);color:var(--light);padding:0 5px;border:1px solid var(--light)}
+.menu{background:var(--card);border:1.6px solid var(--ink);box-shadow:5px 5px 0 -1.6px var(--deep),5px 5px 0 0 oklch(.945 .004 106 / .42);width:236px;font-size:14px;margin-top:12px}
+.menu div{display:flex;justify-content:space-between;padding:7px 12px;border-top:1px solid var(--rule)}.menu div:first-child{border-top:0}
+.menu span{color:var(--muted);font:800 12px Doto,monospace}
+.tclip{background:#0f766e;border:1px solid #2dd4bf;border-radius:4px;height:44px;position:relative;font:11px system-ui;color:#e6fffb;padding:3px 6px;display:flex;flex-direction:column;justify-content:space-between}
+.tclip .r{display:flex;justify-content:space-between;opacity:.9}
+.ask{margin-top:56px;border-top:1px solid var(--rule);padding-top:22px;color:var(--ink2);max-width:76ch}
+.ask b{color:var(--ink);font-weight:500}
+@media (max-width:900px){.cols,.cols.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Viewer, transport and clips</h1>
+<p class="lede">Three places where their editor does something Kinotta's Review screen does not. Each block shows theirs or today's Kinotta first, then what I would build. A blue outline marks my pick. This changes the layout saved in <span style="color:var(--ink)">2026-10-08-review-media-editor-screen.html</span>, so nothing here is decided until you say so.</p>
+
+<!-- VIEWER -->
+<section>
+<h2>V. How much room the picture gets</h2>
+<p class="say">Today the frame is capped at 36% of the window height (<code>.rv-frame</code> in review.css), whatever the window size. On a 1440 × 900 window that is a 576 × 324 picture. Theirs takes about half the height. The drawings are to scale.</p>
+<div class="cols">
+  <div class="opt">
+    <h3><b>V0</b>Today</h3>
+    <div class="scr"><div class="bar"></div><div class="mid"><div class="void" style="height:41%"><div class="pic" style="height:88%;font-size:11px">36%</div></div><div class="tl">Timeline · 59%</div></div><div class="insp">Clip</div></div>
+    <p>The timeline gets most of the screen even on a reel with three tracks, where it does not need it.</p>
+  </div>
+  <div class="opt rec">
+    <h3><b>V1</b>A divider you drag<em>my pick</em></h3>
+    <div class="scr"><div class="bar"></div><div class="mid"><div class="void" style="height:60%"><div class="pic" style="height:92%;font-size:13px">55%</div></div><div style="height:3px;background:var(--light)"></div><div class="tl">Timeline · 38%</div></div><div class="insp">Clip</div></div>
+    <p>The picture fills whatever is above the divider. Starts at 55%, remembered per reel. Dense sound work pulls it up; picture review pushes it down.</p>
+  </div>
+  <div class="opt rec">
+    <h3><b>V2</b>Focus, on a key<em>my pick, with V1</em></h3>
+    <div class="scr focus"><div class="bar"></div><div class="mid"><div class="void" style="height:88%"><div class="pic" style="height:96%;font-size:15px">84%</div></div><div class="tl" style="background:none">Transport only</div></div></div>
+    <p><kbd>F</kbd> hides the panel and the tracks and leaves the picture with the transport. Pins still work. This is the view for judging motion.</p>
+  </div>
+</div>
+</section>
+
+<!-- TRANSPORT -->
+<section>
+<h2>T. The transport under the picture</h2>
+<p class="say">Kinotta has two today: a hex play button with a timecode on code-built reels, and a text "Play" with a typed Playhead number on media reels. Neither can be scrubbed under the picture or stepped by a frame with the mouse.</p>
+<div class="cap">Theirs</div>
+<div class="theirs"><span class="sq">|◀</span><span style="font-family:ui-monospace,monospace">00:00:34:18</span><span class="ln"></span><span>0:37</span><span class="sq">▶|</span></div>
+<div class="cap" style="margin-top:18px">Kinotta today, media reels</div>
+<div class="tbar"><span style="color:var(--ink2)">Play</span><span style="color:var(--ink2)">Playhead</span><span style="border:1px solid var(--hair);padding:3px 10px" class="num">1.00</span><span class="num" style="color:var(--muted)">/ 3.00s</span></div>
+<div class="cap" style="margin-top:18px">Proposed: one transport for every reel</div>
+<div class="tbar" style="border-color:var(--light)">
+  <span class="tool" title="Previous shot">⏮</span><span class="tool" title="Back one frame">◀</span><span class="hexbtn">▶</span><span class="tool" title="Forward one frame">▶</span><span class="tool" title="Next shot">⏭</span>
+  <span class="tc">00:07.12 <span>/ 00:18.00</span></span>
+  <div class="scrub"><div class="line"></div><div class="done"></div>
+    <div class="tick" style="left:17%"></div><div class="tick" style="left:28%"></div><div class="tick" style="left:44%"></div><div class="tick" style="left:61%"></div><div class="tick" style="left:83%"></div>
+    <div class="pin" style="left:8%">1</div><div class="pin" style="left:40%">2</div><div class="pin" style="left:66%">3</div>
+    <div class="head"></div>
+    <span class="lab" style="left:0">01</span><span class="lab" style="left:17.5%">02</span><span class="lab" style="left:28.5%">03</span><span class="lab" style="left:44.5%">04</span><span class="lab" style="left:61.5%">05</span><span class="lab" style="left:83.5%">06</span>
+  </div>
+  <span class="tool on" title="Loop the selection">Loop</span><span class="tool" title="Focus">F</span>
+</div>
+<div class="cols" style="margin-top:16px">
+  <div class="opt rec"><h3><b>T1</b>Scrub bar with shots and pins<em>my pick</em></h3><p>Theirs is a bare line. Kinotta's shows shot boundaries as ticks and your pins as hexes, so you can drag straight to "comment 2" without going down to the tracks.</p></div>
+  <div class="opt rec"><h3><b>T2</b>Frame and shot stepping<em>my pick</em></h3><p>One frame either way, and jump to the previous or next shot. Arrow keys already move the playhead; this adds the buttons and the shot jump.</p></div>
+  <div class="opt"><h3><b>T3</b>Shuttle and marks</h3><p>Their J K L and I O keys, and loop over a marked range. Worth it if you cut footage by ear; little use on a 15 second code-built reel.</p>
+    <div class="keys"><span><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>back, pause, forward</span><span><kbd>I</kbd><kbd>O</kbd>mark in and out</span><span><kbd>Shift L</kbd>loop</span></div></div>
+</div>
+</section>
+
+<!-- CLIPS -->
+<section>
+<h2>C. What a clip shows and does on the timeline</h2>
+<p class="say">Their clips carry buttons and readouts on the bar itself. Kinotta keeps a clip quiet and puts its settings in the Clip tab, which I would keep. Two of their ideas still fit.</p>
+<div class="cols two">
+  <div>
+    <div class="cap">Theirs: everything on the bar</div>
+    <div class="track" style="background:var(--tb);border-color:var(--tr)"><div class="tclip"><div class="r"><b>PF0047-03_Clip-3_REC709_2K.mp4</b></div><div class="r"><span>In 0:00 Out 0:11 &nbsp; 1x ▾</span><span>Unlink &nbsp; 🗑</span></div></div></div>
+    <div class="cap" style="margin-top:16px">Kinotta today</div>
+    <div class="track"><div class="clip"><span class="nm">Red</span></div></div>
+  </div>
+  <div>
+    <div class="cap">Proposed</div>
+    <div class="track" style="border-color:var(--light)">
+      <div style="display:grid;grid-template-columns:3fr 4fr 2fr;gap:2px">
+        <div class="clip"><div class="thumbs"><i style="background:#1c1917"></i><i style="background:#292524"></i><i style="background:#1c1917"></i></div><span class="nm" style="position:relative">03 Problem</span></div>
+        <div class="clip sel"><div class="thumbs"><i style="background:#f3e9d8"></i><i style="background:#ecdcc3"></i><i style="background:#f3e9d8"></i><i style="background:#ecdcc3"></i></div><span class="nm" style="position:relative">04 Price reveal</span><span class="badge">1.5×</span></div>
+        <div class="clip"><div class="thumbs"><i style="background:#44403c"></i><i style="background:#57534e"></i></div><span class="nm" style="position:relative">interview.mp4</span></div>
+      </div>
+    </div>
+    <div class="menu"><div>Split at playhead <span>Ctrl K</span></div><div>Duplicate <span>Ctrl D</span></div><div>Copy <span>Ctrl C</span></div><div>Remove and close the gap <span>Shift Del</span></div><div>Remove <span>Del</span></div></div>
+  </div>
+</div>
+<div class="cols" style="margin-top:16px">
+  <div class="opt rec"><h3><b>C1</b>Stills along the clip<em>my pick</em></h3><p>Footage shows frames; a code-built shot shows its own live stills, which their editor cannot do. You find a shot by sight instead of by name.</p></div>
+  <div class="opt rec"><h3><b>C2</b>Right-click menu<em>my pick</em></h3><p>The five actions above, each with its key. Removing and closing the gap is new; the rest exist as toolbar buttons or keys and gain a second way in.</p></div>
+  <div class="opt"><h3><b>C3</b>Speed badge</h3><p>Only appears with the speed control (P2 from earlier). Listed here so the clip design leaves room for it.</p></div>
+</div>
+</section>
+
+<p class="ask"><b>Tell me which codes to keep.</b> My picks are V1, V2, T1, T2, C1 and C2. T3 depends on how much footage you cut. C3 waits for speed. Their on-clip buttons, track staircase and purple accent are deliberately not carried over.</p>
+</div>
+</body>
+</html>
