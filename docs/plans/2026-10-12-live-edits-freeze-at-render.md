@@ -1,7 +1,7 @@
 ---
 title: live-edits-freeze-at-render
 date: 2026-10-12
-status: Draft
+status: Approved
 summary: Edits apply to the reel in place; a version is frozen only at a render or a comment hand-off.
 spec:
 ---
@@ -31,6 +31,7 @@ Acceptance criteria:
 - A Draft uses the content captured when it was requested, even if editing continues while it waits in the render queue. Its temporary inputs are removed on completion, failure or cancellation.
 - A hand-off identifies an exact frozen version. Further live edits keep applying and replay onto the agent's next version, with conflicts shown through the existing flagged-operation flow.
 - Legacy reels with pending edit lists migrate without applying their operations twice. Older versions and their renders keep opening.
+- An operation the agent adds to the working reel is recorded with who made it. The Edits list shows each edit as made by you or by the agent's name, and undo reverses an agent's edit like any other.
 
 ## Approach
 
@@ -54,7 +55,7 @@ Update ADR 0003 and the glossary to distinguish the working reel from a frozen v
 2. Extract the freeze boundary from Save using staging, media preservation and the existing journal recovery. Test unchanged content, undo-to-frozen content, missing media, concurrent edits and interrupted publication.
 3. Route working Final/Overlay renders through the boundary. Add transient Draft captures and their job/listing identity, queue isolation and cleanup. Keep explicit older-version renders unchanged.
 4. Freeze and map comments at hand-off, then test later edits, section carry, agent replay and conflict recovery.
-5. Show Working in Review, remove Save, and connect history, renders and comments to the new core behavior. Follow a saved mockup for any unresolved visual choice before editing the UI.
+5. Build to `docs/mockups/2026-10-14-working-reel.html`, which the owner chooses in a preview before any agent is dispatched. Show Working in Review, remove Save, and connect history, renders and comments to the new core behavior. Follow a saved mockup for any unresolved visual choice before editing the UI.
 6. Revise the HTTP/core documentation, glossary, ADR and local Kinotta skill references. Check the installed skill update procedure before synchronizing it.
 7. Run the core/render/e2e checks, Impeccable critique and audit, then write the session summary and regenerate the dashboard.
 
@@ -78,3 +79,9 @@ Update ADR 0003 and the glossary to distinguish the working reel from a frozen v
 - Plan created with Intent only. Decided with the owner: versions freeze at render and hand-off.
 - Owner approved all three recommendations: no manual checkpoint, Draft renders use the working reel without freezing, and live edits apply during hand-off and replay onto the next version. Goal and Approach still need to be written and approved before implementation.
 - Goal, Approach, acceptance criteria, steps and risks drafted from the existing journal, Save, render and batch paths. Awaiting approval of this implementation approach. No live-edits code has changed.
+
+### 2026-10-14
+- Approved by the owner as written, in the 2026-10-13 grilling session.
+- Added: the agent's small changes appear in the Edits list under its name and can be undone.
+- The Working screen is to be designed with the owner in a preview before dispatch; step 5 builds to that mockup.
+- To be built by Codex (`gpt-6.1-sol`, medium effort) as the first part of one continuous run: live edits, shots as parts, alternates.
