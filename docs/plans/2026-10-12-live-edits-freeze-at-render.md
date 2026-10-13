@@ -55,7 +55,7 @@ Update ADR 0003 and the glossary to distinguish the working reel from a frozen v
 2. Extract the freeze boundary from Save using staging, media preservation and the existing journal recovery. Test unchanged content, undo-to-frozen content, missing media, concurrent edits and interrupted publication.
 3. Route working Final/Overlay renders through the boundary. Add transient Draft captures and their job/listing identity, queue isolation and cleanup. Keep explicit older-version renders unchanged.
 4. Freeze and map comments at hand-off, then test later edits, section carry, agent replay and conflict recovery.
-5. Build to `docs/mockups/2026-10-14-working-reel.html`, which the owner chooses in a preview before any agent is dispatched. Show Working in Review, remove Save, and connect history, renders and comments to the new core behavior. Follow a saved mockup for any unresolved visual choice before editing the UI.
+5. Build to `docs/mockups/2026-10-14-working-reel.html`, option A: Working is the top row of the Versions list, frozen versions below it say what froze them, Save and Discard are gone, and a frozen version shows a line with Back to Working. Show Working in Review, remove Save, and connect history, renders and comments to the new core behavior. Follow a saved mockup for any unresolved visual choice before editing the UI.
 6. Revise the HTTP/core documentation, glossary, ADR and local Kinotta skill references. Check the installed skill update procedure before synchronizing it.
 7. Run the core/render/e2e checks, Impeccable critique and audit, then write the session summary and regenerate the dashboard.
 
@@ -85,3 +85,4 @@ Update ADR 0003 and the glossary to distinguish the working reel from a frozen v
 - Added: the agent's small changes appear in the Edits list under its name and can be undone.
 - The Working screen is to be designed with the owner in a preview before dispatch; step 5 builds to that mockup.
 - To be built by Codex (`gpt-6.1-sol`, medium effort) as the first part of one continuous run: live edits, shots as parts, alternates.
+- Working screen chosen by the owner: option A of `docs/mockups/2026-10-14-working-reel.html`.
