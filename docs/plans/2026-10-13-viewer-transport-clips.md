@@ -2,7 +2,7 @@
 title: viewer-transport-clips
 date: 2026-10-13
 status: Draft
-summary: The picture gets a draggable share of the Review screen and a focus view, one transport serves every reel, and clips show stills and a right-click menu.
+summary: A draggable picture share and focus view, one transport for every reel, stills and gap closing on clips, plus a shortcut sheet, markers, a snap line and sound prompt chips.
 spec:
 ---
 
@@ -12,6 +12,7 @@ spec:
 - Why: `PRODUCT.md` says the reel is the subject. Motion is judged on the picture, and today the picture is too small to judge it on. The comparison with AIMovieStudiov2 on 2026-10-13 showed its viewer taking about half the screen with a scrub bar under it.
 - Proposed outcome: You decide how the height is shared between picture and tracks, and one key gives the picture the screen. One transport, the same on every reel, scrubs under the picture, shows where shots and pins are, and steps by frame and by shot. Clips show what is in them, and a right-click offers the clip actions.
 - Affected: `web/src/review/_internal` (`Player.tsx`, `MediaEditor.tsx`, `EditorWorkspace.tsx`, `Review.tsx`, `Lanes.tsx`, `NativeLanes.tsx`, `editor-settings.ts`, `EditorToolbar.tsx`), `web/src/review/review.css`, `web/src/styles.css`, the stage (`web/src/stage`) for stills on code-built shot clips, the server for footage thumbnails if none exist yet, tests under `tests/core` and `tests/e2e` that find the transport or measure the frame. Mockup: `docs/mockups/2026-10-13-viewer-transport-clips.html`. It changes the layout saved in `docs/mockups/2026-10-08-review-media-editor-screen.html`.
+- Added 2026-10-13 (N2 to N5 from the second comparison pass): the editor has no list of its own shortcuts; a note to yourself at a time has to be a pin, which is sent to the agent; a dragged clip snaps without showing where; and the sound Generate panel starts from a blank prompt. Affected in addition: `EditorSettingsSheet.tsx`, `SoundGenerate.tsx`, `TimelineOverview.tsx`, the editor state file for markers.
 - Constraints:
   - `DESIGN.md` tokens, zero radius, the One Light Rule. The reel stays the only colour on screen.
   - Every new action goes through the one registry in `editor-settings.ts`, so it is rebindable and shows in tooltips.
@@ -46,6 +47,10 @@ Acceptance criteria:
 - The control labelled "Playhead" still accepts a typed time, so existing tests and exact entry keep working.
 - A footage clip wider than 96px shows stills of its own frames. A shot clip of a code-built reel shows the still of its first frame.
 - "Remove and close the gap" removes a clip on a sound or insert track and moves the later clips on that track earlier by its length. Clips on other tracks move only if they are attached to a clip that moved. One undo restores everything.
+- `?` opens a sheet listing every action with its current key, read from the registry, and Escape closes it.
+- `M` drops a marker at the playhead. A marker has a time and an optional name, shows on the time row and the scrub bar, can be renamed and removed, and clips snap to it. Markers belong to the reel in the editor and never appear in a comment batch or a render.
+- While a clip is dragged and snaps, a line shows at the time it will land on.
+- The sound Generate panel offers chips for kind, mood, tempo and instruments. Pressing a chip adds its words to the prompt, which stays editable.
 
 ## Approach
 
@@ -65,6 +70,10 @@ Parts:
 4. Stepping: `prevShot` and `nextShot` actions on `PageUp` and `PageDown`, and buttons for the existing left and right step.
 5. Close the gap: a `placement-ripple-remove` edit operation in `edit-model.ts` built from the existing remove and move operations, so undo and the edit list treat it as one edit. It moves later clips on the same track, then lets attachments resolve as they do today. A menu item and a `closeGap` action on `Shift+Delete`. The menu items show their keys from the registry.
 6. Stills: a server route that returns one frame of a footage source at a time, made with the ffmpeg the server already checks for at startup, cached under the project's Kinotta cache by source, time and size. `NativeLanes.tsx` asks for stills when a footage clip is wide enough and paints them behind the name. A shot clip uses one `PageStill` at the shot's start.
+7. Shortcut sheet: a `shortcuts` action on `?` and a dialog that renders `EDITOR_ACTIONS` with the bound keys, grouped as the Settings key list is.
+8. Markers: stored with the reel's editor state on the server, not in a version. A `marker` action on `M`. Markers are drawn in `TimelineOverview.tsx` and `Transport`, and added to the existing snap points.
+9. Snap line: the drag code already computes the snap target; it also reports the snapped time so the lanes can draw one line.
+10. Prompt chips: a fixed list in `SoundGenerate.tsx` of our own wording. Chips only edit the prompt text; the generate request is unchanged.
 
 ## Steps
 
@@ -76,7 +85,11 @@ Each step is one ticket: a failing test first, then the change.
 4. Focus view, the `F` and `Shift+F` bindings and the stored-settings move.
 5. `placement-ripple-remove`, its menu item, and key hints in the menu.
 6. Footage stills route and cache, then stills on clips.
-7. `/impeccable critique`, `/impeccable audit`, the verbs they flag, `/impeccable polish`, then the session summary.
+7. Shortcut sheet on `?`.
+8. Snap line.
+9. Markers on `M`, drawn on the time row and scrub bar, with snapping.
+10. Sound prompt chips.
+11. `/impeccable critique`, `/impeccable audit`, the verbs they flag, `/impeccable polish`, then the session summary.
 
 ## Risks
 
@@ -86,6 +99,8 @@ Each step is one ticket: a failing test first, then the change.
 - Scrubbing a media reel seeks sound and several picture layers. Seeking on every pointer move could stall; one seek per animation frame, with the last position winning.
 - `F` changes meaning. Anyone with muscle memory for Fit will open focus instead until they relearn it; Escape leaves it.
 - Thumbnail extraction on a long source can be slow on first view. The clip must draw as a plain bar until stills arrive.
+- `M` is already "Toggle Media rail". Markers need another default key or the rail does; decide before step 9.
+- Markers, the shortcut sheet and the chips have no approved mockup. Each needs a preview screen before it is built.
 
 ## Checks to run
 
@@ -100,3 +115,4 @@ Each step is one ticket: a failing test first, then the change.
 - Plan created with Intent only. Options V1, V2, T1, T2, C1 and C2 chosen from `docs/mockups/2026-10-13-viewer-transport-clips.html`. Awaiting approval of the Intent and answers to O1 to O4 before Goal and Approach.
 - O1 and O3 settled by the owner from the questions screen: focus on `F` with Fit on `Shift+F`, and closing a gap moves only that track plus attached clips. O2 and O4 remain open.
 - Goal, Approach, Steps, Risks and Checks written. O2 and O4 settled in the Approach. Code reading found the clip menu and main-sequence gap closing already exist, which shrinks C2. Awaiting approval before code.
+- N2 (shortcut sheet), N3 (sound prompt chips), N4 (markers) and N5 (snap line) added at the owner's request: acceptance criteria, Approach parts 7 to 10 and Steps 7 to 10. Still awaiting approval before code.
