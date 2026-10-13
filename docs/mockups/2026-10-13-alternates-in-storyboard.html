@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alternates in the storyboard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap">
+<style>
+:root{--ground:oklch(.184 .004 106);--deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--raised:oklch(.246 .005 90);--ink:oklch(.945 .004 106);--ink2:oklch(.82 .007 106);--muted:oklch(.64 .008 106);--rule:oklch(.945 .004 106 / .14);--hair:oklch(.945 .004 106 / .24);--light:oklch(.84 .11 225);--wash:oklch(.84 .11 225 / .07);--still:oklch(.13 .006 50);--paper:5px 5px 0 -1.6px var(--card),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--card),10px 10px 0 0 oklch(.945 .004 106 / .18)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--deep);color:var(--ink);font:15px/1.5 Outfit,"Segoe UI",sans-serif;padding:32px 24px 80px}
+.page{max-width:1240px;margin:0 auto}
+h1{font-size:26px;font-weight:500;letter-spacing:-.5px}
+.lede{color:var(--ink2);max-width:70ch;margin:8px 0 34px}
+.step{margin-top:44px}
+.step h2{font-size:19px;font-weight:500;display:flex;gap:12px;align-items:baseline}
+.step h2 b{font:800 16px Doto,monospace;color:var(--light)}
+.step .say{color:var(--ink2);max-width:74ch;margin:4px 0 14px}
+.from{color:var(--muted);font-size:13px}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+/* app frame */
+.app{background:var(--ground);border:1px solid var(--hair)}
+.top{display:flex;align-items:center;gap:22px;height:46px;padding:0 20px;border-bottom:1px solid var(--rule);font-size:14px}
+.top .brand{font-weight:600;letter-spacing:.06em}
+.top .tab{color:var(--muted)}.top .tab.on{color:var(--ink);box-shadow:0 14px 0 -12px var(--ink)}
+.top .copy{margin-left:auto;border:1px dashed var(--hair);padding:5px 14px;color:var(--ink2)}
+.top .need{color:var(--light);font-size:13px}
+.body{display:grid;grid-template-columns:minmax(0,1fr) 310px}
+.main{padding:20px 22px 22px;min-width:0}
+.head{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}
+.head h3{font-size:21px;font-weight:500;letter-spacing:-.4px}
+.head span{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 20px}
+.shot{padding:8px;border:1.6px solid transparent;position:relative}
+.shot.alt{border-color:var(--ink);background:var(--card);box-shadow:var(--paper)}
+.still{aspect-ratio:16/9;background:var(--still);position:relative;display:grid;place-items:center;overflow:hidden;color:#f3e9d8;font-weight:600}
+.still.reel{background:#f3e9d8;color:#c2410c}
+.still.reel2{background:#1c1917;color:#fb923c}
+.still small{position:absolute;left:10px;bottom:8px;font-size:11px;font-weight:400;opacity:.6}
+.lbl{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;font-weight:500}
+.lbl .num{color:var(--light);font-size:14px;margin-right:8px}
+.lbl .t{color:var(--muted);font-size:13px}
+.desc{color:var(--muted);font-size:13px;margin-top:2px}
+.alts{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:var(--light)}
+.alts i{width:22px;height:3px;background:var(--hair)}.alts i.on{background:var(--light)}
+.alts span{margin-left:5px}
+.chip{font-size:12px;border:1px solid var(--hair);padding:0 7px;color:var(--ink2)}
+.chip.lit{border-color:var(--light);color:var(--light)}
+/* pins */
+.hex{position:absolute;width:26px;height:28px;margin:-14px 0 0 -13px;background:var(--light);color:var(--ground);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;font:800 13px Doto,monospace}
+.tag{position:absolute;background:var(--light);color:var(--ground);font-size:12px;padding:1px 7px;transform:translate(16px,-10px);white-space:nowrap}
+.hot{position:absolute;border:1.6px solid var(--light)}
+/* comments column */
+.comments{border-left:1px solid var(--rule);padding:18px;display:flex;flex-direction:column;gap:14px}
+.comments header{display:flex;justify-content:space-between;align-items:baseline}
+.comments h4{font-size:16px;font-weight:600}
+.comments header span{color:var(--muted);font-size:13px}
+.c{background:var(--card);border:1.6px solid var(--ink);box-shadow:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42);padding:10px 12px;margin-right:8px}
+.c.new{border-color:var(--light)}
+.c .where{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:12px;color:var(--muted)}
+.c .where .num{color:var(--light);font-size:13px}
+.c .el{color:var(--light)}
+.c p{font-size:14px;margin-top:4px}
+.c .state{font-size:12px;color:var(--muted);margin-top:5px}
+.c .state b{color:var(--light);font-weight:500}
+/* sheet */
+.sheetwrap{padding:22px 34px 30px}
+.sheet{background:var(--card);border:1.6px solid var(--ink);box-shadow:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);padding:16px 18px 18px}
+.sheet .lbl{margin:0 0 12px}
+.sheet .still{font-size:64px}
+.draft{background:var(--ground);border:1.6px solid var(--light);padding:10px 12px;margin-top:12px}
+.draft .in{background:var(--deep);padding:9px 10px;margin-top:8px}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:14px}
+.check{display:flex;gap:8px;align-items:center}
+.check i{width:15px;height:15px;background:var(--light)}
+.seg{display:flex}.seg span{border:1px solid var(--hair);padding:1px 11px;color:var(--muted);margin-left:-1px}.seg span.on{border-color:var(--light);color:var(--light);position:relative}
+.btn{background:var(--ink);color:var(--ground);padding:6px 16px;font-weight:500}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--hair)}
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.a{border:1px solid var(--rule);background:var(--ground);padding:8px}
+.a.view{border-color:var(--light);background:var(--wash)}
+.a .mini{aspect-ratio:16/9;display:grid;place-items:center;font-weight:600;font-size:20px;background:#f3e9d8;color:#c2410c}
+.a .n{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:14px}
+.a .d{color:var(--muted);font-size:12.5px;margin-top:2px}
+/* lanes */
+.lanes{margin-top:26px;padding-top:16px;border-top:1px solid var(--rule);display:grid;grid-template-columns:64px 1fr;gap:6px 14px;align-items:center;font-size:13px;color:var(--muted)}
+.lane{position:relative;height:24px;display:flex}
+.lane .s{border:1px solid var(--hair);border-left-width:0;padding:2px 7px;color:var(--ink2);font-size:12px;white-space:nowrap;overflow:hidden}
+.lane .s:first-child{border-left-width:1px}
+.lane .s.alt{border-color:var(--light);border-left-width:1px;color:var(--light)}
+.span{position:absolute;top:4px;height:16px;background:var(--wash);border-left:2px solid var(--light);border-right:2px solid var(--light)}
+.lane .hex{top:12px;width:20px;height:22px;margin:-11px 0 0 -10px;font-size:11px}
+.note{color:var(--muted);font-size:13px;margin-top:10px;max-width:80ch}
+.open{margin-top:54px;border-top:1px solid var(--rule);padding-top:22px}
+.open h2{font-size:19px;font-weight:500}
+.open ol{margin:10px 0 0;padding-left:20px;color:var(--ink2);max-width:80ch}
+.open li{margin-top:8px}
+.open li b{color:var(--ink);font-weight:500}
+@media (max-width:900px){.body{grid-template-columns:1fr}.comments{border-left:0;border-top:1px solid var(--rule)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sheetwrap{padding:16px}.strip{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Alternates, inside the storyboard and the pin</h1>
+<p class="lede">Their three useful behaviours folded into what Kinotta already does. You ask with a pin, Claude answers with alternates on that shot, you choose on the storyboard. One round, three screens. The demo shot is a price reveal; the reel's colours are the only colour on screen.</p>
+
+<!-- STEP 1 -->
+<section class="step">
+<h2><b>1</b>You ask, with a pin <span class="from">from their Variations and Retake</span></h2>
+<p class="say">Same enlarged shot and same pin as today. Two additions: a switch on the comment that asks for options, and a pin you drag across the Pins lane to cover a stretch of time.</p>
+<div class="app">
+  <div class="top"><span class="brand">⬡ KINOTTA</span><span>Aroma launch <span class="num" style="color:var(--muted)">18.0s</span></span><span class="tab on">Storyboard</span><span class="tab">Review</span><span class="tab">Renders</span><span class="copy">Copy all comments ◇</span></div>
+  <div class="body">
+    <div class="main">
+      <div class="sheetwrap" style="padding-top:4px">
+        <div class="sheet">
+          <div class="lbl"><span><span class="num">04</span>Price reveal <span class="t num">00:06.0</span></span><span style="color:var(--muted);font-size:14px">Close</span></div>
+          <div class="still reel">₱499
+            <div class="hot" style="left:36%;top:30%;width:28%;height:40%"></div>
+            <div class="hex" style="left:64%;top:30%">2</div><div class="tag" style="left:64%;top:30%">price-number</div>
+            <small>v2 · live frame</small>
+          </div>
+          <div class="draft">
+            <div class="where" style="font-size:12px;color:var(--muted)"><span class="num" style="color:var(--light)">2</span> Shot 04 · <span class="num">00:07.2</span>s · <span style="color:var(--light)">price-number</span></div>
+            <div class="in">The reveal feels flat. Not sure what I want here.</div>
+            <div class="row">
+              <span class="check"><i></i>Ask for options</span>
+              <span class="seg"><span>2</span><span class="on">3</span><span>4</span></span>
+              <span><span class="btn">Save</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="lanes">
+        <span>Shots</span><div class="lane"><span class="s" style="flex:3">01 Hook</span><span class="s" style="flex:2">02 Logo</span><span class="s" style="flex:3">03 Problem</span><span class="s" style="flex:4">04 Price reveal</span><span class="s" style="flex:3">05 Proof</span><span class="s" style="flex:3">06 CTA</span></div>
+        <span>Pins</span><div class="lane"><div class="hex" style="left:8%">1</div><div class="hex" style="left:40%">2</div><div class="span" style="left:63%;width:11%"></div><div class="hex" style="left:64.5%">3</div></div>
+      </div>
+      <p class="note">Pin 3 was dragged across the Pins lane, from 00:11.4 to 00:13.3. A click still makes a moment pin; a drag makes a span.</p>
+    </div>
+    <aside class="comments">
+      <header><h4>Comments</h4><span class="num">v2 · 3</span></header>
+      <div class="c"><div class="where"><span class="num">1</span><span class="num">Shot 01 · 00:01.4s</span><span class="el">headline</span></div><p>Make this darker.</p></div>
+      <div class="c new"><div class="where"><span class="num">2</span><span class="num">Shot 04 · 00:07.2s</span><span class="el">price-number</span><span class="chip lit">3 options</span></div><p>The reveal feels flat. Not sure what I want here.</p></div>
+      <div class="c"><div class="where"><span class="num">3</span><span class="num">Shot 05 · 00:11.4 to 00:13.3s</span><span class="chip">span</span></div><p>Tighten this stretch, the pause is too long.</p></div>
+    </aside>
+  </div>
+</div>
+</section>
+
+<!-- STEP 2 -->
+<section class="step">
+<h2><b>2</b>Claude answers, on the storyboard <span class="from">from their Takes gallery</span></h2>
+<p class="say">v3 arrives. Shot 04 came back as three alternates, so its card is the one sheet of stacked paper on the grid and the top bar says a choice is waiting. Shot 05 was rebuilt only inside the span.</p>
+<div class="app">
+  <div class="top"><span class="brand">⬡ KINOTTA</span><span>Aroma launch <span class="num" style="color:var(--muted)">18.0s</span></span><span class="tab on">Storyboard</span><span class="tab">Review</span><span class="tab">Renders</span><span class="need" style="margin-left:auto"><span class="num">1</span> shot needs a choice</span><span class="copy" style="margin-left:0">Copy all comments ◇</span></div>
+  <div class="body">
+    <div class="main">
+      <div class="head"><h3>Storyboard, v3</h3><span>Click a shot to enlarge it and pin comments</span></div>
+      <div class="grid">
+        <div class="shot"><div class="still reel2" style="font-size:20px">Mornings, fixed.</div><div class="lbl"><span><span class="num">01</span>Hook</span><span class="t num">00:00.0</span></div><div class="desc">Headline lands on black</div></div>
+        <div class="shot"><div class="still reel" style="font-size:22px">AROMA</div><div class="lbl"><span><span class="num">02</span>Logo</span><span class="t num">00:03.0</span></div><div class="desc">Wordmark draws on</div></div>
+        <div class="shot"><div class="still reel2" style="font-size:18px">₱180 a cup adds up</div><div class="lbl"><span><span class="num">03</span>Problem</span><span class="t num">00:05.0</span></div><div class="desc">Cost stacks up</div></div>
+        <div class="shot alt"><div class="still reel" style="font-size:34px">₱312<small>A · Count up</small></div><div class="lbl"><span><span class="num">04</span>Price reveal</span><span class="t num">00:08.0</span></div><div class="alts"><i class="on"></i><i></i><i></i><span>3 alternates · A in the reel</span></div><div class="desc">Answers comment <span class="num">2</span></div></div>
+        <div class="shot"><div class="still reel2" style="font-size:18px">4.8 ★ from 2,100 homes</div><div class="lbl"><span><span class="num">05</span>Proof</span><span class="t num">00:11.0</span></div><div class="desc">Rebuilt 00:11.4 to 00:13.3 only</div></div>
+        <div class="shot"><div class="still reel" style="font-size:20px">Order today</div><div class="lbl"><span><span class="num">06</span>CTA</span><span class="t num">00:15.0</span></div><div class="desc">Button and URL</div></div>
+      </div>
+      <div class="lanes">
+        <span>Shots</span><div class="lane"><span class="s" style="flex:3">01 Hook</span><span class="s" style="flex:2">02 Logo</span><span class="s" style="flex:3">03 Problem</span><span class="s alt" style="flex:4">04 Price reveal · A B C</span><span class="s" style="flex:3">05 Proof</span><span class="s" style="flex:3">06 CTA</span></div>
+        <span>Pins</span><div class="lane"><div class="span" style="left:63%;width:11%;opacity:.6"></div></div>
+      </div>
+    </div>
+    <aside class="comments">
+      <header><h4>Comments</h4><span class="num">v3 · 0</span></header>
+      <p class="note" style="margin:0">From v2, answered in this version:</p>
+      <div class="c" style="opacity:.75"><div class="where"><span class="num">1</span><span class="num">Shot 01</span><span class="el">headline</span></div><p>Make this darker.</p><div class="state">Done</div></div>
+      <div class="c"><div class="where"><span class="num">2</span><span class="num">Shot 04</span><span class="el">price-number</span></div><p>The reveal feels flat. Not sure what I want here.</p><div class="state"><b>3 alternates · choose one</b></div></div>
+      <div class="c" style="opacity:.75"><div class="where"><span class="num">3</span><span class="num">Shot 05</span><span class="chip">span</span></div><p>Tighten this stretch, the pause is too long.</p><div class="state">Rebuilt, 1.9s became 1.2s</div></div>
+    </aside>
+  </div>
+</div>
+</section>
+
+<!-- STEP 3 -->
+<section class="step">
+<h2><b>3</b>You choose, and keep pinning <span class="from">their Select, with Kinotta's pins on top</span></h2>
+<p class="say">Open shot 04. The frame shows whichever alternate you are looking at, live, and a pin lands on that alternate. "Use" puts it in the reel as an edit on v3; the other two stay in the version.</p>
+<div class="app">
+  <div class="top"><span class="brand">⬡ KINOTTA</span><span>Aroma launch <span class="num" style="color:var(--muted)">18.0s</span></span><span class="tab on">Storyboard</span><span class="tab">Review</span><span class="tab">Renders</span><span class="copy">Copy all comments ◇</span></div>
+  <div class="body">
+    <div class="main">
+      <div class="sheetwrap" style="padding-top:4px;padding-bottom:6px">
+        <div class="sheet">
+          <div class="lbl"><span><span class="num">04</span>Price reveal <span class="t num">00:08.0</span> <span class="chip lit" style="margin-left:8px">Viewing B · Snap in</span></span><span style="color:var(--muted);font-size:14px">Close</span></div>
+          <div class="still reel">₱499
+            <div class="hex" style="left:66%;top:34%">1</div><div class="tag" style="left:66%;top:34%">price-number</div>
+            <small>v3 · alternate B · live frame</small>
+          </div>
+          <div class="strip">
+            <div class="a"><div class="mini">₱312</div><div class="n"><span><span class="num">A</span> Count up</span><span style="color:var(--light);font-size:13px">In the reel</span></div><div class="d">Number rolls up from 0 over 0.9s</div></div>
+            <div class="a view"><div class="mini" style="font-size:26px">₱499</div><div class="n"><span><span class="num">B</span> Snap in</span><span class="btn">Use</span></div><div class="d">Lands whole, on the beat at 00:08.4</div></div>
+            <div class="a"><div class="mini">₱49▍</div><div class="n"><span><span class="num">C</span> Type on</span><span class="btn ghost">Use</span></div><div class="d">Typed digit by digit, with the typing sound</div></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">Left and Right still step shots. Up and Down step alternates. Each alternate's line is written by Claude, so you know what differs without playing all three.</p>
+    </div>
+    <aside class="comments">
+      <header><h4>Comments</h4><span class="num">v3 · 1</span></header>
+      <div class="c new"><div class="where"><span class="num">1</span><span class="num">Shot 04 · B · 00:08.4s</span><span class="el">price-number</span></div><p>This one. Make the number about 20% bigger.</p></div>
+      <p class="note" style="margin:0">The batch for v4 then reads: shot 04 uses B, with one change. A and C are not rebuilt.</p>
+    </aside>
+  </div>
+</div>
+</section>
+
+<section class="open">
+<h2>Three things this screen assumes, yours to overrule</h2>
+<ol>
+  <li><b>One card per shot, not one per alternate.</b> The grid keeps its shape and the alternates live inside the shot. The other way is three cards for shot 04 on the grid, which shows them side by side without opening anything but breaks the shot count.</li>
+  <li><b>Choosing is an edit, not a new version.</b> "Use" changes v3 in place the way a trim does today, and the choice freezes at render. The stricter way is that the choice only travels in the batch and takes effect in v4.</li>
+  <li><b>Their Multi-angle is left out.</b> A code-built scene has no camera to move, so there is nothing to map it to.</li>
+</ol>
+</section>
+</div>
+</body>
+</html>
