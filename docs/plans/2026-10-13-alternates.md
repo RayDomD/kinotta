@@ -25,11 +25,11 @@ spec:
   - Clip speed and transitions.
   - Alternates for footage clips. Code-built shots first.
 - Open questions:
-  - O1: How does a version carry alternates? Either a contract addition on today's single page (scenes sharing a shot and marked with an alternate letter), or one page per alternate once `2026-10-12-shots-as-parts.md` lands. The first can ship now; the second is cleaner and waits on a Draft plan with five open questions of its own.
+  - O1: settled 2026-10-13. One page per alternate, on top of `2026-10-12-shots-as-parts.md`. No contract addition on the single page. This plan therefore waits for live edits and shots-as-parts to land.
   - O2: What happens to the alternates you did not use? They stay in the version they arrived in. Do they also travel into the next version, or stop there?
   - O3: Can one batch ask for options on more than one shot, and is four the ceiling?
   - O4: Can a span pin cross a shot boundary? And how does `kinotta check` prove that nothing outside the span changed, given that it already compares claimed and actual changed sections?
-  - O5: Until you choose, alternate A is in the reel. Is "1 shot needs a choice" a reminder, or does it block Approve and a Final render?
+  - O5: settled 2026-10-13. A reminder only. Nothing is blocked; alternate A is in the reel until you choose another.
   - O6: How does a still or the player show alternate B of a frozen page? The stage needs a way to ask the page for it.
 
 Decided with the owner in the 2026-10-13 preview session: the three-step flow in the mockup (ask with a pin, answer on the storyboard, choose and keep pinning); one card per shot; choosing is an edit, not a new version; Multi-angle is left out.
@@ -48,3 +48,4 @@ Decided with the owner in the 2026-10-13 preview session: the three-step flow in
 
 ### 2026-10-13
 - Plan created with Intent only. Flow and three assumptions agreed from `docs/mockups/2026-10-13-alternates-in-storyboard.html`. Awaiting approval of the Intent and answers to O1 to O6 before Goal and Approach.
+- O1 and O5 settled by the owner from the questions screen: one page per shot, and the unchosen shot is a reminder only. Order of work is now live edits, shots as parts, then this plan. O2, O3, O4 and O6 remain open.

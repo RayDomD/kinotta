@@ -25,9 +25,9 @@ spec:
   - Their on-clip buttons, per-clip audio track staircase and transitions.
   - The Storyboard tab. This is the Review screen only.
 - Open questions:
-  - O1: The focus view is drawn on `F`, which is already "Fit timeline". Move Fit, or give focus another key?
+  - O1: settled 2026-10-13. Focus takes `F`; Fit timeline moves to `Shift+F`. Key bindings already stored in a browser must not end up with both actions on `F`.
   - O2: Is the divider position remembered per reel or once for the editor?
-  - O3: "Remove and close the gap" is the one new operation. Does it shift only later clips on the same track, or everything after it on every track including sound?
+  - O3: settled 2026-10-13. Only the clip's own track closes up. A clip on another track moves only if it is attached to a clip that moved, using the attachment placements already have.
   - O4: How many stills does a clip show, and are footage thumbnails generated on import or on first view?
 
 Decided with the owner in the 2026-10-13 preview session: V1 (a divider you drag, starting at 55%), V2 (focus view), T1 (scrub bar with shot ticks and pins), T2 (frame and shot stepping), C1 (stills along the clip), C2 (right-click menu).
@@ -46,3 +46,4 @@ Decided with the owner in the 2026-10-13 preview session: V1 (a divider you drag
 
 ### 2026-10-13
 - Plan created with Intent only. Options V1, V2, T1, T2, C1 and C2 chosen from `docs/mockups/2026-10-13-viewer-transport-clips.html`. Awaiting approval of the Intent and answers to O1 to O4 before Goal and Approach.
+- O1 and O3 settled by the owner from the questions screen: focus on `F` with Fit on `Shift+F`, and closing a gap moves only that track plus attached clips. O2 and O4 remain open.
