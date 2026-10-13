@@ -10,6 +10,12 @@ plan: ../../plans/2026-10-12-live-edits-freeze-at-render.md, ../../plans/2026-10
 
 Follow this brief exactly. Standing rules are in `~/.codex/AGENTS.md`; this repo has no `AGENTS.md` of its own, so its rules are in Context below.
 
+## Goal to set
+
+Paste this as the goal, from the lane's worktree root:
+
+> In this Kinotta worktree, follow `docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md` exactly. Build Part 1 (live edits), then Part 2 (shots as parts), then Part 3 (alternates), in that order, never starting a part before the one before it is complete and green. Tick each checklist box in the brief as you finish it. Make no git writes of any kind. The goal is met when every box in the brief is ticked, the checks under "Done when" pass, and the stop report is written in the brief. If the Part 2 stop gate fails, or a part cannot be completed, the goal ends there: write the stop report and stop.
+
 ## Scope
 
 Build three plans in order, in this one worktree, as one continuous run. Each part stands on the one before it. Do not start a part until every box of the part before it is ticked and its checks are green.
@@ -129,6 +135,24 @@ Plan steps 1 to 9. Step 10's critique, audit and summary are the reviewer's.
 - Run typecheck and the relevant tests. Get them green for completed work. Paste commands and output under Test evidence, per part. Do not mark an acceptance box complete or claim a part passes when it does not.
 - NEVER commit, push, branch, or run any git write. Leave the tree dirty.
 - Record anything done differently, and why, under Deviations.
+
+## Done when
+
+- Every checklist box above is ticked, or the run has stopped at a gate and says so in the stop report.
+- `npm run typecheck` and `npm run build` pass.
+- Each part's "Checks to run" from its plan pass, run with one worker, with the commands and output pasted under Test evidence.
+- Every existing single-page fixture reel still opens, checks and renders as it did before the run.
+- `git status` shows changes only inside the files this brief allows, and `git log` shows no new commit.
+
+## Stop report
+
+Write this at the end of the run, whether it finished or stopped early, as the last section of this file:
+
+1. Which part and checklist item the run reached, and whether it finished or stopped at a gate.
+2. Per part: what was built, and which acceptance criteria are met, with the test that proves each.
+3. Anything that passes its tests but that you doubt is correct, and why.
+4. Every deviation from the brief or the plans.
+5. What a reviewer should look at first.
 
 ## Test evidence
 

@@ -1,7 +1,7 @@
 ---
 title: alternates
 date: 2026-10-13
-status: Draft
+status: Approved
 summary: A comment can ask for options; the agent answers with alternates of one shot, chosen on the storyboard.
 spec:
 ---
@@ -111,3 +111,4 @@ Each step is a failing test first, then the change.
 - Remaining questions settled with the owner in the 2026-10-13 grilling session: one asking shot per batch with 2 to 4 alternates, differing lengths allowed, unchosen alternates travel until dismissed, and a "Not this" button with an optional reason (N6).
 - Span pins split out into `2026-10-14-span-pins.md`.
 - Goal, Approach, Steps, Risks and Checks written on top of the parts design. Awaiting approval before code.
+- Approved by the owner on 2026-10-14 with the Codex brief `docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md`.

@@ -1,7 +1,7 @@
 ---
 title: shots-as-parts
 date: 2026-10-12
-status: Draft
+status: Approved
 summary: Each shot of a reel is built and changed on its own, inside one reel with one sound mix and one render.
 spec:
 ---
@@ -101,3 +101,4 @@ Each step is a failing test first, then the change.
 ### 2026-10-14
 - Open questions O1 to O5 settled with the owner in the 2026-10-13 grilling session, with three more decisions: a version is a list of shot revisions, a shot has a fixed name, and shared styles live in one folder.
 - Goal, Approach, Steps, Risks and Checks written. The design keeps one assembled page per version and generates it from per-shot files. Awaiting approval before code.
+- Approved by the owner on 2026-10-14 with the Codex brief `docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md`.

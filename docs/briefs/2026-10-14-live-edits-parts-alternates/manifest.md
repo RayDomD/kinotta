@@ -9,7 +9,7 @@ base-branch: feat/live-edits
 
 | # | Lane | Agent | Model | Worktree | Branch | Status |
 |---|---|---|---|---|---|---|
-| 1 | chain | codex | gpt-6.1-sol, medium (owner's choice, 2026-10-13) | (set at dispatch) | agent-loop/live-edits-parts-alternates/chain | briefed |
+| 1 | chain | codex | gpt-6.1-sol, medium (owner's choice, 2026-10-13) | ../Kinotta-live-edits-parts-alternates-chain | agent-loop/live-edits-parts-alternates/chain | briefed |
 
 One lane by the owner's decision: one continuous run across three plans, in order. Each plan builds on the one before, so they cannot run in parallel.
 
@@ -49,3 +49,4 @@ Checked by reading `types.ts` (Shot, Version, FramePin, WordPin, Comment, NewCom
 - `reels/`, `footage/` and `.kinotta-server.json` are untracked on purpose and will not exist in the worktree. Tests use `tests/fixtures`.
 - `/impeccable critique`, `/impeccable audit`, session summaries and the plans dashboard are the reviewer's work at re-entry, not the lane's.
 - Codex CLI at export: installed 0.160.1, latest 0.162.1.
+- Run as a Codex goal started by the owner in the lane worktree, not launched by the main session. The goal text is in the brief under "Goal to set".
