@@ -50,3 +50,4 @@ Checked by reading `types.ts` (Shot, Version, FramePin, WordPin, Comment, NewCom
 - `/impeccable critique`, `/impeccable audit`, session summaries and the plans dashboard are the reviewer's work at re-entry, not the lane's.
 - Codex CLI at export: installed 0.160.1, latest 0.162.1.
 - Run as a Codex goal started by the owner in the lane worktree, not launched by the main session. The goal text is in the brief under "Goal to set".
+- Base: the lane branched from `bd31368` on `feat/live-edits`. Baseline in the worktree before the run: `npm run typecheck` passes, `tests/core/contract.test.ts` 19 of 19 pass. `node_modules` is a junction to the main checkout and must be removed before `git worktree remove`.
