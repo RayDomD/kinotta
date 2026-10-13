@@ -99,7 +99,7 @@ Each step is one ticket: a failing test first, then the change.
 - Scrubbing a media reel seeks sound and several picture layers. Seeking on every pointer move could stall; one seek per animation frame, with the last position winning.
 - `F` changes meaning. Anyone with muscle memory for Fit will open focus instead until they relearn it; Escape leaves it.
 - Thumbnail extraction on a long source can be slow on first view. The clip must draw as a plain bar until stills arrive.
-- `M` is already "Toggle Media rail". Markers need another default key or the rail does; decide before step 9.
+- Markers take `M` and the Media rail toggle moves to `R` (owner, 2026-10-13). As with `F`, bindings already stored in a browser must not leave two actions on one key. Both stay rebindable in Settings.
 - Markers, the shortcut sheet and the chips have no approved mockup. Each needs a preview screen before it is built.
 
 ## Checks to run
@@ -116,3 +116,4 @@ Each step is one ticket: a failing test first, then the change.
 - O1 and O3 settled by the owner from the questions screen: focus on `F` with Fit on `Shift+F`, and closing a gap moves only that track plus attached clips. O2 and O4 remain open.
 - Goal, Approach, Steps, Risks and Checks written. O2 and O4 settled in the Approach. Code reading found the clip menu and main-sequence gap closing already exist, which shrinks C2. Awaiting approval before code.
 - N2 (shortcut sheet), N3 (sound prompt chips), N4 (markers) and N5 (snap line) added at the owner's request: acceptance criteria, Approach parts 7 to 10 and Steps 7 to 10. Still awaiting approval before code.
+- Markers take `M`; the Media rail toggle moves to `R` by default. Decided by the owner.
