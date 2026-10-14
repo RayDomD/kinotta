@@ -1,0 +1,62 @@
+[
+  {
+    "theme": "dark",
+    "width": 390,
+    "content": 390,
+    "frame": 183.359375
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "content": 768,
+    "frame": 363.984375
+  },
+  {
+    "theme": "dark",
+    "width": 1024,
+    "content": 1024,
+    "frame": 368.984375
+  },
+  {
+    "theme": "dark",
+    "width": 1272,
+    "content": 1272,
+    "frame": 417.375
+  },
+  {
+    "theme": "dark",
+    "width": 1600,
+    "content": 1600,
+    "frame": 464.375
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "content": 390,
+    "frame": 183.359375
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "content": 768,
+    "frame": 363.984375
+  },
+  {
+    "theme": "light",
+    "width": 1024,
+    "content": 1024,
+    "frame": 368.984375
+  },
+  {
+    "theme": "light",
+    "width": 1272,
+    "content": 1272,
+    "frame": 417.375
+  },
+  {
+    "theme": "light",
+    "width": 1600,
+    "content": 1600,
+    "frame": 464.375
+  }
+]

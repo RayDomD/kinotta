@@ -31,6 +31,10 @@ const PAGE_INFO_TIMEOUT_MS = 60_000;
 const CANCELLED = 'The render was cancelled.';
 
 const exec = promisify(execFile);
+/** One source frame, preserving its aspect. Used only for cached editor thumbnails. */
+export async function extractMediaStill(file: string, output: string, time: number, width: number): Promise<void> {
+  await run('ffmpeg', ['-v', 'error', '-y', '-ss', String(time), '-i', file, '-frames:v', '1', '-vf', `scale=${width}:-2`, '-q:v', '4', output], PROBE_TIMEOUT_MS);
+}
 
 /** Local beat analysis emits JSON, with the same optional runtime as the skill command. */
 export async function detectAudioBeats(file: string): Promise<BeatGrid> {

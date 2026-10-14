@@ -22,6 +22,11 @@ import type { Piece, TimeWindow } from './timeline.ts';
 import { laneProgress } from './transcribing.ts';
 import { usePlayback } from './usePlayback.ts';
 import { MediaEditor } from './MediaEditor.tsx';
+import { ViewerDivider } from './ViewerDivider.tsx';
+import { useEditorWorkspace } from './EditorWorkspace.tsx';
+import { MarkerPanel, useMarkers } from './useMarkers.tsx';
+import { actionForKey, keyChord } from './editor-settings.ts';
+import { shotTarget } from './Transport.tsx';
 import '../review.css';
 
 /** The lanes open on this many seconds of the reel (all of it when it is shorter). */
@@ -78,6 +83,8 @@ function remapped<T extends Span>(items: readonly T[], map: Remap): T[] {
 }
 
 function Playing({ reel, state, version, comments, section = null, edits, transcription, actions }: ReviewProps) {
+  const workspace = useEditorWorkspace();
+  const markerState = useMarkers(reel.slug);
   const video = useRef<HTMLVideoElement>(null);
   const [videoLength, setVideoLength] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -355,9 +362,22 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const markIn = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  const viewerKey = useRef<(event: KeyboardEvent) => boolean>(() => false);
+  viewerKey.current = (event) => {
+    if (workspace.settingsOpen || workspace.shortcutsOpen || (event.target as HTMLElement).closest('dialog, [role="dialog"]')) return true;
+    if (ignoresKey(event)) return false;
+    if (event.key === 'Escape' && workspace.focus) { event.preventDefault(); workspace.setFocus(false); return true; }
+    const action = actionForKey(workspace.settings.keys, keyChord(event));
+    if (action === 'prevShot' || action === 'nextShot') playback.seek(shotTarget(clips.map((clip) => clip.start), time, action === 'prevShot' ? -1 : 1, total));
+    else if (action === 'marker') void markerState.drop(time);
+    else if (action === 'fit') setRaw({ start: 0, length: total });
+    else return false;
+    event.preventDefault(); return true;
+  };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (viewerKey.current(e)) return;
       // Ctrl or Cmd with Z (Shift for redo) or Y steps the edit list, unless a field has its own undo.
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
         const field = e.target instanceof HTMLElement && (TYPING.has(e.target.tagName) || e.target.isContentEditable);
@@ -407,7 +427,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const playable = total > 0 && win.length > 0;
 
   return (
-    <main className="main rv-main" aria-label="Review">
+    <main className="main rv-main rv-resizable" aria-label="Review">
       <div className="head">
         <h1>{reel.title}</h1>
         <span className="meta">
@@ -416,6 +436,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         {actions}
       </div>
       <Player
+        transport={{ markers: markerState.markers, onMarker: (id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }, onSeek: playback.seek, shots: clips.map((clip) => clip.start), pins: shownComments.filter((c) => !c.state).map((c) => ({ id: c.id, time: c.pin.time, number: c.number, text: c.text })), keys: workspace.settings.keys, timecode: workspace.settings.timecode, focus: workspace.focus, onFocus: () => workspace.setFocus(!workspace.focus) }}
         title={reel.title}
         footageSrc={withFootage ? footageUrl(reel.slug) : undefined}
         video={video}
@@ -455,6 +476,9 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
+      <MarkerPanel state={markerState}/>
+      <ViewerDivider />
+      <div className="rv-tracks-pane">
       {playable && (
         <Lanes
           win={win}
@@ -484,6 +508,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
           onSelect={setSelection}
         />
       )}
+      </div>
     </main>
   );
 }

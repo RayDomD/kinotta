@@ -1,0 +1,59 @@
+<h2>Viewer, transport and clips: the three remaining details</h2>
+<p class="subtitle">The larger viewer, focus mode, shared transport and clip stills keep the chosen layout. Select the additions below that feel right, or tell me what to adjust.</p>
+<div class="cards" data-multiselect style="--bg-secondary:oklch(.184 .004 106);--text-primary:oklch(.945 .004 106);--text-secondary:oklch(.72 .008 106);--border:oklch(.945 .004 106 / .24);--selected-border:oklch(.84 .11 225);--selected-bg:oklch(.184 .004 106);color:var(--text-primary)">
+  <div class="card" data-choice="markers" onclick="toggleSelect(this)" style="border-radius:0">
+    <div class="card-image" style="padding:20px;background:oklch(.150 .003 106)">
+      <div class="mockup" style="border-radius:0;background:oklch(.184 .004 106)">
+        <div class="mockup-header">REVIEW · 00:08.40 / 00:24.00</div>
+        <div class="mockup-body">
+          <svg viewBox="0 0 480 120" role="img" aria-label="Timeline with two diamond markers and a numbered hex comment pin" style="width:100%;display:block">
+            <g fill="none" stroke="oklch(.945 .004 106 / .24)"><path d="M30 38H450M30 70H450M30 105H450"/><path d="M30 30V45M100 30V45M170 30V45M240 30V45M310 30V45M380 30V45M450 30V45"/><path d="M175 15V115" stroke="oklch(.945 .004 106)"/></g>
+            <g fill="oklch(.945 .004 106)" font-family="monospace" font-size="11"><text x="30" y="20">00:00</text><text x="230" y="20">00:12</text><text x="410" y="20">00:24</text></g>
+            <path d="M175 29l8 9-8 9-8-9z" fill="oklch(.84 .11 225)"/>
+            <path d="M310 29l8 9-8 9-8-9z" fill="none" stroke="oklch(.945 .004 106)"/>
+            <g fill="oklch(.945 .004 106)" font-family="sans-serif" font-size="12"><text x="145" y="64">Hook lands</text><text x="295" y="64">Outro</text><text x="30" y="94">Pins</text></g>
+            <path d="M240 79l9 5v10l-9 5-9-5V84z" fill="oklch(.84 .11 225)"/><text x="237" y="93" fill="oklch(.150 .003 106)" font-family="monospace" font-size="11">1</text>
+          </svg>
+          <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>Marker</b><span style="font-family:monospace">00:08.40</span><span style="border:1px solid var(--border);padding:5px 8px">Hook lands</span><span>Rename · Remove</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>Markers: diamonds on the time row</h3><p><b>M</b> drops a marker. Click it to seek and open its name and Remove controls. The same diamonds appear on the scrub bar and attract snapping. Hexes remain comment pins. Markers stay out of renders and comment batches.</p></div>
+  </div>
+  <div class="card" data-choice="shortcuts" onclick="toggleSelect(this)" style="border-radius:0">
+    <div class="card-image" style="padding:20px;background:oklch(.150 .003 106)">
+      <div class="mockup" style="border-radius:0;background:oklch(.184 .004 106)">
+        <div class="mockup-header">KEYBOARD SHORTCUTS <span style="float:right">Close · Esc</span></div>
+        <div class="mockup-body" style="font-size:14px">
+          <p class="label">Playback and view</p>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:9px 20px;margin:10px 0 20px"><span>Play or pause</span><kbd>Space</kbd><span>Previous / next shot</span><kbd>PageUp / PageDown</kbd><span>Focus picture</span><kbd>F</kbd><span>Fit timeline</span><kbd>Shift+F</kbd></div>
+          <p class="label">Editing and review</p>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:9px 20px;margin:10px 0"><span>Remove and close the gap</span><kbd>Shift+Delete</kbd><span>Drop marker</span><kbd>M</kbd><span>Toggle Media rail</span><kbd>R</kbd><span>Pin</span><kbd>P</kbd></div>
+          <p style="color:var(--text-secondary);margin-top:20px">Change bindings in Settings.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>Shortcuts: a sheet opened with ?</h3><p>All actions, grouped by purpose, with the current bindings from Settings. Unbound actions read “Unbound.” Escape closes the sheet and returns focus to the editor.</p></div>
+  </div>
+  <div class="card" data-choice="prompt-chips" onclick="toggleSelect(this)" style="border-radius:0">
+    <div class="card-image" style="padding:20px;background:oklch(.150 .003 106)">
+      <div class="mockup" style="border-radius:0;background:oklch(.184 .004 106)">
+        <div class="mockup-header">SOUND · GENERATE</div>
+        <div class="mockup-body" style="font-size:14px">
+          <div style="display:grid;grid-template-columns:76px 1fr;gap:14px 8px">
+            <span>Kind</span><span>Music · Sound effect · Ambience</span>
+            <span>Mood</span><span>Warm · Tense · Playful · Calm</span>
+            <span>Tempo</span><span>Slow · Steady · Fast</span>
+            <span>Instrument</span><span>Piano · Strings · Synth · Drums</span>
+          </div>
+          <p style="margin:20px 0 8px">Prompt</p>
+          <div style="border:1px solid var(--border);background:oklch(.150 .003 106);padding:12px;min-height:86px">Warm music, steady tempo, piano. A soft rise under the reveal, with room for speech.</div>
+          <p style="color:var(--text-secondary);font-size:12px;margin:10px 0 16px">Choose a suggestion to add its words. Edit the prompt freely.</p>
+          <span style="border:1px solid var(--border);padding:7px 12px">Generate</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>Sound prompts: small suggestions above the field</h3><p>Each word is a quiet, bordered button. Pressing one appends its phrase once; it doesn’t generate sound. Your typed prompt stays intact and editable.</p></div>
+  </div>
+</div>
+<div class="section"><p class="subtitle">Choose all three to use this design. The marker panel, shortcut sheet and prompt chips will follow Kinotta’s square borders, neutral surfaces and existing theme settings.</p></div>

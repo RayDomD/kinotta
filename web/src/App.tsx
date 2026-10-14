@@ -662,7 +662,7 @@ function Studio() {
           },
         }}
       />
-      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-rail-open={String(workspace.railOpen)}>
+      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-rail-open={String(workspace.railOpen)} data-focus={String(workspace.focus)}>
         <Rail
           reviewMode={phase === 'Review' && !creating}
           project={load.project}
@@ -713,7 +713,7 @@ function Studio() {
             editable={(openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined || openVersion.media !== undefined) && edits.list?.stale !== true) || awaitingV1}
             awaitingV1={awaitingV1}
             codeOnly={openVersion?.code !== undefined}
-            media={openVersion?.media !== undefined}
+            media={openVersion?.media !== undefined || openVersion?.isNewest === true}
             nextVersion={(newest ?? 0) + 1}
             commentCount={comments.comments.length}
             onSaved={openVersionNumber}

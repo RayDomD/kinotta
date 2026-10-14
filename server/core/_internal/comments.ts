@@ -68,11 +68,12 @@ function buildPinWithoutAnchor(input: NewComment, version: Version): FramePin | 
   const raw = input?.pin;
   if (raw === null || typeof raw !== 'object') throw new KinottaError('invalid', 'A comment needs a pin.');
   const shots = version.shots;
-  if (raw.kind === 'frame' && (version.media || version.footage) && raw.time !== undefined) {
+  if (raw.kind === 'frame' && (version.media || version.footage || version.code) && raw.time !== undefined) {
     if (!Number.isFinite(raw.time) || raw.time < 0 || raw.time >= version.duration) throw new KinottaError('invalid', 'Choose a pin moment inside the reel.');
     const timeline = version.media ? mediaTimeline(version.media, version.duration) : null;
     if (raw.placement && !timeline?.placements.some((p) => p.id === raw.placement && p.at <= raw.time! && p.at + p.duration > raw.time!)) throw new KinottaError('invalid', 'That placement is not playing at the pin moment.');
-    const shot = shots.find((s) => s.number === raw.shot);
+    const shot = shots.find((s) => s.number === raw.shot) ?? (version.code ? shots.find((s) => s.start <= raw.time! && s.start + s.duration > raw.time!) : undefined);
+    if (raw.element != null && (typeof raw.element !== 'string' || raw.element === '')) throw new KinottaError('invalid', 'The pin’s element must be a name or null.');
     return { kind: 'frame', version: version.number, section: shot?.section ?? version.sections.find((s) => s.start <= raw.time! && s.end > raw.time!)?.id ?? null, shot: shot?.number ?? NO_SHOT, time: raw.time, x: fraction(raw.x, 'x'), y: fraction(raw.y, 'y'), element: raw.element ?? null };
   }
   if (raw.kind === 'word' && (version.media || version.footage || shots.length === 0) && raw.shot === NO_SHOT) return buildTranscriptWordPin(raw, version);

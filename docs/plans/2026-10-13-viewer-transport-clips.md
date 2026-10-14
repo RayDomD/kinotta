@@ -1,7 +1,7 @@
 ---
 title: viewer-transport-clips
 date: 2026-10-13
-status: Draft
+status: Done
 summary: A draggable picture share and focus view, one transport for every reel, stills and gap closing on clips, plus a shortcut sheet, markers, a snap line and sound prompt chips.
 spec:
 ---
@@ -110,6 +110,12 @@ Each step is one ticket: a failing test first, then the change.
 - Shell checks in dark and light themes at 390, 768, 1024, 1272 and 1600px, as in the 2026-10-08 audit.
 
 ## Changelog
+
+### 2026-10-15
+- Owner approved implementation and the remaining marker, shortcut sheet and prompt chip designs. Saved as `docs/mockups/2026-10-15-viewer-additions.html`.
+- Implementation started on `codex/viewer-transport-clips`. The live-edits chain remains a separate branch; shared editor files will need reconciliation when merged.
+- Completed the shared transport, resize divider, focus mode, clip stills, gap closing, shortcut sheet, markers, snap indicators and prompt chips. Session summary: `docs/session-summaries/2026-10-15-viewer-transport-clips-summary.md`.
+- Typecheck/build, targeted core and browser checks, all 40 requested end-to-end cases, and dark/light layout checks passed. Five older media-preview failures were reproduced against the starting commit and documented in the summary.
 
 ### 2026-10-13
 - Plan created with Intent only. Options V1, V2, T1, T2, C1 and C2 chosen from `docs/mockups/2026-10-13-viewer-transport-clips.html`. Awaiting approval of the Intent and answers to O1 to O4 before Goal and Approach.

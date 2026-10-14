@@ -76,7 +76,7 @@ it('pans and zooms all native lanes together, seeks on the ruler and keeps edits
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).focus();
     await page.keyboard.press('-');
     expect(await lanes.getAttribute('data-verify-window-length')).toBe('6');
-    await page.keyboard.press('f');
+    await page.keyboard.press('Shift+f');
     expect(await lanes.getAttribute('data-verify-window-start')).toBe('0');
     expect(await lanes.getAttribute('data-verify-window-length')).toBe('12');
     await revealReelRail(page);

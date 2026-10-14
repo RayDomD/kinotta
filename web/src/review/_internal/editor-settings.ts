@@ -8,7 +8,7 @@ export const EDITOR_ACTIONS = [
   { id: 'duplicate', label: 'Duplicate', key: 'Ctrl+D' },
   { id: 'snap', label: 'Snap', key: '' },
   { id: 'pin', label: 'Pin', key: 'P' },
-  { id: 'rail', label: 'Toggle Media rail', key: 'M' },
+  { id: 'rail', label: 'Toggle Media rail', key: 'R' },
   { id: 'play', label: 'Play or pause', key: 'Space' },
   { id: 'trimStart', label: 'Trim start to playhead', key: '[' },
   { id: 'trimEnd', label: 'Trim end to playhead', key: ']' },
@@ -26,11 +26,19 @@ export const EDITOR_ACTIONS = [
   { id: 'settings', label: 'Open Settings', key: '' },
   { id: 'zoomIn', label: 'Zoom in timeline', key: '=' },
   { id: 'zoomOut', label: 'Zoom out timeline', key: '-' },
-  { id: 'fit', label: 'Fit timeline', key: 'F' },
+  { id: 'fit', label: 'Fit timeline', key: 'Shift+F' },
+  { id: 'focus', label: 'Focus picture', key: 'F' },
+  { id: 'prevShot', label: 'Previous shot', key: 'PageUp' },
+  { id: 'nextShot', label: 'Next shot', key: 'PageDown' },
+  { id: 'closeGap', label: 'Remove and close the gap', key: 'Shift+Delete' },
+  { id: 'shortcuts', label: 'Keyboard shortcuts', key: '?' },
+  { id: 'marker', label: 'Drop marker', key: 'M' },
 ] as const;
 
 export type EditorAction = (typeof EDITOR_ACTIONS)[number]['id'];
 export interface EditorSettings {
+  version: number;
+  viewerShare: number;
   keys: Record<EditorAction, string>;
   snap: boolean;
   showBeats: boolean;
@@ -47,6 +55,7 @@ export interface EditorSettings {
 }
 const STORAGE_KEY = 'kinotta.editor.settings';
 export const DEFAULT_SETTINGS: EditorSettings = {
+  version: 2, viewerShare: 0.55,
   keys: Object.fromEntries(EDITOR_ACTIONS.map((action) => [action.id, action.key])) as Record<EditorAction, string>,
   snap: true, nudge: 0.1, fade: 0.2, gap: 1,
   showBeats: true, emphasizeDownbeats: true, beatSnap: true,
@@ -72,7 +81,7 @@ export function normalizeKey(value: string): string {
 
 export function keyChord(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'>): string {
   const key = event.key === ' ' ? 'Space' : event.key;
-  return normalizeKey([...(event.ctrlKey ? ['Ctrl'] : []), ...(event.altKey ? ['Alt'] : []), ...(event.shiftKey ? ['Shift'] : []), ...(event.metaKey ? ['Meta'] : []), key].join('+'));
+  return normalizeKey([...(event.ctrlKey ? ['Ctrl'] : []), ...(event.altKey ? ['Alt'] : []), ...(event.shiftKey && key !== '?' ? ['Shift'] : []), ...(event.metaKey ? ['Meta'] : []), key].join('+'));
 }
 
 export function keyConflicts(keys: EditorSettings['keys']): Array<{ key: string; actions: EditorAction[] }> {
@@ -101,6 +110,15 @@ function validated(value: unknown): EditorSettings {
       if (typeof key === 'string') defaults.keys[action.id] = normalizeKey(key);
     }
   }
+  if (stored.version !== 2) {
+    if (defaults.keys.fit === 'F') defaults.keys.fit = 'Shift+F';
+    if (defaults.keys.rail === 'M') defaults.keys.rail = 'R';
+    // A viewer's custom bindings win over a new default; never create a conflicting chord.
+    for (const id of ['focus', 'marker'] as const) {
+      if (EDITOR_ACTIONS.some((action) => action.id !== id && defaults.keys[action.id] === defaults.keys[id])) defaults.keys[id] = '';
+    }
+  }
+  if (typeof stored.viewerShare === 'number' && Number.isFinite(stored.viewerShare)) defaults.viewerShare = Math.max(0.25, Math.min(0.8, stored.viewerShare));
   for (const key of ['snap', 'railOpen', 'toolbarLabels', 'showBeats', 'emphasizeDownbeats', 'beatSnap'] as const) if (typeof stored[key] === 'boolean') defaults[key] = stored[key];
   for (const key of ['nudge', 'fade', 'gap'] as const) {
     const number = stored[key];

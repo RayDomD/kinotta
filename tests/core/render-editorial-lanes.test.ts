@@ -77,7 +77,7 @@ it('edits and retimes native words in lanes, pins their saved occurrences, retyp
     await lanes.locator('[data-graphic="card"][data-verify-broken-graphic="true"]').waitFor();
     await lanes.locator('[data-graphic="card"]').dblclick();
     await inspector.getByRole('button', { name: 'Trim to source 0.50–1.00s' }).click();
-    await expect.poll(() => lanes.locator('[data-verify-broken-graphic="true"]').count()).toBe(0);
+    await expect.poll(() => lanes.locator('[data-verify-broken-graphic="true"]').count(), { timeout: 5000 }).toBe(0);
     await lanes.getByRole('button', { name: /^Open caption at/ }).first().click();
     const timingWord = lanes.locator('[data-word]').first();
     const sourceEnd = Number(await timingWord.getAttribute('data-source-end'));

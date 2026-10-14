@@ -5,6 +5,10 @@ import type { GeneratedAudio } from '../../api/index.ts';
 
 const DEFAULT_SECONDS = 12;
 const TICK_MS = 1000;
+const PROMPT_CHIPS = {
+  Kind: ['Music', 'Sound effect', 'Ambience'], Mood: ['Warm', 'Tense', 'Playful', 'Calm'],
+  Tempo: ['Slow tempo', 'Steady tempo', 'Fast tempo'], Instrument: ['Piano', 'Strings', 'Synth', 'Drums'],
+};
 
 type Phase = 'idle' | 'running' | 'ready' | 'error';
 
@@ -66,6 +70,7 @@ export function SoundGenerate({ editable, targetName, generate, onAdd }: Props) 
     data-verify-has-result={String(!!sound)} data-verify-error={String(!!error)} data-verify-installed={installed === null ? 'unknown' : String(installed)}>
     <h3>Generate sound</h3>
     <span className="meta">Made on this computer with Stable Audio Open. About half a minute. Added to your library.</span>
+    <div className="editor-prompt-chips">{Object.entries(PROMPT_CHIPS).map(([group, chips]) => <div role="group" aria-label={`${group} suggestions`} key={group}><span>{group}</span>{chips.map((chip) => <button type="button" className="rv-tool" key={chip} disabled={!editable || running} onClick={() => setPrompt((current) => { const words = chip.toLowerCase(); if (current.toLowerCase().includes(words)) return current; return `${current.trim()}${current.trim() ? ', ' : ''}${words}`.slice(0, 500); })}>{chip}</button>)}</div>)}</div>
     <label>Prompt <input aria-label="Sound prompt" type="text" maxLength={500} placeholder="Warm ambient synth bed, no vocals" value={prompt} disabled={!editable || running} onChange={(event) => setPrompt(event.target.value)} /></label>
     <label>Length (s) <input aria-label="Sound length in seconds" type="number" min="1" max={MAX_GENERATED_SECONDS} step="1" value={seconds} disabled={!editable || running} onChange={(event) => setSeconds(event.target.value)} /></label>
     <label>Seed <input aria-label="Sound seed" type="number" min="0" step="1" placeholder="random" value={seed} disabled={!editable || running} onChange={(event) => setSeed(event.target.value)} /></label>

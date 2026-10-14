@@ -31,6 +31,8 @@ export type {
   WordPin,
 } from './_internal/client.ts';
 export { importVideo } from './_internal/client.ts';
+export { fetchMarkers, addMarker, changeMarker, removeMarker } from './_internal/client.ts';
+export type { TimelineMarker } from './_internal/client.ts';
 export { fetchSoundEffects, soundEffectUrl, importSoundEffect, generateAudio } from './_internal/client.ts';
 export type { SoundEffect } from '../../../server/core/index.ts';
 export { detectMediaBeats, fetchMedia, fetchMediaModel, fetchProjectMedia, fetchSpeech, fetchWaveform, importMedia, mediaBytes, mediaUrl, referenceMedia, relinkMedia, transcribeMedia } from './_internal/client.ts';

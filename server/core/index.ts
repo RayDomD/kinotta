@@ -25,6 +25,9 @@ import { listVideos } from './_internal/videos.ts';
 import { listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
 import { createTranscriptions } from './_internal/transcription.ts';
+import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/markers.ts';
+import { mediaStill } from './_internal/media-stills.ts';
+export type { TimelineMarker } from './_internal/markers.ts';
 
 export { KinottaError } from './_internal/errors.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
@@ -121,6 +124,11 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     listProjectMedia: () => listProjectMedia(dir),
     relinkMedia: (source, path) => relinkMedia(dir, source, path),
     mediaFile: (source, saved) => mediaFile(dir, source, saved),
+    mediaStill: (source, time, width, saved, footageReel) => mediaStill(dir, source, time, width, saved, footageReel),
+    listMarkers: (slug) => listMarkers(dir, slug),
+    addMarker: (slug, input) => addMarker(dir, slug, input),
+    changeMarker: (slug, id, changes) => changeMarker(dir, slug, id, changes),
+    removeMarker: (slug, id) => removeMarker(dir, slug, id),
     mediaWaveform: (source, saved) => mediaWaveform(dir, source, saved),
     listMedia: (filter) => listMedia(dir, filter),
     mediaSpeech: (source, saved) => speech.status(source, saved),

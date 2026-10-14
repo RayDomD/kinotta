@@ -39,8 +39,8 @@ export function magnetDelta(edges: readonly number[], delta: number, points: rea
 }
 
 /** The edges a move can stop on: the playhead and every placement's start and end, except the moving one. */
-export function snapPoints(timeline: MediaTimeline, moving: string, playhead: number, media?: MediaPlan): number[] {
-  return [playhead, ...timeline.placements.filter((p) => p.id !== moving).flatMap((p) => [p.at, p.at + p.duration, ...(media ? placementBeats(media, p.id, timeline.duration).map((beat) => beat.at) : [])])];
+export function snapPoints(timeline: MediaTimeline, moving: string, playhead: number, media?: MediaPlan, markers: readonly number[] = []): number[] {
+  return [...markers, playhead, ...timeline.placements.filter((p) => p.id !== moving).flatMap((p) => [p.at, p.at + p.duration, ...(media ? placementBeats(media, p.id, timeline.duration).map((beat) => beat.at) : [])])];
 }
 
 /** Pointer cuts land on the nearest nearby edge, regardless of approach direction. */

@@ -261,6 +261,11 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  mediaStill(source: string, time: number, width: number, saved?: { reel: string; version: number }, footageReel?: string): Promise<string>;
+  listMarkers(slug: string): Promise<import('./markers.ts').TimelineMarker[]>;
+  addMarker(slug: string, input: { time: number; name: string }): Promise<import('./markers.ts').TimelineMarker>;
+  changeMarker(slug: string, id: string, changes: Partial<{ time: number; name: string }>): Promise<import('./markers.ts').TimelineMarker>;
+  removeMarker(slug: string, id: string): Promise<void>;
   soundEffects(): Promise<SoundEffect[]>;
   soundEffectFile(id: string): Promise<string>;
   importSoundEffect(id: string): Promise<ImportedMedia>;

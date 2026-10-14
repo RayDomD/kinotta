@@ -494,6 +494,13 @@ export interface EditList {
 }
 
 const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
+export type { TimelineMarker } from '../../../../server/core/index.ts';
+type Marker = import('../../../../server/core/index.ts').TimelineMarker;
+const markersPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/markers`;
+export const fetchMarkers = (slug: string): Promise<Marker[]> => getJson(markersPath(slug));
+export const addMarker = (slug: string, input: { time: number; name: string }): Promise<Marker> => requestJson(markersPath(slug), jsonBody('POST', input));
+export const changeMarker = (slug: string, id: string, changes: Partial<{ time: number; name: string }>): Promise<Marker> => requestJson(`${markersPath(slug)}/${encodeURIComponent(id)}`, jsonBody('PATCH', changes));
+export const removeMarker = async (slug: string, id: string): Promise<void> => { const response = await fetch(`${markersPath(slug)}/${encodeURIComponent(id)}`, { method: 'DELETE' }); if (!response.ok) throw new Error('The marker could not be removed.'); };
 
 export const fetchEdits = (slug: string): Promise<EditList> => getJson(editsPath(slug));
 export const addOperation = (slug: string, operation: NewOperation): Promise<EditList> => requestJson(editsPath(slug), jsonBody('POST', operation));

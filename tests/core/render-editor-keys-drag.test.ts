@@ -23,7 +23,7 @@ it('hears shortcuts with nothing focused, splits sound on a code-built reel, and
     const lanes = page.getByRole('region', { name: 'Media timeline' });
     const clip = lanes.locator('[data-placement="sound-use"]');
     await clip.waitFor();
-    expect(await lanes.locator('.native-lane > strong').allTextContents()).toEqual(['Time', 'Reel', 'Graphics']);
+    expect(await lanes.locator('.native-lane > strong').allTextContents()).toEqual(['Time', 'Reel', 'Picture']);
     const clock = async () => Number(await review.getAttribute('data-verify-clock'));
     /** The clip's body, clear of its end handle and of any badge at its start. */
     const GRAB = 30;

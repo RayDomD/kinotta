@@ -40,12 +40,12 @@ async function startReel(page: Page, title: string): Promise<void> {
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
 }
 
-/** A point on the lane column at a fraction of its width, on the axis row. */
+/** The shared transport scrubs the whole reel, independently of the timeline window. */
 async function onLanes(page: Page, fraction: number): Promise<{ x: number; y: number }> {
-  const ruler = review(page).getByLabel('Timeline ruler', { exact: true });
+  const ruler = review(page).getByRole('slider', { name: 'Scrub reel', exact: true });
   await ruler.scrollIntoViewIfNeeded();
   const plane = (await ruler.boundingBox())!;
-  return { x: plane.x + plane.width * fraction, y: plane.y + plane.height - 2 };
+  return { x: plane.x + plane.width * fraction, y: plane.y + plane.height / 2 };
 }
 
 test('a picked video plays with its captions, and the keyboard and the lanes drive it', async ({ page }) => {

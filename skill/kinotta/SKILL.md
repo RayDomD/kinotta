@@ -23,13 +23,15 @@ a sound ("add pulse sound") is answered the same way: see "Sound requests in com
 
 ## Hard rules
 
+- **Separate assets from interactions.** An animated alternative asset does not implement animated preview, switching, or applying it in the editor. For a request about editor behavior, inspect the existing UI and relevant project design before editing. State the trigger, location, visible result, and effect on Working. A screenshot alone does not establish interaction behavior. Ask one focused question if those details remain materially ambiguous, then verify the user's exact interaction on that surface before claiming completion.
+
 - **Versions are frozen.** Never edit, rename or delete a `reels/<slug>/v<n>/` folder that exists.
   Every change is a new `v<n+1>`.
-- **Every version is an unanimated storyboard.** Each scene is built in its final look, but nothing
-  moves: no CSS animations or transitions, no `requestAnimationFrame` loops, no timers. When the
-  owner asks for motion, say that Kinotta can't review motion yet (it comes with the Review phase),
-  describe the motion in the shot's description, and keep the page still. Footage reels are the
-  exception: their clips carry the engine's real animation (section 5).
+- **Legacy storyboards are still; alternatives include motion.** For an existing single-page storyboard, each scene is built in its final look, but nothing
+  moves: no CSS animations or transitions, no `requestAnimationFrame` loops, no timers. Describe
+  proposed motion in a still concept's shot description. When motion is requested, implement it
+  through the seek contract. Footage reels are the
+  exception: their clips carry the engine's real animation (section 5). Alternatives are animated by default unless the owner explicitly asks for still concepts. For an alternatives request, follow `reference/animated-alternatives.md` instead of the legacy still-storyboard instructions.
 - **The edit list and the hand-off are Kinotta's.** Never read, write or delete `reels/<slug>/edit-list.json`,
   `reels/<slug>/handoff.json` or `reels/<slug>/.save/`. They hold the owner's unsaved edits and the state of a
   batch; Kinotta carries the edits onto the version you write.
@@ -168,7 +170,7 @@ On a footage reel (its `reel.json` names footage), follow **section 6** instead 
 
    1. Done. Shot 02 headline: darkened to the deep ink from DESIGN.md.
    2. Partly done. Shot 04: removed the second card; kept the price tag, which the brief needs.
-   3. Not done. Shot 05 animation: Kinotta can't review motion yet, so the description says how it moves.
+   3. Done. Shot 05 animation: added seek-driven motion that plays and scrubs in Review.
 
    Notes
    - Done. Cut shot 06; the reel is 13s.

@@ -162,9 +162,15 @@ Outside code imports from `index.ts` only.
   `missingToolsMessage(check)` is the startup text naming each missing tool under what needs it, or null when all are
   present. The server serves the check at `GET /api/tools`.
 
+Review markers are saved per reel under `reels/.kinotta/<slug>/markers.json`. `listMarkers`, `addMarker`,
+`changeMarker` and `removeMarker` serialize writes to that file; markers never enter a version, render or comment batch.
+`mediaStill` resolves registered or saved video sources (or the reel's legacy footage), then caches a JPEG by source
+content, time and width. The encoder runs through `runner.ts`, and concurrent requests reuse one extraction.
+`placement-ripple-remove` removes a clip and closes its own track; the existing main-sequence attachment rules still apply.
+
 ## Does not handle
 
-Runtime contract checks (the stage does those) and stills.
+Runtime contract checks (the stage does those).
 
 ## Dependencies
 

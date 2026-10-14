@@ -318,6 +318,7 @@ export interface PlacementRemoveOperation {
   kind: 'placement-remove';
   placement: string;
 }
+export interface PlacementRippleRemoveOperation { id: string; kind: 'placement-ripple-remove'; placement: string }
 
 export interface PlacementMoveOperation {
   id: string;
@@ -372,6 +373,7 @@ export type Operation =
   | PlacementChangeOperation
   | PlacementDuckOperation
   | PlacementRemoveOperation
+  | PlacementRippleRemoveOperation
   | PlacementMoveOperation
   | PlacementLayerOperation
   | PlacementReplaceOperation
@@ -816,6 +818,25 @@ function applyPlacementRemove(sources: Sources, op: PlacementRemoveOperation): S
   return withMedia(base, { ...media, placements: media.placements.filter((p) => p.id !== op.placement), sequence });
 }
 
+function applyPlacementRippleRemove(sources: Sources, op: PlacementRippleRemoveOperation): Sources {
+  const media = editableMedia(sources);
+  const timeline = mediaTimeline(media, sources.plan.duration ?? 0);
+  const target = timeline.placements.find((p) => p.id === op.placement);
+  if (!target || target.attachmentBroken) throw new KinottaError('invalid', 'Choose an available clip to close its gap.');
+  // The ordered picture sequence already ripples, including its footage attachments.
+  let result = applyPlacementRemove(sources, { ...op, kind: 'placement-remove' });
+  if (media.sequence.includes(target.id) || target.role === 'gap') return result;
+  const pictures = timeline.placements.filter((p) => p.role !== 'audio' && p.role !== 'gap');
+  const layerOf = (id: string, layer?: number) => layer ?? pictures.findIndex((p) => p.id === id);
+  for (const p of timeline.placements) {
+    if (p.id === target.id || p.role === 'gap' || p.role !== target.role || p.attachmentBroken || p.at < target.at + target.duration - 1e-6) continue;
+    const sameTrack = target.role === 'audio' ? p.track === target.track : p.role === 'insert' && layerOf(p.id, p.layer) === layerOf(target.id, target.layer);
+    if (!sameTrack) continue;
+    result = applyPlacementChange(result, { id: op.id, kind: 'placement-change', placement: p.id, changes: { at: Math.max(0, p.at - target.duration) } });
+  }
+  return result;
+}
+
 function applyPlacementLayer(sources: Sources, op: PlacementLayerOperation): Sources {
   const media = editableMedia(sources);
   const p = media.placements.find((placement) => placement.id === op.placement);
@@ -1005,6 +1026,8 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
     }
     case 'placement-remove':
       return applyPlacementRemove(sources, op);
+    case 'placement-ripple-remove':
+      return applyPlacementRippleRemove(sources, op);
     case 'placement-move':
       return applyPlacementMove(sources, op);
     case 'placement-layer':
@@ -1065,6 +1088,7 @@ export function operationTouches(op: Operation, section: { start: number; end: n
     case 'placement-duck':
     case 'placement-remove':
     case 'placement-move':
+    case 'placement-ripple-remove':
     case 'placement-layer':
     case 'placement-replace':
     case 'placement-split':
@@ -1136,6 +1160,8 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: `Placement ${op.placement}`, text: `Lowered music under speech by ${op.amount} dB` };
     case 'placement-remove':
       return { target: `Placement ${op.placement}`, text: 'Removed media' };
+    case 'placement-ripple-remove':
+      return { target: `Placement ${op.placement}`, text: 'Removed media and closed the gap' };
     case 'placement-move':
       return { target: `Placement ${op.placement}`, text: 'Reordered media' };
     case 'placement-layer':

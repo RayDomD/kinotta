@@ -27,6 +27,9 @@ import type { CaptionMove, CaptionText, ElementChange, ElementEditing, FramePick
 import type { ReviewProps } from './Review.tsx';
 import { useMediaPlayback } from './useMediaPlayback.ts';
 import { useEditorWorkspace } from './EditorWorkspace.tsx';
+import { Transport, shotTarget } from './Transport.tsx';
+import { ViewerDivider } from './ViewerDivider.tsx';
+import { MarkerPanel, useMarkers } from './useMarkers.tsx';
 import '../review.css';
 
 /** How often a running transcription is checked on. */
@@ -57,6 +60,7 @@ function verifyAttrs(count: number, playing: boolean, ready: boolean, error: str
 /** Native placements share the saved edit list and the same envelope used by rendering. */
 export function MediaEditor({ reel, version, section, edits, actions, comments, onSaveComment, reveal, sourceRoot: initialRoot, legacySources }: ReviewProps & { sourceRoot?: string; legacySources?: Sources }) {
   const workspace = useEditorWorkspace();
+  const markerState = useMarkers(reel.slug);
   const base = version!.media!;
   const ops = useMemo(() => edits?.list?.operations.filter((op) => !edits.list!.flagged?.[op.id]) ?? [], [edits?.list]);
   const edited = useMemo(() => {
@@ -353,7 +357,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         return;
       }
       const step = sign * workspace.settings.nudge * (event.shiftKey ? SHIFT_NUDGE_FACTOR : 1);
-      const delta = snap ? snapDelta([p.at, p.at + p.duration], step, snapPoints(timeline, p.id, time, workspace.settings.beatSnap ? media : undefined), SNAP_REACH) : step;
+      const delta = snap ? snapDelta([p.at, p.at + p.duration], step, snapPoints(timeline, p.id, time, workspace.settings.beatSnap ? media : undefined, markerState.markers.map((marker) => marker.time)), SNAP_REACH) : step;
       change(p.id, { at: Math.max(0, Math.round((p.at + delta) * 100) / 100) });
     } else if (action === 'trimStart' || action === 'trimEnd') {
       event.preventDefault();
@@ -444,7 +448,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (action === 'snip' || action === 'gap') return !version!.code;
     if (action === 'apply') return !!snipRange && !version!.code;
     if (action === 'split') return !!selectedPlacement && splittable(selectedPlacement);
-    if (action === 'duplicate' || action === 'remove') return !!selected && !!selectedPlacement;
+    if (action === 'duplicate' || action === 'remove' || action === 'closeGap') return !!selected && !!selectedPlacement;
     if (action === 'pin') return !!onSaveComment && !playing && time < timeline.duration && !pinSaving;
     if (action === 'undo') return edits!.list?.canUndo === true;
     if (action === 'redo') return edits!.list?.canRedo === true;
@@ -460,6 +464,9 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     return null;
   };
   const runAction = (action: EditorAction, fast = false) => {
+    if (action === 'marker') { void markerState.drop(time); return; }
+    if (action === 'prevShot' || action === 'nextShot') { playback.seek(shotTarget((version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)), time, action === 'prevShot' ? -1 : 1, timeline.duration)); return; }
+    if (action === 'cancel' && workspace.focus) { workspace.setFocus(false); return; }
     if (action === 'zoomIn' || action === 'zoomOut') { zoom(action === 'zoomIn' ? 0.5 : 2); return; }
     if (action === 'fit') { setRawWindow(null); return; }
     if (action === 'cancel') { setClipMenu(null); setSelected(null); setSnipRange(null); setTool('select'); setPinning(false); setPinDraft(null); return; }
@@ -476,6 +483,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     else if (action === 'gap') void edits!.add({ kind: 'placement-add', placement: { id: crypto.randomUUID(), role: 'gap', duration: workspace.settings.gap }, index: selectedPlacement && media.sequence.includes(selectedPlacement.id) ? media.sequence.indexOf(selectedPlacement.id) + 1 : media.sequence.length });
     else if (action === 'pin') { setPinning(!pinning); setPinDraft(null); setPinError(null); }
     else if (action === 'remove' && selected) void edits!.add({ kind: 'placement-remove', placement: selected });
+    else if (action === 'closeGap' && selected) void edits!.add({ kind: 'placement-ripple-remove', placement: selected });
     else if (action === 'undo') void edits!.undo();
     else if (action === 'redo') void edits!.redo();
     else if ((action === 'up' || action === 'down') && selectedPlacement?.role !== 'gap' && selectedPlacement?.track) {
@@ -490,13 +498,13 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const onWindowKey = useRef<(event: globalThis.KeyboardEvent) => void>(() => undefined);
   onWindowKey.current = (event) => {
     const target = event.target as HTMLElement;
-    if (event.defaultPrevented || workspace.settingsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"]')) return;
+    if (event.defaultPrevented || workspace.settingsOpen || workspace.shortcutsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"]')) return;
     // A control outside the editor keeps its own plain keys (Space presses a focused button); a chord with a modifier still reaches the editor.
     if (!event.ctrlKey && !event.metaKey && !event.altKey && !main.current?.contains(target) && target.closest('button, a, summary, [role="tab"], [role="menuitem"]')) return;
     const chord = keyChord(event);
     const shiftedAction = event.shiftKey ? actionForKey(workspace.settings.keys, chord.replace('Shift+', '')) : null;
     const action = actionForKey(workspace.settings.keys, chord) ?? (shiftedAction && ['left', 'right', 'up', 'down'].includes(shiftedAction) ? shiftedAction : null);
-    if (!action || action === 'rail' || action === 'settings' || (action === 'apply' && !enabled(action))) return;
+    if (!action || ['rail', 'settings', 'focus', 'shortcuts'].includes(action) || (action === 'apply' && !enabled(action))) return;
     event.preventDefault(); runAction(action, event.shiftKey);
   };
   useEffect(() => {
@@ -504,11 +512,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  return <main ref={main} className="main rv-main" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '')} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
+  return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '')} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
     <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>
     {error && <p role="alert">{error}</p>}
     {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
     <div className="rv-well">
+      <div className="rv-picture-stage">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
         <PictureLayers pictures={active} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
@@ -517,34 +526,34 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}
       </div>
+      </div>
     {overload && <section className="mv-overload" aria-label="Mix overload">
       <p role="alert">{`Mix above full scale at ${describeOverload(overload)}. Lower a level or volume point.`}</p>
       <button type="button" className="rv-tool" onClick={() => playback.seek((overload.spans.find((span) => span.start > time + SPLIT_MARGIN) ?? overload.spans[0])!.start)}>Next overload</button>
     </section>}
-      <div className="rv-transport">
-        <button type="button" className="rv-tool" disabled={!ready || timeline.duration === 0 || (pictureError !== null && !playing)} onClick={togglePlayback}>{playing ? 'Pause' : 'Play'}</button>
-        <label className="mv-clock">Playhead <input aria-label="Playhead" type="number" min="0" max={workspace.settings.timecode === 'frames' ? Math.round(timeline.duration * FRAME_RATE) : timeline.duration} step={workspace.settings.timecode === 'frames' ? 1 : 0.01} value={workspace.settings.timecode === 'frames' ? Math.round(time * FRAME_RATE) : time.toFixed(2)} onChange={(event) => playback.seek(Number(event.target.value) / (workspace.settings.timecode === 'frames' ? FRAME_RATE : 1))} /></label>
-        <span className="rv-tc">/ {workspace.settings.timecode === 'frames' ? `${Math.round(timeline.duration * FRAME_RATE)}f` : `${timeline.duration.toFixed(2)}s`}</span>
+      <Transport markers={markerState.markers} onMarker={(id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }} time={time} total={timeline.duration} playing={playing} timecode={workspace.settings.timecode} keys={workspace.settings.keys} disabled={!ready || (pictureError !== null && !playing)} shots={version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)} pins={shownPins.filter((c) => !c.moment.removed && !c.state).map((c) => ({ id: c.id, time: c.moment.time, number: c.number, text: c.text }))} onToggle={togglePlayback} onSeek={playback.seek} focus={workspace.focus} onFocus={() => workspace.setFocus(!workspace.focus)}>
         {!ready && !playback.error && <span role="status">Preparing sound…</span>}
         {waitingForPicture && ready && <span role="status">Waiting for picture…</span>}
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
-      </div>
+      </Transport>
     </div>
+    <MarkerPanel state={markerState} /><ViewerDivider />
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
+    <div className="rv-tracks-pane">
     {version!.code && <p className="meta">Drag or trim shots in the Picture row. Sound stays in place.</p>}
     {pinError && <p role="alert">{pinError}</p>}
     {pinDraft && workspace.pinHost && createPortal(<form aria-label="New review pin" className="mv-placement mv-pin-draft" onSubmit={(e) => { e.preventDefault(); void savePin(); }}>
       <p>{pinDraft.label}</p><label>Comment <textarea aria-label="Pin comment" value={pinText} disabled={pinSaving} onChange={(e) => setPinText(e.target.value)} autoFocus /></label>
       <div className="mv-controls"><button type="submit" className="rv-tool" disabled={pinSaving || !pinText.trim()}>{pinSaving ? 'Saving pin…' : 'Save pin'}</button><button type="button" className="rv-tool" disabled={pinSaving} onClick={() => { setPinDraft(null); setPinError(null); }}>Cancel pin</button></div>
-    </form>, workspace.pinHost)}
+    </form>, workspace.focus && main.current ? main.current : workspace.pinHost)}
 
     <section className="editor-timeline-view" aria-label="Timeline view">
       <div className="editor-timeline-controls"><span>Timeline</span><button type="button" className="rv-tool" aria-label="Zoom in timeline" disabled={win.length <= Math.min(2, windowTotal)} onClick={() => runAction('zoomIn')}>+</button><button type="button" className="rv-tool" aria-label="Zoom out timeline" disabled={win.length >= windowTotal} onClick={() => runAction('zoomOut')}>−</button><button type="button" className="rv-tool" onClick={() => runAction('fit')}>Fit timeline</button><label>Pan <input aria-label="Pan timeline" type="range" min="0" max={windowTotal - win.length} step="0.01" value={win.start} disabled={win.length >= windowTotal} onChange={(event) => setRawWindow({ ...win, start: Number(event.target.value) })} /></label></div>
     </section>
-    <NativeLanes media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} pictureEditable={!version!.code} solo={solo}
+    <NativeLanes stillUrl={(id, at) => { const saved = base.sources.some((source) => source.id === id); return base.legacy && id.startsWith('legacy:') ? `/api/reels/${encodeURIComponent(reel.slug)}/footage-still?time=${at}&width=160` : `/api/media/${encodeURIComponent(id)}/still?time=${at}&width=160${saved ? `&reel=${encodeURIComponent(reel.slug)}&version=${version!.number}` : ''}`; }} markers={markerState.markers.map((marker) => marker.time)} media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} pictureEditable={!version!.code} solo={solo}
       overview={<>
-        <div className="native-lane editor-ruler"><strong>Time</strong><div className="native-lane-bars" aria-label="Timeline ruler" onClick={(event) => { if (event.target !== event.currentTarget) return; const box = event.currentTarget.getBoundingClientRect(); playback.seek(win.start + (event.clientX - box.left) / box.width * win.length); }}>{tickTimes(win).map((tick) => <button type="button" key={tick} style={{ transform: tick === win.start + win.length ? 'translateX(-100%)' : undefined, left: `${(tick - win.start) / win.length * 100}%` }} onClick={() => playback.seek(tick)}>{workspace.settings.timecode === 'frames' ? `${Math.round(tick * FRAME_RATE)}f` : `${tick}s`}</button>)}{shownPins.map((pin) => <button type="button" key={pin.id} className="editorial-pin" aria-label={`${pin.number}. ${pin.text}${pin.moment.removed ? '. Moment removed' : ''}`} disabled={pin.moment.removed || !!pin.state} style={{ left: `${(Math.min(timeline.duration, pin.moment.time) - win.start) / win.length * 100}%` }} onClick={() => playback.seek(pin.moment.time)}>{pin.number}</button>)}</div></div>
-        <TimelineOverview timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />
+        <div className="native-lane editor-ruler"><strong>Time</strong><div className="native-lane-bars" aria-label="Timeline ruler" onClick={(event) => { if (event.target !== event.currentTarget) return; const box = event.currentTarget.getBoundingClientRect(); playback.seek(win.start + (event.clientX - box.left) / box.width * win.length); }}>{tickTimes(win).map((tick) => <button type="button" key={tick} style={{ transform: tick === win.start + win.length ? 'translateX(-100%)' : undefined, left: `${(tick - win.start) / win.length * 100}%` }} onClick={() => playback.seek(tick)}>{workspace.settings.timecode === 'frames' ? `${Math.round(tick * FRAME_RATE)}f` : `${tick}s`}</button>)}{markerState.markers.filter((marker) => marker.time >= win.start && marker.time <= win.start + win.length).map((marker) => <button type="button" key={marker.id} className="rv-marker" aria-label={`Marker ${marker.name || marker.time.toFixed(2)}`} style={{ left: `${(marker.time - win.start) / win.length * 100}%` }} onClick={() => { playback.seek(marker.time); markerState.setSelected(marker.id); }}>◇</button>)}{shownPins.map((pin) => <button type="button" key={pin.id} className="editorial-pin" aria-label={`${pin.number}. ${pin.text}${pin.moment.removed ? '. Moment removed' : ''}`} disabled={pin.moment.removed || !!pin.state} style={{ left: `${(Math.min(timeline.duration, pin.moment.time) - win.start) / win.length * 100}%` }} onClick={() => playback.seek(pin.moment.time)}>{pin.number}</button>)}</div></div>
+        <TimelineOverview markers={markerState.markers} onMarker={(id) => { const marker = markerState.markers.find((item) => item.id === id); if (marker) playback.seek(marker.time); markerState.setSelected(id); }} timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />
       </>}
       tool={tool} range={snipRange} onRange={selectSnip} onBlade={(p, at) => { if (at - p.at > SPLIT_MARGIN && p.at + p.duration - at > SPLIT_MARGIN) void edits!.add({ kind: 'placement-split', placement: p.id, at: at - p.at }); }}
       onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
@@ -555,7 +564,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    {(pictures) => <EditorialLanes win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: versionPageUrl(reel.slug, version!.number), time: (id) => version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
       onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
@@ -564,6 +573,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onGraphicKey={(event, id) => { if (actionForKey(workspace.settings.keys, keyChord(event.nativeEvent)) === 'apply' && !snipRange) { event.preventDefault(); event.stopPropagation(); setSelected(null); setSelectedGraphic(id); workspace.setPanelTab('clip'); } }}
       onGraphicDrag={(id, edge, delta) => { const c = edited.clips?.find((clip) => clip.id === id); if (!c) { setGraphicDraft(null); return; } void edits!.add(edge === 'move' ? { kind: 'clip-slide', clip: id, ...(c.placement ? { placement: c.placement } : {}), delta } : { kind: 'clip-trim', clip: id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }).then(() => setGraphicDraft(null)); }}>{pictures}</EditorialLanes>}
     </NativeLanes>
+    </div>
     {clipMenu && (() => {
       const p = timeline.placements.find((item) => item.id === clipMenu.id);
       if (!p) return null;
@@ -582,9 +592,10 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <button type="button" role="menuitem" autoFocus onClick={inspect}>Clip settings…</button>
         <button type="button" role="menuitemcheckbox" aria-checked={p.role !== 'gap' && (p.mute ?? p.role === 'insert')} disabled={!editable || edits!.busy || p.role === 'gap' || !hasSound(p.source)} onClick={() => act(() => { if (p.role !== 'gap') change(p.id, { mute: !(p.mute ?? p.role === 'insert') }); })}>Mute</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || !splittable(p)} onClick={() => act(() => split(p))}>Split{workspace.settings.keys.split && <kbd>{workspace.settings.keys.split}</kbd>}</button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate</button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate<kbd>{workspace.settings.keys.duplicate}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || p.role === 'gap'} onClick={() => { inspect(); requestAnimationFrame(() => workspace.clipHost?.querySelector<HTMLSelectElement>('select[aria-label^="Replace "]')?.focus()); }}>Replace…</button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id }); })}>Remove</button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id }); })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => { void edits!.add({ kind: 'placement-ripple-remove', placement: p.id }); })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
       </div>;
     })()}
 

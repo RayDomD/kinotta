@@ -9,6 +9,7 @@ const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
+const MARKERS_API = /^\/api\/reels\/([^/]+)\/markers(?:\/([^/]+))?$/;
 const APPROVAL_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/approval$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
@@ -29,6 +30,8 @@ const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
 const MEDIA_ROUTE = /^\/media\/([^/]+)$/;
 const VERSION_MEDIA_ROUTE = /^\/media\/([^/]+)\/(\d+)\/([^/]+)$/;
 const WAVEFORM_API = /^\/api\/media\/([^/]+)\/waveform$/;
+const STILL_API = /^\/api\/media\/([^/]+)\/still$/;
+const FOOTAGE_STILL_API = /^\/api\/reels\/([^/]+)\/footage-still$/;
 const SPEECH_API = /^\/api\/media\/([^/]+)\/speech$/;
 const BEATS_API = /^\/api\/media\/([^/]+)\/beats$/;
 const SOUND_EFFECT_API = /^\/api\/sound-effects\/([^/]+)$/;
@@ -333,6 +336,7 @@ export function createHandler(project: Project, webRoot: string) {
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
       const noteRoute = NOTE_API.exec(pathname);
+      const markersRoute = MARKERS_API.exec(pathname);
       const approvalRoute = APPROVAL_API.exec(pathname);
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
@@ -340,6 +344,7 @@ export function createHandler(project: Project, webRoot: string) {
       const mediaRoute = MEDIA_ROUTE.exec(pathname);
       const versionMediaRoute = VERSION_MEDIA_ROUTE.exec(pathname);
       const waveformRoute = WAVEFORM_API.exec(pathname);
+      const stillRoute = STILL_API.exec(pathname); const footageStillRoute = FOOTAGE_STILL_API.exec(pathname);
       const speechRoute = SPEECH_API.exec(pathname);
       const beatsRoute = BEATS_API.exec(pathname);
       const editsRoute = EDITS_API.exec(pathname);
@@ -354,7 +359,15 @@ export function createHandler(project: Project, webRoot: string) {
       const rendersListRoute = RENDERS_LIST_API.exec(pathname);
       const revealRoute = REVEAL_API.exec(pathname);
       const renderFileRoute = RENDER_FILE_ROUTE.exec(pathname);
-      if (commentsRoute) {
+      if (markersRoute) {
+        const slug = safeDecode(markersRoute[1]!); const id = markersRoute[2] ? safeDecode(markersRoute[2]) : undefined;
+        if (slug === null || id === null) throw new KinottaError('not-found', 'Reel or marker not found.');
+        if (!id && (req.method === 'GET' || req.method === 'HEAD')) sendJson(res, 200, await project.listMarkers(slug));
+        else if (!id && req.method === 'POST') sendJson(res, 201, await project.addMarker(slug, await readJsonBody(req) as { time: number; name: string }));
+        else if (id && req.method === 'PATCH') sendJson(res, 200, await project.changeMarker(slug, id, await readJsonBody(req) as { time?: number; name?: string }));
+        else if (id && req.method === 'DELETE') { await project.removeMarker(slug, id); res.writeHead(204).end(); }
+        else res.writeHead(405).end();
+      } else if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
         await handleComment(req, res, project, commentRoute);
@@ -468,6 +481,13 @@ export function createHandler(project: Project, webRoot: string) {
         const kind = searchParams.get('kind');
         if (kind !== null && !['video', 'image', 'audio'].includes(kind)) throw new BadRequest(400, 'Choose video, image or audio.');
         sendJson(res, 200, { media: await project.listMedia({ ...(kind ? { kind: kind as 'video' | 'image' | 'audio' } : {}), search: searchParams.get('search') ?? '' }) });
+      } else if (stillRoute || footageStillRoute) {
+        const source = safeDecode((stillRoute ?? footageStillRoute)![1]!);
+        const reel = searchParams.get('reel'); const version = Number(searchParams.get('version'));
+        const askedTime = searchParams.get('time'); const time = askedTime === null ? NaN : Number(askedTime);
+        const width = searchParams.has('width') ? Number(searchParams.get('width')) : 160;
+        if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
+        await sendRanged(req, res, await project.mediaStill(source, time, width, reel ? { reel, version } : undefined, footageStillRoute ? source : undefined));
       } else if (waveformRoute) {
         const source = safeDecode(waveformRoute[1]!);
         const reel = searchParams.get('reel');
