@@ -99,7 +99,7 @@ describe('a reel with no clips', () => {
     await expect(project.addComment(slug, 1, { pin: { ...pin, word: 'nope' }, text: 'x' })).rejects.toMatchObject({ code: 'invalid' });
     await expect(project.addComment(slug, 1, { pin: { kind: 'word', shot: '01', time: 1, word: 'there' }, text: 'x' })).rejects.toMatchObject({ code: 'invalid' });
 
-    expect(comment.pin).toMatchObject({ kind: 'word', shot: '', time: 1, word: 'there', section: null });
+    expect(comment.pin).toMatchObject({ kind: 'word', shot: '', time: 1, word: 'there', section: 'all', sourceTime: 1 });
     const batch = await project.copyBatch(slug, 1);
     expect(batch.text).toContain('1. 01.00s, word “there”: Land this word.');
     expect(batch.text).not.toContain('Shot ');

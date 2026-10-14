@@ -83,9 +83,7 @@ it('edits EQ on a shared track, bypasses it, undoes it, saves it and includes it
     await sound.getByLabel('EQ filter 1 gain', { exact: true }).press('Tab');
     await expect.poll(() => sound.getByLabel('EQ filter 1 gain', { exact: true }).inputValue()).toBe('6');
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    expect((await saved).status()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const version = await server.project.readVersion('founder-talk', 2);
     expect(version.media!.tracks![0]).toMatchObject({ eq: [{ type: 'peaking', frequency: 1000, gain: 6 }], eqBypass: false });
     expect((await server.project.readVersion('founder-talk', 1)).media!.tracks![0]).not.toHaveProperty('eq');

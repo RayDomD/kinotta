@@ -124,7 +124,7 @@ describe('approval', () => {
     await project.approveVersion(REEL, 2);
     await project.addOperation(REEL, { kind: 'element-offset', clip: 'cta', element: '@clip', x: 0, y: 12, scale: 1 });
 
-    expect(await project.saveEdits(REEL)).toEqual({ version: 3 });
+    expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
 
     expect(existsSync(approvalFile(dir, REEL, 3))).toBe(false);
     expect((await project.listVersions(REEL)).map((v) => v.approved)).toEqual([false, true, false]);

@@ -46,6 +46,8 @@ it('drags code shots with live preview, separates overlaps, trims, extends and s
     await expect.poll(() => scene.getAttribute('data-duration')).toBe('1');
     // Drag a shot beyond the current end. The expanding window must keep the gesture's original scale.
     const cta = lanes.locator('[data-graphic="cta"]');
+    await cta.scrollIntoViewIfNeeded();
+    await expect.poll(() => cta.locator('.native-trim-end').count()).toBe(1);
     const ctaBox = (await cta.boundingBox())!;
     const ctaX = ctaBox.x + ctaBox.width / 4;
     await page.mouse.move(ctaX, ctaBox.y + ctaBox.height / 2);
@@ -61,7 +63,7 @@ it('drags code shots with live preview, separates overlaps, trims, extends and s
     await expect.poll(() => page.getByLabel('Playhead', { exact: true }).getAttribute('max')).toBe('19');
     expect(await page.frameLocator('iframe[title="Authored graphics"]').locator('body').evaluate(() => (window as unknown as { DURATION: number }).DURATION)).toBe(19);
     for (const invariant of invariants) expect(await lanes.evaluate(invariant.check), invariant.description).toBe(true);
-    await page.getByRole('button', { name: /^Save as v3/ }).click();
+    expect(await server.project.freezeEdits('product-showreel')).toEqual({ version: 3 });
     await expect.poll(async () => (await server.project.readVersion('product-showreel', 3)).duration).toBe(19);
     await page.reload();
     await expect.poll(() => page.frameLocator('iframe[title="Authored graphics"]').locator('[data-scene="cta"]').getAttribute('data-start')).toBe('16.2');

@@ -32,7 +32,7 @@ describe('Save carries the comments at once (P2)', () => {
     await project.addComment(SLUG, 1, { pin: WORD_PIN, text: 'Land this word harder.' });
     await project.addOperation(SLUG, { kind: 'snip', from: 6, to: 7 });
 
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
 
     // The files, not the API: reading through the API would settle on its own.
     expect(stateOf(dir, SLUG, 1).carriedTo).toMatchObject({ version: 2 });
@@ -45,7 +45,7 @@ describe('Save carries the comments at once (P2)', () => {
     await project.addComment(SHOWREEL, 2, { pin: { shot: '03', x: 0.5, y: 0.5, element: 'icons-word' }, text: 'Hold ICONS.' });
     await project.addOperation(SHOWREEL, CUBE_OFFSET);
 
-    await project.saveEdits(SHOWREEL);
+    await project.freezeEdits(SHOWREEL);
 
     expect(stateOf(dir, SHOWREEL, 2).carriedTo).toMatchObject({ version: 3 });
     expect(stateOf(dir, SHOWREEL, 3).carriedFrom).toMatchObject({ version: 2 });
@@ -59,7 +59,7 @@ describe('a version with no plan of its own (P3)', () => {
     await project.addComment(SLUG, 1, { pin: WORD_PIN, text: 'Land this word harder.' });
     await project.addOperation(SLUG, { kind: 'snip', from: 6, to: 7 });
 
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
 
     expect(existsSync(join(dir, 'reels', SLUG, 'v1', 'plan.json'))).toBe(false);
     expect((await project.readVersion(SLUG, 1)).pieces).toHaveLength(1);
@@ -75,7 +75,7 @@ describe('a version with no plan of its own, after a Save (P3, round 2)', () => 
     const reelDir = join(dir, 'reels', SLUG);
     const project = openProject(dir);
     await project.addOperation(SLUG, { kind: 'snip', from: 6, to: 7 });
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
     for (const n of [3, 4]) {
       cpSync(join(reelDir, 'v2'), join(reelDir, `v${n}`), { recursive: true });
       rmSync(join(reelDir, `v${n}`, 'plan.json'));
@@ -117,7 +117,7 @@ describe('Save keeps a crash from double-applying the edits (P6)', () => {
 
   it('crash after the sources were written but before the version appeared: sources restored, list kept', { timeout: SLOW_MS }, async () => {
     const { reelDir, project, list, planFile, planBefore } = await setup();
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
     rmSync(join(reelDir, 'v2'), { recursive: true });
     writeFileSync(join(reelDir, 'edit-list.json'), list);
     writeFileSync(join(reelDir, SAVE_INTENT_FILE), journal(planFile, planBefore, list));
@@ -127,13 +127,14 @@ describe('Save keeps a crash from double-applying the edits (P6)', () => {
     expect(readFileSync(planFile, 'utf8')).toBe(planBefore);
     expect(recovered.operations).toHaveLength(1);
     expect(existsSync(join(reelDir, SAVE_INTENT_FILE))).toBe(false);
-    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
-    expect(readJson(planFile).pieces).toEqual([{ in: 0, out: 3.5 }, { in: 5, out: 12 }]);
+    expect(await project.freezeEdits(SLUG)).toEqual({ version: 2 });
+    expect(readFileSync(planFile, 'utf8')).toBe(planBefore);
+    expect(readJson(join(reelDir, 'v2', 'plan.json')).pieces).toEqual([{ in: 0, out: 3.5 }, { in: 5, out: 12 }]);
   });
 
   it('crash after the version appeared but before the list went: the list is cleared, never replayed', { timeout: SLOW_MS }, async () => {
     const { reelDir, project, list, planFile, planBefore } = await setup();
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
     const edited = readFileSync(planFile, 'utf8');
     writeFileSync(join(reelDir, 'edit-list.json'), list);
     writeFileSync(join(reelDir, SAVE_INTENT_FILE), journal(planFile, planBefore, list));
@@ -156,7 +157,7 @@ describe('Save recovery when an agent built the version first (P6, round 2)', ()
     await project.addOperation(SLUG, { kind: 'snip', from: 3.5, to: 5 });
     const list = readFileSync(join(reelDir, 'edit-list.json'), 'utf8');
     const planBefore = readFileSync(planFile, 'utf8');
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
     // The disk of a crash after the source writes, before the rename; then an agent builds v2 from v1 before any list read.
     rmSync(join(reelDir, 'v2'), { recursive: true });
     cpSync(join(reelDir, 'v1'), join(reelDir, 'v2'), { recursive: true });
@@ -180,12 +181,12 @@ describe('Save keeps the fields of an agent-written transcript (P7)', () => {
     const project = openProject(dir);
     await project.addOperation(SLUG, { kind: 'word-text', at: 0.4, text: 'imagine' });
 
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
 
     for (const path of [file, join(reelDir, 'v2', 'transcript.json')]) {
       const saved = readJson(path);
       expect(saved).toMatchObject({ language: 'en', duration: 12 });
-      expect(saved.words[0].text).toBe('imagine');
+      expect(saved.words[0].text).toBe(path === file ? 'picture' : 'imagine');
     }
   });
 });
@@ -202,7 +203,7 @@ describe('a saved code-only version copies the page and its assets only (P8)', (
     const project = openProject(dir);
     await project.addOperation(SHOWREEL, CUBE_OFFSET);
 
-    await project.saveEdits(SHOWREEL);
+    await project.freezeEdits(SHOWREEL);
 
     const v3 = join(reelDir, 'v3');
     expect(readdirSync(v3).sort()).toEqual(['assets', 'edits.json', 'index.html', 'kinotta-edits.css', 'shots.json']);

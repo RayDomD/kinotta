@@ -38,8 +38,11 @@ it('keeps replayed edits with a visible history reset notice after reopening (AM
     await open();
     await notice.waitFor();
     expect((await server.project.readEditList('product-showreel')).operations).toHaveLength(1);
-    await panel.getByRole('button', { name: 'Discard', exact: true }).click();
-    await expect.poll(() => notice.count()).toBe(0);
-    expect((await server.project.readEditList('product-showreel')).replayedFrom).toBeUndefined();
+    await panel.getByRole('button', { name: 'Remove edit 1', exact: true }).click();
+    await expect.poll(async () => (await server.project.readEditList('product-showreel')).operations.length).toBe(0);
+    expect((await server.project.readEditList('product-showreel')).replayedFrom).toBe(2);
+    await notice.waitFor();
+    await panel.getByRole('button', { name: /^Undo/ }).click();
+    await expect.poll(async () => (await server.project.readEditList('product-showreel')).operations.length).toBe(1);
   } finally { await browser.close(); await server.close(); }
 });

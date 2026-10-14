@@ -31,6 +31,8 @@ it('brings an insert picture to front, sends it back, undoes it and saves the sa
     const frame = page.locator('.rv-frame');
     const front = () => frame.locator('.mv-picture-layer').last().getAttribute('data-verify-id');
     await expect.poll(front).toBe('green');
+    // The picture paints before the edit journal is ready to accept keyboard selection.
+    await expect.poll(() => page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).isEnabled()).toBe(true);
     // Keyboard selection also reaches a bar covered by an overlapping insert.
     await page.getByRole('region', { name: 'Media timeline' }).getByRole('button', { name: /^red, insert,/ }).press('Enter');
     const clip = page.getByRole('region', { name: 'Clip settings' });
@@ -42,10 +44,7 @@ it('brings an insert picture to front, sends it back, undoes it and saves the sa
     await page.keyboard.press('Control+z');
     await expect.poll(front).toBe('red');
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    const response = await saved;
-    expect(response.status(), await response.text()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     await expect.poll(async () => (await server.project.readVersion('founder-talk', 2)).media?.placements.at(-1)?.id).toBe('red');
     await expect.poll(front).toBe('red');
     const job = await server.project.whenRendered((await server.project.render({ reel: 'founder-talk', version: 2, preset: 'draft', size: 'source', fps: 30 })).id);

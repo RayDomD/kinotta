@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { AudioGenerationRequest, GeneratedAudio, ProjectEvent, RenderJob, RenderRequest } from './core/index.ts';
+import type { AudioGenerationRequest, GeneratedAudio, BuiltPartsVersion, EditList, NewOperation, ProjectEvent, RenderJob, RenderRequest } from './core/index.ts';
 import { readPortFile } from './port-file.ts';
 
 /** Every call `kinotta` makes to a running Kinotta server goes through here. */
@@ -120,5 +120,21 @@ export async function requestGeneratedAudio(url: string, request: AudioGeneratio
   const res = await fetch(`${url}/api/media/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) });
   const body = (await res.json().catch(() => null)) as (GeneratedAudio & { error?: string }) | null;
   if (!res.ok || body === null) throw new ServerError(body?.error ?? `The server refused the sound: HTTP ${res.status}`);
+  return body;
+}
+
+/** Adds one durable working operation through the running editor's reel lock. */
+export async function requestOperation(url: string, reel: string, operation: NewOperation): Promise<EditList> {
+  const response = await fetch(`${url}/api/reels/${encodeURIComponent(reel)}/edits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(operation) });
+  const body = await response.json();
+  if (!response.ok) throw new ServerError(body.error ?? `HTTP ${response.status}`);
+  return body as EditList;
+}
+
+/** Publishes the authored parts manifest through the editor's reel lock. */
+export async function requestBuild(url: string, reel: string, by?: string): Promise<BuiltPartsVersion> {
+  const response = await fetch(`${url}/api/reels/${encodeURIComponent(reel)}/build`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ by }) });
+  const body = await response.json() as BuiltPartsVersion & { error?: string };
+  if (!response.ok) throw new ServerError(body.error ?? `HTTP ${response.status}`);
   return body;
 }

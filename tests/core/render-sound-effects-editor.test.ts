@@ -85,7 +85,7 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
     await page.getByRole('tab', { name: 'Sound', exact: true }).click();
     await browserExpect(page.getByRole('region', { name: 'Sound settings' })).toBeVisible();
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     await browserExpect.poll(async () => (await server.project.listVersions('founder-talk')).length).toBe(2);
     const saved = await server.project.readVersion('founder-talk', 2);
     expect(saved.media!.tracks!.find((track) => track.name === 'Effects')).toBeDefined();

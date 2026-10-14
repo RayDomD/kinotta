@@ -16,11 +16,11 @@ it.each(['trim', 'split'] as const)('blocks a broken word-linked graphic until e
   writeFileSync(join(reel, 'plan.json'), JSON.stringify(plan));
   const project = openProject(dir);
   await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'take', changes: { gain: 0.5 } });
-  await expect(project.saveEdits('founder-talk')).rejects.toThrow('attachment');
+  await expect(project.freezeEdits('founder-talk')).rejects.toThrow('attachment');
   expect((await project.readEditList('founder-talk')).operations).toHaveLength(1);
   if (repair === 'trim') await project.addOperation('founder-talk', { kind: 'clip-trim', clip: '01', in: 1, out: 2 });
   else await project.addOperation('founder-talk', { kind: 'clip-split', clip: '01' });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const saved = await project.readVersion('founder-talk', 2);
   expect(saved.sections.map((s) => [s.start, s.end])).toEqual([[0, 2], [4, 6]]);
   expect(saved.shots.map((s) => s.line)).toEqual(repair === 'trim' ? [{ start: 1, end: 2 }] : [{ start: 1, end: 2 }, { start: 4, end: 5 }]);
@@ -53,7 +53,7 @@ it('freezes a graphic fragment and its nested local image, and refuses an unfroz
   writeFileSync(join(reel, 'plan.json'), JSON.stringify(plan));
   const project = openProject(dir);
   await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'take', changes: { gain: 0.5 } });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const saved = JSON.parse(readFileSync(join(reel, 'v2/plan.json'), 'utf8'));
   const fragment = resolve(reel, 'v2', saved.clips[0].clip);
   expect(fragment.startsWith(join(reel, 'v2'))).toBe(true);
@@ -66,9 +66,9 @@ it('freezes a graphic fragment and its nested local image, and refuses an unfroz
   expect(readFileSync(fragment, 'utf8')).toContain(`dependencies/${copiedImage}`);
   writeFileSync(join(reel, 'clips/01-card.html'), '<script src="https://example.com/mutable.js"></script><div data-el="product"></div>' + scene);
   await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'take', changes: { gain: 0.25 } });
-  await expect(project.saveEdits('founder-talk')).rejects.toThrow('cannot be frozen');
+  await expect(project.freezeEdits('founder-talk')).rejects.toThrow('cannot be frozen');
   expect((await project.listVersions('founder-talk')).map((version) => version.number)).toEqual([1, 2]);
-  expect((await project.readEditList('founder-talk')).operations).toHaveLength(1);
+  expect((await project.readEditList('founder-talk')).operations).toHaveLength(2);
 });
 
 describe('graphic dependencies beyond plain attributes (AM33)', () => {
@@ -88,7 +88,7 @@ describe('graphic dependencies beyond plain attributes (AM33)', () => {
   }
   const save = async (project: ReturnType<typeof openProject>) => {
     await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'take', changes: { gain: 0.5 } });
-    return project.saveEdits('founder-talk');
+    return project.freezeEdits('founder-talk');
   };
 
   it('freezes every srcset candidate and literal paths in inline scripts, and rewrites them to the frozen copies', async () => {

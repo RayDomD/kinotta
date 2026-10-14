@@ -92,7 +92,7 @@ async function snippedReel(): Promise<Reel> {
   plan.clips = [{ id: '01', title: 'Two laptops', in: 0, out: 2.8, kind: 'full', section: 'all', still: 0, description: 'Two laptops.' }];
   writeFileSync(join(reelDir, 'plan.json'), JSON.stringify(plan));
   await project.addOperation(slug, { kind: 'snip', ...SNIP });
-  await project.saveEdits(slug);
+  await project.freezeEdits(slug);
   // Approved as the owner would; the render gate no longer asks for it (R19), and the warning shows the version is clean.
   const { warning } = await project.approveVersion(slug, 2);
   expect(warning).toBeUndefined();
@@ -209,7 +209,7 @@ describe('Final and Overlay of a footage reel', () => {
     cpSync(await draft(), before);
 
     await reel.project.addOperation(reel.slug, { kind: 'snip', from: 1, to: 2 });
-    await reel.project.saveEdits(reel.slug);
+    await reel.project.freezeEdits(reel.slug);
     expect((await reel.project.listVersions(reel.slug)).map((v) => v.number)).toEqual([1, 2, 3]);
     const after = await draft();
 

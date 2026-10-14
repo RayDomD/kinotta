@@ -24,7 +24,7 @@ describe('a version with independent media placements', () => {
     const project = openProject(dir);
     const model = await project.readMediaModel('founder-talk');
     await project.addOperation('founder-talk', { kind: 'placement-change', placement: model.media.sequence[0]!, changes: { gain: 0.5 } });
-    expect(await project.saveEdits('founder-talk')).toEqual({ version: 2 });
+    expect(await project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const saved = await project.readVersion('founder-talk', 2);
     expect(saved.media!.sources[0]!.audio).toBe(false);
     expect(saved.duration).toBe(12);
@@ -93,7 +93,7 @@ describe('a version with independent media placements', () => {
     expect(Object.values(replayed.flagged ?? {})).toEqual(['Speech placement second is missing.']);
     expect(replayed.canUndo).toBe(false);
     expect(replayed.operations).toHaveLength(1);
-    await expect(reopened.saveEdits('founder-talk')).rejects.toThrow('no longer applies');
+    await expect(reopened.freezeEdits('founder-talk')).rejects.toThrow('no longer applies');
     expect((await reopened.addOperation('founder-talk', { kind: 'word-text', placement: 'first', at: 1, text: 'again' })).replayedFrom).toBe(1);
     expect((await reopened.undoEdit('founder-talk')).replayedFrom).toBe(1);
     expect((await reopened.discardEdits('founder-talk')).replayedFrom).toBeUndefined();
@@ -120,17 +120,17 @@ describe('a version with independent media placements', () => {
     const project = openProject(dir);
     await project.addOperation('founder-talk', { kind: 'word-text', placement: 'second', at: 1, text: 'world' });
 
-    expect(await project.saveEdits('founder-talk')).toEqual({ version: 2 });
+    expect(await project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     writeFileSync(sourceFile, 'changed original');
     const saved = await project.readVersion('founder-talk', 2);
     expect(saved.transcript?.map((w) => w.text)).toEqual(['hello', 'world']);
     expect(readFileSync(resolve(reelDir, 'v2', saved.media!.sources[0]!.path))).toEqual(original);
     expect(await project.mediaFile('a', { reel: 'founder-talk', version: 2 })).toBe(resolve(reelDir, 'v2', saved.media!.sources[0]!.path));
-    expect((await project.readEditList('founder-talk')).operations).toEqual([]);
+    expect((await project.readEditList('founder-talk')).operations).toHaveLength(1);
     await project.addOperation('founder-talk', { kind: 'word-text', placement: 'second', at: 1, text: 'again' });
-    await expect(project.saveEdits('founder-talk')).rejects.toThrow('changed');
+    await expect(project.freezeEdits('founder-talk')).rejects.toThrow('changed');
     expect((await project.listVersions('founder-talk')).map((v) => v.number)).toEqual([1, 2]);
-    expect((await openProject(dir).readEditList('founder-talk')).operations).toHaveLength(1);
+    expect((await openProject(dir).readEditList('founder-talk')).operations).toHaveLength(2);
     expect(readFileSync(resolve(reelDir, 'v2', saved.media!.sources[0]!.path))).toEqual(original);
   });
 });

@@ -1,5 +1,5 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
-import { revealReelRail } from '../helpers/review-rail.ts';
+import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
@@ -15,7 +15,7 @@ test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 
-test('Save is blocked while a batch is out, edits still collect, and cancelling the hand-off lets Save through', async ({ page }) => {
+test('hand-off freezes Working, later edits continue, and cancellation keeps the journal', async ({ page }) => {
   // One comment to hand off and one edit waiting, set up through the same API the editor uses.
   const api = `/api/reels/${REEL}`;
   expect((await page.request.post(`${api}/versions/1/comments`, { data: { pin: PIN, text: 'Slide the laptops in faster.' } })).ok()).toBe(true);
@@ -30,20 +30,19 @@ test('Save is blocked while a batch is out, edits still collect, and cancelling 
   const edits = page.getByRole('list', { name: 'Edits' });
   await expect(edits.getByRole('listitem')).toHaveCount(1);
 
-  // The panel says a batch is out, and Save comes back with the reason instead of building.
-  const note = page.getByRole('status').filter({ hasText: 'A comment batch for v1 is out' });
+  const note = page.getByRole('status').filter({ hasText: 'A comment batch for v2 is out' });
   await expect(note).toBeVisible();
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Save is off until the next version appears or you cancel the hand-off' }).first()).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Save|^Discard/ })).toHaveCount(0);
 
   // Edits still collect: a second operation is accepted while the batch is out.
   expect((await page.request.post(`${api}/edits`, { data: { kind: 'clip-slide', clip: '02', delta: 0.2 } })).status()).toBe(201);
 
-  // Cancelling the hand-off lifts the block.
+  await expect(edits.getByRole('listitem')).toHaveCount(2);
   await note.getByRole('button', { name: 'Cancel hand-off' }).click();
   await expect(note).toHaveCount(0);
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toContainText('Saved by you');
+  await expect(edits.getByRole('listitem')).toHaveCount(2);
+  await freezeWorking(page);
+  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toContainText('Final render');
 });

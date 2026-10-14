@@ -20,11 +20,11 @@ it('carries word pins with their particular reuse and flags removal instead of u
   await project.addComment('founder-talk', 1, { text: 'First', pin: { kind: 'word', shot: '', time: 1, word: 'hello' } });
   await project.addComment('founder-talk', 1, { text: 'Second', pin: { kind: 'word', shot: '', time: 4, word: 'hello' } });
   await project.addOperation('founder-talk', { kind: 'placement-move', placement: 'second', index: 0 });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const carried = await project.listComments('founder-talk', 2);
   expect(carried.map((comment) => [comment.text, comment.pin.time, comment.pin.placement])).toEqual([['Second', 1, 'second'], ['First', 4, 'first']]);
   await project.addOperation('founder-talk', { kind: 'placement-remove', placement: 'second' });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const removed = (await project.listComments('founder-talk', 3)).find((comment) => comment.text === 'Second')!;
   expect(removed.state).toBe('moment-removed');
   expect(removed.pin.placement).toBe('second');

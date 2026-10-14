@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Operation } from '../../../../server/core/model.ts';
-import { fetchMediaModel, footageUrl, versionPageUrl } from '../../api/index.ts';
+import { fetchMediaModel, footageUrl, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
 import type { Comment, MediaEditingModel, NewComment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
 import type { CaptionMove, CaptionPhrase, CaptionText, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
@@ -42,6 +42,8 @@ const SNIP_LEAD_IN = 2;
 const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
+  frozen?: boolean;
+  onWorking?(): void;
   reel: ReelSummary;
   /** `none`: the reel has no version yet, so its footage plays alone. */
   state: 'loading' | 'error' | 'none' | 'ready';
@@ -403,7 +405,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
   const problem =
     withFootage && videoFailed ? 'The footage could not be loaded.' : !withFootage && version !== undefined && version.footage?.exists === false ? 'The footage file is missing.' : null;
-  const pageUrl = version ? versionPageUrl(reel.slug, version.number) : undefined;
+  const pageUrl = version ? version.workingParts ? workingPartsPageUrl(reel.slug, version.workingParts.key) : versionPageUrl(reel.slug, version.workingBase ?? version.number) : undefined;
   const playable = total > 0 && win.length > 0;
 
   return (
@@ -489,7 +491,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 }
 
 /** The Review tab: the reel in the Gate well, playing, with the lanes under it. */
-export function Review(props: ReviewProps) {
+function ReviewContent(props: ReviewProps) {
   const { state, message, reel } = props;
   const [mediaModel, setMediaModel] = useState<MediaEditingModel | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -509,4 +511,15 @@ export function Review(props: ReviewProps) {
   if (mediaModel && adaptedVersion) return <MediaEditor key={`${reel.slug}/${adaptedVersion.number}`} {...props} sourceRoot={mediaModel.sourceRoot} legacySources={mediaModel.legacySources} version={adaptedVersion} />;
   if (version?.isNewest) return <main className="main" aria-label="Review">{mediaError ? <><p role="alert">{mediaError}</p><button type="button" className="rv-tool" onClick={() => setMediaAttempt((attempt) => attempt + 1)}>Retry Review</button></> : <div className="state">Preparing Review…</div>}</main>;
   return <Playing key={`${reel.slug}/${version?.number ?? 'footage'}`} {...props} />;
+}
+
+function reviewVerifyAttrs(props: ReviewProps) {
+  return { 'data-verify-unit': 'Review', 'data-verify-status': props.state, 'data-verify-loading': String(props.state === 'loading'), 'data-verify-error': String(props.state === 'error'), 'data-verify-frozen': String(props.frozen === true) };
+}
+
+export function Review(props: ReviewProps) {
+  return <div className="rv-review-stack" {...reviewVerifyAttrs(props)}>
+    {props.frozen && props.version && <div className="frozen-version-line"><span>{`You are viewing v${props.version.number}, a frozen version.`}</span><button type="button" className="btn quiet" onClick={props.onWorking}>Back to Working</button></div>}
+    <ReviewContent {...props} />
+  </div>;
 }

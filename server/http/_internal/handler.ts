@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { extname, join, normalize, sep } from 'node:path';
-import { KinottaError, checkTools } from '../../core/index.ts';
+import { dirname, extname, join, normalize, sep } from 'node:path';
+import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts';
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
@@ -13,8 +13,11 @@ const APPROVAL_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/approval$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
-const SAVE_API = /^\/api\/reels\/([^/]+)\/save$/;
-const SAVE_AND_RENDER_API = /^\/api\/reels\/([^/]+)\/save-and-render$/;
+const BUILD_API = /^\/api\/reels\/([^/]+)\/build$/;
+const WORKING_API = /^\/api\/reels\/([^/]+)\/working$/;
+const WORKING_PARTS_PAGE = /^\/reels\/([^/]+)\/working\/index\.html$/;
+const ALTERNATE_PAGE = /^\/reels\/([^/]+)\/v(\d+)\/alternate\.html$/;
+const WORKING_RENDER_API = /^\/api\/reels\/([^/]+)\/working-render$/;
 const OVERLOAD_API = /^\/api\/reels\/([^/]+)\/overload$/;
 const MEDIA_MODEL_API = /^\/api\/reels\/([^/]+)\/media-model$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
@@ -33,6 +36,7 @@ const SPEECH_API = /^\/api\/media\/([^/]+)\/speech$/;
 const BEATS_API = /^\/api\/media\/([^/]+)\/beats$/;
 const SOUND_EFFECT_API = /^\/api\/sound-effects\/([^/]+)$/;
 const SOUND_EFFECT_ROUTE = /^\/sound-effects\/([^/]+)$/;
+const PARTS_REVISION = /^r[1-9]\d*$/;
 const VERSION_FOLDER = /^v\d+$/;
 const MAX_BODY_BYTES = 16 * 1024;
 const HEARTBEAT_MS = 25_000;
@@ -318,14 +322,17 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse, webRoot: s
  */
 async function serveVersionFile(req: IncomingMessage, res: ServerResponse, reelsDir: string, pathname: string): Promise<void> {
   const segments = pathname.slice(REELS_PREFIX.length).split('/').map(safeDecode);
-  const clean = segments.every((s): s is string => s !== null && s !== '' && !s.startsWith('.') && !/[\\]/.test(s));
-  const file =
-    clean && segments.length >= 3 && VERSION_FOLDER.test(segments[1]!) ? await fileIn(reelsDir, segments.join('/')) : null;
+  const clean = segments.every((s): s is string => s !== null && s !== '' && !s.startsWith('.') && !/[\\/]/.test(s));
+  const version = segments.length >= 3 && VERSION_FOLDER.test(segments[1]!);
+  const shot = segments.length >= 5 && segments[1] === 'shots' && PARTS_REVISION.test(segments[3]!);
+  const shared = segments.length >= 4 && segments[1] === 'shared' && PARTS_REVISION.test(segments[2]!);
+  const file = clean && (version || shot || shared) ? await fileIn(reelsDir, segments.join('/')) : null;
   if (file) sendFile(req, res, file);
   else sendNotFound(res);
 }
 
 export function createHandler(project: Project, webRoot: string) {
+  removeStaleDrafts(dirname(project.reelsDir));
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
@@ -342,10 +349,13 @@ export function createHandler(project: Project, webRoot: string) {
       const waveformRoute = WAVEFORM_API.exec(pathname);
       const speechRoute = SPEECH_API.exec(pathname);
       const beatsRoute = BEATS_API.exec(pathname);
+      const buildRoute = BUILD_API.exec(pathname);
+      const workingRoute = WORKING_API.exec(pathname);
+      const workingPartsRoute = WORKING_PARTS_PAGE.exec(pathname);
+      const alternateRoute = ALTERNATE_PAGE.exec(pathname);
+      const workingRenderRoute = WORKING_RENDER_API.exec(pathname);
       const editsRoute = EDITS_API.exec(pathname);
-      const saveRoute = SAVE_API.exec(pathname);
-    const saveAndRenderRoute = SAVE_AND_RENDER_API.exec(pathname);
-    const overloadRoute = OVERLOAD_API.exec(pathname);
+      const overloadRoute = OVERLOAD_API.exec(pathname);
       const mediaModelRoute = MEDIA_MODEL_API.exec(pathname);
       const handoffRoute = HANDOFF_API.exec(pathname);
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
@@ -364,27 +374,51 @@ export function createHandler(project: Project, webRoot: string) {
         await handleApproval(req, res, project, approvalRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
+      } else if (buildRoute && req.method === 'POST') {
+        const slug = safeDecode(buildRoute[1]!);
+        const body = await readJsonBody(req, {}) as { by?: unknown } | null;
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else if (!body || typeof body !== 'object' || Array.isArray(body) || body.by !== undefined && typeof body.by !== 'string') throw new KinottaError('invalid', 'A build accepts an optional author name.');
+        else sendJson(res, 201, await project.buildParts(slug, body.by as string | undefined));
+      } else if (alternateRoute && req.method === 'GET') {
+        const slug = safeDecode(alternateRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else {
+          const page = await project.alternatePage(slug, Number(alternateRoute[2]), searchParams.get('shot') ?? '', searchParams.get('revision') ?? '');
+          res.writeHead(200, { 'content-type': CONTENT_TYPES['.html'], 'cache-control': 'no-store' });
+          res.end(page);
+        }
+      } else if (workingPartsRoute && req.method === 'GET') {
+        const slug = safeDecode(workingPartsRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else {
+          const shot = searchParams.get('shot');
+          const revision = searchParams.get('revision');
+          const page = await project.workingPartsPage(slug, shot !== null || revision !== null ? { shot: shot ?? '', revision: revision ?? '' } : undefined);
+          res.writeHead(200, { 'content-type': CONTENT_TYPES['.html'], 'cache-control': 'no-store' });
+          res.end(page);
+        }
+      } else if (workingRoute && req.method === 'GET') {
+        const slug = safeDecode(workingRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.readWorkingVersion(slug));
+      } else if (workingRenderRoute && req.method === 'POST') {
+        const slug = safeDecode(workingRenderRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 201, await project.renderWorking({ ...(await readRenderChoice(req)), reel: slug }));
       } else if (editsRoute) {
         await handleEdits(req, res, project, editsRoute);
-      } else if (saveRoute && req.method === 'POST') {
-        const slug = safeDecode(saveRoute[1]!);
-        if (slug === null) sendJson(res, 404, { error: 'Not found' });
-        else sendJson(res, 200, await project.saveEdits(slug));
       } else if (handoffRoute && req.method === 'DELETE') {
         const slug = safeDecode(handoffRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelHandoff(slug));
       } else if (overloadRoute && req.method === 'GET') {
-        // `?version=<n>` measures that saved version; without it, the pending mix Save would preserve.
+        // `?version=<n>` measures that frozen version. Without it, measure Working.
         const slug = safeDecode(overloadRoute[1]!);
         const asked = searchParams.get('version');
         const version = asked === null ? undefined : Number(asked);
         if (slug === null || (version !== undefined && !(Number.isInteger(version) && version > 0))) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.mixOverload(slug, version));
-      } else if (saveAndRenderRoute && req.method === 'POST') {
-        const slug = safeDecode(saveAndRenderRoute[1]!);
-        if (slug === null) sendJson(res, 404, { error: 'Not found' });
-        else sendJson(res, 201, await project.saveAndRender({ ...(await readRenderChoice(req)), reel: slug }));
       } else if (pathname === '/api/renders' && req.method === 'POST') {
         sendJson(res, 201, await project.render(await readRenderRequest(req)));
       } else if (renderRoute && req.method === 'DELETE') {

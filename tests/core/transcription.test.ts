@@ -105,7 +105,7 @@ describe('edits made while transcribing', () => {
     const early = await project.addOperation(slug, { kind: 'snip', from: 4, to: 6 });
 
     expect(early).toMatchObject({ base: 0, operations: [{ kind: 'snip', from: 4, to: 6 }] });
-    await expect(project.saveEdits(slug)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('no version yet') });
+    await expect(project.freezeEdits(slug)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('no version yet') });
 
     release();
     await project.whenTranscribed(slug);
@@ -116,7 +116,7 @@ describe('edits made while transcribing', () => {
     expect(after.stale).toBeUndefined();
     // v1 was built from the unedited plan; Save puts the early snip into v2.
     expect((await project.readVersion(slug, 1)).duration).toBeCloseTo(VIDEO_SECONDS, 0);
-    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(slug)).toEqual({ version: 2 });
     expect((await project.readVersion(slug, 2)).duration).toBeCloseTo(VIDEO_SECONDS - 2, 0);
   });
 

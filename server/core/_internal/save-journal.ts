@@ -1,6 +1,11 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BUILT_BY_YOU } from './edit-model.ts';
+import type { Stored } from './edit-list.ts';
+import { writeFileAtomic } from './state.ts';
+import { preservedSourceHashes } from './media-preservation.ts';
+import { contentIdentity } from './content-identity.ts';
+import { STAGE_DIR } from './version-build.ts';
 
 /**
  * Save writes the edits into the reel's sources (plan, transcript) before it publishes the version, and the rename that
@@ -15,6 +20,7 @@ export const SAVE_INTENT_FILE = 'save-intent.json';
 interface SaveJournal {
   /** The version the Save was building. */
   version: number;
+  working?: Stored;
   /** Every source file the Save writes, as it was before. */
   files: { file: string; text: string }[];
   /** The ids of the operations the Save applies, in order. */
@@ -22,8 +28,8 @@ interface SaveJournal {
 }
 
 /** Records what the sources hold now, before Save changes them. `files` that do not exist are left out by the caller. */
-export async function beginSave(reelDir: string, version: number, files: SaveJournal['files'], operations: string[]): Promise<void> {
-  await writeFile(join(reelDir, SAVE_INTENT_FILE), `${JSON.stringify({ version, files, operations } satisfies SaveJournal, null, 2)}\n`, 'utf8');
+export async function beginSave(reelDir: string, version: number, files: SaveJournal['files'], operations: string[], working?: Stored): Promise<void> {
+  await writeFile(join(reelDir, SAVE_INTENT_FILE), `${JSON.stringify({ version, files, operations, ...(working ? { working } : {}) } satisfies SaveJournal, null, 2)}\n`, 'utf8');
 }
 
 /** The Save is over, however it ended: the journal goes. */
@@ -58,7 +64,10 @@ export async function recoverSave(reelDir: string, editListFile: string): Promis
     return;
   }
   const committed = await isOwnSave(join(reelDir, `v${journal.version}`), journal.operations ?? []);
-  if (committed) await rm(join(reelDir, editListFile), { force: true });
+  if (committed && journal.working) {
+    await writeFileAtomic(join(reelDir, editListFile), `${JSON.stringify({ ...journal.working, frozen: journal.version, sourceHashes: await preservedSourceHashes(join(reelDir, `v${journal.version}`)), frozenIdentity: await contentIdentity(join(reelDir, `v${journal.version}`)), frozenOperations: journal.operations }, null, 2)}\n`);
+  } else if (committed) await rm(join(reelDir, editListFile), { force: true });
   else await rollBackSources(journal.files);
+  if (!committed) await rm(join(reelDir, STAGE_DIR), { recursive: true, force: true });
   await endSave(reelDir);
 }

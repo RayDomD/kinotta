@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { footageUrl, versionPageUrl } from './api/index.ts';
+import { alternatePageUrl, footageUrl, versionPageUrl, workingPartsPageUrl } from './api/index.ts';
 import type { Comment, NewComment, Shot, Version } from './api/index.ts';
 import { EmptyStoryboard } from './EmptyStoryboard.tsx';
 import { IssueList } from './IssueList.tsx';
@@ -9,10 +9,20 @@ import { HexPin, PinsBadge, tagStacks } from './Pins.tsx';
 import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
 import { clipStates, hasSections, pinCounts, sectionNumber, sectionSpan, shotCount, pinCount } from './sections.ts';
-import { readOnlyNote } from './readOnly.ts';
 import { WaitingMark } from './Waiting.tsx';
 import { PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
+import type { EditsState } from './review/index.ts';
+
+const FROZEN_NOTE = 'Open Working to add or change comments.';
+
+function storyboardVerifyAttrs(count: number, duration: number, workingParts: boolean) {
+  return { 'data-verify-unit': 'Storyboard', 'data-verify-count': String(count), 'data-verify-empty': String(count === 0), 'data-verify-duration': String(duration), 'data-verify-working-parts': String(workingParts) };
+}
+
+function shotVerifyAttrs(shot: Shot, count: number) {
+  return { 'data-verify-unit': 'ShotCard', 'data-verify-count': String(count), 'data-verify-selected': shot.revision ?? '', 'data-verify-choice-made': String(!!shot.choiceMade), 'data-verify-needs-choice': String(count > 1 && !shot.choiceMade) };
+}
 
 interface ShotCardProps {
   shot: Shot;
@@ -31,12 +41,13 @@ interface ShotCardProps {
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
 function ShotCard({ shot, pageUrl, footage, pins, states, unavailable, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
-  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
+  const alternates = shot.alternates?.filter((alternate) => !alternate.dismissed) ?? [];
+  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === shot.revision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
   const stacks = tagStacks(framePins);
   const part = states.indexOf(shot) + 1;
   const partOf = part > 0 ? `${part} of ${states.length}` : null;
   return (
-    <div className="shot">
+    <div className={alternates.length > 1 ? 'shot has-alternates' : 'shot'} {...shotVerifyAttrs(shot, alternates.length)}>
       <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
         {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
       </PageStill>
@@ -57,6 +68,10 @@ function ShotCard({ shot, pageUrl, footage, pins, states, unavailable, open, but
       )}
       <ShotLine text={shot.spoken} />
       <div className="desc">{shot.description}</div>
+      {alternates.length > 0 && <div className="shot-alternates" aria-label={`${alternates.length} alternates, ${alternates.find((alternate) => alternate.inReel)?.label ?? shot.revision} in the reel`}>
+        {alternates.map((alternate) => <i key={alternate.revision} data-alternate-revision={alternate.revision} className={alternate.inReel ? 'on' : undefined} />)}
+        <span>{`${alternates.length} alternates · ${alternates.find((alternate) => alternate.inReel)?.label ?? shot.revision} in the reel`}</span>
+      </div>}
       <button ref={buttonRef} type="button" className="open" aria-label={`Shot ${shot.number}, ${shot.title}, ${partOf ? `state ${partOf} of clip ${shot.clip}, ` : ''}${timecode}`} onClick={open} />
     </div>
   );
@@ -71,6 +86,7 @@ export interface Reveal {
 }
 
 export interface StoryboardProps {
+  edits?: EditsState;
   slug: string;
   version: Version;
   /** The reel's newest version. Any other version is read-only. */
@@ -84,9 +100,10 @@ export interface StoryboardProps {
   issues: VersionIssues;
 }
 
-export function Storyboard({ slug, version, newest, comments, sectionId, onSection, save, reveal, issues }: StoryboardProps) {
-  const readOnly = version.number !== newest;
-  const pageUrl = versionPageUrl(slug, version.number);
+export function Storyboard({ slug, version: baseVersion, newest, comments, sectionId, onSection, save, reveal, issues, edits }: StoryboardProps) {
+  const version = baseVersion.workingParts ? { ...baseVersion, duration: baseVersion.workingParts.duration, shots: baseVersion.workingParts.shots } : baseVersion;
+  const readOnly = !version.isNewest;
+  const pageUrl = version.workingParts ? workingPartsPageUrl(slug, version.workingParts.key) : versionPageUrl(slug, version.workingBase ?? version.number);
   const footage = version.footage ? footageUrl(slug) : undefined;
   const multi = hasSections(version.sections);
   const sectionIndex = Math.max(0, version.sections.findIndex((s) => s.id === sectionId));
@@ -117,7 +134,8 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
     if (!reveal || reveal.seq === handledReveal.current) return;
     handledReveal.current = reveal.seq;
     const comment = comments.find((c) => c.id === reveal.commentId);
-    const shot = comment ? version.shots.find((s) => s.number === comment.pin.shot) : undefined;
+    const name = comment?.pin.kind === 'frame' ? comment.pin.shotName : undefined;
+    const shot = comment ? version.shots.find((s) => name ? s.name === name : s.number === comment.pin.shot) : undefined;
     if (!comment || !shot) return;
     // The sheet steps through one section's shots, so bring the comment's section into the grid first.
     if (multi && shot.section !== undefined && shot.section !== section.id) onSection(shot.section);
@@ -150,17 +168,17 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
           </>
         )}
       </div>
-      {readOnly && <p className="readonly-note">{readOnlyNote(version.number, newest)}</p>}
+      {readOnly && <p className="readonly-note">{FROZEN_NOTE}</p>}
       <IssueList issues={issues.messages} />
       {version.shots.length === 0 && <EmptyStoryboard version={version} comments={comments} readOnly={readOnly} save={save} />}
-      <div className="grid">
+      <div className="grid" {...storyboardVerifyAttrs(shots.length, version.duration, !!version.workingParts)}>
         {shots.map((shot, i) => (
           <ShotCard
-            key={shot.number}
+            key={`${pageUrl}/${shot.number}`}
             shot={shot}
             pageUrl={pageUrl}
             footage={footage}
-            pins={comments.filter((c) => c.pin.shot === shot.number)}
+            pins={comments.filter((c) => c.pin.kind === 'frame' && c.pin.shotName && shot.name ? c.pin.shotName === shot.name : c.pin.shot === shot.number)}
             states={clipStates(version.shots, shot)}
             unavailable={issues.unavailable.get(shot.number)}
             open={() => {
@@ -177,7 +195,10 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
       <Lanes
         duration={version.duration}
         shots={version.shots}
-        comments={comments}
+        comments={comments.filter((c) => {
+          const name = c.pin.kind === 'frame' ? c.pin.shotName : undefined;
+          return !name || version.shots.some((shot) => shot.name === name);
+        })}
         overlays={version.overlays}
         sections={version.sections}
         currentSection={section.id}
@@ -191,7 +212,10 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
       />
       {openIndex !== null && (
         <ShotSheet
+          key={pageUrl}
           pageUrl={pageUrl}
+          edits={readOnly ? undefined : edits}
+          alternatePage={(shot, revision) => alternatePageUrl(slug, version.number, shot, revision, version.workingParts?.key)}
           footage={footage}
           shots={shots}
           reelShots={version.shots}
@@ -199,7 +223,7 @@ export function Storyboard({ slug, version, newest, comments, sectionId, onSecti
           comments={comments}
           markedId={markedId}
           unavailable={issues.unavailable}
-          readOnlyNote={readOnly ? readOnlyNote(version.number, newest) : null}
+          readOnlyNote={readOnly ? FROZEN_NOTE : null}
           save={save}
           onStep={setOpenIndex}
           onClose={close}

@@ -7,7 +7,7 @@ import type { RenderFile, RenderPreset } from './types.ts';
 import { requireReelDir } from './version.ts';
 
 /** `<reel>-v<n>-<preset>-…`: the version and preset a render was named with (R7). */
-const RENDER_NAME = /-v(\d+)-(draft|final|overlay)-[^/\\]*$/;
+const RENDER_NAME = /-(?:(working)-)?v(\d+)-(?:[a-f0-9]{8}-)?(draft|final|overlay)-[^/\\]*$/;
 
 /** A reel's finished renders, newest first. Temp files and work folders (dot names) are left out. */
 export async function listRenders(projectDir: string, slug: string): Promise<RenderFile[]> {
@@ -18,7 +18,7 @@ export async function listRenders(projectDir: string, slug: string): Promise<Ren
       const info = await stat(join(dir, name)).catch(() => null);
       const match = RENDER_NAME.exec(name);
       if (info === null || !info.isFile() || match === null) return null;
-      return { file: name, version: Number(match[1]), preset: match[2] as RenderPreset, bytes: info.size, at: info.mtime.toISOString() };
+      return { file: name, version: Number(match[2]), preset: match[3] as RenderPreset, ...(match[1] ? { working: true as const } : {}), bytes: info.size, at: info.mtime.toISOString() };
     }),
   );
   return files.filter((file): file is RenderFile => file !== null).sort((a, b) => b.at.localeCompare(a.at));

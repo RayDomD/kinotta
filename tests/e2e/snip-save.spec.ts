@@ -1,5 +1,5 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
-import { revealReelRail } from '../helpers/review-rail.ts';
+import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -54,7 +54,7 @@ async function selectStretch(page: Page): Promise<void> {
 test('snip a stretch, see it in the Edits panel, and Save it as a new version', async ({ page }) => {
   await startReel(page, 'Snip talk');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
-  await expect(versions(page)).toContainText('Saved by you');
+  await expect(versions(page)).toContainText('you');
   await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
 
   await selectStretch(page);
@@ -67,7 +67,7 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await expect(edits).toContainText(/Snipped 3\.\ds \(00:0[23]\.\d\d to 00:0[56]\.\d\d\)/);
   await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
-  await expect(page.getByRole('button', { name: /^Save as v2/ })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
   // The playhead sits where the snip was, and the footage is already past the snipped stretch.
   await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(4.9);
 
@@ -78,17 +78,17 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   expect(existsSync(join(reelDir, 'v2'))).toBe(false);
 
   // Save builds v2 and opens it.
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toContainText('Saved by you');
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveAttribute('aria-current', 'true');
+  await expect(versions(page).getByRole('button', { name: /^v2/ })).toContainText('Final render');
+  await expect(versions(page).getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('button', { name: /^Save as v3/ })).toHaveCount(0);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
-  await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '0');
+  await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '1');
   const shots = JSON.parse(readFileSync(join(reelDir, 'v2', 'shots.json'), 'utf8'));
   expect(shots.builtBy).toBe('you');
   expect(existsSync(join(reelDir, 'v2', 'edits.json'))).toBe(true);
-  expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
+  expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(true);
 });
 
 test('a selected stretch previews the snip: the picture is past it, and playing skips it before Snip', async ({ page }) => {
@@ -122,19 +122,21 @@ test('a selected stretch previews the snip: the picture is past it, and playing 
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(0);
 });
 
-test('Discard drops the edit list and the reel plays whole again', async ({ page }) => {
+test('Undo removes the live snip and the reel plays whole again', async ({ page }) => {
   await startReel(page, 'Discard talk');
   await selectStretch(page);
   await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
 
-  await page.getByRole('button', { name: 'Discard', exact: true }).click();
+  await page.getByRole('button', { name: /^Undo/ }).click();
 
   await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '0');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
   const project = readFileSync(PROJECT_FILE, 'utf8');
-  expect(existsSync(join(project, 'reels', 'discard-talk', 'edit-list.json'))).toBe(false);
+  const history = JSON.parse(readFileSync(join(project, 'reels', 'discard-talk', 'edit-list.json'), 'utf8'));
+  expect(history.operations).toEqual([]);
+  expect(history.redo).toHaveLength(1);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveCount(0);
 });
 
@@ -157,7 +159,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   await selectStretch(page);
   await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(page.getByRole('alert').first()).toContainText('broken footage attachment');
   const broken = review(page).locator('[data-verify-broken-graphic="true"]');
   const brokenIds = await broken.evaluateAll((bars) => bars.map((bar) => bar.getAttribute('data-graphic')!));
@@ -170,7 +172,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   }
   await expect(broken).toHaveCount(0);
   await page.getByRole('tab', { name: /^Edits/ }).click();
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
 
   // v2 holds all three: the one whose moment was snipped says so, the others sit at their new times (the word 3 s earlier).
@@ -189,7 +191,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   expect(word.state).toBeUndefined();
 
   const project = readFileSync(PROJECT_FILE, 'utf8');
-  expect(JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')).media.sequence).toHaveLength(2);
+  expect(JSON.parse(readFileSync(join(project, 'reels', 'founder-talk', 'v2', 'plan.json'), 'utf8')).media.sequence).toHaveLength(2);
   expect(existsSync(join(project, 'reels', 'founder-talk', 'plan.json'))).toBe(false);
 });
 
@@ -299,7 +301,7 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await page.keyboard.press('Control+y');
   await expect(pieces.first()).toHaveAttribute('data-placement', reorderedId!);
 
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const plan = JSON.parse(readFileSync(join(project, 'reels', 'blade-talk', 'v2', 'plan.json'), 'utf8'));
@@ -340,7 +342,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await expect(cards.last()).toContainText(/Re-timed to 00:01\.00 to 00:0[12]\.\d\d/);
   await expect.poll(async () => Number(await word(1).getAttribute('data-source-end'))).toBeGreaterThan(1.5);
 
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const savedPlan = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v2', 'plan.json'), 'utf8'));
@@ -351,7 +353,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   expect(first[1].text).toBe('there');
   await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();
   await expect(word(1).getByRole('button', { name: /^Edit word/ })).toHaveText('where');
-  await expect(cards).toHaveCount(0);
+  await expect(cards).toHaveCount(2);
 });
 
 test('dragging a caption moves every caption, Alt-drag moves one phrase, and Save builds both', async ({ page }) => {
@@ -404,7 +406,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   await expect(cards).toHaveCount(3);
   await expect(cards.last()).toContainText('Moved all captions');
 
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const reelDir = join(project, 'reels', 'caption-talk');
@@ -414,9 +416,9 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   expect(captions.phrases).toEqual([expect.objectContaining({ placement: expect.any(String), at: 0.5, x: 0, y: expect.any(Number) })]);
   expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain(';translate:');
   expect(readFileSync(join(reelDir, 'v1', 'index.html'), 'utf8')).not.toContain('translate:');
-  // The new version's page already holds the positions; the editor shows them without any unsaved edit.
+  // Working still shows its live positions and retains every undoable operation.
   await expect(caption).not.toHaveCSS('translate', NOT_MOVED);
-  await expect(cards).toHaveCount(0);
+  await expect(cards).toHaveCount(3);
 });
 
 test('a caption is retyped in the frame, with a word added, and the page shows it before Save; undo puts it back', async ({ page }) => {
@@ -506,9 +508,9 @@ test('keyboard only: pick a video, play, mark a stretch, snip it and Save', asyn
   await page.keyboard.press('Enter');
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
 
-  // Save is reachable by Tab and works with Enter.
-  const save = page.getByRole('button', { name: /^Save as v2/ });
-  await tabTo(page, save);
-  await page.keyboard.press('Enter');
+  // Render is reachable by Tab, and Final freezes Working.
+  const render = page.getByRole('button', { name: 'Render Working', exact: true });
+  await tabTo(page, render);
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
 });

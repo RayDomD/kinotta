@@ -38,7 +38,7 @@ describe('speech for an imported source', () => {
 
     expect(await project.mediaSpeech(source)).toEqual({ state: 'idle' });
     await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'first', changes: { gain: 0.5 } });
-    await expect(project.saveEdits('founder-talk')).rejects.toThrow('Speech for Tone is not transcribed yet');
+    await expect(project.freezeEdits('founder-talk')).rejects.toThrow('Speech for Tone is not transcribed yet');
 
     expect((await project.transcribeMedia(source)).state).toMatch(/running|ready/);
     await expect.poll(() => project.mediaSpeech(source)).toEqual({ state: 'ready', words: WORDS });
@@ -46,10 +46,23 @@ describe('speech for an imported source', () => {
     expect(await openProject(dir).mediaSpeech(source)).toEqual({ state: 'ready', words: WORDS });
     expect(calls).toBe(1);
 
-    await project.saveEdits('founder-talk');
+    await project.freezeEdits('founder-talk');
     const saved = await project.readVersion('founder-talk', 2);
     expect(saved.media!.sources[0]!.words).toEqual(WORDS);
     expect(saved.transcript?.map((w) => [w.text, w.start, w.placement])).toEqual([['hello', 0.2, 'first'], ['hello', 2.2, 'second']]);
+  });
+
+  it('pins cached speech on Working before a freeze and carries the exact source word', async () => {
+    const { dir, project, source } = await speechReel(async () => WORDS);
+    writeFileSync(join(dir, 'reels/founder-talk/v1/shots.json'), JSON.stringify({ contract: 1, duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], shots: [] }));
+    await project.transcribeMedia(source);
+    await expect.poll(() => project.mediaSpeech(source)).toEqual({ state: 'ready', words: WORDS });
+    const added = await project.addComment('founder-talk', 1, { pin: { kind: 'word', shot: '', time: 2.2, word: 'hello', placement: 'second' }, text: 'Land the repeated word.' });
+    expect(added.comment.pin).toMatchObject({ placement: 'second', sourceTime: 0.2, time: 2.2 });
+    expect((await project.listVersions('founder-talk')).map((version) => version.number)).toEqual([1]);
+    const batch = await project.copyBatch('founder-talk', 1);
+    expect(batch.text).toContain('Land the repeated word.');
+    expect((await project.listComments('founder-talk', 2))[0]?.pin).toMatchObject({ placement: 'second', sourceTime: 0.2, time: 2.2 });
   });
 
   it('reports a failed transcription with its reason and succeeds on retry', async () => {

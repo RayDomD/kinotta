@@ -6,7 +6,7 @@ import type { Page } from 'playwright';
 import { expect, it } from 'vitest';
 import { startServer } from '../../server/main.ts';
 import { copyFixture, emptyProject } from '../helpers/project.ts';
-import { dragTimelineHandle, inspectGraphic, inspectPlacement, revealReelRail } from '../helpers/review-rail.ts';
+import { dragTimelineHandle, inspectGraphic, inspectPlacement, openCaption, revealReelRail } from '../helpers/review-rail.ts';
 import { invariants as laneChecks } from '../../web/src/review/_internal/NativeLanes.verify.ts';
 
 /** Taps every connection to the speakers into one analyser, so tests read what the owner would hear. */
@@ -47,7 +47,7 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
   const reel = join(dir, 'reels/founder-talk');
   const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=lime:s=160x90:r=30:d=12', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=12', '-c:v', 'libx264', '-c:a', 'aac', join(dir, 'media/talk.mp4')], { encoding: 'utf8' });
   expect(generated.status, generated.stderr).toBe(0);
-  const plan = { title: 'Legacy ranges', video: '../media/talk.mp4', duration: 12, pieces: [{ in: 8, out: 10 }, { in: 10, out: 12 }], sections: [{ id: 'topic', name: 'Topic', start: 8, end: 12 }], clips: [{ id: '01', title: 'Card', clip: 'card.html', in: 9, out: 11, section: 'topic', kind: 'full' }] };
+  const plan = { title: 'Legacy ranges', captions: true, video: '../media/talk.mp4', duration: 12, pieces: [{ in: 8, out: 10 }, { in: 10, out: 12 }], sections: [{ id: 'topic', name: 'Topic', start: 8, end: 12 }], clips: [{ id: '01', title: 'Card', clip: 'card.html', in: 9, out: 11, section: 'topic', kind: 'full' }] };
   writeFileSync(join(dir, 'motion/card.html'), '<div data-slot="world"><div data-el="card">Card</div></div><!--/world--><script>M.scene({W:1920,H:1080,T:2,bg:"#000",center:[960,540],intro:null,SH:{still:{w:100,h:100}},start:"still",SEQ:[],layers:[]});</script>');
   writeFileSync(join(dir, 'motion/plan.json'), JSON.stringify(plan));
   writeFileSync(join(reel, 'transcript.json'), JSON.stringify({ words: [{ text: 'hello', start: 9, end: 9.5 }] }));
@@ -71,6 +71,7 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
     const pinned = page.waitForResponse((response) => response.url().endsWith('/comments') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
     expect((await pinned).status()).toBe(201);
+    await openCaption(page, '1.00');
     await page.getByRole('button', { name: /^Pin word at 1.00 in legacy:/ }).click();
     await page.getByLabel('Pin comment', { exact: true }).fill('Legacy word');
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
@@ -90,13 +91,13 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
     await page.getByLabel('Pin comment', { exact: true }).fill('Pending legacy frame');
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
     await expect.poll(async () => (await server.project.listComments('founder-talk', 1)).length).toBe(3);
-    expect((await server.project.listComments('founder-talk', 1)).find((c) => c.text === 'Pending legacy frame')?.pin.time).toBe(1.75);
+    expect((await server.project.listComments('founder-talk', 1)).find((c) => c.text === 'Pending legacy frame')?.pin.time).toBe(3.75);
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    expect((await saved).status()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     expect((await server.project.readVersion('founder-talk', 2)).shots[0]?.line).toEqual({ start: 3, end: 4 });
     expect((await server.project.listComments('founder-talk', 2)).map((c) => [c.text, c.pin.time, c.pin.sourceTime])).toEqual([['Legacy word', 3, 9], ['Legacy frame', 3.5, 9.5], ['Pending legacy frame', 3.75, 9.75]]);
+    await revealReelRail(page);
+    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).click();
     const frozenPicture = page.locator('video.mv-picture');
     await expect.poll(() => frozenPicture.getAttribute('src')).toContain('/media/founder-talk/2/');
     const original = readFileSync(join(dir, 'media/talk.mp4'));
@@ -112,7 +113,7 @@ it('creates native frame and word pins on repeated placements and carries them t
   const reel = join(dir, 'reels/founder-talk');
   const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=lime:s=160x90:r=30:d=2', '-c:v', 'libx264', join(dir, 'take.mp4')], { encoding: 'utf8' });
   expect(generated.status, generated.stderr).toBe(0);
-  const plan = { title: 'Native pins', duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], clips: [], media: { schema: 1, sources: [{ id: 'a', name: 'Take', kind: 'video', path: '../../take.mp4', duration: 2, audio: false, words: [{ text: 'hello', start: 0.5, end: 0.8 }] }], placements: [{ id: 'first', role: 'main', source: 'a', in: 0, out: 2 }, { id: 'repeat', role: 'main', source: 'a', in: 0, out: 2 }], sequence: ['first', 'repeat'] } };
+  const plan = { title: 'Native pins', captions: true, duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], clips: [], media: { schema: 1, sources: [{ id: 'a', name: 'Take', kind: 'video', path: '../../take.mp4', duration: 2, audio: false, words: [{ text: 'hello', start: 0.5, end: 0.8 }] }], placements: [{ id: 'first', role: 'main', source: 'a', in: 0, out: 2 }, { id: 'repeat', role: 'main', source: 'a', in: 0, out: 2 }], sequence: ['first', 'repeat'] } };
   writeFileSync(join(reel, 'plan.json'), JSON.stringify(plan));
   writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ ...plan, media: { ...plan.media, sources: [{ ...plan.media.sources[0], path: '../../../take.mp4' }] } }));
   writeFileSync(join(reel, 'v1/shots.json'), JSON.stringify({ contract: 1, duration: 4, sections: plan.sections, shots: [] }));
@@ -139,9 +140,11 @@ it('creates native frame and word pins on repeated placements and carries them t
     expect(await page.getByLabel('Pin comment', { exact: true }).inputValue()).toBe('Later frame');
     await page.unroute('**/comments');
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
+    await openCaption(page, '0.50');
     await page.getByRole('button', { name: 'Pin word at 0.50 in first' }).click();
     await page.getByLabel('Pin comment', { exact: true }).fill('First word');
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
+    await openCaption(page, '2.50');
     await page.getByRole('button', { name: 'Pin word at 2.50 in repeat' }).click();
     await page.getByLabel('Pin comment', { exact: true }).fill('Repeated word');
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
@@ -170,21 +173,21 @@ it('creates native frame and word pins on repeated placements and carries them t
     await page.getByLabel('Playhead', { exact: true }).fill('2.5');
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true }).click();
     await page.getByRole('button', { name: 'Choose pin position' }).press('Enter');
-    await page.getByText('Save this new or changed moment as a version before pinning it.', { exact: true }).waitFor();
+    await page.getByLabel('Pin comment', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Cancel pin', exact: true }).click();
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await page.getByRole('button', { name: /^Undo/ }).click();
     await inspectPlacement(page, /^Take, main, 0.00/);
+    await page.getByRole('region', { name: 'Media timeline' }).locator('button[data-placement="first"]').press('Enter');
     await placements.getByRole('button', { name: 'Remove', exact: true }).click();
-    expect(await page.getByRole('region', { name: 'Graphics, speech and pins' }).getByRole('button', { name: /First word.*Moment removed/ }).isDisabled()).toBe(true);
+    expect(await page.getByRole('button', { name: /First word.*Moment removed/ }).isDisabled()).toBe(true);
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await page.getByRole('button', { name: /^Undo/ }).click();
-    await page.getByRole('region', { name: 'Graphics, speech and pins' }).getByRole('button', { name: /Later frame/ }).click();
+    await page.getByRole('button', { name: /Later frame/ }).click();
     await expect.poll(() => page.getByLabel('Playhead', { exact: true }).inputValue()).toBe('2.50');
     await expect.poll(() => page.getByRole('img', { name: /^Comment 3$/ }).count()).toBe(1);
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    expect((await saved).status()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const after = await server.project.listComments('founder-talk', 2);
     expect(after.map((c) => [c.text, c.pin.time, c.state])).toEqual([['First word', 0.5, undefined], ['Later frame', 2.5, undefined], ['Repeated word', 3.5, undefined]]);
     expect(after.map((c) => c.pin.section)).toEqual(['all', 'all', 'all']);
@@ -216,15 +219,16 @@ it('previews independent native caption positions, timing and duplicated speech 
     await expect.poll(() => frame.locator('[data-caption][data-placement="first"] .caption').evaluate((el) => (el as HTMLElement).style.translate)).toBe('10px');
     expect(await frame.locator('[data-caption][data-placement="repeat"] .caption').evaluate((el) => (el as HTMLElement).style.translate)).toBe('0px');
     await dragTimelineHandle(page, 'Word start at 0.20 in first', 0.2);
-    await expect.poll(() => frame.locator('[data-caption][data-placement="first"]').getAttribute('data-start')).toBe('0.4');
-    await expect.poll(() => frame.locator('[data-caption][data-placement="first"] [data-t]').getAttribute('data-t')).toBe('0.4');
-    await expect.poll(() => frame.locator('[data-caption][data-placement="first"]').getAttribute('data-source-start')).toBe('0.4');
+    await expect.poll(async () => Number(await frame.locator('[data-caption][data-placement="first"]').getAttribute('data-start'))).toBeCloseTo(0.4, 4);
+    await expect.poll(async () => Number(await frame.locator('[data-caption][data-placement="first"] [data-t]').getAttribute('data-t'))).toBeCloseTo(0.4, 4);
+    await expect.poll(async () => Number(await frame.locator('[data-caption][data-placement="first"]').getAttribute('data-source-start'))).toBeCloseTo(0.4, 4);
     await expect.poll(() => frame.locator('[data-caption][data-placement="first"] .caption').evaluate((el) => (el as HTMLElement).style.translate)).toBe('10px');
     await page.getByRole('button', { name: /^Undo/ }).click();
     await expect.poll(() => frame.locator('[data-caption][data-placement="first"]').getAttribute('data-start')).toBe('0.2');
     const placement = await inspectPlacement(page, /^Take, main, 0.00/);
     await placement.getByRole('button', { name: 'Duplicate', exact: true }).click();
     await expect.poll(() => frame.locator('[data-caption]').count()).toBe(3);
+    await openCaption(page, '2.20');
     expect(Number(await page.locator('[data-word$=":2.2"]').getAttribute('data-source-end'))).toBeCloseTo(0.8);
     await page.getByLabel('Playhead', { exact: true }).fill('2.3');
     await expect.poll(() => frame.locator('[data-caption].active').textContent()).toBe('hello');
@@ -232,13 +236,11 @@ it('previews independent native caption positions, timing and duplicated speech 
     await expect.poll(() => frame.locator('[data-caption].active').count()).toBe(0);
     await page.getByLabel('Playhead', { exact: true }).fill('0.3');
     await page.screenshot({ path: join(dir, 'caption-editor.png'), fullPage: true });
-    await page.getByRole('region', { name: 'Graphics, speech and pins' }).scrollIntoViewIfNeeded();
+    await page.getByRole('region', { name: 'Graphics and captions' }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(dir, 'caption-controls.png'), fullPage: true });
     console.info('Caption editor screenshot:', join(dir, 'caption-editor.png'));
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    expect((await saved).status()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     expect(readFileSync(join(reel, 'v2/index.html'), 'utf8').match(/data-caption /g)).toHaveLength(3);
   } finally { await browser.close(); await server.close(); }
 });
@@ -295,10 +297,7 @@ it('flags an interrupted graphic in the editor and repairs it with an explicit t
     await graphics.getByRole('button', { name: 'Attach at playhead' }).click();
     await expect.poll(() => graphics.getByText(/attachment is missing or interrupted/).count()).toBe(0);
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    const response = await saved;
-    expect(response.status(), await response.text()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const shots = JSON.parse(readFileSync(join(reel, 'v2/shots.json'), 'utf8'));
     expect(shots.sections.map((s: { start: number; end: number }) => [s.start, s.end])).toEqual([[0, 2], [3, 5]]);
     expect(shots.shots[0].line).toEqual({ start: 3.5, end: 5 });
@@ -342,7 +341,7 @@ it('attaches added media to footage, follows reorder and repairs a removed momen
     expect(lostMarker.filter((pass) => !pass)).toHaveLength(1);
     await inspectPlacement(page, /^take.mp4, insert/);
     await placements.getByText(/Footage moment removed/).waitFor();
-    await expect(server.project.saveEdits('founder-talk')).rejects.toThrow('attachment');
+    await expect(server.project.freezeEdits('founder-talk')).rejects.toThrow('attachment');
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await page.getByRole('button', { name: /^Undo/ }).click();
     await inspectPlacement(page, /^take.mp4, insert/);
@@ -358,10 +357,7 @@ it('attaches added media to footage, follows reorder and repairs a removed momen
     await placements.getByRole('button', { name: 'Follow footage at playhead' }).click();
     await expect.poll(() => product.getAttribute('aria-label')).toMatch(/1\.00 to 2\.00/);
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    const response = await saved;
-    expect(response.status(), await response.text()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const plan = JSON.parse(readFileSync(join(reel, 'v2/plan.json'), 'utf8'));
     expect(plan.media.placements.find((p: { id: string }) => p.id === 'product').attachment).toEqual({ placement: 'repeat', time: 1 });
   } finally { await browser.close(); await server.close(); }
@@ -373,7 +369,7 @@ it('changes picture framing independently, previews it and retains it through Un
   expect(generated.status, generated.stderr).toBe(0);
   const reel = join(dir, 'reels/founder-talk');
   const media = (prefix: string) => ({ schema: 1, sources: [{ id: 'photo', name: 'Portrait', kind: 'image', path: `${prefix}portrait.png`, duration: 0 }], placements: ['first', 'second'].map((id) => ({ id, role: 'main', source: 'photo', in: 0, out: 0, duration: 2 })), sequence: ['first', 'second'] });
-  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, media: media('../../../'), clips: [] }));
+  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, captions: true, media: media('../../../'), clips: [] }));
   writeFileSync(join(reel, 'plan.json'), JSON.stringify({ title: 'Framing', duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], media: media('../../'), clips: [] }));
   writeFileSync(join(reel, 'v1/index.html'), '<!doctype html><style>html,body{margin:0;background:transparent;width:160px;height:90px}</style><script>window.DURATION=4;window.seek=()=>{};</script>');
   const server = await startServer({ projectDir: dir, port: 0 });
@@ -418,10 +414,7 @@ it('changes picture framing independently, previews it and retains it through Un
     await expect.poll(style).toEqual({ fit: 'cover', position: '50% 0%' });
     await page.getByLabel('Playhead', { exact: true }).fill('0.5');
     await expect.poll(style).toEqual({ fit: 'cover', position: '50% 50%' });
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    const response = await saved;
-    expect(response.status(), await response.text()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const plan = JSON.parse(readFileSync(join(reel, 'v2/plan.json'), 'utf8'));
     expect(plan.media.placements[1].framing).toEqual({ mode: 'crop', y: 0 });
     expect(plan.media.placements[0]).not.toHaveProperty('framing');
@@ -500,10 +493,8 @@ it('auditions an unsaved volume change, restores playback after seeking and stop
     expect((await server.project.readEditList('founder-talk')).operations).toHaveLength(1);
     await page.getByRole('button', { name: 'Pause', exact: true }).click();
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saveResponse = page.waitForResponse((response) => response.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    const response = await saveResponse;
-    expect(response.status(), await response.text()).toBe(200);
+    await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length).toBeGreaterThan(0);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).waitFor();
     const saved = await server.project.readVersion('founder-talk', 2);
@@ -530,10 +521,8 @@ it('imports reusable sound in a legacy reel and saves it using the agent plan fo
     await page.getByLabel('Search media', { exact: true }).fill('music');
     await page.getByRole('region', { name: 'Project media library' }).getByRole('tab', { name: 'Audio', exact: true }).click();
     await page.getByRole('button', { name: /^Add music.wav at playhead$/ }).first().click();
-    const response = page.waitForResponse((item) => item.url().endsWith('/save'));
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    const savedResponse = await response;
-    expect(savedResponse.status(), await savedResponse.text()).toBe(200);
+    await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length).toBeGreaterThan(0);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).waitFor();
     const saved = await server.project.readVersion('founder-talk', 2);
@@ -562,8 +551,8 @@ it('keeps preview controls truthful through Undo, Solo removal, silent pictures 
     { id: 'still-use', role: 'insert', source: 'still', at: 3, in: 0, out: 0, duration: 1 },
   ];
   const media = (prefix: string) => ({ schema: 1, tracks: [{ id: 'voice', name: 'Voice', order: 0, gain: 1, mute: false }, { id: 'other', name: 'Other', order: 1, gain: 1, mute: false }], sources: sources.map((s) => ({ ...s, path: prefix + s.path })), placements, sequence: [] });
-  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, media: media('../../../'), clips: [] }));
-  writeFileSync(join(reel, 'plan.json'), JSON.stringify({ title: 'Truthful', duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], media: media('../../'), clips: [] }));
+  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, captions: true, media: media('../../../'), clips: [] }));
+  writeFileSync(join(reel, 'plan.json'), JSON.stringify({ title: 'Truthful', captions: true, duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], media: media('../../'), clips: [] }));
   writeFileSync(join(reel, 'v1/index.html'), '<!doctype html><style>html{background:transparent}</style><script>window.DURATION=4;window.seek=()=>{};</script>');
   writeFileSync(join(reel, 'v1/shots.json'), JSON.stringify({ contract: 1, duration: 4, sections: [{ id: 'all', name: 'All', start: 0, end: 4 }], shots: [] }));
   const server = await startServer({ projectDir: dir, port: 0 });
@@ -589,6 +578,7 @@ it('keeps preview controls truthful through Undo, Solo removal, silent pictures 
     expect(await page.getByLabel('Volume for sound-use').count()).toBe(1);
 
     // F1: Undo restores the word shown in the input.
+    await openCaption(page, '0.50');
     await page.getByRole('button', { name: 'Edit word hello at 0.50 in sound-use' }).click();
     const word = page.getByLabel('Word at 0.50 in sound-use', { exact: true });
     await word.fill('howdy');
@@ -597,6 +587,7 @@ it('keeps preview controls truthful through Undo, Solo removal, silent pictures 
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await page.getByRole('button', { name: /^Undo/ }).click();
     await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length).toBe(0);
+    await openCaption(page, '0.50');
     await page.getByRole('button', { name: 'Edit word hello at 0.50 in sound-use' }).click();
     expect(await word.inputValue()).toBe('hello');
     await word.press('Escape');
@@ -633,8 +624,8 @@ it('transcribes speech when a source is first used, shows a failure with retry, 
   const entry = await server.project.importMedia('Tone.wav', createReadStream(tone));
   const reel = join(dir, 'reels/founder-talk');
   const media = (prefix: string) => ({ schema: 1, sources: [{ id: entry.id, name: 'Tone', kind: 'audio', path: prefix + entry.path, duration: 2, contentHash: entry.contentHash }], placements: [{ id: 'first', role: 'audio', source: entry.id, at: 0, in: 0, out: 2, speech: true }], sequence: [] });
-  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 2, media: media('../../../'), clips: [] }));
-  writeFileSync(join(reel, 'plan.json'), JSON.stringify({ title: 'Speech', duration: 2, sections: [{ id: 'all', name: 'All', start: 0, end: 2 }], media: media('../../'), clips: [] }));
+  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 2, captions: true, media: media('../../../'), clips: [] }));
+  writeFileSync(join(reel, 'plan.json'), JSON.stringify({ title: 'Speech', captions: true, duration: 2, sections: [{ id: 'all', name: 'All', start: 0, end: 2 }], media: media('../../'), clips: [] }));
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -650,6 +641,7 @@ it('transcribes speech when a source is first used, shows a failure with retry, 
     await page.getByText('Transcribing speech…', { exact: false }).waitFor();
     expect(await page.getByRole('button', { name: 'Edit word hello at 0.20 in first', exact: true }).count()).toBe(0);
     release();
+    await openCaption(page, '0.20');
     await expect.poll(() => page.getByRole('button', { name: 'Edit word hello at 0.20 in first', exact: true }).count(), { timeout: 10_000 }).toBe(1);
     expect(await page.getByText('Transcribing speech…', { exact: false }).count()).toBe(0);
     expect(await page.locator('.editor-frame-error').count()).toBe(0);

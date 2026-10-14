@@ -86,6 +86,8 @@ test('a reel switch does not show another reel’s settings or past renders when
   const reels = page.getByRole('navigation', { name: 'Reels' });
   await reels.getByRole('button', { name: /Product showreel/ }).click();
   await phases(page).getByRole('button', { name: 'Review' }).click();
+  await revealReelRail(page);
+  await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).click();
   await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render v2' }).click();
   await expect(page.getByRole('dialog', { name: 'Render v2' }).getByLabel('Size')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -100,6 +102,8 @@ test('a reel switch does not show another reel’s settings or past renders when
   await expect(menu(page)).not.toContainText('product-showreel-v2-draft.mp4');
   await page.keyboard.press('Escape');
   await phases(page).getByRole('button', { name: 'Review' }).click();
+  await revealReelRail(page);
+  await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ }).click();
   await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render v1' }).click();
   const form = page.getByRole('dialog', { name: 'Render v1' });
   await expect(form.getByRole('alert')).toContainText('Settings unavailable');

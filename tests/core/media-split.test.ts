@@ -23,7 +23,7 @@ const media: MediaPlan = {
   sequence: ['take', 'still', 'pause'],
 };
 const sources = { plan: { media }, words: [] };
-const split = (placement: string, at: number) => applyOperation(sources, { id: 'op1', kind: 'placement-split', placement, at }).plan.media!;
+const split = (placement: string, at: number) => applyOperation(sources, { by: 'you', id: 'op1', kind: 'placement-split', placement, at }).plan.media!;
 
 describe('splitting a placement', () => {
   it('keeps broken followed media silent and blocks Save until its attachment is repaired', async () => {
@@ -39,13 +39,13 @@ describe('splitting a placement', () => {
     writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ ...plan, media: { ...native, sources: [{ ...native.sources[0], path: '../../../media/talk.mp4' }] } }));
     const project = openProject(dir);
     await project.addOperation('founder-talk', { kind: 'placement-remove', placement: 'take' });
-    const edited = applyOperation({ plan, words: [] }, { id: 'remove', kind: 'placement-remove', placement: 'take' });
+    const edited = applyOperation({ plan, words: [] }, { by: 'you', id: 'remove', kind: 'placement-remove', placement: 'take' });
     expect(mixAt(edited.plan.media!, 1.5).map((s) => s.placement)).toEqual(['repeat']);
     expect(mediaWords(edited.plan.media!).map((w) => w.text)).toEqual(['speech']);
-    await expect(project.saveEdits('founder-talk')).rejects.toThrow('attachment');
+    await expect(project.freezeEdits('founder-talk')).rejects.toThrow('attachment');
     expect((await project.readEditList('founder-talk')).operations).toHaveLength(1);
     await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'effect', changes: { attachment: null, at: 1 } });
-    await expect(project.saveEdits('founder-talk')).resolves.toMatchObject({ version: 2 });
+    await expect(project.freezeEdits('founder-talk')).resolves.toMatchObject({ version: 2 });
     const savedPlan = JSON.parse(readFileSync(join(reel, 'v2/plan.json'), 'utf8'));
     savedPlan.media.placements.find((p: { id: string }) => p.id === 'effect').attachment = { placement: 'gone', time: 1 };
     writeFileSync(join(reel, 'v2/plan.json'), JSON.stringify(savedPlan));
@@ -93,7 +93,7 @@ describe('splitting a placement', () => {
     const { operations } = await project.addOperation('founder-talk', { kind: 'placement-split', placement: 'take', at: 3 });
     const second = `take~${operations[0]!.id}`;
     await project.addOperation('founder-talk', { kind: 'placement-move', placement: second, index: 0 });
-    await project.saveEdits('founder-talk');
+    await project.freezeEdits('founder-talk');
 
     const carried = await project.listComments('founder-talk', 2);
     expect(carried.map((c) => [c.text, c.state ?? 'open', c.pin.time])).toEqual([['Late', 'open', 1.2], ['Early', 'open', 4]]);

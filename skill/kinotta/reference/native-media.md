@@ -4,7 +4,7 @@ Read this when a reel plan has `media`, when adding sound to any reel, or when t
 
 ## Find the authoritative plan
 
-Use `reels/<slug>/plan.json` when present, otherwise the plan named by the reel in `motion/`. Read the newest saved version's own `plan.json` too. Preserve every field unrelated to the request, including unknown fields. Never replace a native media plan with legacy `video`/`pieces` fields. Paths in the authoring plan are relative to that plan, while paths in a version's plan are relative to the version folder.
+Use `reels/<slug>/plan.json` when present, otherwise the plan named by the reel in `motion/`. For a picture rebuild from a batch, start with that exact frozen version's own `plan.json`. Preserve the authored plan as input history for Working. Preserve every field unrelated to the request, including unknown fields. Never replace a native media plan with legacy `video`/`pieces` fields. Paths in the authoring plan are relative to that plan, while paths in a version's plan are relative to the version folder.
 
 ## Author a track mix
 
@@ -25,7 +25,7 @@ An audio or audible video source can carry optional `beats` timing:
 Times are ordered, unique source seconds within the source duration. Downbeats
 must belong to the beat list. Tempo is finite and nonnegative, and must be
 positive for a nonempty grid. An empty grid represents no detected pulse.
-Save freezes the grid with the source. A source-beats operation replaces it for
+A render or hand-off freeze preserves the grid with the source. A source-beats operation replaces it for
 every placement of that source without changing the audio. Markers follow trim,
 reel placement and loops. See `sound.md` for detection and bar-phase correction.
 
@@ -48,7 +48,7 @@ to true. Bypass retains the filter settings while skipping the entire chain.
 EQ follows the placement envelope and track gain. Every placement on the track
 gets the same filter chain in preview and render. Both use 48 kHz processing.
 The Sound sidebar provides presets, editable filters, per-filter On and track
-Bypass. Changes use the existing track edit, Undo and Save. Preserve EQ when
+Bypass. Changes use the existing track edit, Undo and automatic freezing. Preserve EQ when
 copying or changing unrelated track properties. Boosts can overload the mix,
 and overload measurement includes EQ. No normalization or limiter is added.
 
@@ -92,7 +92,11 @@ Video/image placements can carry `region: { x, y, width, height }` in fractions 
 
 For side by side, give the main picture `{ "x": 0, "y": 0, "width": 0.5, "height": 1 }` and an insert `{ "x": 0.5, "y": 0, "width": 0.5, "height": 1 }`. Inserts use their own `at`, `in`, `out` and optional image duration. Several inserts may overlap. By default main pictures are behind inserts, and later inserts in `placements` draw in front. An explicit nonnegative integer `layer` on a picture overrides that default, with higher layers in front. Preserve both placement order and explicit layers unless asked to change them. Regions belong to occurrences, including repeated uses of the same source.
 
-## Build a new frozen version
+## Small changes to Working
+
+Use `kinotta edit <slug> --by <your name> <operation json>` for supported track, gain, mute, placement, framing, layer, word, caption, offset and timing changes. Do not rewrite a frozen plan or copy a version for these changes. Preserve identity fields and keep unrelated values out of the operation. The command validates against current Working, persists the edit with your name and leaves it undoable. Final/Overlay renders and comment hand-offs preserve exact media and dependencies through the core freeze boundary. Drafts use temporary job captures.
+
+## Build a new frozen version for a picture rebuild
 
 1. Apply only the requested plan/graphic changes. Retain tracks, regions, source and placement identities, sequence, envelopes, words, attachments, graphic dependencies and all unrelated owner edits. Never touch the editor's edit-list or handoff files.
 2. Create a new version folder. Copy each required source's exact bytes into it, retaining the original content hash and using distinct names for distinct content. Rewrite that version's source paths to its preserved copies. Also preserve graphic fragments and their local dependencies. Do not leave version source paths pointing at mutable authoring files or substitute transcoded playback copies for the original source. A missing source or dependency blocks publication.

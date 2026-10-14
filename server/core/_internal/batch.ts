@@ -1,12 +1,15 @@
 import { join } from 'node:path';
-import { sectionOfComment, settleNewest } from './carry.ts';
+import { carriedComment, isSent, sectionOfComment, settleNewest } from './carry.ts';
 import { NO_SHOT, numbered } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { recordHandoff } from './handoff.ts';
 import { readTitle } from './reels.ts';
 import { readState, serialized, stateFilePath, writeFileAtomic, writeState } from './state.ts';
 import type { BatchOptions, Comment, CopiedBatch, Section, Version } from './types.ts';
-import { assertTakesComments } from './version.ts';
+import { readVersion, assertTakesComments, requireReelDir } from './version.ts';
+
+import { withReelLock } from './edit-list.ts';
+import { freezeEditsNow } from './save.ts';
 
 const REELS_DIR = 'reels';
 const WHOLE_REEL_FILE = 'comments.json';
@@ -31,11 +34,37 @@ function target({ pin }: Comment): string {
   return pin.element ?? `position ${Math.round(pin.x * PERCENT)}% ${Math.round(pin.y * PERCENT)}%`;
 }
 
-function pasteableText(heading: string, file: string, comments: Comment[], notes: string[], issues: string[]): string {
-  const lines = [`Kinotta comments: ${heading}`, `Saved as ${file}`, ''];
-  for (const c of comments) {
+function pasteableText(heading: string, file: string, comments: Comment[], notes: string[], issues: string[], version: Version): string {
+  const onShot = (comment: Comment, shot: Version['shots'][number]): boolean => comment.pin.kind === 'frame' && comment.pin.shotName ? comment.pin.shotName === shot.name : comment.pin.shot === shot.number;
+  const partsShots = version.parts ? version.shots.filter((shot) => comments.some((comment) => onShot(comment, shot))) : [];
+  const lines = [...(version.parts ? [`Rebuild: ${partsShots.map((shot) => shot.name).join(', ')}`] : []), `Kinotta comments: ${heading}`, `Saved as ${file}`, ''];
+  const alternateLines = (shot: Version['shots'][number]) => {
+    if (!shot.alternates) return;
+    const chosen = shot.alternates.find((alternate) => alternate.inReel);
+    lines.push(`In the reel: ${chosen?.label ?? shot.revision}`);
+    for (const alternate of shot.alternates) if (alternate.dismissed) lines.push(`Not this: ${alternate.label}${alternate.dismissed.reason ? ` · ${alternate.dismissed.reason}` : ''}`);
+  };
+  let group = '';
+  for (const c of version.parts ? partsShots.flatMap((shot) => comments.filter((comment) => onShot(comment, shot))) : comments) {
+    if (version.parts && group !== c.pin.shot) {
+      group = c.pin.shot;
+      const options = comments.filter((comment) => comment.pin.shot === group).find((comment) => comment.options !== undefined)?.options;
+      lines.push(`Shot ${group} · ${options ? `${options} alternates` : version.shots.find((shot) => shot.number === group)?.name ?? group}`);
+      const shot = version.shots.find((shot) => shot.number === group);
+      if (shot) alternateLines(shot);
+    }
     const where = c.pin.shot === NO_SHOT ? '' : `Shot ${c.pin.shot}, `;
-    lines.push(`${c.number}. ${where}${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
+    const revision = c.pin.kind === 'frame' ? c.pin.alternate : undefined;
+    const label = revision ? version.shots.find((shot) => shot.number === c.pin.shot)?.alternates?.find((alternate) => alternate.revision === revision)?.label ?? revision : undefined;
+    lines.push(`${c.number}. ${where}${label ? `alternate ${label}, ` : ''}${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
+  }
+  for (const shot of version.shots) if (shot.alternates && !partsShots.includes(shot)) {
+    lines.push(`Shot ${shot.number} · ${shot.name}`);
+    alternateLines(shot);
+  }
+  if (version.parts) for (const comment of comments) if (!partsShots.some((shot) => onShot(comment, shot))) {
+    const name = comment.pin.kind === 'frame' ? comment.pin.shotName : undefined;
+    lines.push(`Removed shot ${name ?? comment.pin.shot}`, `${comment.number}. ${timecode(comment.pin.time)}s, ${target(comment)}: ${comment.text}`, comment.stateReason ?? 'The pinned shot is no longer in this version.');
   }
   lines.push('');
   if (notes.length > 0) lines.push('Notes', ...notes.map((n) => `- ${n}`), '');
@@ -67,7 +96,7 @@ function sectionToCopy(sections: Section[], sectionId: string | undefined): { se
  * issues when asked for. The copy is recorded in the version's editor state as that section's latest hand-off, which is
  * what makes its comments "sent" and the section "waiting".
  */
-export async function copyBatch(projectDir: string, slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> {
+async function copyBatchNow(projectDir: string, slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> {
   await settleNewest(projectDir, slug);
   const version = await assertTakesComments(projectDir, slug, number);
   const { section, index } = sectionToCopy(version.sections, options.section);
@@ -100,10 +129,12 @@ export async function copyBatch(projectDir: string, slug: string, number: number
         number: c.number,
         shot: c.pin.shot === NO_SHOT ? null : c.pin.shot,
         time: c.pin.time,
-        ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y }),
+        ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y, ...(c.pin.shotName ? { shotName: c.pin.shotName } : {}), ...(c.pin.alternate ? { alternate: c.pin.alternate } : {}) }),
         text: c.text,
+        ...(c.options === undefined ? {} : { options: c.options }),
       })),
       notes,
+      ...(version.parts ? { shots: version.shots.filter((shot) => shot.alternates).map((shot) => ({ name: shot.name, number: shot.number, inReel: shot.revision, alternates: shot.alternates })) } : {}),
       ...(issues.length > 0 ? { issues } : {}),
     };
     await writeFileAtomic(path, `${JSON.stringify(batch, null, 2)}\n`);
@@ -112,6 +143,32 @@ export async function copyBatch(projectDir: string, slug: string, number: number
       handedOff: { ...state.handedOff, [section.id]: { copiedAt, commentIds: comments.map((c) => c.id) } },
     });
     await recordHandoff(join(projectDir, REELS_DIR, slug), number, copiedAt);
-    return { text: pasteableText(heading, file, comments, notes, issues), file, count: comments.length };
+    return { text: pasteableText(heading, file, comments, notes, issues, version), file, count: comments.length };
+  });
+}
+
+/** Freeze and map feedback while no live operation can change the captured reel. */
+export async function copyBatch(projectDir: string, slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, async () => {
+    await settleNewest(projectDir, slug);
+    const from = await assertTakesComments(projectDir, slug, number);
+    const { section } = sectionToCopy(from.sections, options.section);
+    const source = await readState(stateFilePath(projectDir, slug, number), number);
+    if (!source.note.trim() && !source.comments.some((comment) => from.sections.length === 1 || sectionOfComment(from, comment) === section.id)) {
+      throw new KinottaError('invalid', 'There are no comments or notes to copy yet.');
+    }
+    const frozen = await freezeEditsNow(projectDir, slug);
+    if (frozen.version !== number) {
+      const to = await readVersion(projectDir, slug, frozen.version);
+      const file = stateFilePath(projectDir, slug, frozen.version);
+      await serialized(file, async () => {
+        const state = await readState(file, frozen.version);
+        const comments = source.comments.map((comment) => carriedComment(comment, from, to, null, true));
+        const ids = comments.filter((_comment, index) => !isSent(source.handedOff, source.comments[index]!.id)).map((comment) => comment.id);
+        await writeState(file, { ...state, note: source.note, comments, carriedFrom: { version: number, ids } });
+      });
+    }
+    return copyBatchNow(projectDir, slug, frozen.version, options);
   });
 }

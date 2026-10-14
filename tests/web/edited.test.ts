@@ -79,8 +79,8 @@ describe('captionShifts', () => {
   ];
   const starts = [0.5, 8.2];
   const shown = (...args: Parameters<typeof captionShifts>) => captionShifts(...args)?.map(({ x, y, own }) => ({ x, y, own })) ?? null;
-  const all = (x: number, y: number) => ({ id: 'a', kind: 'caption-position' as const, x, y });
-  const one = (at: number, x: number, y: number) => ({ id: 'b', kind: 'caption-phrase-position' as const, at, x, y });
+  const all = (x: number, y: number) => ({ by: 'you', id: 'a', kind: 'caption-position' as const, x, y });
+  const one = (at: number, x: number, y: number) => ({ by: 'you', id: 'b', kind: 'caption-phrase-position' as const, at, x, y });
 
   it('is null when captions are off, and zero for a plan nobody moved', () => {
     expect(shown(undefined, [], words, starts)).toBeNull();
@@ -94,13 +94,13 @@ describe('captionShifts', () => {
   });
 
   it('names the phrase by its first word as re-timed, and keeps the reel-wide part apart', () => {
-    const moved = [all(30, 5), one(8.2, 0, -50), { id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
+    const moved = [all(30, 5), one(8.2, 0, -50), { by: 'you', id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
     const [, second] = captionShifts(true, moved, words, starts)!;
     expect(second).toMatchObject({ key: 8.3, wide: { x: 30, y: 5 }, x: 30, y: -45 });
   });
 
   it('follows a phrase whose first word is re-timed', () => {
-    const moved = [one(8.2, 0, -50), { id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
+    const moved = [one(8.2, 0, -50), { by: 'you', id: 'c', kind: 'word-timing' as const, at: 8.2, start: 8.3, end: 8.6 }];
     expect(shown(true, moved, words, starts)).toEqual([{ x: 0, y: 0, own: false }, { x: 0, y: -50, own: true }]);
   });
 });
@@ -112,8 +112,8 @@ describe('editedClips', () => {
     { id: '03', title: 'Three', in: 6, out: 9, slid: true },
   ];
   const whole = [{ in: 0, out: 12 }];
-  const trim = { id: 't', kind: 'clip-trim' as const, clip: '02', in: 3, out: 5 };
-  const slide = { id: 's', kind: 'clip-slide' as const, clip: '01', delta: 1 };
+  const trim = { by: 'you', id: 't', kind: 'clip-trim' as const, clip: '02', in: 3, out: 5 };
+  const slide = { by: 'you', id: 's', kind: 'clip-slide' as const, clip: '01', delta: 1 };
 
   it('places the saved clips on the timeline with their source time and slid flag', () => {
     expect(editedClips(clips, [], whole)).toEqual([
@@ -140,7 +140,7 @@ describe('clipOffsets', () => {
     { id: '01', in: 0, out: 3 },
     { id: '02', in: 3, out: 6, offsets: { badge: { x: 5, y: 6, scale: 1 }, title: { x: 1, y: 1, scale: 2 } } },
   ];
-  const move = (clip: string, element: string, x: number, y: number, scale = 1) => ({ id: 'o', kind: 'element-offset' as const, clip, element, x, y, scale });
+  const move = (clip: string, element: string, x: number, y: number, scale = 1) => ({ by: 'you', id: 'o', kind: 'element-offset' as const, clip, element, x, y, scale });
 
   it('is the saved offsets with the unsaved moves over them', () => {
     expect(clipOffsets(clips, [])).toEqual({ '02': { badge: { x: 5, y: 6, scale: 1 }, title: { x: 1, y: 1, scale: 2 } } });
@@ -178,7 +178,7 @@ describe('codeClips', () => {
   });
 
   it('lets the unsaved moves apply over the saved offsets', () => {
-    const move = { id: 'a', kind: 'element-offset' as const, clip: 'cube-lands', element: 'cube', x: 5, y: 6, scale: 1 };
+    const move = { by: 'you', id: 'a', kind: 'element-offset' as const, clip: 'cube-lands', element: 'cube', x: 5, y: 6, scale: 1 };
     expect(clipOffsets(clips, [move])).toEqual({ 'cube-lands': { cube: { x: 5, y: 6, scale: 1 } }, cta: { '@clip': { x: 0, y: 12, scale: 1 } } });
   });
 });

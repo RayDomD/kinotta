@@ -1,5 +1,5 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
-import { revealReelRail } from '../helpers/review-rail.ts';
+import { freezeWorking, undoWorkingEdits, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,13 +79,13 @@ test('trim a clip by its edge, slide another by its body, see it flagged, and Sa
   await page.keyboard.press('Control+y');
   await expect(edits.getByRole('listitem')).toHaveCount(2);
 
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The saved version keeps the flag, and the plan says which clip was slid.
   await expect(clip(page, '03').locator('.rv-off')).toHaveText('off its words');
-  await expect(edits).toHaveCount(0);
+  await expect(edits.getByRole('listitem')).toHaveCount(2);
   const project = readFileSync(PROJECT_FILE, 'utf8');
-  const plan = JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')) as { clips: { id: string; in: number; out: number; slid?: boolean }[] };
+  const plan = JSON.parse(readFileSync(join(project, 'reels', 'founder-talk', 'v2', 'plan.json'), 'utf8')) as { clips: { id: string; in: number; out: number; slid?: boolean }[] };
   const planClip = (id: string) => plan.clips.find((c) => c.id === id)!;
   expect(planClip('03').slid).toBe(true);
   expect(planClip('03').in).toBeGreaterThan(6.2);
@@ -95,6 +95,7 @@ test('trim a clip by its edge, slide another by its body, see it flagged, and Sa
 });
 
 test('click an element in the frame, drag it and scale it by its corner, see its offset in the tag, and Save', async ({ page }) => {
+  await undoWorkingEdits(page, 'founder-talk');
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
@@ -157,10 +158,10 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   await expect(edits.getByRole('listitem')).toHaveCount(3);
   await expect.poll(() => reviewClockText(page)).toMatch(clock!);
 
-  await page.getByRole('button', { name: /^Save as v3/ }).click();
+  await freezeWorking(page);
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
-  const plan = JSON.parse(readFileSync(join(project, 'motion', 'plan.json'), 'utf8')) as { clips: { id: string; offsets?: Record<string, { x: number; y: number; scale: number }> }[] };
+  const plan = JSON.parse(readFileSync(join(project, 'reels', 'founder-talk', 'v3', 'plan.json'), 'utf8')) as { clips: { id: string; offsets?: Record<string, { x: number; y: number; scale: number }> }[] };
   const offset = plan.clips.find((c) => c.id === '02')!.offsets!['conflict-panel']!;
   expect(offset.x).toBeGreaterThan(10);
   expect(offset.y).toBeGreaterThan(0);
@@ -171,6 +172,7 @@ test('click an element in the frame, drag it and scale it by its corner, see its
 });
 
 test('a clip follows a slide in the picture while it is dragged, and stays there before Save', async ({ page }) => {
+  await undoWorkingEdits(page, 'founder-talk');
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();

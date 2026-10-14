@@ -38,7 +38,7 @@ describe('editing a reel built from code', () => {
     await project.addOperation(REEL, move('cube-lands', 'cube', 40, -20, 1.5));
     await project.addOperation(REEL, move('cta', '@clip', 0, 12));
 
-    const saved = await project.saveEdits(REEL);
+    const saved = await project.freezeEdits(REEL);
 
     expect(saved).toEqual({ version: 3 });
     expect(readdirSync(join(reelDir, 'v3')).sort()).toEqual(['edits.json', 'index.html', 'kinotta-edits.css', 'shots.json']);
@@ -54,7 +54,8 @@ describe('editing a reel built from code', () => {
     // v2 is untouched, no stage is left behind and the list is gone.
     expect(existsSync(join(reelDir, 'v2', 'kinotta-edits.css'))).toBe(false);
     expect(existsSync(join(reelDir, '.save'))).toBe(false);
-    expect((await project.readEditList(REEL)).operations).toHaveLength(0);
+    expect((await project.readEditList(REEL)).operations).toHaveLength(2);
+    expect((await project.readEditList(REEL)).canUndo).toBe(true);
 
     const v3 = await project.readVersion(REEL, 3);
     expect(v3.builtBy).toBe('you');
@@ -67,11 +68,11 @@ describe('editing a reel built from code', () => {
   it('accumulates: a later Save keeps the offsets already there, and a move of the same element replaces its offset', async () => {
     const { reelDir, project } = setup();
     await project.addOperation(REEL, move('cube-lands', 'cube', 40, -20, 1.5));
-    await project.saveEdits(REEL);
+    await project.freezeEdits(REEL);
     await project.addOperation(REEL, move('logo-lockup', 'wordmark', 5, 6));
     await project.addOperation(REEL, move('cube-lands', 'cube', 10, 0));
 
-    await project.saveEdits(REEL);
+    await project.freezeEdits(REEL);
 
     const css = text(join(reelDir, 'v4', 'kinotta-edits.css'));
     expect(css).toContain('[data-scene="logo-lockup"] [data-el="wordmark"] { translate: 5px 6px; }');
@@ -85,13 +86,13 @@ describe('editing a reel built from code', () => {
   it('puts an element back home: its rule goes, and a stylesheet with nothing left stays linked and empty', async () => {
     const { reelDir, project } = setup();
     await project.addOperation(REEL, move('cube-lands', 'cube', 40, -20));
-    await project.saveEdits(REEL);
+    await project.freezeEdits(REEL);
     await project.addOperation(REEL, move('cube-lands', 'cube', 0, 0));
-    await project.saveEdits(REEL);
+    await project.freezeEdits(REEL);
 
-    const css = text(join(reelDir, 'v4', 'kinotta-edits.css'));
-    expect(css).not.toContain('data-scene');
-    expect(text(join(reelDir, 'v4', 'index.html'))).toContain('kinotta-edits.css');
+    expect(existsSync(join(reelDir, 'v4', 'kinotta-edits.css'))).toBe(false);
+    expect(text(join(reelDir, 'v4', 'index.html'))).toBe(text(join(reelDir, 'v2', 'index.html')));
+    expect(text(join(reelDir, 'v3', 'kinotta-edits.css'))).toContain('40px -20px');
   });
 
   it('carries unsent comments forward through Save', async () => {
@@ -99,16 +100,17 @@ describe('editing a reel built from code', () => {
     await project.addComment(REEL, 2, { pin: { shot: '03', x: 0.5, y: 0.5, element: 'icons-word' }, text: 'Hold ICONS.' });
     await project.addOperation(REEL, move('cube-lands', 'cube', 40, -20));
 
-    await project.saveEdits(REEL);
+    await project.freezeEdits(REEL);
 
     const carried = await project.listComments(REEL, 3);
     expect(carried.map((c) => c.text)).toEqual(['Hold ICONS.']);
     expect(carried[0]!.pin.time).toBe(3.6);
   });
 
-  it('refuses to save with no edits, and leaves nothing when the stage fails', async () => {
+  it('reuses a frozen version with no edits and leaves no stage', async () => {
     const { reelDir, project } = setup();
-    await expect(project.saveEdits(REEL)).rejects.toMatchObject({ code: 'invalid' });
-    expect(readdirSync(reelDir).sort()).toEqual(['reel.json', 'v1', 'v2']);
+    expect(await project.freezeEdits(REEL)).toEqual({ version: 2 });
+    expect(readdirSync(reelDir).filter((name) => /^v\d+$/.test(name))).toEqual(['v1', 'v2']);
+    expect(existsSync(join(reelDir, '.save'))).toBe(false);
   });
 });

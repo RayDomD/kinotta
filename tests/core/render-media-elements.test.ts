@@ -18,7 +18,7 @@ it('keeps moving named elements in a code-only reel once it has sound in the sha
   try {
     // v3 is the authored page with a sound placement, so Review opens the media editor for it.
     await server.project.addOperation(REEL, { kind: 'placement-add', source: { id: 'sound', kind: 'audio', path: '../../../sound.wav', duration: 2 }, placement: { id: 'sound-use', role: 'audio', source: 'sound', at: 0, in: 0, out: 2 } });
-    expect(await server.project.saveEdits(REEL)).toEqual({ version: 3 });
+    expect(await server.project.freezeEdits(REEL)).toEqual({ version: 3 });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
@@ -32,7 +32,7 @@ it('keeps moving named elements in a code-only reel once it has sound in the sha
     const box = (await cube.boundingBox())!;
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await page.keyboard.press('ArrowRight');
-    await expect.poll(async () => (await server.project.readEditList(REEL)).operations).toEqual([expect.objectContaining({ kind: 'element-offset', clip: 'cube-lands', element: 'cube' })]);
+    await expect.poll(async () => (await server.project.readEditList(REEL)).operations).toEqual([expect.objectContaining({ kind: 'placement-add' }), expect.objectContaining({ kind: 'element-offset', clip: 'cube-lands', element: 'cube' })]);
   } finally {
     await browser.close();
     await server.close();
