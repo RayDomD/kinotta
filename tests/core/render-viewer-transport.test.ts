@@ -103,8 +103,10 @@ it('saves and edits markers, closes a sound gap in one undo, appends prompt chip
     await page.locator('.rv-frame').click({ position: { x: 120, y: 100 } });
     await page.getByRole('form', { name: 'New review pin' }).waitFor();
     await page.getByLabel('Pin comment', { exact: true }).fill('Focus pin');
+    const pinResponse = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/comments'));
     await page.getByRole('button', { name: 'Save pin', exact: true }).click();
-    await expect.poll(async () => (await server.project.listComments('product-showreel', 2)).some((comment) => comment.text === 'Focus pin')).toBe(true);
+    expect((await pinResponse).ok()).toBe(true);
+    await expect.poll(async () => ({ saved: (await server.project.listComments('product-showreel', 2)).some((comment) => comment.text === 'Focus pin'), alerts: await page.getByRole('alert').allTextContents() })).toMatchObject({ saved: true, alerts: [] });
     await page.getByRole('button', { name: 'Leave focus', exact: true }).click();
     await page.getByRole('tab', { name: 'Sound', exact: true }).click();
     const prompt = page.getByLabel('Sound prompt', { exact: true });

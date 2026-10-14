@@ -1,3 +1,6 @@
+import { readEditListNow, workingSources, workingInputs, withReelLock } from './edit-list.ts';
+import { join } from 'node:path';
+import { readCapturedVersion, requireReelDir } from './version.ts';
 import { randomUUID } from 'node:crypto';
 import { isSent, readVersion, settleNewest } from './carry.ts';
 import { KinottaError } from './errors.ts';
@@ -5,7 +8,11 @@ import { readState, serialized, stateFilePath, writeState } from './state.ts';
 import type { StateFile, StoredComment } from './state.ts';
 import type { AddedComment, Comment, CommentList, FramePin, NewComment, NewWordPin, NoteSaved, Shot, Version, WordPin } from './types.ts';
 import { assertTakesComments } from './version.ts';
-import { mediaTimeline } from './media-model.ts';
+import { applyOperations, mediaEditingPlan, mediaPlanTimeline } from './edit-model.ts';
+import { withSpeech } from './media-speech.ts';
+import { stillTime } from './code-edits.ts';
+import { mediaWords, mediaTimeline } from './media-model.ts';
+import { checkPartsManifest } from './parts.ts';
 
 /** The shot a word pin carries on a version with no shots: it belongs to the transcript. */
 export const NO_SHOT = '';
@@ -74,7 +81,7 @@ function buildPinWithoutAnchor(input: NewComment, version: Version): FramePin | 
     if (raw.placement && !timeline?.placements.some((p) => p.id === raw.placement && p.at <= raw.time! && p.at + p.duration > raw.time!)) throw new KinottaError('invalid', 'That placement is not playing at the pin moment.');
     const shot = shots.find((s) => s.number === raw.shot) ?? (version.code ? shots.find((s) => s.start <= raw.time! && s.start + s.duration > raw.time!) : undefined);
     if (raw.element != null && (typeof raw.element !== 'string' || raw.element === '')) throw new KinottaError('invalid', 'The pin’s element must be a name or null.');
-    return { kind: 'frame', version: version.number, section: shot?.section ?? version.sections.find((s) => s.start <= raw.time! && s.end > raw.time!)?.id ?? null, shot: shot?.number ?? NO_SHOT, time: raw.time, x: fraction(raw.x, 'x'), y: fraction(raw.y, 'y'), element: raw.element ?? null };
+    return { kind: 'frame', version: version.number, section: shot?.section ?? version.sections.find((s) => s.start <= raw.time! && s.end > raw.time!)?.id ?? null, shot: shot?.number ?? NO_SHOT, ...(shot?.name ? { shotName: shot.name } : {}), time: raw.time, x: fraction(raw.x, 'x'), y: fraction(raw.y, 'y'), element: raw.element ?? null };
   }
   if (raw.kind === 'word' && (version.media || version.footage || shots.length === 0) && raw.shot === NO_SHOT) return buildTranscriptWordPin(raw, version);
   const shot = shots.find((s) => s.number === raw.shot);
@@ -89,6 +96,7 @@ function buildPinWithoutAnchor(input: NewComment, version: Version): FramePin | 
     version: version.number,
     section: shot.section ?? null,
     shot: shot.number,
+    ...(shot.name ? { shotName: shot.name } : {}),
     time: shot.start,
     x: fraction(raw.x, 'x'),
     y: fraction(raw.y, 'y'),
@@ -97,7 +105,14 @@ function buildPinWithoutAnchor(input: NewComment, version: Version): FramePin | 
 }
 
 function buildPin(input: NewComment, version: Version): FramePin | WordPin {
-  const pin = buildPinWithoutAnchor(input, version);
+  let pin = buildPinWithoutAnchor(input, version);
+  const revision = input.pin.kind !== 'word' ? input.pin.alternate : undefined;
+  if (pin.kind === 'frame' && revision !== undefined) {
+    const shot = version.shots.find((shot) => shot.number === pin.shot);
+    const alternate = shot?.alternates?.find((alternate) => alternate.revision === revision);
+    if (!alternate || alternate.dismissed) throw new KinottaError('invalid', 'That alternate is not offered on this shot.');
+    pin = { ...pin, alternate: alternate.revision };
+  }
   if (!version.media) return pin;
   const timeline = mediaTimeline(version.media, version.duration);
   const word = pin.kind === 'word' ? version.transcript?.find((w) => w.start === pin.time && w.text === pin.word && (!input.pin.placement || w.placement === input.pin.placement)) : undefined;
@@ -119,16 +134,19 @@ async function takesComments(projectDir: string, slug: string, number: number) {
   return assertTakesComments(projectDir, slug, number);
 }
 
-export async function addComment(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
-  const version = await takesComments(projectDir, slug, number);
+async function addCommentNow(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
+  const version = await commentVersion(projectDir, slug, number);
   const pin = buildPin(input, version);
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
+  if (input.options !== undefined && (!version.parts || ![2, 3, 4].includes(input.options))) throw new KinottaError('invalid', 'Options requests need a parts shot and a count of 2, 3 or 4.');
 
   const file = stateFilePath(projectDir, slug, number);
   return serialized(file, async () => {
     const state = await readState(file, number);
-    const saved: StoredComment = { id: randomUUID(), pin, text, createdAt: new Date().toISOString() };
+    const asking = input.options === undefined ? undefined : state.comments.find((comment) => comment.options !== undefined && comment.pin.shot !== pin.shot);
+    if (asking) throw new KinottaError('invalid', `Shot ${asking.pin.shot} already asks for options. Only one shot per version can ask.`);
+    const saved: StoredComment = { id: randomUUID(), pin, text, createdAt: new Date().toISOString(), ...(input.options === undefined ? {} : { options: input.options }) };
     const next = { ...state, comments: [...state.comments, saved] };
     await writeState(file, next);
     const comments = numbered(next.comments, next);
@@ -140,7 +158,7 @@ function unknownComment(id: string): KinottaError {
   return new KinottaError('not-found', `Comment "${id}" not found.`);
 }
 
-export async function editComment(projectDir: string, slug: string, number: number, id: string, input: string): Promise<AddedComment> {
+async function editCommentNow(projectDir: string, slug: string, number: number, id: string, input: string): Promise<AddedComment> {
   await takesComments(projectDir, slug, number);
   const text = typeof input === 'string' ? input.trim() : '';
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
@@ -156,7 +174,7 @@ export async function editComment(projectDir: string, slug: string, number: numb
   });
 }
 
-export async function deleteComment(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {
+async function deleteCommentNow(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {
   await takesComments(projectDir, slug, number);
   const file = stateFilePath(projectDir, slug, number);
   return serialized(file, async () => {
@@ -173,7 +191,7 @@ export async function readNote(projectDir: string, slug: string, number: number)
   return (await readState(stateFilePath(projectDir, slug, number), number)).note;
 }
 
-export async function setNote(projectDir: string, slug: string, number: number, input: string): Promise<NoteSaved> {
+async function setNoteNow(projectDir: string, slug: string, number: number, input: string): Promise<NoteSaved> {
   await takesComments(projectDir, slug, number);
   if (typeof input !== 'string') throw new KinottaError('invalid', 'A note must be text.');
   const note = input.trim();
@@ -187,4 +205,69 @@ export async function setNote(projectDir: string, slug: string, number: number, 
     await writeState(file, { ...state, note });
     return { note, comments: numbered(state.comments, state) };
   });
+}
+
+export async function addComment(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => addCommentNow(projectDir, slug, number, input));
+}
+
+export async function editComment(projectDir: string, slug: string, number: number, id: string, input: string): Promise<AddedComment> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => editCommentNow(projectDir, slug, number, id, input));
+}
+
+export async function deleteComment(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => deleteCommentNow(projectDir, slug, number, id));
+}
+
+export async function setNote(projectDir: string, slug: string, number: number, input: string): Promise<NoteSaved> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => setNoteNow(projectDir, slug, number, input));
+}
+
+/** Pins use the picture and words on Working, including undo beyond a frozen duration. */
+async function commentVersion(projectDir: string, slug: string, number: number): Promise<Version> {
+  await takesComments(projectDir, slug, number);
+  const list = await readEditListNow(projectDir, slug);
+  const reelDir = await requireReelDir(projectDir, slug);
+  const base = await readCapturedVersion(projectDir, slug, number, join(reelDir, `v${list.base}`));
+  const sources = await workingSources(projectDir, reelDir);
+  const applied = applyOperations(sources, list.operations.filter((operation) => !list.flagged?.[operation.id]));
+  if (applied.plan.parts) {
+    const manifest = applied.plan.parts;
+    const media = applied.plan.media ? await withSpeech(projectDir, join(reelDir, `v${list.base}`), applied.plan.media, false) : undefined;
+    const words = media ? mediaWords(media, manifest.duration) : [];
+    const shots = checkPartsManifest(manifest as unknown as Record<string, unknown>).shots.map((shot) => {
+      const spoken = words.filter((word) => word.start >= shot.start && word.start < shot.start + shot.duration);
+      return { ...shot, section: base.shots.find((original) => original.name === shot.name)?.section, ...(spoken.length ? { words: spoken, spoken: spoken.map((word) => word.text).join(' ') } : {}) };
+    });
+    return { ...base, parts: manifest, shots, duration: manifest.duration, ...(media ? { media, transcript: words } : {}) };
+  }
+  if (!base.footage && !applied.plan.media) {
+    const shots = base.shots.map((shot) => {
+      const before = sources.plan.clips?.find((clip) => clip.in <= shot.start && clip.out > shot.start);
+      const after = applied.plan.clips?.find((clip) => clip.id === before?.id);
+      return before && after ? { ...shot, start: stillTime(shot.start, { start: before.in, duration: before.out - before.in }, after) } : shot;
+    });
+    return { ...base, shots, duration: applied.plan.duration ?? base.duration };
+  }
+  const plan = mediaPlanTimeline(mediaEditingPlan(applied));
+  const inputs = base.code ? { planDir: join(reelDir, `v${list.base}`) } : await workingInputs(projectDir, reelDir);
+  plan.media = await withSpeech(projectDir, inputs.planDir, plan.media!, false);
+  const words = mediaWords(plan.media, plan.duration);
+  const beforeTimeline = mediaTimeline(mediaEditingPlan(sources).media!, sources.plan.duration);
+  const afterTimeline = mediaTimeline(plan.media!, plan.duration);
+  const shots = base.shots.map((shot) => {
+    const spoken = words.filter((word) => {
+      const after = afterTimeline.placements.find((placement) => placement.id === word.placement);
+      const before = beforeTimeline.placements.find((placement) => placement.id === word.placement || after && (placement.origin ?? placement.id) === (after.origin ?? after.id));
+      const at = before && before.role !== 'gap' && word.sourceStart !== undefined ? before.at + word.sourceStart - before.in : word.start;
+      const range = shot.line ?? { start: shot.start, end: shot.start + shot.duration };
+      return at >= range.start && at < range.end;
+    });
+    return { ...shot, words: spoken, spoken: spoken.map((word) => word.text).join(' ') };
+  });
+  return { ...base, duration: plan.duration ?? base.duration, media: plan.media, transcript: words, shots };
 }

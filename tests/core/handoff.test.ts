@@ -44,19 +44,19 @@ function nextEvent(project: Project, type: ProjectEvent['type']): Promise<Projec
   });
 }
 
-describe('a hand-off blocks Save', () => {
-  it('blocks Save with a reason while a batch is out, keeps collecting edits, and remembers it across a restart', async () => {
+describe('a hand-off freezes a snapshot while Working continues', () => {
+  it('records the frozen snapshot, keeps collecting edits, and remembers the hand-off across a restart', async () => {
     const { dir, reelDir, project } = await withEdits();
     expect((await project.readEditList(REEL)).handedOff).toBeUndefined();
 
     await project.copyBatch(REEL, 1, { section: 'cold-open' });
 
     const list = await project.readEditList(REEL);
-    expect(list.handedOff).toMatchObject({ version: 1, reason: expect.stringContaining('A comment batch for v1 is out') });
-    expect(list.handedOff!.reason).not.toMatch(/claude|codex|agent/i);
+    expect(list.handedOff).toMatchObject({ version: 2, reason: expect.stringContaining('A comment batch for v2 is out') });
+    expect(list.handedOff!.reason).not.toMatch(/claude|codex/i);
     expect(existsSync(join(reelDir, 'handoff.json'))).toBe(true);
-    await expect(project.saveEdits(REEL)).rejects.toMatchObject({ code: 'invalid', message: list.handedOff!.reason });
-    expect(existsSync(join(reelDir, 'v2'))).toBe(false);
+    expect(await project.freezeEdits(REEL)).toEqual({ version: 2 });
+    expect(existsSync(join(reelDir, 'v2'))).toBe(true);
     // Operations still collect, and the list keeps the hand-off note.
     const added = await project.addOperation(REEL, { kind: 'clip-slide', clip: '02', delta: 0.2 });
     expect(added.operations).toHaveLength(4);
@@ -64,53 +64,45 @@ describe('a hand-off blocks Save', () => {
     expect((await openProject(dir).readEditList(REEL)).handedOff).toBeDefined();
   });
 
-  it('is ended by cancelling it, and Save builds the next version', async () => {
+  it('ends the hand-off marker without discarding working edits or history', async () => {
     const { reelDir, project } = await withEdits();
     await project.copyBatch(REEL, 1, { section: 'cold-open' });
-    await expect(project.saveEdits(REEL)).rejects.toMatchObject({ code: 'invalid' });
+    expect(await project.freezeEdits(REEL)).toEqual({ version: 2 });
 
     const list = await project.cancelHandoff(REEL);
 
     expect(list.handedOff).toBeUndefined();
     expect(list.operations).toHaveLength(3);
     expect(existsSync(join(reelDir, 'handoff.json'))).toBe(false);
-    expect(await project.saveEdits(REEL)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(REEL)).toEqual({ version: 2 });
   });
 
   // It waits up to EVENT_WAIT_MS for the watcher, then builds twice, so the default 5 s is too short under a full run.
-  it('replays the edit list onto the next version, flags an operation whose target is gone, and blocks Save until it is dropped', { timeout: EVENT_WAIT_MS * 2 }, async () => {
-    const { dir, reelDir, project } = await withEdits();
+  it('replays only post-hand-off edits, flags a removed target and refuses a freeze until it is resolved', { timeout: EVENT_WAIT_MS * 2 }, async () => {
+    const { reelDir, project } = await withEdits();
     await project.copyBatch(REEL, 1, { section: 'cold-open' });
-    const before = (await project.readEditList(REEL)).operations;
+    await project.addOperation(REEL, { kind: 'clip-trim', clip: '04', in: 9.8, out: 12 });
+    const added = await project.addOperation(REEL, { kind: 'clip-slide', clip: '02', delta: 0.2 });
+    const later = added.operations.slice(3);
     const heard = nextEvent(project, 'version-added');
-
-    // The agent's version has no clip 04, and a new clip 05 in its place.
-    agentVersion(dir, reelDir, (plan) => {
-      plan.clips = plan.clips.filter((c: { id: string }) => c.id !== '04');
-    });
+    cpSync(join(reelDir, 'v2'), join(reelDir, 'v3'), { recursive: true });
+    const file = join(reelDir, 'v3', 'plan.json');
+    const agent = readJson(file);
+    agent.clips = agent.clips.filter((clip: { id: string }) => clip.id !== '04');
+    writeFileSync(file, JSON.stringify(agent));
     await heard;
-
-    // The watcher's version-added path already replayed the list onto v2 and wrote it down.
-    expect(readJson(join(reelDir, 'edit-list.json'))).toMatchObject({ base: 2 });
     const list = await project.readEditList(REEL);
-    expect(list.base).toBe(2);
-    expect(list.stale).toBeUndefined();
+    expect(list.base).toBe(3);
     expect(list.handedOff).toBeUndefined();
-    expect(list.operations.map((o) => o.id)).toEqual(before.map((o) => o.id));
-    expect(list.flagged).toEqual({ [before[0]!.id]: expect.stringContaining('no clip "04"') });
-
-    // Save is blocked by the flagged edit, with the reason.
-    await expect(project.saveEdits(REEL)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('One edit no longer applies to v2') });
-    // New edits still collect and the flagged one is left out of what they are checked against.
-    await project.addOperation(REEL, { kind: 'clip-slide', clip: '02', delta: 0.2 });
-
-    // Dropping the flagged one unblocks Save; the rest were replayed onto v2's sources.
-    const dropped = await project.removeOperation(REEL, before[0]!.id);
-    expect(dropped.flagged).toBeUndefined();
-    expect(await project.saveEdits(REEL)).toEqual({ version: 3 });
-    const plan = readJson(join(reelDir, 'v3', 'plan.json'));
-    expect(plan.clips.find((c: { id: string }) => c.id === '01')).toMatchObject({ in: 0.4, slid: true });
-    expect(readJson(join(reelDir, 'v3', 'transcript.json')).words[0].text).toBe('imagine');
+    expect(list.operations.map((operation) => operation.id)).toEqual(later.map((operation) => operation.id));
+    expect(list.flagged).toEqual({ [later[0]!.id]: expect.stringContaining('no clip "04"') });
+    await expect(project.freezeEdits(REEL)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('One edit no longer applies to v3') });
+    await project.removeOperation(REEL, later[0]!.id);
+    expect(await project.freezeEdits(REEL)).toEqual({ version: 4 });
+    const plan = readJson(join(reelDir, 'v4', 'plan.json'));
+    expect(plan.clips.find((clip: { id: string }) => clip.id === '01')).toMatchObject({ in: 0.4, slid: true });
+    expect(plan.clips.find((clip: { id: string }) => clip.id === '02')).toMatchObject({ in: 3.4, slid: true });
+    expect(readJson(join(reelDir, 'v4', 'transcript.json')).words[0].text).toBe('imagine');
   });
 
   it('replays a list when the version arrives with no one watching, the next time the list is read', async () => {

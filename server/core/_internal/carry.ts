@@ -58,7 +58,8 @@ export function remapMoment(from: Version, to: Version, time: number, anchor?: P
     return remapMediaMoment(before, after, time, anchor);
   }
   const target = mapOf(to);
-  const source = toSource(mapOf(from), time + JOIN_NUDGE);
+  const anchored = anchor?.sourceTime;
+  const source = anchored !== undefined ? anchored + JOIN_NUDGE : toSource(mapOf(from), time + JOIN_NUDGE);
   const placed = source === null ? null : toTimeline(target, source);
   if (placed !== null) return { time: roundTime(placed - JOIN_NUDGE), removed: false };
   const after = [...target.pieces].sort((a, b) => a.in - b.in).find((p) => source !== null && p.in >= source);
@@ -104,16 +105,23 @@ function elementGone(page: PageView | null, time: number, name: string): boolean
  * The comment as the new version holds it: a new id, its pin on the remapped moment. Marked when that moment is gone, else
  * when the element it is pinned on is (an element pin follows its element); a mark it already had stays.
  */
-function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null): StoredComment {
-  const moment = remapMoment(from, to, comment.pin.time, comment.pin);
-  const shot = shotAt(to, moment.time);
+export function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null, preserveOptions = false): StoredComment {
+  const oldShot = from.shots.find((shot) => shot.number === comment.pin.shot);
+  const name = comment.pin.kind === 'frame' ? comment.pin.shotName ?? oldShot?.name ?? (to.parts ? oldShot?.scene : undefined) : undefined;
+  const named = name ? to.shots.find((shot) => (shot.name ?? shot.scene) === name) : undefined;
+  const localTime = Math.max(0, comment.pin.time - (oldShot?.start ?? 0));
+  const moment = name ? { time: named ? named.start + Math.min(localTime, Math.max(0, named.duration - JOIN_NUDGE)) : Math.min(comment.pin.time, to.duration), removed: !named } : remapMoment(from, to, comment.pin.time, comment.pin);
+  const shot = name ? named : shotAt(to, moment.time);
   const section = shot?.section ?? (to.media ? to.sections.find((s) => s.start <= moment.time && s.end > moment.time)?.id ?? null : null);
-  const place = { version: to.number, section, shot: shot?.number ?? comment.pin.shot, time: moment.time };
+  const place = { version: to.number, section, shot: shot?.number ?? comment.pin.shot, time: moment.time, ...(name ? { shotName: name } : {}) };
   const adopted = !from.media && from.footage && to.media && !moment.removed ? timelineMoment(mediaTimeline(to.media, to.duration), moment.time) : null;
   const anchor = adopted ? { placement: adopted.placement, sourceTime: adopted.time } : {};
   const target = comment.pin.kind === 'word' ? undefined : comment.pin.element;
-  const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elementGone(page, moment.time, target)) ? ELEMENT_REMOVED : undefined;
-  return { ...comment, id: randomUUID(), pin: { ...comment.pin, ...place, ...anchor }, ...(state ? { state } : {}) };
+  const revision = comment.pin.kind === 'frame' ? comment.pin.alternate : undefined;
+  const alternateGone = revision !== undefined && shot !== undefined && shot.revision !== revision && !shot.alternates?.some((alternate) => alternate.revision === revision && !alternate.dismissed);
+  const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : alternateGone || comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elementGone(page, moment.time, target)) ? ELEMENT_REMOVED : undefined;
+  const { options, ...carried } = comment;
+  return { ...carried, ...(preserveOptions && options !== undefined ? { options } : {}), id: randomUUID(), pin: { ...comment.pin, ...place, ...anchor }, ...(state ? { state } : {}), ...(alternateGone ? { stateReason: `The pinned alternate ${revision} is no longer offered on this shot.` } : {}) };
 }
 
 /**

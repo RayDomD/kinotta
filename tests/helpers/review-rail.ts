@@ -16,6 +16,8 @@ export async function inspectGraphic(page: Page) {
 
 /** Drag an edge by seconds using the lane's visible time scale. */
 export async function dragTimelineHandle(page: Page, label: string, seconds: number) {
+  const word = /^Word (?:start|end) at ([\d.]+) in /.exec(label);
+  if (word) await openCaption(page, word[1]!);
   const handle = page.getByLabel(label, { exact: true });
   await handle.scrollIntoViewIfNeeded();
   const edge = (await handle.boundingBox())!;
@@ -34,4 +36,40 @@ export async function revealReelRail(page: Page): Promise<void> {
   const tab = page.getByRole('tab', { name: 'Reel rail', exact: true });
   await tab.waitFor({ state: 'visible' });
   if (await tab.getAttribute('aria-selected') !== 'true') await tab.click();
+}
+
+/** Word tools are inside the caption the owner explicitly opens. */
+export async function openCaption(page: Page, time: string): Promise<void> {
+  const button = page.getByRole('button', { name: `Open caption at ${time}`, exact: true });
+  const words = page.locator(`[data-caption][data-start="${Number(time)}"] [data-word]`).first();
+  await button.or(words).first().waitFor();
+  if (await button.count()) await button.click();
+}
+
+/** Final is the editor's freeze boundary. These editing checks cancel its render after capture. */
+export async function freezeWorking(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Render Working', exact: true });
+  if (!await dialog.count()) await page.getByRole('button', { name: 'Render Working', exact: true }).click();
+  await dialog.getByRole('radio', { name: /^Final, freezes/ }).check();
+  await dialog.getByRole('combobox', { name: 'Size', exact: true }).selectOption('half');
+  const response = page.waitForResponse((reply) => reply.url().endsWith('/working-render') && reply.request().method() === 'POST');
+  await dialog.getByRole('button', { name: 'Render', exact: true }).click();
+  const result = await response;
+  if (result.ok()) {
+    const job = await result.json() as { id: string };
+    await page.request.delete(`/api/renders/${job.id}`);
+    await page.keyboard.press('Escape');
+  }
+}
+
+/** Serial fixture scenarios undo prior live edits now that a freeze retains the journal. */
+export async function undoWorkingEdits(page: Page, slug: string): Promise<void> {
+  const url = `/api/reels/${slug}/edits`;
+  let list = await (await page.request.get(url)).json() as { operations: unknown[]; canUndo: boolean };
+  while (list.operations.length) {
+    if (!list.canUndo) throw new Error('Fixture Working history cannot be undone.');
+    const response = await page.request.post(`${url}/undo`);
+    if (!response.ok()) throw new Error(await response.text());
+    list = await response.json();
+  }
 }

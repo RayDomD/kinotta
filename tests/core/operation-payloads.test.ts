@@ -64,7 +64,7 @@ describe('operation payload boundaries (A1 audit)', () => {
   it.each(MALFORMED)('refuses %s with a readable reason', (_name, payload) => {
     let thrown: unknown;
     try {
-      applyOperation(native(), { id: 'op', ...payload } as unknown as NewOperation & { id: string });
+      applyOperation(native(), { id: 'op', ...payload, by: 'you' } as unknown as NewOperation & { id: string; by: string });
     } catch (err) {
       thrown = err;
     }

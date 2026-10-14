@@ -28,7 +28,7 @@ it('closes only a free track and retains unrelated overlaps', () => {
     { id: 'overlap', role: 'audio', source: 's', track: 'a', at: 3, in: 0, out: 2 },
     { id: 'other', role: 'audio', source: 's', track: 'b', at: 6, in: 0, out: 2 },
   ] } } };
-  const result = applyOperations(base, [{ id: 'r', kind: 'placement-ripple-remove', placement: 'cut' }]);
+  const result = applyOperations(base, [{ id: 'r', by: 'you', kind: 'placement-ripple-remove', placement: 'cut' }]);
   const times = Object.fromEntries(mediaTimeline(result.plan.media!, 20).placements.map((p) => [p.id, p.at]));
   expect(times).toEqual({ later: 4, overlap: 3, other: 6 });
   expect(base.plan.media!.placements).toHaveLength(4);
@@ -40,6 +40,6 @@ it('ripples the main sequence and its attachments without shifting free sound', 
     { id: 'attached', role: 'audio', source: 's', track: 'a', at: 3, in: 0, out: 1, attachment: { placement: 'main', time: 1 } },
     { id: 'free', role: 'audio', source: 's', track: 'a', at: 3, in: 0, out: 1 },
   ] } } };
-  const result = applyOperations(base, [{ id: 'r', kind: 'placement-ripple-remove', placement: 'gap' }]);
+  const result = applyOperations(base, [{ id: 'r', by: 'you', kind: 'placement-ripple-remove', placement: 'gap' }]);
   expect(Object.fromEntries(mediaTimeline(result.plan.media!, 8).placements.map((p) => [p.id, p.at]))).toEqual({ main: 0, attached: 1, free: 3 });
 });

@@ -1,3 +1,6 @@
+import { readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { CLEANUP_RETRIES, CLEANUP_RETRY_MS } from './render.ts';
 import { randomUUID } from 'node:crypto';
 import { KinottaError } from './errors.ts';
 import { estimateRemaining } from './transcription.ts';
@@ -15,7 +18,7 @@ export type RenderRun = (job: RenderJob, report: (done: number, frames: number) 
 
 export interface RenderQueue {
   /** Queues a job behind the others and returns it as queued. */
-  add(request: RenderRequest, run: RenderRun): RenderJob;
+  add(request: RenderRequest, run: RenderRun, cleanup?: () => Promise<void>): RenderJob;
   /** The jobs waiting or running, in queue order. */
   jobs(): RenderJob[];
   whenDone(id: string): Promise<RenderJob>;
@@ -28,6 +31,11 @@ export function createRenderQueue(emit: (event: ProjectEvent) => void, now: () =
   const jobs = new Map<string, RenderJob>();
   const finished = new Map<string, { promise: Promise<RenderJob>; settle: (job: RenderJob) => void }>();
   const controllers = new Map<string, AbortController>();
+  const cleanups = new Map<string, () => Promise<void>>();
+  const cleanupJob = async (job: RenderJob): Promise<void> => {
+    const cleanup = cleanups.get(job.id);
+    if (cleanup) { await cleanup(); cleanups.delete(job.id); }
+  };
   let tail: Promise<unknown> = Promise.resolve();
 
   const update = (job: RenderJob, change: Partial<RenderJob>): void => {
@@ -52,8 +60,10 @@ export function createRenderQueue(emit: (event: ProjectEvent) => void, now: () =
         if (Math.floor(progress * PROGRESS_STEPS) === Math.floor(job.progress * PROGRESS_STEPS)) return;
         update(job, { progress, remaining: estimateRemaining(frames, done, now() - startedAt) });
       }, signal);
+      await cleanupJob(job);
       update(job, { state: 'done', progress: 1, remaining: 0, output });
     } catch (err) {
+      try { await cleanupJob(job); } catch (failure) { err = failure; }
       if (signal.aborted) update(job, { state: 'cancelled', remaining: null });
       else update(job, { state: 'failed', remaining: null, error: err instanceof Error ? err.message : String(err) });
     }
@@ -61,9 +71,10 @@ export function createRenderQueue(emit: (event: ProjectEvent) => void, now: () =
   }
 
   return {
-    add({ reel, version, preset }, run) {
-      const job: RenderJob = { id: randomUUID().slice(0, JOB_ID_LENGTH), reel, version, preset, state: 'queued', progress: 0, remaining: null };
+    add({ reel, version, preset, working }, run, cleanup) {
+      const job: RenderJob = { id: randomUUID().slice(0, JOB_ID_LENGTH), reel, version, preset, state: 'queued', progress: 0, remaining: null, ...(working ? { working } : {}) };
       jobs.set(job.id, job);
+      if (cleanup) cleanups.set(job.id, cleanup);
       controllers.set(job.id, new AbortController());
       let resolveDone!: (job: RenderJob) => void;
       finished.set(job.id, { promise: new Promise((resolve) => (resolveDone = resolve)), settle: resolveDone });
@@ -81,6 +92,7 @@ export function createRenderQueue(emit: (event: ProjectEvent) => void, now: () =
       const job = jobs.get(id);
       if (!job) throw new KinottaError('not-found', `Render job "${id}" not found.`);
       if (job.state === 'queued') {
+        await cleanupJob(job);
         update(job, { state: 'cancelled' });
         settle(job);
       } else if (job.state === 'running') {
@@ -89,4 +101,24 @@ export function createRenderQueue(emit: (event: ProjectEvent) => void, now: () =
       return finished.get(id)!.promise;
     },
   };
+}
+
+const startedProjects = new Set<string>();
+
+/** Run once before this process can capture a Draft. Reopening a project must retain active jobs. */
+export function removeStaleDrafts(projectDir: string): void {
+  if (startedProjects.has(projectDir)) return;
+  const reels = join(projectDir, 'reels');
+  let entries;
+  try { entries = readdirSync(reels, { withFileTypes: true }); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    return;
+  }
+  for (const reel of entries.filter((entry) => entry.isDirectory())) {
+    const dir = join(reels, reel.name);
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith('.draft-')) rmSync(join(dir, entry.name), { recursive: true, force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS });
+    }
+  }
+  startedProjects.add(projectDir);
 }

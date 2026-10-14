@@ -106,8 +106,8 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled()).toBe(true);
     await dropLibrary('film.mp4', page.getByText('New picture track', { exact: true }).locator('..').locator('.native-lane-bars'));
     await expect.poll(last).toMatchObject({ kind: 'placement-add', placement: { source: film.id, role: 'insert', layer: 1 } });
-    expect(await page.locator('[data-picture-layer="1"] [data-placement]').count()).toBe(1);
-    expect(await page.getByText('New picture track', { exact: true }).count()).toBe(0);
+    await expect.poll(() => page.locator('[data-picture-layer="1"] [data-placement]').count()).toBe(1);
+    await expect.poll(() => page.getByText('New picture track', { exact: true }).count()).toBe(0);
     // Native mix analysis also holds the original file until FFmpeg exits.
     await expect.poll(() => analyses.size, { timeout: 20_000 }).toBe(0);
     // Close the player requests before simulating an externally moved file on Windows.

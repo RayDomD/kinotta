@@ -87,13 +87,14 @@ async function references(text: string, file: string, replace: Replace): Promise
  * (a scheme, `//` or `/`) or a load built at runtime cannot be frozen and is refused, so Save never publishes a version
  * whose graphics depend on files it did not keep. References are read relative to the file that names them.
  */
-export function graphicPreserver(versionDir: string): (file: string) => Promise<string> {
+export function graphicPreserver(versionDir: string, keepRootNames = false): (file: string) => Promise<string> {
   const copied = new Map<string, string>();
-  async function preserve(file: string): Promise<string> {
+  async function preserve(file: string, root = false): Promise<string> {
     const absolute = resolve(file);
     const previous = copied.get(absolute);
     if (previous) return previous;
-    const name = `${copied.size}-${basename(absolute)}`;
+    const name = keepRootNames && root ? basename(absolute) : `${copied.size}-${basename(absolute)}`;
+    if ([...copied.values()].includes(name)) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: two fragments are named ${name}. Give their files different names.`);
     copied.set(absolute, name);
     await mkdir(join(versionDir, FOLDER), { recursive: true });
     if (!CODE_FILES.includes(extname(absolute).toLowerCase())) {
@@ -108,7 +109,7 @@ export function graphicPreserver(versionDir: string): (file: string) => Promise<
     await writeFile(join(versionDir, FOLDER, name), text, 'utf8');
     return name;
   }
-  return async (file) => `${FOLDER}/${await preserve(file)}`;
+  return async (file) => `${FOLDER}/${await preserve(file, true)}`;
 }
 
 /**
@@ -132,6 +133,7 @@ export async function freezePageDependencies(pageDir: string): Promise<void> {
     const after = await references(before, file, async (reference, base) => {
       const from = base === 'page' ? root : dirname(file);
       const target = resolve(from, reference.split(/[?#]/)[0]!);
+      if (!(await exists(target))) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: ${reference} is missing.`);
       if (inside(target)) {
         if (CODE_FILES.includes(extname(target).toLowerCase()) && (await exists(target))) await visit(target);
         return null;
@@ -142,4 +144,23 @@ export async function freezePageDependencies(pageDir: string): Promise<void> {
     if (after !== before) await writeFile(file, after, 'utf8');
   }
   await visit(join(root, 'index.html'));
+}
+
+/** Parts retain immutable files in their revision folder. Check their dependency graph without copying it. */
+export async function checkRevisionDependencies(revisionDir: string, files: string[]): Promise<void> {
+  const root = resolve(revisionDir);
+  const visited = new Set<string>();
+  async function visit(file: string): Promise<void> {
+    if (visited.has(file)) return;
+    visited.add(file);
+    await references(await readFile(file, 'utf8'), file, async (reference) => {
+      const target = resolve(dirname(file), reference.split(/[?#]/)[0]!);
+      const path = relative(root, target);
+      if (isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`)) throw new KinottaError('invalid', `Parts dependency ${reference} must stay inside its revision folder.`);
+      if (!await exists(target)) throw new KinottaError('invalid', `Parts dependency ${reference} is missing.`);
+      if (CODE_FILES.includes(extname(target).toLowerCase())) await visit(target);
+      return null;
+    });
+  }
+  for (const file of files) await visit(join(root, file));
 }

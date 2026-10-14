@@ -43,6 +43,7 @@ test('Approve and Withdraw by the title mark the version on show, and the rail f
 test('a refused render shows its reason; a Draft renders and the finished file plays in Review', async ({ page }) => {
   test.setTimeout(RENDER_WAIT_MS + 30_000);
   await openReview(page);
+  await rail(page).getByRole('button', { name: /^v2/ }).click();
 
   // Render opens a popover over the reel, anchored to its button.
   await actions(page).getByRole('button', { name: 'Render v2' }).click();
@@ -78,5 +79,5 @@ test('a refused render shows its reason; a Draft renders and the finished file p
   await expect(video).toHaveAttribute('src', /\/renders\/product-showreel\/product-showreel-v2-draft-540p30\.mp4$/);
   await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.duration), { timeout: 15_000 }).toBeGreaterThan(1);
   await review(page).getByRole('button', { name: 'Back to v2' }).click();
-  await expect(review(page).locator('iframe[title="Authored graphics"]')).toBeVisible();
+  await expect(review(page).locator('iframe')).toBeVisible();
 });

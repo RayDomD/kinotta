@@ -8,6 +8,7 @@ import type { PageScene } from './contract.ts';
 import { KinottaError } from './errors.ts';
 import { parse } from 'node-html-parser';
 import { readReelFootage } from './footage.ts';
+import { checkPartsManifest } from './parts.ts';
 
 /**
  * Code-only reels are authored pages with no footage and no plan. Scene timing edits rewrite the scene attributes.
@@ -70,19 +71,20 @@ export async function codeSources(versionDir: string): Promise<{ sources: Source
   const { scenes } = scanPage(html);
   if (scenes.length === 0) throw new KinottaError('invalid', 'This version has no scenes to edit.');
   const saved = await readEditsCss(versionDir);
-  const shots = JSON.parse(await readFile(join(versionDir, 'shots.json'), 'utf8')) as { duration: number; shots: CodeShot[] };
+  const shots = JSON.parse(await readFile(join(versionDir, 'shots.json'), 'utf8')) as { contract?: number; duration: number; shots: CodeShot[] };
   const storyboard = Array.isArray(shots.shots) ? shots.shots : [];
   const clips = scenes.map((s) => ({ id: s.name, title: storyboard.find((shot) => sceneForShot(shot, scenes)?.name === s.name)?.title ?? s.name, in: s.start, out: Number((s.start + s.duration).toFixed(6)), ...(saved[s.name] ? { offsets: saved[s.name] } : {}) }));
   const sidecar = await readFile(join(versionDir, MEDIA_SIDECAR_FILE), 'utf8').catch(() => null);
   const media = sidecar ? (JSON.parse(sidecar) as { media: MediaPlan }).media : undefined;
-  return { sources: { plan: { clips, codeTiming: true, duration: shots.duration, ...(media ? { media } : {}) }, words: [] }, scenes };
+  const parts = shots.contract === 2 ? checkPartsManifest(shots as unknown as Record<string, unknown>).manifest : null;
+  return { sources: { plan: { clips, codeTiming: true, duration: shots.duration, ...(parts ? { parts } : {}), ...(media ? { media } : {}) }, words: [] }, scenes };
 }
 
-interface CodeShot { scene?: string; start: number; title: string; [key: string]: unknown }
+interface CodeShot { name?: string; scene?: string; start: number; title: string; [key: string]: unknown }
 
 /** Saved scene identity wins, then an exact start, then the scene covering the storyboard entry. */
 export function sceneForShot(shot: CodeShot, scenes: readonly PageScene[]): PageScene | undefined {
-  return scenes.find((scene) => scene.name === shot.scene)
+  return scenes.find((scene) => scene.name === (shot.scene ?? shot.name))
     ?? scenes.find((scene) => Math.abs(scene.start - shot.start) < 1e-6)
     ?? scenes.find((scene) => scene.start <= shot.start && scene.start + scene.duration > shot.start);
 }
@@ -91,7 +93,7 @@ export function sceneForShot(shot: CodeShot, scenes: readonly PageScene[]): Page
  * Where a shot's still is drawn once its scene plays as `clip`: the same distance from the scene's start, or from
  * its end when a trim left that moment outside the shot.
  */
-export function stillTime(shotStart: number, scene: PageScene, clip: { in: number; out: number }): number {
+export function stillTime(shotStart: number, scene: Pick<PageScene, 'start' | 'duration'>, clip: { in: number; out: number }): number {
   const fromStart = shotStart - scene.start;
   const fromEnd = scene.start + scene.duration - shotStart;
   const at = fromStart < clip.out - clip.in ? clip.in + fromStart : clip.out - fromEnd;
@@ -143,7 +145,7 @@ export async function writeSceneTiming(dir: string, before: Sources, after: Sour
 
 /** Code pages take free shot timing, element offsets, and sound edits, without cutting the whole reel. */
 export function assertCodeOnlyOperations(operations: readonly Operation[]): void {
-  const allowed = new Set(['clip-slide', 'clip-trim', 'source-beats', 'element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-replace', 'placement-split', 'word-text', 'word-timing', 'phrase-text']);
+  const allowed = new Set(['shot-alternate', 'shot-alternate-dismiss', 'clip-slide', 'clip-trim', 'source-beats', 'element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-replace', 'placement-split', 'word-text', 'word-timing', 'phrase-text']);
   if (operations.some((op) => !allowed.has(op.kind) || ((op.kind === 'placement-add' || op.kind === 'placement-replace') && op.placement.role !== 'audio'))) {
     throw new KinottaError('invalid', 'This reel is built from code. Move or trim its shots, move or scale its elements, or edit its sound.');
   }

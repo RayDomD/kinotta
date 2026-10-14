@@ -83,6 +83,7 @@ it('pans and zooms all native lanes together, seeks on the ruler and keeps edits
     const sections = page.getByRole('navigation', { name: 'Sections', exact: true });
     await sections.getByRole('button', { name: /The sync problem/ }).click();
     await expect.poll(() => page.getByLabel('Playhead', { exact: true }).inputValue()).toBe('8.00');
+    await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled()).toBe(true);
     await lanes.locator('[data-role="main"] [data-placement="third"]').press('ArrowLeft');
     await expect.poll(last).toMatchObject({ kind: 'placement-move', placement: 'third', index: 1 });
     await sections.getByRole('button', { name: /Cold open/ }).click();

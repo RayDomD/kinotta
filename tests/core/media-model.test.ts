@@ -18,7 +18,7 @@ describe('media placement mapping', () => {
   });
   it('keeps an explicit main video duration consistent when its source range is trimmed', () => {
     const media: MediaPlan = { schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 3 }], placements: [{ id: 'take', role: 'main', source: 'a', in: 0, out: 3, duration: 3 }], sequence: ['take'] };
-    const changed = applyOperation({ plan: { media }, words: [] }, { id: 'trim', kind: 'placement-change', placement: 'take', changes: { out: 2 } });
+    const changed = applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'trim', kind: 'placement-change', placement: 'take', changes: { out: 2 } });
     expect(mediaTimeline(changed.plan.media!).duration).toBe(2);
     expect(changed.plan.media!.placements[0]).toMatchObject({ in: 0, out: 2, duration: 2 });
   });
@@ -36,11 +36,11 @@ describe('media placement mapping', () => {
       placements: [{ id: 'first', role: 'main', source: 'a', in: 0, out: 3 }, { id: 'second', role: 'main', source: 'a', in: 0, out: 3 }], sequence: ['first', 'second'],
     };
     const sources = { plan: { media, captions: true }, words: mediaWords(media) };
-    const positioned = applyOperation(sources, { id: 'position', kind: 'caption-phrase-position', placement: 'second', at: 1, x: 12, y: -20 });
+    const positioned = applyOperation(sources, { by: 'you', id: 'position', kind: 'caption-phrase-position', placement: 'second', at: 1, x: 12, y: -20 });
     expect(positioned.plan.captions).toEqual({ phrases: [{ placement: 'second', at: 1, x: 12, y: -20 }] });
-    const retimed = applyOperation(positioned, { id: 'timing', kind: 'word-timing', placement: 'second', at: 1, start: 1.1, end: 1.6 });
+    const retimed = applyOperation(positioned, { by: 'you', id: 'timing', kind: 'word-timing', placement: 'second', at: 1, start: 1.1, end: 1.6 });
     expect(retimed.plan.captions).toEqual({ phrases: [{ placement: 'second', at: 1.1, x: 12, y: -20 }] });
-    expect(() => applyOperation(sources, { id: 'ambiguous', kind: 'caption-phrase-position', at: 1, x: 12, y: -20 })).toThrow('placement');
+    expect(() => applyOperation(sources, { by: 'you', id: 'ambiguous', kind: 'caption-phrase-position', at: 1, x: 12, y: -20 })).toThrow('placement');
   });
   it('follows a specific footage moment across reorder and split, flags its removal and repairs to reel time', () => {
     const media: MediaPlan = {
@@ -52,24 +52,24 @@ describe('media placement mapping', () => {
       ], sequence: ['first', 'repeat'],
     };
     const sources = { plan: { media }, words: [] };
-    const moved = applyOperation(sources, { id: 'move', kind: 'placement-move', placement: 'repeat', index: 0 });
+    const moved = applyOperation(sources, { by: 'you', id: 'move', kind: 'placement-move', placement: 'repeat', index: 0 });
     const effect = (plan: MediaPlan) => mediaTimeline(plan).placements.find((p) => p.id === 'effect')!;
     expect(effect(moved.plan.media!).at).toBe(5);
     expect(mediaTimeline(moved.plan.media!).placements.find((p) => p.id === 'bed')!.at).toBe(1);
-    const split = applyOperation(moved, { id: 'cut', kind: 'placement-split', placement: 'first', at: 2 });
+    const split = applyOperation(moved, { by: 'you', id: 'cut', kind: 'placement-split', placement: 'first', at: 2 });
     expect(effect(split.plan.media!).at).toBe(5);
-    const shifted = applyOperation(split, { id: 'shift', kind: 'placement-change', placement: 'effect', changes: { at: 4.5 } });
+    const shifted = applyOperation(split, { by: 'you', id: 'shift', kind: 'placement-change', placement: 'effect', changes: { at: 4.5 } });
     expect(effect(shifted.plan.media!).at).toBe(4.5);
-    const halves = applyOperation(split, { id: 'effect-cut', kind: 'placement-split', placement: 'effect', at: 0.5 });
+    const halves = applyOperation(split, { by: 'you', id: 'effect-cut', kind: 'placement-split', placement: 'effect', at: 0.5 });
     expect(mediaTimeline(halves.plan.media!).placements.find((p) => p.id === 'effect~effect-cut')!.at).toBe(5.5);
-    const attachedLater = applyOperation(split, { id: 'reattach', kind: 'placement-change', placement: 'effect', changes: { attachment: { placement: 'first~cut', time: 3.5 } } });
-    const splitAgain = applyOperation(attachedLater, { id: 'cut-again', kind: 'placement-split', placement: 'first~cut', at: 1 });
+    const attachedLater = applyOperation(split, { by: 'you', id: 'reattach', kind: 'placement-change', placement: 'effect', changes: { attachment: { placement: 'first~cut', time: 3.5 } } });
+    const splitAgain = applyOperation(attachedLater, { by: 'you', id: 'cut-again', kind: 'placement-split', placement: 'first~cut', at: 1 });
     expect(effect(splitAgain.plan.media!)).toMatchObject({ at: 5.5 });
     expect(effect(splitAgain.plan.media!).attachmentBroken).not.toBe(true);
-    const gone = applyOperation(split, { id: 'remove', kind: 'placement-remove', placement: 'first~cut' });
+    const gone = applyOperation(split, { by: 'you', id: 'remove', kind: 'placement-remove', placement: 'first~cut' });
     expect(effect(gone.plan.media!)).toMatchObject({ attachmentBroken: true, at: 5 });
     expect(gone.plan.media!.placements.some((p) => p.id === 'effect')).toBe(true);
-    const repaired = applyOperation(gone, { id: 'repair', kind: 'placement-change', placement: 'effect', changes: { attachment: null, at: 1 } });
+    const repaired = applyOperation(gone, { by: 'you', id: 'repair', kind: 'placement-change', placement: 'effect', changes: { attachment: null, at: 1 } });
     expect(effect(repaired.plan.media!)).toMatchObject({ at: 1 });
     expect(effect(repaired.plan.media!).attachmentBroken).not.toBe(true);
   });
@@ -78,12 +78,12 @@ describe('media placement mapping', () => {
       schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 3 }],
       placements: [{ id: 'first', role: 'main', source: 'a', in: 0, out: 3 }, { id: 'second', role: 'main', source: 'a', in: 0, out: 3 }], sequence: ['first', 'second'],
     };
-    const edited = applyOperation({ plan: { media }, words: [] }, { id: 'frame', kind: 'placement-change', placement: 'second', changes: { framing: { mode: 'crop', x: 0.5, y: 0 } } });
+    const edited = applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'frame', kind: 'placement-change', placement: 'second', changes: { framing: { mode: 'crop', x: 0.5, y: 0 } } });
     expect(edited.plan.media!.placements[1]).toMatchObject({ framing: { mode: 'crop', x: 0.5, y: 0 } });
     expect(edited.plan.media!.placements[0]).not.toHaveProperty('framing');
     expect(media.placements[1]).not.toHaveProperty('framing');
     for (const framing of [{ mode: 'stretch' }, { mode: 'crop', x: -0.1 }, { mode: 'fit', y: 1.1 }, { mode: 'crop', x: NaN }]) {
-      expect(() => applyOperation({ plan: { media }, words: [] }, { id: 'bad', kind: 'placement-change', placement: 'second', changes: { framing } } as Parameters<typeof applyOperation>[1])).toThrow('framing');
+      expect(() => applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'bad', kind: 'placement-change', placement: 'second', changes: { framing } } as Parameters<typeof applyOperation>[1])).toThrow('framing');
     }
   });
   it('distinguishes different takes and repeated uses at the same source second', () => {
@@ -172,13 +172,13 @@ describe('media placement mapping', () => {
       ],
       sequence: ['first', 'second'],
     };
-    const op = { id: 'fix', kind: 'word-text' as const, placement: 'second', at: 1, text: 'world' };
+    const op = { by: 'you', id: 'fix', kind: 'word-text' as const, placement: 'second', at: 1, text: 'world' };
     const edited = applyOperation({ plan: { media }, words: [] }, op);
 
     expect(mediaWords(edited.plan.media!).map((w) => [w.text, w.placement])).toEqual([['hello', 'first'], ['world', 'second']]);
     expect(media.sources[0]?.words?.[0]?.text).toBe('hello');
     expect(() => applyOperation({ plan: { media: { ...media, placements: [media.placements[0]!], sequence: ['first'] } }, words: [] }, op)).toThrow('missing');
-    expect(() => applyOperation({ plan: { media }, words: [] }, { id: 'bad', kind: 'word-text', at: 1, text: 'world' })).toThrow('placement');
+    expect(() => applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'bad', kind: 'word-text', at: 1, text: 'world' })).toThrow('placement');
   });
 
   it('keeps added music on reel time and clips it at the shortened main-sequence end', () => {
@@ -210,8 +210,8 @@ describe('media placement mapping', () => {
       sequence: ['first'],
     };
     const edited = applyOperations({ plan: { media }, words: [] }, [
-      { id: 'add', kind: 'placement-add', placement: { id: 'second', role: 'main', source: 'a', in: 0, out: 3 } },
-      { id: 'trim', kind: 'placement-change', placement: 'second', changes: { out: 2 } },
+      { by: 'you', id: 'add', kind: 'placement-add', placement: { id: 'second', role: 'main', source: 'a', in: 0, out: 3 } },
+      { by: 'you', id: 'trim', kind: 'placement-change', placement: 'second', changes: { out: 2 } },
     ]);
 
     expect(mediaTimeline(edited.plan.media!).duration).toBe(5);
@@ -233,7 +233,7 @@ describe('media placement mapping', () => {
       ],
       sequence: ['still', 'speech'],
     };
-    const edited = applyOperation({ plan: { media }, words: [] }, { id: 'length', kind: 'placement-change', placement: 'still', changes: { duration: 5 } });
+    const edited = applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'length', kind: 'placement-change', placement: 'still', changes: { duration: 5 } });
 
     expect(mediaTimeline(edited.plan.media!).duration).toBe(8);
     expect(timelineMoment(mediaTimeline(edited.plan.media!), 3)).toEqual({ placement: 'still', source: 'photo', time: 0 });
@@ -248,19 +248,19 @@ describe('media placement mapping', () => {
         { id: 'second', role: 'main', source: 'a', in: 0, out: 2 },
       ], sequence: ['first', 'second'],
     };
-    const reordered = applyOperation({ plan: { media }, words: [] }, { id: 'move', kind: 'placement-move', placement: 'second', index: 0 });
+    const reordered = applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'move', kind: 'placement-move', placement: 'second', index: 0 });
     expect(reordered.plan.media!.sequence).toEqual(['second', 'first']);
     expect(placementTime(mediaTimeline(reordered.plan.media!), 'first', 1)).toBe(3);
-    const replaced = applyOperation(reordered, { id: 'replace', kind: 'placement-replace', target: 'second', placement: { id: 'photo-use', role: 'main', source: 'photo', in: 0, out: 0, duration: 4 }, source: { id: 'photo', kind: 'image', path: 'photo.png', duration: 0 } });
+    const replaced = applyOperation(reordered, { by: 'you', id: 'replace', kind: 'placement-replace', target: 'second', placement: { id: 'photo-use', role: 'main', source: 'photo', in: 0, out: 0, duration: 4 }, source: { id: 'photo', kind: 'image', path: 'photo.png', duration: 0 } });
     expect(replaced.plan.media!.sequence).toEqual(['photo-use', 'first']);
     expect(replaced.plan.media!.placements.some((p) => p.id === 'second')).toBe(false);
-    const removed = applyOperation(replaced, { id: 'remove', kind: 'placement-remove', placement: 'first' });
+    const removed = applyOperation(replaced, { by: 'you', id: 'remove', kind: 'placement-remove', placement: 'first' });
     expect(removed.plan.media!.sequence).toEqual(['photo-use']);
     expect(removed.plan.media!.sources.map((s) => s.id)).toEqual(['a', 'photo']);
-    expect(applyOperation(removed, { id: 'empty', kind: 'placement-remove', placement: 'photo-use' }).plan.duration).toBe(0);
+    expect(applyOperation(removed, { by: 'you', id: 'empty', kind: 'placement-remove', placement: 'photo-use' }).plan.duration).toBe(0);
     expect(media.sequence).toEqual(['first', 'second']);
-    expect(() => applyOperation(removed, { id: 'lost', kind: 'placement-move', placement: 'first', index: 0 })).toThrow('missing');
-    expect(() => applyOperation(removed, { id: 'reuse', kind: 'placement-replace', target: 'photo-use', placement: { id: 'photo-use', role: 'main', source: 'a', in: 0, out: 3 } })).toThrow('new identity');
+    expect(() => applyOperation(removed, { by: 'you', id: 'lost', kind: 'placement-move', placement: 'first', index: 0 })).toThrow('missing');
+    expect(() => applyOperation(removed, { by: 'you', id: 'reuse', kind: 'placement-replace', target: 'photo-use', placement: { id: 'photo-use', role: 'main', source: 'a', in: 0, out: 3 } })).toThrow('new identity');
   });
 
   it('selects voiceover captions over a passage and clips speech at the reel end', () => {
@@ -279,7 +279,7 @@ describe('media placement mapping', () => {
     expect(words.map((w) => [w.text, w.start, w.end, w.placement])).toEqual([
       ['before', 0, 0.5, 'main'], ['replacement', 1, 1.5, 'voice-use'], ['late', 2.7, 3, 'voice-use'],
     ]);
-    const edited = applyOperation({ plan: { media }, words: [] }, { id: 'fix', kind: 'word-text', placement: 'voice-use', at: 0, text: 'corrected' });
+    const edited = applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'fix', kind: 'word-text', placement: 'voice-use', at: 0, text: 'corrected' });
     expect(mediaWords(edited.plan.media!)[1]!.text).toBe('corrected');
   });
 
@@ -289,10 +289,10 @@ describe('media placement mapping', () => {
       placements: [{ id: 'first', role: 'main', source: 'a', in: 0, out: 3 }, { id: 'second', role: 'main', source: 'a', in: 0, out: 3 }], sequence: ['first', 'second'],
     };
     const edited = applyOperations({ plan: { media }, words: [] }, [
-      { id: 'text', kind: 'phrase-text', placement: 'second', from: 1, to: 1.5, text: 'bye' },
-      { id: 'time', kind: 'word-timing', placement: 'second', at: 1, start: 1.1, end: 1.6 },
+      { by: 'you', id: 'text', kind: 'phrase-text', placement: 'second', from: 1, to: 1.5, text: 'bye' },
+      { by: 'you', id: 'time', kind: 'word-timing', placement: 'second', at: 1, start: 1.1, end: 1.6 },
     ]);
     expect(mediaWords(edited.plan.media!).map((word) => [word.text, word.start, word.end])).toEqual([['hello', 1, 1.5], ['bye', 4.1, 4.6]]);
-    expect(() => applyOperation({ plan: { media }, words: [] }, { id: 'ambiguous', kind: 'word-timing', at: 1, start: 1.1, end: 1.6 })).toThrow('placement');
+    expect(() => applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'ambiguous', kind: 'word-timing', at: 1, start: 1.1, end: 1.6 })).toThrow('placement');
   });
 });

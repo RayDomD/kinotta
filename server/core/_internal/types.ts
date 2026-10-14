@@ -27,7 +27,47 @@ export interface ReelListing {
   reels: ReelSummary[];
 }
 
+/** One immutable shot revision in play order. Starts are computed, never authored. */
+export interface PartsAlternate {
+  revision: string;
+  label: string;
+  title: string;
+  note: string;
+  duration: number;
+  dismissed?: { reason: string };
+}
+
+export interface PartsShot {
+  /** Dismissals survive even when their revisions leave the offered list. */
+  dismissedRevisions?: Record<string, { reason: string }>;
+  name: string;
+  revision: string;
+  duration: number;
+  title: string;
+  description: string;
+  section?: string;
+  alternates?: PartsAlternate[];
+  choiceMade?: boolean;
+}
+
+export interface PartsManifest {
+  /** The assembled document uses the existing alpha page contract for Overlay. */
+  alpha?: boolean;
+  contract: 2;
+  duration: number;
+  shared: string;
+  shots: PartsShot[];
+  /** Generated publication fingerprints. Authors create a new revision when any of these bytes change. */
+  revisionHashes?: Record<string, string>;
+}
+
 export interface Shot {
+  alternates?: Array<PartsAlternate & { inReel: boolean }>;
+  choiceMade?: boolean;
+  /** Parts reels keep this identity when their displayed position changes. */
+  name?: string;
+  scene?: string;
+  revision?: string;
   /** Two-digit string, "01". */
   number: string;
   /** Seconds. */
@@ -88,6 +128,11 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  workingParts?: { duration: number; shots: Shot[]; key: string };
+  parts?: PartsManifest;
+  /** Working uses this authored page with the durable operation journal applied in the editor. */
+  workingBase?: number;
+  frozenBy?: string;
   number: number;
   isNewest: boolean;
   /** Seconds. */
@@ -135,6 +180,7 @@ export interface Version {
 
 /** One row of a reel's version rail. */
 export interface VersionEntry {
+  frozenBy?: string;
   number: number;
   isNewest: boolean;
   /** v1 in this phase. */
@@ -153,6 +199,8 @@ export interface VersionEntry {
 
 /** A finished render in a reel's renders/ folder. */
 export interface RenderFile {
+  /** A captured Working Draft, distinguished from a numbered-version render. */
+  working?: true;
   /** The file name. */
   file: string;
   version: number;
@@ -204,6 +252,8 @@ export interface MixOverload {
 
 /** A render: a version and a preset, and any of the four settings to use instead of the reel's saved ones. */
 export interface RenderRequest extends Partial<RenderSettings> {
+  /** A captured Working Draft, distinguished from a numbered-version render. */
+  working?: true;
   reel: string;
   version: number;
   preset: RenderPreset;
@@ -215,6 +265,8 @@ export interface RenderRequest extends Partial<RenderSettings> {
 
 /** One render in the project's queue. Held in memory: a restart forgets it (R8). */
 export interface RenderJob {
+  /** A captured Working Draft, distinguished from a numbered-version render. */
+  working?: true;
   id: string;
   reel: string;
   version: number;
@@ -232,6 +284,7 @@ export interface RenderJob {
 
 /** What `Project.subscribe` reports. */
 export type ProjectEvent =
+  | { type: 'edits-changed'; reel: string }
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
@@ -293,6 +346,9 @@ export interface Project {
   listReels(): Promise<ReelListing>;
   /** Reads a version's shot list. Throws `KinottaError` (`not-found` or `invalid`). */
   readVersion(slug: string, number: number): Promise<Version>;
+  readWorkingVersion(slug: string): Promise<Version>;
+  workingPartsPage(slug: string, override?: { shot: string; revision: string }): Promise<string>;
+  alternatePage(slug: string, number: number, shot: string, revision: string): Promise<string>;
   /** A reel's version folders, oldest first. Throws `KinottaError` `not-found` for an unknown reel. */
   listVersions(slug: string): Promise<VersionEntry[]>;
   /**
@@ -345,7 +401,7 @@ export interface Project {
   transcriptionProgress(slug: string): TranscriptionProgress | null;
   /** Resolves when the reel's transcription and v1 build have ended (done or failed); at once when none is running. */
   whenTranscribed(slug: string): Promise<void>;
-  /** The reel's unsaved edits (empty when there are none). */
+  /** The reel's durable working edits (empty when there are none). */
   readEditList(slug: string): Promise<EditList>;
   /**
    * Adds an operation to the edit list and writes the list to the reel folder. Throws `invalid` for an operation that does
@@ -366,15 +422,12 @@ export interface Project {
   redoEdit(slug: string): Promise<EditList>;
   /** Drops the edit list, with its undo and redo history. */
   discardEdits(slug: string): Promise<EditList>;
-  /** Ends the hand-off a copied batch started, so Save is allowed again. Does nothing when no batch is out. */
+  /** Ends the hand-off a copied batch started, without changing Working. Does nothing when no batch is out. */
   cancelHandoff(slug: string): Promise<EditList>;
-  /**
-   * Builds the next version from the edit list with no agent: writes the operations into the reel's plan and transcript,
-   * builds `v<n+1>` (with its own plan and transcript, `edits.json`, `changedSections`, `builtBy: "you"`) and clears the
-   * list. Throws `invalid` for an empty list, a batch that is out or a build that fails, in which case there is no new
-   * version, the sources are as they were and the list is kept.
-   */
-  saveEdits(slug: string): Promise<SavedVersion>;
+  /** Freeze changed Working atomically, reusing identical content and retaining Undo/Redo. */
+  freezeEdits(slug: string): Promise<SavedVersion>;
+  /** Assembles the authored root parts manifest and publishes the next version without copying revisions. */
+  buildParts(slug: string, by?: string): Promise<BuiltPartsVersion>;
   /**
    * Brings a dropped video into `<project>/footage/`, streaming `body` to disk. A file already there with the same
    * content is reused (`copied: false`). An HEVC or ProRes video also gets an H.264 playback copy, which
@@ -403,15 +456,11 @@ export interface Project {
    * refuses, or an Overlay of a page that isn't transparent.
    */
   render(request: RenderRequest): Promise<RenderJob>;
-  /**
-   * Save and render (AM40): saves the reel's pending edits as the next version, then queues a render of that version.
-   * Refuses an unknown preset or setting before saving. A refused or failed Save throws and starts no render, keeping the
-   * edits and the saved versions; Render saved version is `render` with an explicit version.
-   */
-  saveAndRender(request: Omit<RenderRequest, 'version'>): Promise<{ version: number; job: RenderJob }>;
+  /** Capture Working for a Draft, or freeze it for a Final or Overlay. */
+  renderWorking(request: Omit<RenderRequest, 'version'>): Promise<RenderJob>;
   /**
    * Where the mix passes full scale (AM29, AM38), measured from the mix a render makes. With a version, that saved
-   * version's; without, the pending mix Save would preserve. Levels are never changed. No spans for a reel without native
+   * version's; without, the captured working mix. Levels are never changed. No spans for a reel without native
    * media. Throws `not-found` for an unknown reel or version.
    */
   mixOverload(slug: string, version?: number): Promise<MixOverload>;
@@ -437,6 +486,9 @@ export interface Project {
 
 /** A reel's unsaved edits: operations on named targets, in the order they were made. */
 export interface EditList {
+  editsSinceFreeze?: number;
+  /** Latest frozen snapshot, separate from the authored working base. */
+  frozen?: number;
   /** The version the edits are against: the newest when they were made. */
   base: number;
   operations: Operation[];
@@ -444,21 +496,26 @@ export interface EditList {
   canUndo: boolean;
   /** Redo has a list to step forward to (a new change ends it). */
   canRedo: boolean;
-  /** Edits replayed from this base, resetting Undo/Redo. Kept until Save or Discard. */
+  /** Edits replayed from this base, resetting Undo/Redo. Kept until the next authored-base change. */
   replayedFrom?: number;
   /** The list was made on a version that is no longer the newest; it cannot take edits or be saved. */
   stale?: true;
-  /** A comment batch is out for the newest version: Save is blocked with this reason until the next version or `cancelHandoff`. */
+  /** A comment batch is out for the newest version: Working continues with this status until the next version or `cancelHandoff`. */
   handedOff?: { version: number; copiedAt: string; reason: string };
   /**
    * Operations that no longer apply to the version they were replayed onto, by id, with the reason. They stay in the list so
-   * the owner can drop or redo them; they are left out of the preview, and Save is blocked while any remain.
+   * the owner can drop or redo them; they are left out of the preview, and freezing is blocked while any remain.
    */
   flagged?: Record<string, string>;
 }
 
+export interface BuiltPartsVersion {
+  version: number;
+  issues: ContractIssue[];
+}
+
 export interface SavedVersion {
-  /** The number of the version Save built. */
+  /** The frozen version, new or reused. */
   version: number;
 }
 
@@ -555,6 +612,8 @@ export interface CopiedBatch {
 
 /** What the caller supplies for a frame pin; the core fills in the rest. */
 export interface NewFramePin {
+  alternate?: string;
+  shotName?: string;
   placement?: string;
   /** Media and footage pins may identify any moment, rather than only a shot start. */
   time?: number;
@@ -576,6 +635,8 @@ export interface PlacementPin {
 }
 
 export interface FramePin extends PlacementPin {
+  alternate?: string;
+  shotName?: string;
   kind: 'frame';
   version: number;
   /** The shot's section, or null. */
@@ -614,6 +675,8 @@ export interface WordPin extends PlacementPin {
 }
 
 export interface Comment {
+  stateReason?: string;
+  options?: 2 | 3 | 4;
   id: string;
   /** 1-based position in the version's comments, ordered by pin time then creation. The number shown everywhere. */
   number: number;
@@ -634,6 +697,7 @@ export interface Comment {
 }
 
 export interface NewComment {
+  options?: 2 | 3 | 4;
   pin: NewFramePin | NewWordPin;
   text: string;
 }

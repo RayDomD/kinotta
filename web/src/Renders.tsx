@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { approveVersion, cancelRender, fetchOverload, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, saveAndRender, withdrawApproval } from './api/index.ts';
+import { approveVersion, cancelRender, fetchOverload, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, renderWorking, withdrawApproval } from './api/index.ts';
 import type { MixOverload, RenderFile, RenderJob, RenderPreset, RenderSettings, VersionEntry } from './api/index.ts';
 import { describeOverload } from '../../server/core/model.ts';
 import { formatRemaining } from './timecode.ts';
@@ -107,20 +107,19 @@ export interface VersionActionsProps {
   entry: VersionEntry | undefined;
   /** The reel has footage, so its audio joins at cuts. */
   footage: boolean;
-  /** Unsaved edits on the version on show (the newest), so Render asks which content to render (AM40). */
-  pending?: PendingEdits;
-  /** Save and render saved this version; open it. */
+  /** Render the durable Working reel rather than the numbered snapshot. */
+  working?: boolean;
+  nextVersion?: number;
+  /** A render boundary captured Working, so refresh the version rail. */
   onSaved?(version: number): void;
 }
 
-/** The edits a Save would turn into version `next`. */
-export interface PendingEdits {
-  count: number;
-  next: number;
+/** Approve or Withdraw and Render for the version on show, by the reel's title in Review (mockup option C). */
+function actionsVerifyAttrs(working: boolean, busy: boolean) {
+  return { 'data-verify-unit': 'VersionActions', 'data-verify-working': String(working), 'data-verify-busy': String(busy) };
 }
 
-/** Approve or Withdraw and Render for the version on show, by the reel's title in Review (mockup option C). */
-export function VersionActions({ slug, entry, footage, pending, onSaved }: VersionActionsProps) {
+export function VersionActions({ slug, entry, footage, working = false, nextVersion, onSaved }: VersionActionsProps) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const number = entry?.number;
@@ -137,7 +136,7 @@ export function VersionActions({ slug, entry, footage, pending, onSaved }: Versi
   };
 
   return (
-    <div className="rv-actions" role="group" aria-label="Version actions">
+    <div className="rv-actions" role="group" aria-label="Version actions" {...actionsVerifyAttrs(working, busy)}>
       {message !== '' && <span className="pk-message" role="status">{message}</span>}
       {entry?.approved ? (
         <>
@@ -147,7 +146,7 @@ export function VersionActions({ slug, entry, footage, pending, onSaved }: Versi
       ) : (
         <button type="button" className="btn quiet" aria-label={number === undefined ? 'Approve' : `Approve v${number}`} disabled={busy || number === undefined} onClick={() => change(true)}>Approve</button>
       )}
-      <RenderPopover key={`${slug}/${number ?? 'loading'}`} slug={slug} version={number} footage={footage} pending={pending} onSaved={onSaved} />
+      <RenderPopover key={`${slug}/${number ?? 'loading'}`} slug={slug} version={number} footage={footage} working={working} nextVersion={nextVersion} onSaved={onSaved} />
     </div>
   );
 }
@@ -190,16 +189,10 @@ function Choice<T extends string | number>(props: { label: string; value: T; opt
   );
 }
 
-/**
- * Render ▾ by the reel's title: a popover with the preset and its four settings, prefilled from what was saved. With
- * unsaved edits it asks which content to render, with nothing chosen for you: the saved version, or Save the edits as the
- * next version and render that (AM40). A refused or failed Save renders nothing.
- */
-function RenderPopover({ slug, version, footage, pending, onSaved }: { slug: string; version: number | undefined; footage: boolean; pending?: PendingEdits; onSaved?(version: number): void }) {
+/** Preset settings for Working or the explicit numbered snapshot on show. */
+function RenderPopover({ slug, version, footage, working = false, nextVersion, onSaved }: { slug: string; version: number | undefined; footage: boolean; working?: boolean; nextVersion?: number; onSaved?(version: number): void }) {
   const [open, setOpen] = useState(false);
   const presetsName = useId();
-  const baseName = useId();
-  const [base, setBase] = useState<'saved' | 'save' | null>(null);
   const [saved, setSaved] = useState<{ slug: string; settings: Record<RenderPreset, RenderSettings> } | null>(null);
   const [preset, setPreset] = useState<RenderPreset>('draft');
   const [settings, setSettings] = useState<RenderSettings | null>(null);
@@ -233,11 +226,8 @@ function RenderPopover({ slug, version, footage, pending, onSaved }: { slug: str
   };
   const set = <K extends keyof RenderSettings>(key: K) => (value: RenderSettings[K]): void => setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
 
-  const choosing = pending !== undefined;
-  const savingFirst = choosing && base === 'save';
-  // The mix the chosen render would make, measured on the server from that same mix (AM38). Overlay is silent.
-  const target = choosing ? base : 'saved';
-  const overloadKey = target === null || version === undefined || preset === 'overlay' ? null : `${target}/${version}`;
+  const target = working ? 'working' : 'saved';
+  const overloadKey = version === undefined || preset === 'overlay' ? null : `${target}/${version}`;
   const [measured, setMeasured] = useState<{ key: string; overload: MixOverload } | null>(null);
   const [accepted, setAccepted] = useState(false);
   useEffect(() => {
@@ -245,14 +235,14 @@ function RenderPopover({ slug, version, footage, pending, onSaved }: { slug: str
     if (!open || overloadKey === null) return;
     let live = true;
     // A failed measurement shows nothing here: the render itself still refuses an overloaded mix with the reason.
-    fetchOverload(slug, target === 'save' ? undefined : version).then((overload) => live && setMeasured({ key: overloadKey, overload }), () => undefined);
+    fetchOverload(slug, working ? undefined : version).then((overload) => live && setMeasured({ key: overloadKey, overload }), () => undefined);
     return () => {
       live = false;
     };
   }, [open, overloadKey, slug, target, version]);
   const overload = measured !== null && measured.key === overloadKey && measured.overload.spans.length > 0 ? measured.overload : null;
   const render = (): void => {
-    if (version === undefined || settings === null || (choosing && base === null)) return;
+    if (version === undefined || settings === null) return;
     setSending(true);
     setRefusal('');
     setStatus('');
@@ -260,11 +250,11 @@ function RenderPopover({ slug, version, footage, pending, onSaved }: { slug: str
       // What Render saved is what this preset starts from next time.
       setSaved((prev) => (prev?.slug === slug ? { slug, settings: { ...prev.settings, [preset]: settings } } : prev));
     };
-    (savingFirst
-      ? saveAndRender(slug, preset, settings, overload !== null && accepted).then(({ version: made }) => {
+    (working
+      ? renderWorking(slug, preset, settings, overload !== null && accepted).then((job) => {
           remembered();
-          setStatus(`Saved v${made}. v${made} ${presetName(preset)} queued.`);
-          onSaved?.(made);
+          setStatus(`${job.working ? 'Working' : `v${job.version}`} ${presetName(preset)} queued.`);
+          onSaved?.(job.version);
         })
       : queueRender(slug, version, preset, settings, overload !== null && accepted).then(() => {
           remembered();
@@ -274,30 +264,17 @@ function RenderPopover({ slug, version, footage, pending, onSaved }: { slug: str
       .finally(() => setSending(false));
   };
 
-  const label = version === undefined ? 'Render' : `Render v${version}`;
-  const action = savingFirst ? `Save as v${pending.next} and render` : choosing && base === 'saved' ? label : 'Render';
+  const label = working ? 'Render Working' : version === undefined ? 'Render' : `Render v${version}`;
+  const action = 'Render';
   return (
     <Popover label={label} button={<>Render <span aria-hidden="true">▾</span></>} buttonClass="btn" className="pk-render" open={open} onOpen={setOpen}>
-      <h2>{choosing ? 'Render' : label}</h2>
-      {choosing && version !== undefined && (
-        <fieldset className="pk-presets pk-base">
-          <legend className="label">{`${pending.count === 1 ? '1 unsaved edit' : `${pending.count} unsaved edits`}. Render`}</legend>
-          <label className="pk-preset">
-            <input type="radio" name={baseName} value="saved" checked={base === 'saved'} onChange={() => setBase('saved')} />
-            <span>{`Saved v${version}`}</span>
-          </label>
-          <label className="pk-preset">
-            <input type="radio" name={baseName} value="save" checked={base === 'save'} onChange={() => setBase('save')} />
-            <span>{`Save as v${pending.next}, then render`}</span>
-          </label>
-        </fieldset>
-      )}
+      <h2>{label}</h2>
       <fieldset className="pk-presets">
         <legend className="label">Preset</legend>
         {PRESETS.map((p) => (
           <label key={p.id} className="pk-preset">
             <input type="radio" name={presetsName} value={p.id} checked={preset === p.id} onChange={() => pickPreset(p.id)} />
-            <span>{p.name}</span>
+            <span>{working ? p.id === 'draft' ? 'Draft of Working' : `${p.name}, freezes as v${nextVersion ?? version}` : p.name}</span>
           </label>
         ))}
       </fieldset>
@@ -320,7 +297,7 @@ function RenderPopover({ slug, version, footage, pending, onSaved }: { slug: str
           </label>
         </div>
       )}
-      <button type="button" className="btn" disabled={version === undefined || settings === null || sending || (choosing && base === null) || (overload !== null && !accepted)} onClick={render}>
+      <button type="button" className="btn" disabled={version === undefined || settings === null || sending || (overload !== null && !accepted)} onClick={render}>
         {action}
       </button>
       {refusal !== '' && <p className="pk-refusal" role="alert">{refusal}</p>}
@@ -379,7 +356,7 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
 
   const running = jobs.find((job) => job.state === 'running');
   const waiting = jobs.filter((job) => job.state === 'queued').length;
-  const jobName = (job: RenderJob): string => `${job.reel === slug ? '' : `${titles.get(job.reel) ?? job.reel} `}v${job.version} ${presetName(job.preset)}`;
+  const jobName = (job: RenderJob): string => `${job.reel === slug ? '' : `${titles.get(job.reel) ?? job.reel} `}${job.working ? 'Working' : `v${job.version}`} ${presetName(job.preset)}`;
   const status = running !== undefined
     ? `Rendering ${jobName(running)}.${waiting > 0 ? ` ${waiting} waiting.` : ''}`
     : waiting > 0 ? `${waiting} waiting to render.` : failure !== null ? 'Render failed.' : 'No renders in progress.';

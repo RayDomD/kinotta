@@ -17,6 +17,8 @@ export const MOMENT_REMOVED = 'moment-removed';
 export const ELEMENT_REMOVED = 'element-removed';
 
 export interface StoredComment {
+  stateReason?: string;
+  options?: 2 | 3 | 4;
   id: string;
   pin: FramePin | WordPin;
   text: string;

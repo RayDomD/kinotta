@@ -26,15 +26,14 @@ a sound ("add pulse sound") is answered the same way: see "Sound requests in com
 - **Separate assets from interactions.** An animated alternative asset does not implement animated preview, switching, or applying it in the editor. For a request about editor behavior, inspect the existing UI and relevant project design before editing. State the trigger, location, visible result, and effect on Working. A screenshot alone does not establish interaction behavior. Ask one focused question if those details remain materially ambiguous, then verify the user's exact interaction on that surface before claiming completion.
 
 - **Versions are frozen.** Never edit, rename or delete a `reels/<slug>/v<n>/` folder that exists.
-  Every change is a new `v<n+1>`.
-- **Legacy storyboards are still; alternatives include motion.** For an existing single-page storyboard, each scene is built in its final look, but nothing
+  Small mechanical changes are durable operations on Working. Only a Final or Overlay render or a comment hand-off freezes changed Working. A picture rebuild still writes a new version until the parts workflow applies.
+- **Legacy storyboards are still; parts alternatives include motion.** For an existing single-page storyboard, each scene is built in its final look, but nothing
   moves: no CSS animations or transitions, no `requestAnimationFrame` loops, no timers. Describe
   proposed motion in a still concept's shot description. When motion is requested, implement it
   through the seek contract. Footage reels are the
-  exception: their clips carry the engine's real animation (section 5). Alternatives are animated by default unless the owner explicitly asks for still concepts. For an alternatives request, follow `reference/animated-alternatives.md` instead of the legacy still-storyboard instructions.
+  exception: their clips carry the engine's real animation (section 5). Parts alternatives are animated by default, following the seek contract in `reference/contract.md`, unless the owner explicitly asks for still concepts.
 - **The edit list and the hand-off are Kinotta's.** Never read, write or delete `reels/<slug>/edit-list.json`,
-  `reels/<slug>/handoff.json` or `reels/<slug>/.save/`. They hold the owner's unsaved edits and the state of a
-  batch; Kinotta carries the edits onto the version you write.
+  `reels/<slug>/handoff.json` or `reels/<slug>/.save/`. They hold durable working history and the state of a batch. Add supported edits through `kinotta edit <slug> --by <your name> <operation json>` instead. Kinotta carries later edits onto the version you write.
 - **The owner opens the editor.** Leave interactive `kinotta` startup to the owner.
 - **Render through `kinotta render` only.** When asked for a video, render an explicit saved
   version with `kinotta render <slug> v<n> --preset draft|final|overlay`. The command joins the
@@ -47,14 +46,21 @@ a sound ("add pulse sound") is answered the same way: see "Sound requests in com
 - **The timing contract holds.** Read `reference/contract.md` before writing your first page in a
   session. `kinotta check` must pass before you tell the owner a version is ready.
 
+## Parts workflow
+
+For new code-built reels, follow **Parts reels** in `reference/contract.md`. Write immutable shot revisions and the authored root manifest, then run `kinotta build <slug> --by <your name>`. Kinotta publishes the generated version. Existing single-page reels follow sections 3 and 4 unless the owner asks to convert them.
+
+For a parts batch, read the saved batch and its exact frozen manifest. The opening `Rebuild:` line names the shots to change. Write a new revision only for those shots, retain the other revision references, update the root manifest and build. Keep fixed shot names and element names. Kinotta carries frozen owner offsets, sound and later Working operations. Finish when build and check report no issues and each comment has an answer. A changed shared revision affects every shot, so change it only when the batch calls for that.
+
+When a heading asks for `2`, `3` or `4 alternates`, write exactly that many animated shot revisions using the alternate manifest rules in `reference/contract.md`. Recommend one first, with a title and a one-line note for every answer. Keep the rest of the reel's references. Answer feedback using the batch's alternate labels, including Not this reasons. The owner chooses in Storyboard and plays the chosen revision in Working Review, so a choice is not another version you build for them.
+
 ## 1. Preflight (every run)
 
 1. Run `kinotta check` with no arguments. Installed, it prints `Usage: kinotta check <reel>
    [version]`. If the shell says the command is not found, stop and tell the owner: "Run
    `npm link` in the Kinotta repo, then open a new terminal." Do nothing else.
 2. Pick the branch: a pasted `Kinotta comments:` batch is **section 4**. A request for b-roll over a
-   video in the project is **section 5**. Any other request for a new reel is **section 2**, then
-   **section 3**.
+   video in the project is **section 5**. If every request in a batch is a supported mechanical edit, use **Small changes to Working** instead of building a version. Any other request for a new reel is **section 2**, then **section 3**.
 
 ## 2. Brand file (before any build)
 
@@ -126,6 +132,18 @@ Done when `reels/brand.md` exists with `checked:` set to a date, or you have sto
    run `kinotta` in this project to review it.
 
 Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.
+
+## Small changes to Working
+
+For gain, mute, track controls, timing, captions, words, element offsets and supported media placements, add an operation instead of copying a version. Use your actual agent name:
+
+```text
+kinotta edit <slug> --by Codex '{"kind":"placement-change","placement":"music-bed","changes":{"gain":0.35}}'
+```
+
+Use existing source and placement identities. An added source path must resolve from the working input folder, or be the absolute path returned by the import/generation tool. The command returns the durable edit list. Confirm the operation and its `by` name in that result. The owner sees it in Edits and can undo it. Report the change as an edit to Working, without inventing a version number. Do not manipulate the journal, cancel a hand-off or create a manual checkpoint.
+
+For a picture rebuild from a batch, use the exact frozen version named in the batch as your starting point. Later owner edits are already collecting in Working and will replay onto your new version. Do not apply those edits yourself or copy the journal into the build.
 
 ## 4. Build the next version from a batch
 
@@ -349,9 +367,7 @@ before, and moves every unsent comment forward by itself, to the same moment of 
 
 ### The plan
 
-Kinotta Save writes the owner's edits into the plan, so the plan can hold fields you didn't write. Find it
-in `reels/<slug>/plan.json` when that file exists (a reel started from a video in Kinotta), else
-`motion/plan.json`. Edit that one file and compose from it. Keep these fields exactly as you find them when
+The version named in the batch holds the owner's applied edits in its own plan and transcript. Start a picture rebuild from those exact inputs, rebasing their preserved paths from that version folder. The authored `reels/<slug>/plan.json` or `motion/plan.json` may predate live edits. Never assume it contains the frozen result. Keep these fields exactly as you find them when
 you rebuild; losing one undoes an edit the owner made:
 
 - `media`: keep the sources, placement identities, sequence, tracks, track assignments, regions,

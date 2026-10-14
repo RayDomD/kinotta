@@ -34,7 +34,7 @@ it('decoded renders match preview with track gain, mute, detached insert sound a
   const gain = { ...defaults, tracks: defaults.tracks!.map((t) => ({ ...t, gain: t.id === 'track:music' ? 0.5 : 0.8 })) };
   const muted = { ...gain, tracks: gain.tracks.map((t) => ({ ...t, mute: t.id === 'track:speech' })) };
   const inserted: MediaPlan = { ...gain, placements: [...gain.placements, { id: 'insert', role: 'insert', source: 'take', at: 0.5, in: 0, out: 1, mute: false, gain: 0.5 }] };
-  const detached = applyOperation({ plan: { media: inserted }, words: [] }, { id: 'detach', kind: 'placement-detach', placement: 'insert', track: 'track:speech' }).plan.media!;
+  const detached = applyOperation({ plan: { media: inserted }, words: [] }, { by: 'you', id: 'detach', kind: 'placement-detach', placement: 'insert', track: 'track:speech' }).plan.media!;
   for (const [name, media] of [['old', old], ['defaults', defaults], ['gain', gain], ['mute', muted], ['detached', detached]] as const) {
     const planFile = join(version, 'plan.json');
     const bytes = JSON.stringify({ duration: DURATION, clips: [], media });

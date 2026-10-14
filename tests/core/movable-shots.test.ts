@@ -17,7 +17,7 @@ it('moves and trims code scenes freely, preserves sound, and reopens saved timin
   await project.addOperation(reel, { kind: 'clip-trim', clip: 'cube-lands', in: 2, out: 3 });
   expect((await project.undoEdit(reel)).operations).toHaveLength(3);
   expect((await project.redoEdit(reel)).operations).toHaveLength(4);
-  await project.saveEdits(reel);
+  await project.freezeEdits(reel);
   const saved = await openProject(dir).readVersion(reel, 3);
   expect(saved.duration).toBe(19);
   expect(saved.media?.placements).toContainEqual(expect.objectContaining({ id: 'sound', at: 1, in: 0, out: 2 }));
@@ -43,7 +43,7 @@ it('keeps a still at the same moment of its shot and changes only timing in the 
   const project = openProject(dir);
   await project.addOperation(reel, { kind: 'clip-slide', clip: 'cta', delta: -1 });
   await project.addOperation(reel, { kind: 'clip-trim', clip: 'cube-lands', in: 0, out: 1 });
-  await project.saveEdits(reel);
+  await project.freezeEdits(reel);
   const saved = await openProject(dir).readVersion(reel, 3);
   const start = (number: string) => saved.shots.find((shot) => shot.number === number)?.start;
   expect(start('06')).toBeCloseTo(13.5, 6);

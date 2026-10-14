@@ -1,5 +1,5 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
-import { revealReelRail } from '../helpers/review-rail.ts';
+import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +16,7 @@ test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 
-test('drag an element on a code-only reel, Save, and see it moved in the next version; timing tools are off', async ({ page }) => {
+test('drag an element on a code-only reel, Save, and see it moved in the next version; Final freezes the picture', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
   await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
@@ -25,7 +25,7 @@ test('drag an element on a code-only reel, Save, and see it moved in the next ve
   await expect(tools).toBeVisible();
 
   // Whole-reel cuts stay off. Shots move independently on the Picture row.
-  await expect(tools.getByRole('button', { name: /^Blade/ })).toBeDisabled();
+  await expect(tools.getByRole('button', { name: /^Blade/ })).toBeEnabled();
   await expect(tools.getByRole('button', { name: /^Snip/ })).toBeDisabled();
   await expect(review(page).getByText(/Drag or trim shots in the Picture row/)).toBeVisible();
 
@@ -51,16 +51,16 @@ test('drag an element on a code-only reel, Save, and see it moved in the next ve
   await page.keyboard.press('s');
   await expect(tools.getByRole('button', { name: /^Select/ })).toHaveAttribute('aria-pressed', 'true');
 
-  await page.getByRole('button', { name: /^Save as v3/ }).click();
+  await freezeWorking(page);
   const versions = page.getByRole('navigation', { name: 'Versions' });
   await expect(versions.getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: SAVE_WAIT_MS });
-  await expect(versions.getByRole('button', { name: /^v3/ })).toContainText('Saved by you');
+  await expect(versions.getByRole('button', { name: /^v3/ })).toContainText('Final render');
 
   // v3 is v2 plus the stylesheet, and the cube sits at its offset in the new version's page.
   const reelDir = join(readFileSync(PROJECT_FILE, 'utf8'), 'reels', 'product-showreel');
   expect(readFileSync(join(reelDir, 'v3', 'kinotta-edits.css'), 'utf8')).toMatch(/\[data-scene="cube-lands"\] \[data-el="cube"\] \{ translate: [1-9]\d*px [1-9]\d*px; \}/);
   expect(existsSync(join(reelDir, 'v2', 'kinotta-edits.css'))).toBe(false);
-  await expect(versions.getByRole('button', { name: /^v3/ })).toHaveAttribute('aria-current', 'true');
+  await expect(versions.getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
   const cubeV3 = frame.locator('[data-el="cube"]');
   await expect(cubeV3).toBeVisible();
   await expect(cubeV3).toHaveCSS('translate', /^[1-9]\d*px [1-9]\d*px$/);

@@ -34,4 +34,4 @@ export async function clearHandoff(reelDir: string): Promise<void> {
 
 /** What Save and the Edits panel say while a batch is out. No agent is named: whoever takes the batch is not Kinotta's business. */
 export const handoffReason = (version: number): string =>
-  `A comment batch for v${version} is out. Save is off until the next version appears or you cancel the hand-off. Edits still collect.`;
+  `A comment batch for v${version} is out. Edits continue in Working and will carry into the agent's next version.`;

@@ -64,13 +64,16 @@ function speechSources(media: MediaPlan): MediaSource[] {
   return media.sources.filter((s) => used.has(s.id) && !s.words && !s.id.startsWith('legacy:') && s.kind !== 'image' && s.audio !== false);
 }
 
-/** Save freezes the words each selected speech source supplies. Without them its captions would silently vanish. */
-export async function withSpeech(projectDir: string, planDir: string, media: MediaPlan): Promise<MediaPlan> {
+/** Captures cached words for selected speech. Freezes require readiness, while live pins use available words. */
+export async function withSpeech(projectDir: string, planDir: string, media: MediaPlan, requireReady = true): Promise<MediaPlan> {
   const filled = new Map<string, TranscriptWord[]>();
   for (const source of speechSources(media)) {
     const hash = source.contentHash ?? await hashOf(resolve(planDir, source.path)).catch(() => null);
     const words = hash === null ? null : await cachedWords(projectDir, hash);
-    if (!words) throw new KinottaError('invalid', `Speech for ${source.name ?? source.id} is not transcribed yet. Wait for it, or retry it, then Save.`);
+    if (!words) {
+      if (requireReady) throw new KinottaError('invalid', `Speech for ${source.name ?? source.id} is not transcribed yet. Wait for it, or retry it, before freezing.`);
+      continue;
+    }
     filled.set(source.id, words);
   }
   return filled.size === 0 ? media : { ...media, sources: media.sources.map((s) => filled.has(s.id) ? { ...s, words: filled.get(s.id)! } : s) };

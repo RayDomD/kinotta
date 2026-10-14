@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
+import { fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchWorkingVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, RenderJob, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
 import { BUILT_BY_YOU } from '../../server/core/model.ts';
 import { BriefWaiting } from './BriefReel.tsx';
@@ -48,6 +48,10 @@ function HexMark() {
   );
 }
 
+function topBarVerifyAttrs(choices: number) {
+  return { 'data-verify-unit': 'TopBar', 'data-verify-choice-count': String(choices) };
+}
+
 function TopBar(props: {
   reel: ReelSummary | undefined;
   version: Version | undefined;
@@ -70,8 +74,9 @@ function TopBar(props: {
 }) {
   const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false, renders } = props;
   const workspace = useEditorWorkspace();
+  const choices = (version?.workingParts?.shots ?? version?.shots ?? []).filter((shot) => !shot.choiceMade && (shot.alternates?.filter((alternate) => !alternate.dismissed).length ?? 0) > 1).length;
   return (
-    <header className="top">
+    <header className="top" {...topBarVerifyAttrs(choices)}>
       <div className="brand"><HexMark />KINOTTA</div>
       <div className="reelname">
         {creating ? 'New reel' : reel?.title}
@@ -85,6 +90,7 @@ function TopBar(props: {
         ))}
       </nav>
       {renders && <RenderMenu {...renders} />}
+      {choices > 0 && !creating && <span className="alternate-choice-count" aria-label="Shots needing a choice" role="status"><span className="num">{choices}</span>{` ${choices === 1 ? 'shot needs' : 'shots need'} a choice`}</span>}
       {reel && version && !creating && (
         <CopyButton
           slug={reel.slug}
@@ -109,7 +115,7 @@ function RenderReadyNotice({ job, title, onPlay, onDismiss }: { job: RenderJob; 
   const [problem, setProblem] = useState('');
   return (
     <div className="notice render-ready" role="status" aria-label="Render ready">
-      <span>{`${title} v${job.version} ${presetName(job.preset)} is ready.`}</span>
+      <span>{`${title} ${job.working ? 'Working' : `v${job.version}`} ${presetName(job.preset)} is ready.`}</span>
       {problem !== '' && <span className="meta">{problem}</span>}
       <span className="pk-actions">
         {file !== null && /\.mp4$/i.test(file) && (
@@ -134,37 +140,47 @@ interface VersionRailProps {
   /** Section ids in the order the open version lists them, on a reel with several; the rail numbers changed sections by it. */
   sectionIds: string[] | null;
   onOpen(number: number): void;
+  working: boolean;
+  editsSinceFreeze: number;
+  frozenVersion: number;
+  onWorking(): void;
 }
 
 /** Who made a version, as the rail says it: "Saved by you" for one Kinotta built, else the agent's name. */
 function whoMade(builtBy: string | undefined): string | null {
   if (builtBy === undefined) return null;
-  return builtBy === BUILT_BY_YOU ? 'Saved by you' : `Built by ${builtBy}`;
+  return `Built by ${builtBy}`;
 }
 
 /** `now · changed 01`, `changed 01, 02`, `storyboard`: what a version row says besides its number. */
 function versionTag(entry: VersionEntry, sectionIds: string[] | null): string {
-  const label = entry.isNewest ? 'now' : entry.isStoryboard ? 'storyboard' : '';
+  const label = entry.isStoryboard ? 'storyboard' : '';
   const numbers = (entry.changedSections ?? []).map((id) => sectionIds?.indexOf(id) ?? -1).filter((i) => i >= 0).sort((a, b) => a - b).map(sectionNumber);
   return [label, numbers.length > 0 ? `changed ${numbers.join(', ')}` : ''].filter((part) => part !== '').join(' · ');
 }
 
-function VersionRail({ entries, selected, ready, sectionIds, onOpen }: VersionRailProps) {
+function railVerifyAttrs(working: boolean, count: number) {
+  return { 'data-verify-unit': 'VersionRail', 'data-verify-working': String(working), 'data-verify-count': count };
+}
+
+function VersionRail({ entries, selected, ready, sectionIds, onOpen, working, editsSinceFreeze, frozenVersion, onWorking }: VersionRailProps) {
   return (
     <div>
       <div className="label">Versions</div>
-      <nav className="versions" aria-label="Versions">
+      <nav className="versions" aria-label="Versions" {...railVerifyAttrs(working, entries.length)}>
+        <button type="button" data-working-row aria-current={working ? 'true' : undefined} onClick={onWorking}>
+          <span>Working<span className="rv-who">{`${editsSinceFreeze} ${editsSinceFreeze === 1 ? 'edit' : 'edits'} since v${frozenVersion}`}</span></span>
+        </button>
         {entries.map((entry) => (
           <button
             key={entry.number}
             type="button"
-            aria-current={entry.number === selected ? 'true' : undefined}
-            data-newest={entry.isNewest ? 'true' : undefined}
+            aria-current={!working && entry.number === selected ? 'true' : undefined}
             onClick={() => onOpen(entry.number)}
           >
             <span>
               {`v${entry.number}`}
-              {whoMade(entry.builtBy) !== null && <span className="rv-who">{whoMade(entry.builtBy)}</span>}
+              {(entry.frozenBy ?? whoMade(entry.builtBy)) !== null && <span className="rv-who">{entry.frozenBy ?? whoMade(entry.builtBy)}</span>}
             </span>
             <span className="tags">
               {versionTag(entry, sectionIds) !== '' && <small className="num">{versionTag(entry, sectionIds)}</small>}
@@ -247,6 +263,10 @@ function Rail(props: RailProps) {
       {sections !== null && !creating && <SectionRail {...sections} />}
       {current !== undefined && versions.entries.length > 0 && !creating && (
         <VersionRail
+          working={versions.working}
+          editsSinceFreeze={versions.editsSinceFreeze}
+          frozenVersion={versions.frozenVersion}
+          onWorking={versions.onWorking}
           entries={versions.entries}
           selected={versions.selected}
           ready={versions.ready}
@@ -296,10 +316,13 @@ interface MainProps {
   /** The finished render Review is playing instead of the version, if any. */
   playingRender: string | null;
   onStopRender(): void;
+  working: boolean;
+  onWorking(): void;
+  onFrozen(): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted, entries, playingRender, onStopRender } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted, entries, playingRender, onStopRender, working, onWorking, onFrozen } = props;
   if (creating) return <NewReel project={project} onStarted={onStarted} onBriefStarted={onBriefStarted} />;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
@@ -325,10 +348,13 @@ function Main(props: MainProps) {
             slug={reel.slug}
             entry={entries.find((e) => e.number === shown.number)}
             footage={shown.footage !== undefined}
-            pending={shown.isNewest && edits.list !== null && !edits.list.stale && edits.list.operations.length > 0 ? { count: edits.list.operations.length, next: shown.number + 1 } : undefined}
-            onSaved={onOpenVersion}
+            working={working}
+            nextVersion={(newest ?? shown.number) + (edits.list?.editsSinceFreeze ? 1 : 0)}
+            onSaved={onFrozen}
           />
         )}
+        frozen={!working}
+        onWorking={onWorking}
         reel={reel}
         state={version.status}
         message={version.status === 'error' ? version.message : undefined}
@@ -349,6 +375,7 @@ function Main(props: MainProps) {
         <Storyboard
           key={`${reel.slug}/${version.version.number}`}
           slug={reel.slug}
+          edits={working ? edits : undefined}
           version={version.version}
           newest={newest ?? version.version.number}
           comments={comments.comments}
@@ -393,7 +420,7 @@ function useReelVersions(slug: string | undefined, refresh: number): VersionEntr
 }
 
 /** Loads the version the reviewer has chosen. Only the reviewer changes it. */
-function useVersion(slug: string | undefined, number: number | undefined, noVersions: boolean, refresh: number): VersionLoad {
+function useVersion(slug: string | undefined, number: number | undefined, noVersions: boolean, refresh: number, working: boolean): VersionLoad {
   const [load, setLoad] = useState<VersionLoad>({ status: 'none' });
 
   useEffect(() => {
@@ -401,19 +428,19 @@ function useVersion(slug: string | undefined, number: number | undefined, noVers
     let current = true;
     // A refresh reads the version again without taking it off the screen.
     setLoad((prev) => (prev.status === 'ready' && prev.slug === slug && prev.version.number === number ? prev : { status: 'loading' }));
-    fetchVersion(slug, number).then(
-      (version) => current && setLoad({ status: 'ready', slug, version }),
+    (working ? fetchWorkingVersion(slug) : fetchVersion(slug, number)).then(
+      (version) => current && setLoad({ status: 'ready', slug, version: working ? version : { ...version, isNewest: false } }),
       (err: unknown) => current && setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Could not reach the server' }),
     );
     return () => {
       current = false;
     };
-  }, [slug, number, refresh]);
+  }, [slug, number, refresh, working]);
 
   if (slug === undefined || (number === undefined && noVersions)) return { status: 'none' };
   if (number === undefined) return { status: 'loading' };
   // Until the effect runs for a newly chosen reel or version, the previous one must not show.
-  return load.status === 'ready' && (load.slug !== slug || load.version.number !== number) ? { status: 'loading' } : load;
+  return load.status === 'ready' && (load.slug !== slug || load.version.number !== number || (load.version.workingBase !== undefined) !== working) ? { status: 'loading' } : load;
 }
 
 export function App() {
@@ -426,6 +453,7 @@ function Studio() {
   const [selected, setSelected] = useState<string | undefined>();
   /** The version on screen. Set to the newest when a reel is opened; after that only the reviewer changes it. */
   const [chosen, setChosen] = useState<number | undefined>();
+  const [working, setWorking] = useState(true);
   const [ready, setReady] = useState<ReadonlySet<number>>(new Set());
   const [versionsTick, setVersionsTick] = useState(0);
   const [commentsTick, setCommentsTick] = useState(0);
@@ -433,7 +461,7 @@ function Studio() {
   const entries = useReelVersions(reel?.slug, versionsTick);
   const newest = entries?.find((e) => e.isNewest)?.number;
   const [versionTick, setVersionTick] = useState(0);
-  const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick);
+  const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick, working);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
   const edits = useEdits(reel?.slug, versionsTick + commentsTick);
@@ -452,7 +480,7 @@ function Studio() {
     },
     [versionKey],
   );
-  const issues = useVersionIssues(openVersion, openVersion && reel ? versionPageUrl(reel.slug, openVersion.number) : '');
+  const issues = useVersionIssues(openVersion, openVersion && reel ? versionPageUrl(reel.slug, openVersion.workingBase ?? openVersion.number) : '');
   const multiSection = openVersion !== undefined && hasSections(openVersion.sections);
 
   const [phase, setPhase] = useState<Phase>('Storyboard');
@@ -471,12 +499,14 @@ function Studio() {
     setCreating(false);
     setSelected(slug);
     setChosen(undefined);
+    setWorking(true);
     setPlayingRender(null);
     setReady(new Set());
     setPhase(lastTab(slug) ?? 'Storyboard');
   }, []);
 
   const openVersionNumber = useCallback((number: number) => {
+    setWorking(false);
     setChosen(number);
     setPlayingRender(null);
     setReady((prev) => new Set([...prev].filter((n) => n > number)));
@@ -524,8 +554,8 @@ function Studio() {
 
   // Opening a reel selects its newest version, once. Later changes to the list never move the selection.
   useEffect(() => {
-    if (chosen === undefined && entries !== null && newest !== undefined) setChosen(newest);
-  }, [chosen, entries, newest]);
+    if ((working || chosen === undefined) && entries !== null && newest !== undefined) setChosen(newest);
+  }, [chosen, entries, newest, working]);
 
   // A reel appearing in an empty project is opened; one already open is left alone.
   useEffect(() => {
@@ -546,8 +576,8 @@ function Studio() {
     };
   }, [openSlug]);
 
-  const current = useRef({ slug: reel?.slug, version: chosen, waiting: false });
-  current.current = { slug: reel?.slug, version: chosen, waiting: reel?.brief !== undefined && reel.newestVersion === null };
+  const current = useRef({ slug: reel?.slug, version: chosen, waiting: false, working });
+  current.current = { slug: reel?.slug, version: chosen, waiting: reel?.brief !== undefined && reel.newestVersion === null, working };
 
   useEffect(() => {
     const refreshListing = (): void => {
@@ -559,6 +589,11 @@ function Studio() {
     return subscribe((event: ProjectEvent) => {
       if (event.type === 'reels-changed') {
         refreshListing();
+      } else if (event.type === 'edits-changed') {
+        if (event.reel === current.current.slug) {
+          setVersionsTick((n) => n + 1);
+          if (current.current.working) setVersionTick((n) => n + 1);
+        }
       } else if (event.type === 'version-added') {
         refreshListing();
         if (event.reel === current.current.slug) {
@@ -609,10 +644,11 @@ function Studio() {
     [...ready].filter((n) => openVersion === undefined || n > openVersion.number).sort((a, b) => b - a)[0] ?? null;
   // A reel with no version yet (its transcript is still coming in) can be cut and snipped; Save waits for v1.
   const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
-  const frozen = openVersion !== undefined && newest !== undefined && openVersion.number !== newest;
+  const frozen = openVersion !== undefined && !working;
 
   const commentsPanel = (
     <CommentsPanel
+      frozen={frozen}
       version={openVersion?.number}
       newest={newest}
       state={comments}
@@ -640,7 +676,7 @@ function Studio() {
         note={note}
         frozen={frozen}
         issues={issues}
-        onCopied={() => setVersionTick((n) => n + 1)}
+        onCopied={() => { setVersionTick((n) => n + 1); setVersionsTick((n) => n + 1); }}
         phase={creating ? undefined : phase}
         creating={creating}
         onPhase={(next) => {
@@ -662,7 +698,7 @@ function Studio() {
           },
         }}
       />
-      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-rail-open={String(workspace.railOpen)} data-focus={String(workspace.focus)}>
+      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
         <Rail
           reviewMode={phase === 'Review' && !creating}
           project={load.project}
@@ -670,6 +706,10 @@ function Studio() {
           current={reel?.slug}
           sections={multiSection ? { version: openVersion, comments: comments.comments, selected: sectionId, onSelect: pickSection } : null}
           versions={{
+            working,
+            editsSinceFreeze: edits.list?.editsSinceFreeze ?? edits.list?.operations.length ?? 0,
+            frozenVersion: edits.list?.frozen ?? newest ?? 0,
+            onWorking: () => { setWorking(true); setChosen(newest); },
             entries: entries ?? [],
             selected: chosen,
             ready,
@@ -681,6 +721,9 @@ function Studio() {
           onNewReel={() => setCreating(true)}
         />
         <Main
+          working={working}
+          onWorking={() => { setWorking(true); setChosen(newest); }}
+          onFrozen={() => { setVersionsTick((n) => n + 1); setVersionTick((n) => n + 1); }}
           project={load.project}
           listing={load.listing}
           reel={reel}
@@ -711,12 +754,9 @@ function Studio() {
             pieces={openVersion?.pieces}
             clips={openVersion?.clips}
             editable={(openVersion?.isNewest === true && (openVersion.pieces !== undefined || openVersion.code !== undefined || openVersion.media !== undefined) && edits.list?.stale !== true) || awaitingV1}
-            awaitingV1={awaitingV1}
             codeOnly={openVersion?.code !== undefined}
             media={openVersion?.media !== undefined || openVersion?.isNewest === true}
-            nextVersion={(newest ?? 0) + 1}
             commentCount={comments.comments.length}
-            onSaved={openVersionNumber}
             comments={commentsPanel}
           />
         ) : (

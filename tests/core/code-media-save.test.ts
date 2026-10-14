@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
@@ -16,7 +16,7 @@ it('adds sound to an authored page and saves a frozen sidecar without rebuilding
   const page = readFileSync(join(reel, 'v2/index.html'), 'utf8');
   const original = readFileSync(file);
   await project.addOperation('product-showreel', { kind: 'placement-add', source: { id: 'sound', kind: 'audio', path: '../../../sound.wav', duration: 2 }, placement: { id: 'sound-use', role: 'audio', source: 'sound', at: 1, in: 0, out: 2, gain: 0.5 } });
-  expect(await project.saveEdits('product-showreel')).toEqual({ version: 3 });
+  expect(await project.freezeEdits('product-showreel')).toEqual({ version: 3 });
   const saved = await project.readVersion('product-showreel', 3);
   expect(saved.media!.tracks).toEqual([{ id: 'track:sound-use', name: 'sound', order: 0, gain: 1, mute: false }]);
   expect(saved.media!.placements[0]).toMatchObject({ track: 'track:sound-use' });
@@ -27,10 +27,13 @@ it('adds sound to an authored page and saves a frozen sidecar without rebuilding
   expect(readdirSync(reel)).not.toContain('plan.json');
   writeFileSync(file, 'changed original');
   await project.addOperation('product-showreel', { kind: 'placement-change', placement: 'sound-use', changes: { gain: 0.25 } });
-  expect(await project.saveEdits('product-showreel')).toEqual({ version: 4 });
+  await expect(project.freezeEdits('product-showreel')).rejects.toThrow('changed');
+  expect(readFileSync(resolve(reel, 'v3', saved.media!.sources[0]!.path))).toEqual(original);
+  writeFileSync(file, original);
+  expect(await project.freezeEdits('product-showreel')).toEqual({ version: 4 });
   expect((await project.readVersion('product-showreel', 4)).media!.placements[0]).toMatchObject({ gain: 0.25 });
   expect((await project.readVersion('product-showreel', 3)).media!.placements[0]).toMatchObject({ gain: 0.5 });
-  expect((await openProject(dir).readEditList('product-showreel')).operations).toEqual([]);
+  expect((await openProject(dir).readEditList('product-showreel')).operations).toHaveLength(2);
 });
 
 it('persists owner track controls through reopen, Undo, Redo and a new frozen code version', async () => {
@@ -44,7 +47,7 @@ it('persists owner track controls through reopen, Undo, Redo and a new frozen co
   expect((await reopened.readEditList('product-showreel')).operations).toHaveLength(2);
   expect((await reopened.undoEdit('product-showreel')).operations).toHaveLength(1);
   expect((await reopened.redoEdit('product-showreel')).operations).toHaveLength(2);
-  expect(await reopened.saveEdits('product-showreel')).toEqual({ version: 3 });
+  expect(await reopened.freezeEdits('product-showreel')).toEqual({ version: 3 });
   expect((await reopened.readVersion('product-showreel', 3)).media!.tracks).toEqual([{ id: 'music', name: 'Theme', order: 0, gain: 0.5, mute: true }]);
   expect(readFileSync(join(reel, 'v2/index.html'), 'utf8')).toBe(before);
   expect(readFileSync(join(reel, 'v3/index.html'), 'utf8')).toBe(before);
@@ -61,7 +64,7 @@ it('freezes page files outside the version folder on a code-only Save, and refus
   const project = openProject(dir);
   const move = { kind: 'element-offset' as const, clip: 'cube-lands', element: 'cube', x: 4, y: 0, scale: 1 };
   await project.addOperation('product-showreel', move);
-  expect(await project.saveEdits('product-showreel')).toEqual({ version: 3 });
+  expect(await project.freezeEdits('product-showreel')).toEqual({ version: 3 });
   const saved = readFileSync(join(reel, 'v3/index.html'), 'utf8');
   expect(saved).not.toContain('../../../shared/');
   const frozen = readdirSync(join(reel, 'v3/dependencies'));
@@ -75,9 +78,10 @@ it('freezes page files outside the version folder on a code-only Save, and refus
   // The page's own files inside the version folder were already copied with it and keep their paths.
   expect((await project.readVersion('product-showreel', 3)).issues).toEqual([]);
 
-  writeFileSync(join(reel, 'v3/index.html'), saved.replace('</head>', '<link rel="stylesheet" href="https://fonts.example.com/brand.css"></head>'));
+  cpSync(join(reel, 'v3'), join(reel, 'v4'), { recursive: true });
+  writeFileSync(join(reel, 'v4/index.html'), saved.replace('</head>', '<link rel="stylesheet" href="https://fonts.example.com/brand.css"></head>'));
   await project.addOperation('product-showreel', { ...move, x: 8 });
-  await expect(project.saveEdits('product-showreel')).rejects.toThrow('cannot be frozen');
-  expect((await project.listVersions('product-showreel')).map((v) => v.number)).toEqual([1, 2, 3]);
+  await expect(project.freezeEdits('product-showreel')).rejects.toThrow('cannot be frozen');
+  expect((await project.listVersions('product-showreel')).map((v) => v.number)).toEqual([1, 2, 3, 4]);
   expect((await project.readEditList('product-showreel')).operations).toHaveLength(1);
 });

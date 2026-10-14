@@ -78,9 +78,7 @@ it('opens Sound beside an audio clip, applies ducking, undoes it and saves point
     await sound.getByRole('button', { name: 'Apply ducking' }).click();
     await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length).toBe(1);
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    expect((await saved).status()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const version = await server.project.readVersion('founder-talk', 2);
     const song = version.media!.placements.find((p) => p.id === 'song')!;
     expect(song.role !== 'gap' && song.volume?.length).toBe(4);

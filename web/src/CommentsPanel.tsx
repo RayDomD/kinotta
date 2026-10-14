@@ -88,7 +88,7 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
       </div>
       {(comment.sent || comment.carried || comment.state) && (
         <div className="carry-state">
-          {[comment.state === 'moment-removed' ? 'Moment removed' : comment.state === 'element-removed' ? 'Element removed' : '', comment.sent ? 'Sent to your agent' : '', comment.carried ? `Moved to v${comment.carried.to}` : '']
+          {[comment.stateReason ?? (comment.state === 'moment-removed' ? 'Moment removed' : comment.state === 'element-removed' ? 'Element removed' : ''), comment.sent ? 'Sent to your agent' : '', comment.carried ? `Moved to v${comment.carried.to}` : '']
             .filter((part) => part !== '')
             .join(' · ')}
         </div>
@@ -164,6 +164,7 @@ function NoteBox({ note, readOnly }: { note: NoteState; readOnly: boolean }) {
 }
 
 interface PanelProps {
+  frozen?: boolean;
   version: number | undefined;
   newest: number | undefined;
   state: CommentsState;
@@ -174,10 +175,10 @@ interface PanelProps {
 }
 
 /** The comments column: a card per pin (open, edit, delete with undo), and the note on the whole reel. */
-export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null }: PanelProps) {
+export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false }: PanelProps) {
   const { error } = state;
   const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
-  const readOnly = version !== undefined && newest !== undefined && version !== newest;
+  const readOnly = frozen || version !== undefined && newest !== undefined && version !== newest;
   const [undo, setUndo] = useState<{ comment: Comment; number: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const undoTimer = useRef<number | undefined>(undefined);
@@ -231,7 +232,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
           <span className="meta num">{section ? `v${version} · section ${section.number} · ${comments.length}` : `v${version} · ${comments.length}`}</span>
         )}
       </header>
-      {readOnly && newest !== undefined && <p className="readonly-note">{readOnlyNote(version, newest)}</p>}
+      {readOnly && version !== undefined && newest !== undefined && <p className="readonly-note">{frozen ? 'Open Working to add or change comments.' : readOnlyNote(version, newest)}</p>}
       <div className="undo" role="status" aria-live="polite">
         {undo && (
           <>

@@ -1,3 +1,4 @@
+import { checkPartsManifest } from './parts.ts';
 import { parse } from 'node-html-parser';
 import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
@@ -140,6 +141,10 @@ export function checkShotsFile(file: Record<string, unknown> | null, problem: st
   const issues: ContractIssue[] = [];
   if (file === null) {
     return { issues: [{ code: 'shots-file', message: `shots.json: ${problem ?? 'could not be read'}` }], shots: [] };
+  }
+  if (file.contract === 2) {
+    const parts = checkPartsManifest(file);
+    return { issues: parts.issues, shots: parts.shots };
   }
   const duration = Number(file.duration);
   const hasDuration = file.duration !== undefined && file.duration !== null && file.duration !== '' && Number.isFinite(duration);

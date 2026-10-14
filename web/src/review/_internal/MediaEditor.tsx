@@ -20,7 +20,7 @@ import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanT
 import type { MediaSource, MediaTimeline, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
-import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl } from '../../api/index.ts';
+import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
 import type { GeneratedAudio, SoundEffect, MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
 import { PagePlayer } from '../../stage/index.ts';
 import type { CaptionMove, CaptionText, ElementChange, ElementEditing, FramePick } from '../../stage/index.ts';
@@ -53,8 +53,8 @@ const EFFECT_GAIN = 0.35;
 
 type Placed = MediaTimeline['placements'][number];
 
-function verifyAttrs(count: number, playing: boolean, ready: boolean, error: string | null, menu: string) {
-  return { 'data-verify-unit': 'MediaEditor', 'data-verify-count': count, 'data-verify-empty': String(count === 0), 'data-verify-playing': String(playing), 'data-verify-loading': String(!ready), 'data-verify-error': String(!!error), 'data-verify-status': error ? 'error' : ready ? 'ready' : 'preparing', 'data-verify-menu': menu };
+function verifyAttrs(count: number, playing: boolean, ready: boolean, error: string | null, menu: string, editable: boolean) {
+  return { 'data-verify-unit': 'MediaEditor', 'data-verify-editable': String(editable), 'data-verify-count': count, 'data-verify-empty': String(count === 0), 'data-verify-playing': String(playing), 'data-verify-loading': String(!ready), 'data-verify-error': String(!!error), 'data-verify-status': error ? 'error' : ready ? 'ready' : 'preparing', 'data-verify-menu': menu };
 }
 
 /** Native placements share the saved edit list and the same envelope used by rendering. */
@@ -62,9 +62,9 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const workspace = useEditorWorkspace();
   const markerState = useMarkers(reel.slug);
   const base = version!.media!;
-  const ops = useMemo(() => edits?.list?.operations.filter((op) => !edits.list!.flagged?.[op.id]) ?? [], [edits?.list]);
+  const ops = useMemo(() => version!.isNewest ? edits?.list?.operations.filter((op) => !edits.list!.flagged?.[op.id]) ?? [] : [], [edits?.list, version!.isNewest]);
   const edited = useMemo(() => {
-    const sources = applyOperations(legacySources ?? { plan: { media: base, codeTiming: !!version!.code, duration: version!.duration, clips: version!.clips, captions: version!.captions, sections: version!.mediaSections ?? version!.sections }, words: version!.transcript ?? [] }, ops);
+    const sources = applyOperations(legacySources ?? { plan: { media: base, parts: version!.parts, codeTiming: !!version!.code, duration: version!.duration, clips: version!.clips, captions: version!.captions, sections: version!.mediaSections ?? version!.sections }, words: version!.transcript ?? [] }, ops);
     return legacySources ? mediaEditingPlan(sources) : sources.plan;
   }, [base, version, ops, legacySources]);
   const media = useMemo(() => mediaWithTracks(edited.media!), [edited.media]);
@@ -89,8 +89,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     const { edge, delta } = graphicDraft;
     try {
       return mediaPlanTimeline(applyOperations({ plan: edited, words: [] }, [edge === 'move'
-        ? { id: 'preview', kind: 'clip-slide', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), delta }
-        : { id: 'preview', kind: 'clip-trim', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }]).plan);
+        ? { by: 'you', id: 'preview', kind: 'clip-slide', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), delta }
+        : { by: 'you', id: 'preview', kind: 'clip-trim', clip: c.id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }]).plan);
     } catch { return authored; }
   }, [authored, edited, graphicDraft]);
   const timeline = useMemo(() => mediaTimeline(media, previewAuthored.duration ?? version!.duration), [media, previewAuthored.duration, version!.duration]);
@@ -128,7 +128,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [waveforms, setWaveforms] = useState<Record<string, MediaWaveform>>({});
   const [sourceRoot, setSourceRoot] = useState(initialRoot ?? null);
   const editable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
-  const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.number } : undefined), [base, reel.slug, version!.number]);
+  const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined), [base, reel.slug, version!.number]);
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
   const { time, playing, ready } = playback;
   const selectSnip = (range: { from: number; to: number } | null) => {
@@ -197,25 +197,22 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const framing = picture && picture.role !== 'gap' ? picture.framing : undefined;
   const moment = timelineMoment(timeline, time);
   const followable = !!moment && media.sources.find((s) => s.id === moment.source)?.kind === 'video';
-  const savedPinMoment = (at: number, placement?: string, sourceTime?: number) => {
-    const mapped = remapMediaMoment(timeline, savedTimeline, at, { placement, sourceTime });
-    if (mapped.removed) throw new Error('Save this new or changed moment as a version before pinning it.');
-    const named = timeline.placements.find((p) => p.id === placement);
-    const root = named?.origin ?? named?.id;
-    const original = named && savedTimeline.placements.find((p) => (p.id === named.id || (p.origin ?? p.id) === root) && p.at <= mapped.time && p.at + p.duration > mapped.time);
-    return { time: mapped.time, ...(!base.legacy && original ? { placement: original.id } : {}) };
+  const workingPinMoment = (at: number, placement?: string, sourceTime?: number) => {
+    const target = timeline.placements.find((p) => p.id === placement);
+    return { time: at, ...(target ? { placement: target.id } : {}),
+      ...(sourceTime !== undefined ? { sourceTime } : target && target.role !== 'gap' ? { sourceTime: target.in + at - target.at } : {}) };
   };
   const pickFrame = (pick: FramePick) => {
     try {
       const target = pictureAt(timeline, time, pick.x, pick.y) ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
-      const saved = savedPinMoment(time, target?.id);
+      const saved = workingPinMoment(time, target?.id);
       workspace.setPanelTab('comments');
       setPinDraft({ pin: { kind: 'frame', shot: '', ...saved, ...pick }, label: `Frame at ${time.toFixed(2)}s` });
       setPinText(''); setPinError(null); setPinning(false);
     } catch (failure) { setPinError(failure instanceof Error ? failure.message : 'The pin moment could not be found.'); setPinning(false); }
   };
   const hasSound = (id: string) => { const source = media.sources.find((s) => s.id === id)!; return source.kind !== 'image' && source.audio !== false; };
-  const savedFor = useCallback((id: string) => base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.number } : undefined, [base, reel.slug, version!.number]);
+  const savedFor = useCallback((id: string) => base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined, [base, reel.slug, version!.number]);
   const usesSpeech = (p: SourcePlacement) => p.role === 'main' ? p.speech !== false : p.speech === true;
   // Speech is transcribed the first time a source supplies it. Words already in the plan need nothing.
   const unspoken = [...new Set(media.placements.filter((p): p is SourcePlacement => p.role !== 'gap' && usesSpeech(p)).map((p) => p.source))]
@@ -225,11 +222,9 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const words = useMemo(() => mediaWords(spoken, timeline.duration), [spoken, timeline.duration]);
   const pinWord = (word: typeof words[number]) => {
     try {
-      const saved = savedPinMoment(word.start, word.placement, word.sourceStart);
-      const original = mediaWords(base, version!.duration).find((w) => (!saved.placement || w.placement === saved.placement) && Math.abs(w.start - saved.time) <= CAPTION_AT);
-      if (!original) throw new Error('Save this new or changed word as a version before pinning it.');
+      const saved = workingPinMoment(word.start, word.placement, word.sourceStart);
       workspace.setPanelTab('comments');
-      setPinDraft({ pin: { kind: 'word', shot: '', ...saved, word: original.text }, label: `Word “${word.text}” at ${word.start.toFixed(2)}s` });
+      setPinDraft({ pin: { kind: 'word', shot: '', ...saved, word: word.text }, label: `Word “${word.text}” at ${word.start.toFixed(2)}s` });
       setPinText(''); setPinError(null); setPinning(false); playback.seek(word.start);
     } catch (failure) { setPinError(failure instanceof Error ? failure.message : 'The pin word could not be found.'); }
   };
@@ -298,7 +293,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     let current = true;
     for (const source of media.sources) {
       if (source.kind === 'image' || source.audio === false) continue;
-      void fetchWaveform(source.id, base.sources.some((s) => s.id === source.id) ? { reel: reel.slug, version: version!.number } : undefined).then((wave) => { if (current) setWaveforms((before) => ({ ...before, [source.id]: wave })); }).catch(() => undefined);
+      void fetchWaveform(source.id, base.sources.some((s) => s.id === source.id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined).then((wave) => { if (current) setWaveforms((before) => ({ ...before, [source.id]: wave })); }).catch(() => undefined);
     }
     return () => { current = false; };
   }, [media.sources, base, reel.slug, version!.number]);
@@ -512,16 +507,18 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '')} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
+  const pageUrl = version!.workingParts ? workingPartsPageUrl(reel.slug, version!.workingParts.key) : versionPageUrl(reel.slug, version!.workingBase ?? version!.number);
+  return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '', editable)} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
     <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>
     {error && <p role="alert">{error}</p>}
+    {pinError && <p role="alert">{pinError}</p>}
     {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
     <div className="rv-well">
       <div className="rv-picture-stage">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
         <PictureLayers pictures={active} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
-        <PagePlayer className="rv-page" title="Authored graphics" pageUrl={versionPageUrl(reel.slug, version!.number)} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
+        <PagePlayer className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}
@@ -541,7 +538,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
     <div className="rv-tracks-pane">
     {version!.code && <p className="meta">Drag or trim shots in the Picture row. Sound stays in place.</p>}
-    {pinError && <p role="alert">{pinError}</p>}
+
     {pinDraft && workspace.pinHost && createPortal(<form aria-label="New review pin" className="mv-placement mv-pin-draft" onSubmit={(e) => { e.preventDefault(); void savePin(); }}>
       <p>{pinDraft.label}</p><label>Comment <textarea aria-label="Pin comment" value={pinText} disabled={pinSaving} onChange={(e) => setPinText(e.target.value)} autoFocus /></label>
       <div className="mv-controls"><button type="submit" className="rv-tool" disabled={pinSaving || !pinText.trim()}>{pinSaving ? 'Saving pin…' : 'Save pin'}</button><button type="button" className="rv-tool" disabled={pinSaving} onClick={() => { setPinDraft(null); setPinError(null); }}>Cancel pin</button></div>
@@ -550,7 +547,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <section className="editor-timeline-view" aria-label="Timeline view">
       <div className="editor-timeline-controls"><span>Timeline</span><button type="button" className="rv-tool" aria-label="Zoom in timeline" disabled={win.length <= Math.min(2, windowTotal)} onClick={() => runAction('zoomIn')}>+</button><button type="button" className="rv-tool" aria-label="Zoom out timeline" disabled={win.length >= windowTotal} onClick={() => runAction('zoomOut')}>−</button><button type="button" className="rv-tool" onClick={() => runAction('fit')}>Fit timeline</button><label>Pan <input aria-label="Pan timeline" type="range" min="0" max={windowTotal - win.length} step="0.01" value={win.start} disabled={win.length >= windowTotal} onChange={(event) => setRawWindow({ ...win, start: Number(event.target.value) })} /></label></div>
     </section>
-    <NativeLanes stillUrl={(id, at) => { const saved = base.sources.some((source) => source.id === id); return base.legacy && id.startsWith('legacy:') ? `/api/reels/${encodeURIComponent(reel.slug)}/footage-still?time=${at}&width=160` : `/api/media/${encodeURIComponent(id)}/still?time=${at}&width=160${saved ? `&reel=${encodeURIComponent(reel.slug)}&version=${version!.number}` : ''}`; }} markers={markerState.markers.map((marker) => marker.time)} media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} pictureEditable={!version!.code} solo={solo}
+    <NativeLanes stillUrl={(id, at) => { const saved = base.sources.some((source) => source.id === id); return base.legacy && id.startsWith('legacy:') ? `/api/reels/${encodeURIComponent(reel.slug)}/footage-still?time=${at}&width=160` : `/api/media/${encodeURIComponent(id)}/still?time=${at}&width=160${saved ? `&reel=${encodeURIComponent(reel.slug)}&version=${version!.workingBase ?? version!.number}` : ''}`; }} markers={markerState.markers.map((marker) => marker.time)} media={media} beatSettings={workspace.settings} timeline={timeline} win={win} time={time} selected={selected} editable={editable && !edits!.busy} pictureEditable={!version!.code} solo={solo}
       overview={<>
         <div className="native-lane editor-ruler"><strong>Time</strong><div className="native-lane-bars" aria-label="Timeline ruler" onClick={(event) => { if (event.target !== event.currentTarget) return; const box = event.currentTarget.getBoundingClientRect(); playback.seek(win.start + (event.clientX - box.left) / box.width * win.length); }}>{tickTimes(win).map((tick) => <button type="button" key={tick} style={{ transform: tick === win.start + win.length ? 'translateX(-100%)' : undefined, left: `${(tick - win.start) / win.length * 100}%` }} onClick={() => playback.seek(tick)}>{workspace.settings.timecode === 'frames' ? `${Math.round(tick * FRAME_RATE)}f` : `${tick}s`}</button>)}{markerState.markers.filter((marker) => marker.time >= win.start && marker.time <= win.start + win.length).map((marker) => <button type="button" key={marker.id} className="rv-marker" aria-label={`Marker ${marker.name || marker.time.toFixed(2)}`} style={{ left: `${(marker.time - win.start) / win.length * 100}%` }} onClick={() => { playback.seek(marker.time); markerState.setSelected(marker.id); }}>◇</button>)}{shownPins.map((pin) => <button type="button" key={pin.id} className="editorial-pin" aria-label={`${pin.number}. ${pin.text}${pin.moment.removed ? '. Moment removed' : ''}`} disabled={pin.moment.removed || !!pin.state} style={{ left: `${(Math.min(timeline.duration, pin.moment.time) - win.start) / win.length * 100}%` }} onClick={() => playback.seek(pin.moment.time)}>{pin.number}</button>)}</div></div>
         <TimelineOverview markers={markerState.markers} onMarker={(id) => { const marker = markerState.markers.find((item) => item.id === id); if (marker) playback.seek(marker.time); markerState.setSelected(id); }} timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />
@@ -564,7 +561,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: versionPageUrl(reel.slug, version!.number), time: (id) => version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
       onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
