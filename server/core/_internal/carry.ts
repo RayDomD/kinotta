@@ -113,7 +113,9 @@ export function carriedComment(comment: StoredComment, from: Version, to: Versio
   const moment = name ? { time: named ? named.start + Math.min(localTime, Math.max(0, named.duration - JOIN_NUDGE)) : Math.min(comment.pin.time, to.duration), removed: !named } : remapMoment(from, to, comment.pin.time, comment.pin);
   const shot = name ? named : shotAt(to, moment.time);
   const section = shot?.section ?? (to.media ? to.sections.find((s) => s.start <= moment.time && s.end > moment.time)?.id ?? null : null);
-  const place = { version: to.number, section, shot: shot?.number ?? comment.pin.shot, time: moment.time, ...(name ? { shotName: name } : {}) };
+  // Converting a single-page reel to parts: a pin with no scene to follow takes the name of the parts shot it lands on.
+  const shotName = name ?? (to.parts && comment.pin.kind === 'frame' ? shot?.name : undefined);
+  const place = { version: to.number, section, shot: shot?.number ?? comment.pin.shot, time: moment.time, ...(shotName ? { shotName } : {}) };
   const adopted = !from.media && from.footage && to.media && !moment.removed ? timelineMoment(mediaTimeline(to.media, to.duration), moment.time) : null;
   const anchor = adopted ? { placement: adopted.placement, sourceTime: adopted.time } : {};
   const target = comment.pin.kind === 'word' ? undefined : comment.pin.element;

@@ -139,7 +139,8 @@ async function addCommentNow(projectDir: string, slug: string, number: number, i
   const pin = buildPin(input, version);
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
-  if (input.options !== undefined && (!version.parts || ![2, 3, 4].includes(input.options))) throw new KinottaError('invalid', 'Options requests need a parts shot and a count of 2, 3 or 4.');
+  // A code-built single-page reel may ask too: the agent converts it to parts in its next version to answer.
+  if (input.options !== undefined && (!(version.parts || version.code) || ![2, 3, 4].includes(input.options))) throw new KinottaError('invalid', 'Options requests need a code-built shot and a count of 2, 3 or 4.');
 
   const file = stateFilePath(projectDir, slug, number);
   return serialized(file, async () => {

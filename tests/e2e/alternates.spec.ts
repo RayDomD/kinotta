@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { startServer } from '../../server/main.ts';
 import { alternatesFixture } from '../helpers/parts.ts';
+import { copyFixture } from '../helpers/project.ts';
 import { invariants as sheetInvariants } from '../../web/src/ShotSheet.verify.ts';
 import { cardInvariants } from '../../web/src/Storyboard.verify.ts';
 import { topBarInvariants } from '../../web/src/App.verify.ts';
@@ -163,5 +164,23 @@ test('a frame pin asks for options with three by default and other shots name th
     await dialog.getByRole('button', { name: 'Frame centre (position only)', exact: true }).click();
     await expect(dialog.getByRole('checkbox', { name: 'Ask for options' })).toBeDisabled();
     await expect(dialog).toContainText('Shot 02 already asks for options');
+  } finally { await server.close(); }
+});
+
+test('a single-page code-built reel can ask for options, and the batch asks the agent to convert it', async ({ page }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Product showreel', exact: true }).click();
+    await page.locator('.grid').getByRole('button', { name: /^Shot 03,/ }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('.well .still.pinnable')).toHaveAttribute('data-state', 'ready');
+    await dialog.getByRole('button', { name: 'Frame centre (position only)', exact: true }).click();
+    await dialog.getByRole('checkbox', { name: 'Ask for options' }).check();
+    const comment = dialog.getByRole('textbox', { name: /Comment on this position/ });
+    await comment.fill('Not sure, show me some options');
+    await comment.press('Enter');
+    await expect.poll(() => server.project.listComments('product-showreel', 2)).toMatchObject([{ options: 3, pin: { shot: '03' } }]);
+    expect((await server.project.copyBatch('product-showreel', 2)).text).toContain('Shot 03 · 3 alternates');
   } finally { await server.close(); }
 });
