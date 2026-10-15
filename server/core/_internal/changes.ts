@@ -27,7 +27,7 @@ function markupOver(scenes: Scene[], section: Section): string {
     .join('\n');
 }
 
-function shotFields({ start, title, description, type, line }: Shot): unknown {
+function shotFields({ start, title, description, type, line }: Shot) {
   return { start, title, description, type, line };
 }
 
@@ -41,6 +41,13 @@ function fingerprint(version: Version, scenes: Scene[], section: Section): strin
     shots: shots.map(shotFields),
     markup: markupOver(scenes, section),
   });
+}
+
+/** Parts compare immutable revision identities rather than their generated markup. Offsets remain version edits. */
+function partsFingerprint(version: Version, css: string, section: Section): string {
+  const shots = version.shots.filter((shot) => (shot.section ?? version.sections[0]!.id) === section.id);
+  return JSON.stringify({ name: section.name, start: section.start, end: section.end, shared: version.parts?.shared, alpha: version.parts?.alpha,
+    shots: shots.map((shot) => ({ name: shot.name, revision: shot.revision, duration: shot.duration, ...shotFields(shot), offsets: rulesFor(css, shot.name ?? '') })) });
 }
 
 /**
@@ -61,7 +68,9 @@ export function detectChanges(
   const claimMismatch: string[] = [];
   for (const section of next.version.sections) {
     const old = before.get(section.id);
-    const differs = old === undefined || fingerprint(previous.version, beforeScenes, old) !== fingerprint(next.version, afterScenes, section);
+    const differs = old === undefined || (previous.version.parts && next.version.parts
+      ? partsFingerprint(previous.version, previous.css ?? '', old) !== partsFingerprint(next.version, next.css ?? '', section)
+      : fingerprint(previous.version, beforeScenes, old) !== fingerprint(next.version, afterScenes, section));
     const claim = claimed?.includes(section.id) ?? false;
     if (differs || claim) changed.push(section.id);
     // Only a version that makes a claim can be caught contradicting the contents.

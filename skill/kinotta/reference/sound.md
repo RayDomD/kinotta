@@ -36,9 +36,7 @@ relative to the authoring plan. The pop starts at the reveal at one second.
 }
 ```
 
-Copy each used source's exact bytes into the new version and rewrite its paths
-as described in `native-media.md`. Keep the authored page's timing contract.
-Write `shots.json` last and run `kinotta check <slug> v<n>`.
+For an existing reel, add `track-add` and `placement-add` operations through `kinotta edit <slug> --by <your name> <operation json>` using the imported source identity and path. Adjust gain or mute with `placement-change`. Do not copy a version for sound changes. A render or comment hand-off preserves exact source bytes. For an initial build or a picture rebuild, follow `native-media.md` and keep the authored timing contract.
 
 ## Ducking music under speech
 
@@ -46,7 +44,7 @@ The owner selects an audio clip in Review, then opens **Sound** in the right
 sidebar. Choose a separate speech track, set the amount in dB and the ramp
 times, then **Apply ducking**. The chosen track needs transcribed word times.
 Applying replaces the selected clip's volume points. Undo restores the old
-points. The new points stay draggable in the timeline and Save preserves them.
+points. The new points stay draggable in the timeline and a render or hand-off freeze preserves them.
 
 For an agent-built native plan, use the read-only command:
 
@@ -56,9 +54,7 @@ kinotta duck --plan <plan.json> --placement <music-placement-id> --speech-track 
 
 It prints a `placement-duck` operation with a snapshot of speech spans in the
 music placement's local seconds. It writes no files and never touches the
-owner's edit list. Apply the returned operation to the agent's working plan
-through `applyOperation` from `server/core/model.ts`, then build the next
-version through the existing native-media workflow. Supply source `words` or
+owner's edit list. Add the returned operation through `kinotta edit <slug> --by <your name> <operation json>`. It changes Working without a new version. Supply source `words` or
 placement corrections in the plan first. Trims, placement offsets and loops
 are reflected in the returned spans.
 
@@ -84,7 +80,7 @@ Copy the output object into the music source's `beats` field: `{ tempo, beats,
 downbeats }`, with ordered source times in seconds. Keep it with the source in
 the plan so each version freezes both the grid and the exact audio bytes.
 The editor's Detect beats button caches by content hash. Detect again explicitly
-replaces that cache and adds a source-beats edit, with Undo and Save available.
+replaces that cache and adds a source-beats edit, with Undo available and no Save step.
 
 The tracker estimates tempo and beats. Downbeats are an accent-based estimate
 in four-beat bars, not a verified musical meter. Listen before using them.
@@ -116,13 +112,13 @@ Transcribe the generated WAV with the existing transcript script. Use its real
 word times for captions and later ducking. Probe the WAV duration, register it as
 an audio source with those words, and place it on a `voice` track with role
 `audio`, `speech: true` (so the Sound tab can duck music under it), `in: 0`, `out` equal to the measured duration, and the intended reel `at`.
-Preserve the source and transcript with the new version per `native-media.md`.
+Add the transcribed source with a named `placement-add` operation on Working. A render or hand-off freeze preserves its bytes and word times.
 
 Verification on 2026-10-12: Python 3.14.3 with kokoro-onnx 0.4.7 and
 soundfile 0.14.0 generated an 8.11-second, 24 kHz FLOAT WAV with `af_sarah`
 using the owner's local v1.0 model and voices files. The existing cached Whisper
 model transcribed 22 timed words in offline mode. The WAV played in Chromium
-and Save preserved its exact bytes and source word times. Review transcript text,
+and a freeze preserved its exact bytes and source word times. Review transcript text,
 especially names: Whisper spelled “Kinotta” as “Kinata” in the proof.
 
 ## Stable Audio Open (optional)
@@ -136,15 +132,25 @@ The owner supplies a complete local Diffusers snapshot outside the repository.
 The script loads local files only and uses half precision on CUDA.
 
 ```text
-python <skill>/scripts/generate_audio.py --prompt "Soft ambient synth bed, no speech" --seconds 12 --model <local-diffusers-snapshot> assets/bed.wav
+kinotta generate-audio --prompt "Soft ambient synth bed, no speech" --seconds 12 [--seed 7] --out assets/bed.wav
 ```
+
+`kinotta generate-audio` is the same service as the editor's Generate section at
+the top of the Sound tab. It adds the WAV to the project library, so the owner
+can play and reuse it, and `--out` also copies it beside a code-only plan. It
+prints one JSON line with the file, duration, prompt, length and seed. The same
+prompt, length and seed give the same sound. One generation runs at a time and
+takes about half a minute, so generate once per request and audition the result
+before iterating. The model folder comes from `KINOTTA_STABLE_AUDIO_MODEL`; when
+that is unset the command says so and you fall back as below. The raw
+`scripts/generate_audio.py --model <folder>` still works for scripting.
 
 Probe the WAV's duration and add it as an audio source. Use an `sfx` track for
 effects and a `music` track for beds. For a longer bed, use an audio placement
 with `loop: true`, the source's measured `out`, the intended placement `duration`,
 and short entry/exit fades. Listen for loop seams. A poor loop is a reason to ask
 for an owner-supplied music track. Keep levels explicit and preserve exact bytes
-in the new version per `native-media.md`.
+through the render or hand-off freeze described in `native-media.md`.
 
 Verification on 2026-10-12: a complete owner-supplied Diffusers snapshot generated
 a 12-second stereo, 44.1 kHz FLOAT WAV on the RTX 4060 Laptop GPU in CUDA half
@@ -152,8 +158,19 @@ precision, with downloads disabled. The working install was Python 3.14.3,
 Torch 2.11.0+cu128, Diffusers 0.41.0, Transformers 5.19.0, Accelerate 1.15.0,
 SentencePiece 0.2.2 and Soundfile 0.14.0. Snapshot revision:
 `f21265c1e2710b3bd2386596943f0007f55f802e`.
-Browser playback, exact-byte Save and a Draft render at fixed 0.35 placement gain
+Browser playback, exact-byte freeze and a Draft render at fixed 0.35 placement gain
 with fades passed. Keep generated FLOAT WAVs unchanged and choose explicit mix
 levels: this source peaked slightly above full scale before placement gain.
 When the tool or local model is unavailable, use bundled effects and ask the
 owner for a music file. Audition generation quality and loop seams before use.
+
+## Sound requests in comments
+
+A pinned comment such as "add pulse sound" at 00:08 arrives in the `Kinotta
+comments:` batch with its reel time. Answer a sound-only request with named operations on Working:
+
+1. Prefer a bundled effect that fits, since it is instant and its licence is known. Read the manifest descriptions.
+2. Otherwise generate once with `kinotta generate-audio`, naming the sound in the prompt as the comment does, and a length that fits the moment.
+3. Place it at the comment's time on the right track: an effect on `sfx`, a bed on `music`, with the placement settings above. Do not move or retime anything else.
+4. Report which source you used in the hand-over, or in `answers.md` when the batch also includes a picture rebuild. For a generated one, record the prompt, length and seed so the owner can ask for a variation.
+5. If the comment is vague, choose, state the choice in the hand-over, and keep it easy to swap. If generation is unavailable, use the nearest bundled effect and say so.

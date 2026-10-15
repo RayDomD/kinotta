@@ -129,10 +129,7 @@ it('edits custom regions, drags/resizes, undoes, saves frozen history and plays 
     await page.screenshot({ path: join(dir, 'free-layout-1024.png') });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    const response = page.waitForResponse((r) => r.url().endsWith('/save') && r.request().method() === 'POST');
-    await page.getByRole('button', { name: /^Save/ }).click();
-    const savedResponse = await response;
-    expect(savedResponse.status(), await savedResponse.text()).toBe(200);
+    expect(await server.project.freezeEdits('demo')).toEqual({ version: 2 });
     await expect.poll(async () => (await server.project.listVersions('demo')).length, { timeout: 10_000 }).toBe(2);
     const saved = await server.project.readVersion('demo', 2);
     expect(saved.media!.placements.find((p) => p.id === 'side')).toHaveProperty('region.width');

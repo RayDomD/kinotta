@@ -63,6 +63,8 @@ export interface CaptionMove {
  * no rebuild; the clip still plays from its own first frame, as a rebuilt page would.
  */
 export interface ClipTiming {
+  /** Edited reel length, including code scenes moved past the authored end. */
+  duration?: number;
   /** The clip a scene belongs to, from its `data-scene` name. */
   clipOf(scene: string): string | undefined;
   /** Where each moved clip now plays, by clip id, in the reel's seconds. Clips not listed play as built. */
@@ -123,6 +125,9 @@ const BUILT_DURATION = 'builtDuration';
 
 /** Sets each moved clip's scene to its new times and every other clip scene back to its built ones. */
 function applyClipTiming(frame: HTMLIFrameElement | null, timing: ClipTiming | null | undefined): void {
+  const doc = frame?.contentDocument;
+  const win = frame?.contentWindow as (Window & { DURATION?: number }) | null | undefined;
+  if (doc && win && timing?.duration !== undefined) win.DURATION = timing.duration;
   for (const scene of frame?.contentDocument?.querySelectorAll<HTMLElement>('[data-scene]:not([data-caption])') ?? []) {
     const { dataset } = scene;
     if (dataset[BUILT_START] === undefined) {

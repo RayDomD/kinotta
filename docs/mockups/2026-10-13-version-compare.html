@@ -1,0 +1,59 @@
+<div style="--g:oklch(.184 .004 106);--gd:oklch(.150 .003 106);--c:oklch(.214 .005 90);--ink:oklch(.945 .004 106);--ink2:oklch(.82 .007 106);--mu:oklch(.64 .008 106);--rule:oklch(.945 .004 106 / .14);--hair:oklch(.945 .004 106 / .24);--li:oklch(.84 .11 225);--lw:oklch(.84 .11 225 / .07);--paper:#f3e9d8;--brand:#c2410c">
+
+<h2>N1: how should comparing two versions look?</h2>
+<p class="subtitle">A new version arrives and you want to know what changed and whether it is better. Both versions are live pages, so one playhead can drive both. Shot 04 is shown: v2 on the left of each idea, v3 with the bigger price and the underline. Select every mode you want; they can live behind one Compare switch.</p>
+
+<div class="options" data-multiselect style="display:grid;gap:20px">
+
+<div class="option" data-choice="wipe" onclick="toggleSelect(this)" style="display:block">
+  <div style="display:flex;gap:12px;align-items:baseline"><div class="letter">A</div><div class="content"><h3>Wipe · my pick as the default</h3><p>One frame, full size. Drag the line across the picture: v2 on one side, v3 on the other. Best for position and size changes, because both sit on the same pixels.</p></div></div>
+  <div style="background:var(--g);padding:14px;margin-top:10px">
+    <div style="position:relative;aspect-ratio:16/9;max-width:620px;margin:0 auto;background:var(--paper);color:var(--brand);font:600 40px Outfit,'Segoe UI',sans-serif;overflow:hidden">
+      <div style="position:absolute;inset:0;display:grid;place-items:center"><span style="font-size:64px;border-bottom:6px solid var(--brand);line-height:1.1">₱499</span></div>
+      <div style="position:absolute;inset:0 54% 0 0;background:var(--paper);overflow:hidden"><div style="position:absolute;top:0;bottom:0;left:0;width:calc(100% / .46);display:grid;place-items:center"><span>₱499</span></div></div>
+      <div style="position:absolute;top:0;bottom:0;left:46%;width:2px;background:var(--li)"></div>
+      <div style="position:absolute;top:calc(50% - 15px);left:calc(46% - 13px);width:28px;height:30px;background:var(--li);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)"></div>
+      <span style="position:absolute;left:10px;top:8px;font:800 13px Doto,monospace;background:var(--g);color:var(--ink2);padding:1px 7px">v2</span>
+      <span style="position:absolute;right:10px;top:8px;font:800 13px Doto,monospace;background:var(--li);color:var(--g);padding:1px 7px">v3</span>
+    </div>
+  </div>
+</div>
+
+<div class="option" data-choice="side" onclick="toggleSelect(this)" style="display:block">
+  <div style="display:flex;gap:12px;align-items:baseline"><div class="letter">B</div><div class="content"><h3>Side by side</h3><p>Two frames, one playhead, both play together. Best for motion and timing, where you need to watch the whole frame of each. Each picture is half the size.</p></div></div>
+  <div style="background:var(--g);padding:14px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:660px;margin-left:auto;margin-right:auto">
+    <div style="position:relative;aspect-ratio:16/9;background:var(--paper);color:var(--brand);display:grid;place-items:center;font:600 24px Outfit,'Segoe UI',sans-serif">₱499<span style="position:absolute;left:8px;top:6px;font:800 12px Doto,monospace;background:var(--g);color:var(--ink2);padding:1px 6px">v2</span></div>
+    <div style="position:relative;aspect-ratio:16/9;background:var(--paper);color:var(--brand);display:grid;place-items:center;font:600 36px Outfit,'Segoe UI',sans-serif;outline:1px solid var(--li)"><span style="border-bottom:4px solid var(--brand);line-height:1.1">₱499</span><span style="position:absolute;left:8px;top:6px;font:800 12px Doto,monospace;background:var(--li);color:var(--g);padding:1px 6px">v3</span></div>
+  </div>
+</div>
+
+<div class="option" data-choice="flip" onclick="toggleSelect(this)" style="display:block">
+  <div style="display:flex;gap:12px;align-items:baseline"><div class="letter">C</div><div class="content"><h3>Flip, on a held key</h3><p>The frame stays as it is. Hold a key and it shows v2; let go and it is v3 again. Nothing new on screen, and the eye catches any jump. Works in the focus view and while playing.</p></div></div>
+  <div style="background:var(--g);padding:14px;margin-top:10px;display:flex;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap;color:var(--ink2);font:14px Outfit,'Segoe UI',sans-serif">
+    <div style="position:relative;width:250px;aspect-ratio:16/9;background:var(--paper);color:var(--brand);display:grid;place-items:center;font:600 34px Outfit,'Segoe UI',sans-serif"><span style="border-bottom:4px solid var(--brand);line-height:1.1">₱499</span><span style="position:absolute;left:8px;top:6px;font:800 12px Doto,monospace;background:var(--li);color:var(--g);padding:1px 6px">v3</span></div>
+    <span>hold <span style="border:1px solid var(--hair);padding:2px 9px;font:800 13px Doto,monospace;color:var(--ink)">\</span></span>
+    <div style="position:relative;width:250px;aspect-ratio:16/9;background:var(--paper);color:var(--brand);display:grid;place-items:center;font:600 23px Outfit,'Segoe UI',sans-serif">₱499<span style="position:absolute;left:8px;top:6px;font:800 12px Doto,monospace;background:var(--g);color:var(--ink2);padding:1px 6px">v2</span></div>
+  </div>
+</div>
+
+<div class="option" data-choice="changed-list" onclick="toggleSelect(this)" style="display:block">
+  <div style="display:flex;gap:12px;align-items:baseline"><div class="letter">D</div><div class="content"><h3>What changed, by element · my pick as the add-on</h3><p>Only Kinotta can do this, because elements are named. A list of what differs between the two versions on this shot, each line outlined on the frame when you point at it, next to the comment that asked for it.</p></div></div>
+  <div style="background:var(--g);padding:14px;margin-top:10px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;font:13px Outfit,'Segoe UI',sans-serif;color:var(--ink)">
+    <div style="position:relative;aspect-ratio:16/9;background:var(--paper);color:var(--brand);display:grid;place-items:center;font:600 44px Outfit,'Segoe UI',sans-serif"><span style="border-bottom:5px solid var(--brand);line-height:1.1;outline:1.6px solid var(--li);outline-offset:6px">₱499</span><span style="position:absolute;left:8px;top:6px;font:800 12px Doto,monospace;background:var(--li);color:var(--g);padding:1px 6px">v3</span></div>
+    <div>
+      <div style="color:var(--mu);margin-bottom:6px">Shot <span style="font:800 13px Doto,monospace">04</span> · v2 to v3 · <span style="font:800 13px Doto,monospace">3</span> changes</div>
+      <div style="border:1px solid var(--li);background:var(--lw);padding:7px 10px"><span style="color:var(--li)">price-number</span> is larger<div style="color:var(--mu);font-size:12px">answers comment <span style="font:800 12px Doto,monospace">2</span></div></div>
+      <div style="border:1px solid var(--rule);padding:7px 10px;margin-top:6px"><span style="color:var(--li)">price-underline</span> is new</div>
+      <div style="border:1px solid var(--rule);padding:7px 10px;margin-top:6px"><span style="color:var(--li)">tagline</span> enters 0.3s later<div style="color:var(--mu);font-size:12px">no comment asked for this</div></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="section">
+<h3>Where it would sit</h3>
+<p>A Compare lamp on the transport in Review, and on the enlarged shot in the Storyboard, with a picker for which older version to compare against (the previous one by default). Compare never edits anything and never changes a render.</p>
+</div>
+
+</div>

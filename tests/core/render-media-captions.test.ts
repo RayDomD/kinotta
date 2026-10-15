@@ -40,10 +40,8 @@ it('retypes one use of a repeated phrase through the caption handle, leaving the
     expect(await frame.locator('[data-caption][data-placement="first"] .caption').textContent()).toBe('hello there');
     expect((await server.project.readEditList(REEL)).operations).toEqual([expect.objectContaining({ kind: 'phrase-text', placement: 'repeat', from: 0.2, to: 1.1, text: 'hi friend', was: 'hello there' })]);
 
-    const saved = page.waitForResponse((response) => response.url().endsWith('/save'));
     await page.getByRole('tab', { name: /^Edits/ }).click();
-    await page.getByRole('button', { name: /^Save as v2/ }).click();
-    expect((await saved).status()).toBe(200);
+    expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     const builtPage = readFileSync(join(reel, 'v2/index.html'), 'utf8');
     expect(builtPage).toContain('>hi<');
     expect(builtPage).toContain('>hello<');

@@ -9,6 +9,10 @@ export const fixtures = [
 ] as const;
 
 export const invariants = [
+  { description: 'picture tracks follow descending layer order', check: (root: Element) => {
+    const layers = [...root.querySelectorAll('[data-picture-layer]')].filter((row) => row.querySelector('[data-placement]')).map((row) => Number(row.getAttribute('data-picture-layer')));
+    return layers.every((layer, index) => Number.isInteger(layer) && layer >= 0 && (index === 0 || layers[index - 1]! > layer));
+  } },
   { description: 'hidden beats have no ticks', check: (root: Element) => root.getAttribute('data-verify-beats-visible') !== 'false' || !root.querySelector('.native-beat') },
   { description: 'beat settings are boolean', check: (root: Element) => ['data-verify-beats-visible', 'data-verify-beat-snap'].every((name) => ['true', 'false'].includes(root.getAttribute(name) ?? '')) },
   { description: 'unit is named', check: (root: Element) => root.getAttribute('data-verify-unit') === 'NativeLanes' },

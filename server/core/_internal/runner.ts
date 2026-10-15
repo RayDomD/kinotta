@@ -13,9 +13,12 @@ const BUILD_SCRIPT = resolve(SKILL_DIR, 'engine/build.py');
 const SHOTS_SCRIPT = resolve(SKILL_DIR, 'scripts/shots.py');
 const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
 const BEATS_SCRIPT = resolve(SKILL_DIR, 'scripts/beats.py');
+const GENERATE_AUDIO_SCRIPT = resolve(SKILL_DIR, 'scripts/generate_audio.py');
 const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const BUILD_TIMEOUT_MS = 120_000;
+/** Loading the model and 100 inference steps take about half a minute on a laptop GPU. A cold first load is slower. */
+const GENERATE_AUDIO_TIMEOUT_MS = 600_000;
 const PROBE_TIMEOUT_MS = 20_000;
 const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
@@ -28,10 +31,19 @@ const PAGE_INFO_TIMEOUT_MS = 60_000;
 const CANCELLED = 'The render was cancelled.';
 
 const exec = promisify(execFile);
+/** One source frame, preserving its aspect. Used only for cached editor thumbnails. */
+export async function extractMediaStill(file: string, output: string, time: number, width: number): Promise<void> {
+  await run('ffmpeg', ['-v', 'error', '-y', '-ss', String(time), '-i', file, '-frames:v', '1', '-vf', `scale=${width}:-2`, '-q:v', '4', output], PROBE_TIMEOUT_MS);
+}
 
 /** Local beat analysis emits JSON, with the same optional runtime as the skill command. */
 export async function detectAudioBeats(file: string): Promise<BeatGrid> {
   return JSON.parse(await run(PYTHON, [BEATS_SCRIPT, file])) as BeatGrid;
+}
+
+/** `generate_audio.py`: a WAV from a local Stable Audio Open model. Aborting the signal stops the process. */
+export async function generateStableAudio(request: { prompt: string; seconds: number; seed: number; model: string; output: string; signal?: AbortSignal }): Promise<void> {
+  await run(PYTHON, [GENERATE_AUDIO_SCRIPT, '--prompt', request.prompt, '--seconds', String(request.seconds), '--model', request.model, '--seed', String(request.seed), request.output], GENERATE_AUDIO_TIMEOUT_MS, request.signal);
 }
 
 /** Runs a command for the startup tool check and returns its exit code and output, or null when it cannot start. Never throws. */
@@ -46,9 +58,9 @@ export const tryCommand = (command: string, args: string[]): Promise<{ code: num
   });
 
 /** Runs a command and returns its stdout. A failure throws an Error whose message names the tool and says why. */
-async function run(command: string, args: string[], timeout?: number): Promise<string> {
+async function run(command: string, args: string[], timeout?: number, signal?: AbortSignal): Promise<string> {
   try {
-    return (await exec(command, args, { encoding: 'utf8', maxBuffer: MAX_OUTPUT_BYTES, timeout, windowsHide: true })).stdout;
+    return (await exec(command, args, { encoding: 'utf8', maxBuffer: MAX_OUTPUT_BYTES, timeout, signal, windowsHide: true })).stdout;
   } catch (err) {
     const failure = err as NodeJS.ErrnoException & { stderr?: string };
     if (failure.code === 'ENOENT') throw new Error(`${command} is not installed or not on the PATH.`);

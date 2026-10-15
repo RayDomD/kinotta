@@ -1,5 +1,5 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
-import { revealReelRail } from '../helpers/review-rail.ts';
+import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -51,23 +51,24 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
   // Save waits for v1.
-  await expect(page.getByRole('button', { name: /^Save(?! as)/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Save/ })).toHaveCount(0);
 
   // The words arrive: v1 is built, the lane gives way to the words, and the snip is still in the list and on the timeline.
   writeFileSync(join(readFileSync(PROJECT_FILE, 'utf8'), '.release-transcript'), '');
   await revealReelRail(page);
   await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(versions(page)).toContainText('Saved by you');
+  await expect(versions(page)).toContainText('you');
   await expect(review(page).getByRole('progressbar', { name: 'Transcription' })).toHaveCount(0);
-  await expect(review(page).locator('.editorial-lanes .native-lane').nth(1).locator('.editorial-text-bar > button')).toHaveText('hello there');
+  await expect(review(page).locator('[data-row="captions"]').locator('.editorial-text-bar > button')).toHaveText('hello there');
+  await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();
   await expect(review(page).locator('.editorial-word')).toHaveCount(2);
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('list', { name: 'Edits' })).not.toContainText('No longer applies');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
-  await expect(page.getByRole('button', { name: /^Save as v2/ })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
 
   // And it saves: v2 is v1 with the snip.
-  await page.getByRole('button', { name: /^Save as v2/ }).click();
+  await freezeWorking(page);
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
 });

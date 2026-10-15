@@ -1,0 +1,43 @@
+<h2>Which trim handle is easiest to find and grab?</h2>
+<p class="subtitle">Today each handle is a 5px strip at 7% opacity, so it is close to invisible. In every option the middle clip is selected and the other two are not.</p>
+
+<div class="cards">
+  <div class="card" data-choice="handles-grip" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div style="position:relative;height:40px;background:var(--bg-tertiary)">
+        <div style="position:absolute;left:2%;width:26%;top:4px;bottom:4px;border:1px solid var(--border);background:var(--bg-secondary)"></div>
+        <div style="position:absolute;left:32%;width:34%;top:4px;bottom:4px;border:2px solid var(--accent);background:var(--bg-secondary);display:flex;justify-content:space-between">
+          <span style="width:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">‖</span>
+          <span style="align-self:center;font-size:12px">whoosh.mp3</span>
+          <span style="width:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">‖</span>
+        </div>
+        <div style="position:absolute;left:70%;width:26%;top:4px;bottom:4px;border:1px solid var(--border);background:var(--bg-secondary)"></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A · Solid grips inside the clip</h3><p>A 10px filled bar with a grip mark at each end of the selected clip. Other clips show the same bar, fainter, when the pointer is over them. The clip keeps its exact length on screen.</p></div>
+  </div>
+
+  <div class="card" data-choice="handles-tabs" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div style="position:relative;height:40px;background:var(--bg-tertiary)">
+        <div style="position:absolute;left:2%;width:26%;top:4px;bottom:4px;border:1px solid var(--border);background:var(--bg-secondary)"></div>
+        <div style="position:absolute;left:32%;width:34%;top:4px;bottom:4px;border:2px solid var(--accent);background:var(--bg-secondary);text-align:center;font-size:12px;line-height:28px">whoosh.mp3</div>
+        <span style="position:absolute;left:calc(32% - 10px);width:10px;top:1px;bottom:1px;background:var(--accent);border-radius:4px 0 0 4px"></span>
+        <span style="position:absolute;left:66%;width:10px;top:1px;bottom:1px;background:var(--accent);border-radius:0 4px 4px 0"></span>
+        <div style="position:absolute;left:70%;width:26%;top:4px;bottom:4px;border:1px solid var(--border);background:var(--bg-secondary)"></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B · Tabs outside the clip</h3><p>Rounded tabs stick out past both ends of the selected clip, as in CapCut. Nothing inside the clip is covered, but the tabs can sit over a neighbouring clip when two clips touch.</p></div>
+  </div>
+
+  <div class="card" data-choice="handles-brackets" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div style="position:relative;height:40px;background:var(--bg-tertiary)">
+        <div style="position:absolute;left:2%;width:26%;top:4px;bottom:4px;border:1px solid var(--border);border-left:4px solid var(--text-secondary);border-right:4px solid var(--text-secondary);background:var(--bg-secondary)"></div>
+        <div style="position:absolute;left:32%;width:34%;top:4px;bottom:4px;border:2px solid var(--accent);border-left:6px solid var(--accent);border-right:6px solid var(--accent);background:var(--bg-secondary);text-align:center;font-size:12px;line-height:28px">whoosh.mp3</div>
+        <div style="position:absolute;left:70%;width:26%;top:4px;bottom:4px;border:1px solid var(--border);border-left:4px solid var(--text-secondary);border-right:4px solid var(--text-secondary);background:var(--bg-secondary)"></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C · Thick ends on every clip</h3><p>Every clip always has thicker left and right edges, brighter when selected. Handles are visible without hovering or selecting, at the cost of a busier timeline when there are many short sound effects.</p></div>
+  </div>
+</div>

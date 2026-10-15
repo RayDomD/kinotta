@@ -18,13 +18,13 @@ const rail = (page: Page): Locator => page.getByRole('navigation', { name: 'Vers
 const heading = (page: Page): Locator => page.getByRole('heading', { level: 1 });
 const copyButton = (page: Page): Locator => page.locator('.copy .btn');
 
-test('the rail lists v1 as the storyboard and v2 as now, with v2 open', async ({ page }) => {
+test('the rail opens Working above v1 storyboard and v2 frozen history', async ({ page }) => {
   await page.goto('/');
 
-  await expect(rail(page).getByRole('button')).toHaveText(['v1storyboard', 'v2now']);
-  await expect(rail(page).getByRole('button', { name: /^v2/ })).toHaveAttribute('aria-current', 'true');
+  await expect(rail(page).getByRole('button')).toHaveText(['Working0 edits since v2', 'v1storyboard', 'v2']);
+  await expect(rail(page).getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
   await expect(heading(page)).toHaveText('Storyboard, v2');
-  await expect(page.locator('.readonly-note')).toHaveCount(0);
+  await expect(page.locator('.comments .readonly-note')).toHaveCount(0);
 });
 
 test('an older version opens read-only: a line saying so, no pin control, no click-to-pin, copy disabled', async ({ page }) => {
@@ -33,9 +33,9 @@ test('an older version opens read-only: a line saying so, no pin control, no cli
 
   await expect(heading(page)).toHaveText('Storyboard, v1');
   await expect(rail(page).getByRole('button', { name: /^v1/ })).toHaveAttribute('aria-current', 'true');
-  const note = 'v1 is read-only. Only the newest version, v2, takes comments.';
+  const note = 'Open Working to add or change comments.';
   await expect(page.locator('.main .readonly-note')).toHaveText(note);
-  await expect(page.locator('.comments .readonly-note')).toHaveText(note);
+  await expect(page.locator('.comments .readonly-note')).toHaveText('Open Working to add or change comments.');
   await expect(copyButton(page)).toBeDisabled();
   await expect(copyButton(page)).toHaveAccessibleName('Copy all comments, unavailable because v1 is read-only');
 
@@ -97,6 +97,7 @@ test('the rail marks a version approved in the editor or on disk, on every tab, 
 test('a new version on disk shows a ready notice without reload, and opens only on a click', async ({ page }) => {
   await page.goto('/');
   await expect(heading(page)).toHaveText('Storyboard, v2');
+  await rail(page).getByRole('button', { name: /^v2/ }).click();
   await page.locator('.grid').getByRole('button', { name: /^Shot 03, / }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 
@@ -109,13 +110,12 @@ test('a new version on disk shows a ready notice without reload, and opens only 
   const notice = page.locator('.notice');
   await expect(notice).toContainText('v3 is ready.');
   await expect(rail(page).getByRole('button', { name: /^v3/ })).toContainText('ready');
-  await expect(rail(page).getByRole('button', { name: /^v3/ })).toContainText('now');
 
   // Nothing moved on its own: still v2 with the sheet open, and v2 now says it is read-only.
   await expect(heading(page)).toHaveText('Storyboard, v2');
   await expect(rail(page).getByRole('button', { name: /^v2/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.locator('.comments .readonly-note')).toHaveText('v2 is read-only. Only the newest version, v3, takes comments.');
+  await expect(page.locator('.comments .readonly-note')).toHaveText('Open Working to add or change comments.');
 
   await page.keyboard.press('Escape');
   await notice.getByRole('button', { name: 'Open v3' }).click();
@@ -124,6 +124,6 @@ test('a new version on disk shows a ready notice without reload, and opens only 
   await expect(rail(page).getByRole('button', { name: /^v3/ })).toHaveAttribute('aria-current', 'true');
   await expect(notice).toHaveCount(0);
   await expect(rail(page).getByRole('button', { name: /^v3/ })).not.toContainText('ready');
-  await expect(page.locator('.readonly-note')).toHaveCount(0);
-  await expect(copyButton(page)).toHaveAccessibleName('Copy all comments, none yet');
+  await expect(page.locator('.comments .readonly-note')).toHaveText('Open Working to add or change comments.');
+  await expect(copyButton(page)).toHaveAccessibleName('Copy all comments, unavailable because v3 is read-only');
 });

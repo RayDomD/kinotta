@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
@@ -74,19 +74,19 @@ describe('Save', () => {
     const { reelDir, slug, project } = await startedReel();
     await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
 
-    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(slug)).toEqual({ version: 2 });
 
     const v2 = join(reelDir, 'v2');
-    expect(readdirSync(v2).sort()).toEqual(['edits.json', 'index.html', 'plan.json', 'shots.json', 'transcript.json']);
+    expect(readdirSync(v2).sort()).toEqual(['dependencies', 'edits.json', 'index.html', 'plan.json', 'shots.json', 'transcript.json']);
     expect(readJson(join(v2, 'edits.json'))).toMatchObject({ base: 1, operations: [{ kind: 'snip', from: 3, to: 5 }] });
     expect(readJson(join(v2, 'shots.json'))).toMatchObject({ builtBy: 'you', changedSections: ['all'] });
     expect(readJson(join(v2, 'plan.json')).pieces).toEqual([{ in: 0, out: 3 }, { in: 5, out: expect.closeTo(VIDEO_SECONDS, 0) }]);
     expect(readJson(join(v2, 'transcript.json')).words).toEqual(WORDS);
     // The reel's sources hold the edit, and nothing is left over.
-    expect(readJson(join(reelDir, 'plan.json')).pieces).toHaveLength(2);
-    expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
+    expect(readJson(join(reelDir, 'plan.json')).pieces).toEqual([{ in: 0, out: 12 }]);
+    expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(true);
     expect(existsSync(join(reelDir, '.save'))).toBe(false);
-    expect((await project.readEditList(slug)).operations).toEqual([]);
+    expect((await project.readEditList(slug)).operations).toHaveLength(1);
 
     const version = await project.readVersion(slug, 2);
     expect(version.builtBy).toBe('you');
@@ -105,11 +105,10 @@ describe('Save', () => {
     const { reelDir, slug, project } = await startedReel();
     await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
     const plan = readJson(join(reelDir, 'plan.json'));
-    plan.clips[0].clip = 'clips/missing.html';
-    writeFileSync(join(reelDir, 'plan.json'), JSON.stringify(plan));
+    rmSync(join(reelDir, 'clips/01-two-laptops.html'));
     const before = readFileSync(join(reelDir, 'plan.json'), 'utf8');
 
-    await expect(project.saveEdits(slug)).rejects.toThrow();
+    await expect(project.freezeEdits(slug)).rejects.toThrow();
 
     expect(readdirSync(reelDir).filter((name) => /^v\d+$/.test(name))).toEqual(['v1']);
     expect(existsSync(join(reelDir, '.save'))).toBe(false);
@@ -117,20 +116,20 @@ describe('Save', () => {
     expect((await project.readEditList(slug)).operations).toHaveLength(1);
   });
 
-  it('refuses an empty list', { timeout: SLOW_MS }, async () => {
+  it('reuses the frozen version for an empty list', { timeout: SLOW_MS }, async () => {
     const { slug, project } = await startedReel();
-    await expect(project.saveEdits(slug)).rejects.toMatchObject({ code: 'invalid' });
+    expect(await project.freezeEdits(slug)).toEqual({ version: 1 });
   });
 
   it('keeps an older version\'s spoken lines when a later version corrects a word', { timeout: SLOW_MS }, async () => {
     const { reelDir, slug, project } = await startedReel();
     await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
-    await project.saveEdits(slug);
+    await project.freezeEdits(slug);
     // A word is corrected in the reel's transcript, then a second Save builds v3 from it.
     const transcriptFile = join(reelDir, 'transcript.json');
-    writeFileSync(transcriptFile, JSON.stringify({ words: WORDS.map((w) => (w.text === 'hello' ? { ...w, text: 'howdy' } : w)) }));
+    await project.addOperation(slug, { kind: 'word-text', at: 0.5, text: 'howdy', was: 'hello', by: 'Codex' });
     await project.addOperation(slug, { kind: 'snip', from: 10, to: 11 });
-    await project.saveEdits(slug);
+    await project.freezeEdits(slug);
 
     const spoken = async (n: number): Promise<string | undefined> => (await project.readVersion(slug, n)).shots[0]?.spoken;
     expect(await spoken(2)).toBe('hello there friends.');
@@ -148,21 +147,23 @@ describe('an agent-built footage reel', () => {
     const transcriptBefore = readFileSync(join(reelDir, 'transcript.json'), 'utf8');
     await project.addOperation(SLUG, { kind: 'snip', from: 3.5, to: 5 });
 
-    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(SLUG)).toEqual({ version: 2 });
 
     const v2 = join(reelDir, 'v2');
-    expect(readdirSync(v2).sort()).toEqual(['edits.json', 'index.html', 'plan.json', 'shots.json', 'transcript.json']);
+    expect(readdirSync(v2).sort()).toEqual(['dependencies', 'edits.json', 'index.html', 'plan.json', 'shots.json', 'transcript.json']);
     expect(readJson(join(v2, 'edits.json'))).toMatchObject({ base: 1, operations: [{ kind: 'snip', from: 3.5, to: 5 }] });
     expect(readJson(join(v2, 'shots.json'))).toMatchObject({ builtBy: 'you', changedSections: ['cold-open', 'sync-problem'] });
     // The sources an agent builds from hold the edit; the reel folder gained no plan of its own.
-    expect(readJson(join(dir, 'motion/plan.json')).pieces).toEqual([{ in: 0, out: 3.5 }, { in: 5, out: 12 }]);
+    expect(readJson(join(dir, 'motion/plan.json')).pieces).toBeUndefined();
+    expect(readJson(join(v2, 'plan.json')).pieces).toEqual([{ in: 0, out: 3.5 }, { in: 5, out: 12 }]);
     expect(readJson(join(dir, 'motion/plan.json')).clips).toHaveLength(4);
     expect(existsSync(join(reelDir, 'plan.json'))).toBe(false);
     expect(readFileSync(join(reelDir, 'transcript.json'), 'utf8')).toBe(transcriptBefore);
     // The version's own plan finds the footage and the clip fragments from the version folder.
     const own = readJson(join(v2, 'plan.json'));
     expect(own.video).toBe('../../../media/talk.mp4');
-    expect(own.clips.map((c: any) => c.clip)).toEqual(['../../../motion/clips/01-two-laptops.html', '../../../motion/clips/02-conflict-counter.html', '../../../motion/clips/03-last-write-wins.html', '../../../motion/clips/04-merge-diagram.html']);
+    expect(readFileSync(join(v2, own.video))).toEqual(readFileSync(join(dir, 'media/talk.mp4')));
+    expect(own.clips.map((c: any) => c.clip)).toEqual(['dependencies/01-two-laptops.html', 'dependencies/02-conflict-counter.html', 'dependencies/03-last-write-wins.html', 'dependencies/04-merge-diagram.html']);
     expect(readJson(join(v2, 'transcript.json')).words).toEqual(readJson(join(reelDir, 'transcript.json')).words);
 
     const version = await project.readVersion(SLUG, 2);
@@ -173,7 +174,7 @@ describe('an agent-built footage reel', () => {
     expect(version.shots).toHaveLength(4);
     expect(version.pieces?.map((p) => [p.in, p.at])).toEqual([[0, 0], [5, 3.5]]);
     expect((await project.listVersions(SLUG)).map((v) => [v.number, v.builtBy])).toEqual([[1, undefined], [2, 'you']]);
-    expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
+    expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(true);
   });
 
   it('carries unsent comments to the saved version at remapped times, and marks the one whose moment was snipped', { timeout: SLOW_MS }, async () => {
@@ -184,7 +185,7 @@ describe('an agent-built footage reel', () => {
     await project.addComment(SLUG, 1, { pin: { kind: 'word', shot: '03', time: 8.65, word: 'lose' }, text: 'Land this word harder.' });
     await project.addOperation(SLUG, { kind: 'snip', from: 6, to: 7 });
 
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
 
     const v2 = await project.listComments(SLUG, 2);
     expect(v2.map((c) => [c.text, c.pin.shot, c.pin.time, c.state])).toEqual([
@@ -258,7 +259,7 @@ describe('undo, redo and removing one edit', () => {
     expect(list.operations.map((op) => (op as { from: number }).from)).toEqual([9]);
     expect(await pieceOf(project, slug)).toBe(1);
     // Save builds the later snip alone: the first stretch of footage is back.
-    await project.saveEdits(slug);
+    await project.freezeEdits(slug);
     expect(readJson(join(reelDir, 'v2', 'plan.json')).pieces).toEqual([{ in: 0, out: 9 }, { in: 10, out: expect.closeTo(VIDEO_SECONDS, 0) }]);
   });
 
@@ -270,7 +271,7 @@ describe('undo, redo and removing one edit', () => {
     await expect(project.removeOperation(slug, 'nope')).rejects.toMatchObject({ code: 'not-found' });
   });
 
-  it('drops the history with Discard and with Save', { timeout: SLOW_MS }, async () => {
+  it('drops history with the legacy discard API and retains it across a freeze', { timeout: SLOW_MS }, async () => {
     const { reelDir, slug, project } = await startedReel();
     await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
     await project.undoEdit(slug);
@@ -278,8 +279,8 @@ describe('undo, redo and removing one edit', () => {
     expect(existsSync(join(reelDir, 'edit-list.json'))).toBe(false);
 
     await project.addOperation(slug, { kind: 'snip', from: 3, to: 5 });
-    await project.saveEdits(slug);
-    expect(await project.readEditList(slug)).toMatchObject({ operations: [], canUndo: false, canRedo: false });
+    await project.freezeEdits(slug);
+    expect(await project.readEditList(slug)).toMatchObject({ operations: [{ kind: 'snip' }], canUndo: true, canRedo: false });
   });
 });
 
@@ -295,9 +296,10 @@ describe('cut and move-piece on Save', () => {
     const listed = await project.addOperation(SLUG, { kind: 'move-piece', from: 1, to: 0 });
     expect(listed.operations.map((op) => op.kind)).toEqual(['cut', 'move-piece']);
 
-    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(SLUG)).toEqual({ version: 2 });
 
-    expect(readJson(join(dir, 'motion/plan.json')).pieces).toEqual([{ in: 6, out: 12 }, { in: 0, out: 6 }]);
+    expect(readJson(join(reelDir, 'v2/plan.json')).pieces).toEqual([{ in: 6, out: 12 }, { in: 0, out: 6 }]);
+    expect(readJson(join(dir, 'motion/plan.json')).pieces).toBeUndefined();
     expect(readJson(join(reelDir, 'v2', 'shots.json'))).toMatchObject({ builtBy: 'you', changedSections: ['cold-open', 'sync-problem'] });
     const version = await project.readVersion(SLUG, 2);
     expect(version.issues).toEqual([]);
@@ -352,7 +354,7 @@ describe('word-text and word-timing on Save', () => {
     await project.addOperation(slug, { kind: 'word-timing', at: 1.5, start: 1.55, end: 2.1 });
     await project.addOperation(slug, { kind: 'word-text', at: 1.55, text: 'folks.' });
 
-    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(slug)).toEqual({ version: 2 });
 
     const v2 = await project.readVersion(slug, 2);
     expect(v2.transcript?.map((w) => [w.text, w.start, w.end])).toEqual([
@@ -366,7 +368,7 @@ describe('word-text and word-timing on Save', () => {
     // v1 keeps what it was built with, and so do the words of its spoken line.
     expect(readJson(join(reelDir, 'v1', 'transcript.json')).words).toEqual(WORDS);
     expect((await project.readVersion(slug, 1)).transcript?.map((w) => w.text)).toEqual(['hello', 'there', 'friends.', 'later']);
-    expect(readJson(join(reelDir, 'transcript.json')).words[2]).toMatchObject({ text: 'folks.', start: 1.55, end: 2.1 });
+    expect(readJson(join(reelDir, 'transcript.json')).words[2]).toMatchObject({ text: 'friends.', start: 1.5, end: 2 });
     expect(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8')).toContain('folks.');
   });
 
@@ -374,7 +376,7 @@ describe('word-text and word-timing on Save', () => {
     const { reelDir, slug, project } = await startedReel();
     await project.addOperation(slug, { kind: 'phrase-text', from: 0.5, to: 1.4, text: 'hello out there', was: 'hello there' });
 
-    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(slug)).toEqual({ version: 2 });
 
     const v2 = await project.readVersion(slug, 2);
     expect(v2.transcript?.map((w) => w.text)).toEqual(['hello', 'out', 'there', 'friends.', 'later']);
@@ -407,11 +409,11 @@ describe('caption positions on Save', () => {
     await project.addOperation(slug, { kind: 'caption-phrase-position', at: 8.2, x: 0, y: -200 });
     await project.addOperation(slug, { kind: 'word-timing', at: 1.5, start: 1.55, end: 2.1 });
 
-    expect(await project.saveEdits(slug)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(slug)).toEqual({ version: 2 });
 
     const plan = readJson(join(reelDir, 'v2', 'plan.json'));
     expect(plan.captions).toEqual({ position: { x: 30, y: -10 }, phrases: [{ at: 8.2, x: 0, y: -200 }] });
-    expect(readJson(join(reelDir, 'plan.json')).captions).toEqual(plan.captions);
+    expect(readJson(join(reelDir, 'plan.json')).captions).toBe(true);
     expect(shifted(readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8'))).toEqual(['30px -10px', '30px -210px']);
     expect((await project.readVersion(slug, 2)).captions).toEqual(plan.captions);
     // v1 is as it was built.
@@ -425,7 +427,7 @@ describe('caption positions on Save', () => {
     await project.addOperation(slug, { kind: 'caption-phrase-position', at: 8.2, x: 0, y: -200 });
     await project.addOperation(slug, { kind: 'word-timing', at: 8.2, start: 8.3, end: 8.6 });
     await expect(project.addOperation(slug, { kind: 'caption-phrase-position', at: 4, x: 1, y: 1 })).rejects.toMatchObject({ code: 'invalid' });
-    await project.saveEdits(slug);
+    await project.freezeEdits(slug);
 
     expect((await project.readVersion(slug, 2)).captions).toEqual({ phrases: [{ at: 8.3, x: 0, y: -200 }] });
   });
@@ -449,9 +451,9 @@ describe('clip trim and slide on Save', () => {
     const reelDir = join(dir, 'reels', SLUG);
     await project.addOperation(SLUG, { kind: 'clip-trim', clip: '02', in: 3.2, out: 4.4 });
 
-    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(SLUG)).toEqual({ version: 2 });
 
-    const clip = readJson(join(dir, 'motion/plan.json')).clips[1];
+    const clip = readJson(join(reelDir, 'v2/plan.json')).clips[1];
     expect(clip).toMatchObject({ id: '02', in: 3.2, out: 4.4, stills: [{ from: 0, title: 'Counting' }] });
     expect(clip).not.toHaveProperty('slid');
     expect(readJson(join(reelDir, 'v2', 'plan.json')).clips[1]).toMatchObject({ in: 3.2, out: 4.4 });
@@ -473,9 +475,9 @@ describe('clip trim and slide on Save', () => {
     await project.addOperation(SLUG, { kind: 'clip-trim', clip: '02', in: 3.2, out: 5.4 });
     await project.addOperation(SLUG, { kind: 'clip-slide', clip: '03', delta: 0.4 });
 
-    await project.saveEdits(SLUG);
+    await project.freezeEdits(SLUG);
 
-    const clips = readJson(join(dir, 'motion/plan.json')).clips;
+    const clips = readJson(join(dir, 'reels', SLUG, 'v2/plan.json')).clips;
     expect(clips[1].stills).toHaveLength(2);
     expect(clips[2]).toMatchObject({ id: '03', in: 6.6, out: 9.8, slid: true });
     expect(clips[0]).not.toHaveProperty('slid');
@@ -506,9 +508,10 @@ describe('element offsets on Save', () => {
     await project.addOperation(SLUG, { kind: 'element-offset', clip: '04', element: 'shape', x: 40, y: -30, scale: 1.5 });
     await project.addOperation(SLUG, { kind: 'element-offset', clip: '04', element: '@clip', x: 0, y: 12, scale: 1 });
 
-    expect(await project.saveEdits(SLUG)).toEqual({ version: 2 });
+    expect(await project.freezeEdits(SLUG)).toEqual({ version: 2 });
 
-    expect(readJson(join(dir, 'motion/plan.json')).clips[3].offsets).toEqual({ shape: { x: 40, y: -30, scale: 1.5 }, '@clip': { x: 0, y: 12, scale: 1 } });
+    expect(readJson(join(reelDir, 'v2/plan.json')).clips[3].offsets).toEqual({ shape: { x: 40, y: -30, scale: 1.5 }, '@clip': { x: 0, y: 12, scale: 1 } });
+    expect(readJson(join(dir, 'motion/plan.json')).clips[3].offsets).toBeUndefined();
     const page = readFileSync(join(reelDir, 'v2', 'index.html'), 'utf8');
     expect(page).toContain('[data-scene="04-merge-diagram"] [data-el="shape"]{translate:40px -30px;scale:1.5;}');
     expect(page).toContain('[data-scene="04-merge-diagram"]{translate:0px 12px;}');

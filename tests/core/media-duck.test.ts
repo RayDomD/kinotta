@@ -8,7 +8,7 @@ const sources: Sources = { plan: { duration: 8, media: {
 } }, words: [] };
 
 it('ducks the selected bed during joined speech with editable local ramps and restores its level in silence', () => {
-  const next = applyOperation(sources, { id: 'duck', kind: 'placement-duck', placement: 'music',
+  const next = applyOperation(sources, { by: 'you', id: 'duck', kind: 'placement-duck', placement: 'music',
     spans: [{ start: 2, end: 2.3 }, { start: 1, end: 1.8 }], amount: 20, attack: 0.2, release: 0.4 });
   const p = next.plan.media!.placements[0];
   expect(p.role !== 'gap' && p.volume).toEqual([
@@ -27,7 +27,7 @@ it('clips boundary speech, joins overlapping ramps, and leaves existing points a
     { at: 4.8, gain: 1 }, { at: 5, gain: 0.1 }, { at: 6, gain: 0.1 },
   ]);
   const withPoints: Sources = { ...sources, plan: { ...sources.plan, media: { ...sources.plan.media!, placements: [{ id: 'music', role: 'audio', source: 'bed', in: 0, out: 6, at: 2, volume: [{ at: 3, gain: 0.3 }] }] } } };
-  expect(applyOperation(withPoints, { id: 'silent', kind: 'placement-duck', placement: 'music', spans: [], ...settings })).toEqual(withPoints);
+  expect(applyOperation(withPoints, { by: 'you', id: 'silent', kind: 'placement-duck', placement: 'music', spans: [], ...settings })).toEqual(withPoints);
   for (const bad of [{ amount: -1 }, { amount: Infinity }, { attack: 0 }, { release: NaN }]) expect(() => duckVolume([], 6, 1, { ...settings, ...bad })).toThrow(/Ducking/);
   expect(() => duckVolume([{ start: 1, end: NaN }], 6, 1, settings)).toThrow(/Speech spans/);
 });

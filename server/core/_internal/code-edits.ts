@@ -6,12 +6,13 @@ import type { MediaPlan } from './media-model.ts';
 import { scanPage } from './contract.ts';
 import type { PageScene } from './contract.ts';
 import { KinottaError } from './errors.ts';
+import { parse } from 'node-html-parser';
 import { readReelFootage } from './footage.ts';
+import { checkPartsManifest } from './parts.ts';
 
 /**
- * Code-only reels: a version that is a hand-written page with no footage and no plan. Kinotta cannot edit its timing,
- * only move and scale its named elements. Each such edit is stored as a CSS rule in `kinotta-edits.css` beside the
- * page, which the page links, so the agent's own code is never touched.
+ * Code-only reels are authored pages with no footage and no plan. Scene timing edits rewrite the scene attributes.
+ * Element moves and scales live in `kinotta-edits.css` beside the page. Animation code stays authored by the agent.
  */
 
 /** The stylesheet a saved version carries, next to its `index.html`. */
@@ -70,18 +71,83 @@ export async function codeSources(versionDir: string): Promise<{ sources: Source
   const { scenes } = scanPage(html);
   if (scenes.length === 0) throw new KinottaError('invalid', 'This version has no scenes to edit.');
   const saved = await readEditsCss(versionDir);
-  const clips = scenes.map((s) => ({ id: s.name, in: s.start, out: s.start + s.duration, ...(saved[s.name] ? { offsets: saved[s.name] } : {}) }));
-  const shots = JSON.parse(await readFile(join(versionDir, 'shots.json'), 'utf8')) as { duration: number };
+  const shots = JSON.parse(await readFile(join(versionDir, 'shots.json'), 'utf8')) as { contract?: number; duration: number; shots: CodeShot[] };
+  const storyboard = Array.isArray(shots.shots) ? shots.shots : [];
+  const clips = scenes.map((s) => ({ id: s.name, title: storyboard.find((shot) => sceneForShot(shot, scenes)?.name === s.name)?.title ?? s.name, in: s.start, out: Number((s.start + s.duration).toFixed(6)), ...(saved[s.name] ? { offsets: saved[s.name] } : {}) }));
   const sidecar = await readFile(join(versionDir, MEDIA_SIDECAR_FILE), 'utf8').catch(() => null);
   const media = sidecar ? (JSON.parse(sidecar) as { media: MediaPlan }).media : undefined;
-  return { sources: { plan: { clips, duration: shots.duration, ...(media ? { media } : {}) }, words: [] }, scenes };
+  const parts = shots.contract === 2 ? checkPartsManifest(shots as unknown as Record<string, unknown>).manifest : null;
+  return { sources: { plan: { clips, codeTiming: true, duration: shots.duration, ...(parts ? { parts } : {}), ...(media ? { media } : {}) }, words: [] }, scenes };
 }
 
-/** Throws `invalid` unless every operation is a move or scale of an element, the only edit a reel built from code takes. */
+interface CodeShot { name?: string; scene?: string; start: number; title: string; [key: string]: unknown }
+
+/** Saved scene identity wins, then an exact start, then the scene covering the storyboard entry. */
+export function sceneForShot(shot: CodeShot, scenes: readonly PageScene[]): PageScene | undefined {
+  return scenes.find((scene) => scene.name === (shot.scene ?? shot.name))
+    ?? scenes.find((scene) => Math.abs(scene.start - shot.start) < 1e-6)
+    ?? scenes.find((scene) => scene.start <= shot.start && scene.start + scene.duration > shot.start);
+}
+
+/**
+ * Where a shot's still is drawn once its scene plays as `clip`: the same distance from the scene's start, or from
+ * its end when a trim left that moment outside the shot.
+ */
+export function stillTime(shotStart: number, scene: Pick<PageScene, 'start' | 'duration'>, clip: { in: number; out: number }): number {
+  const fromStart = shotStart - scene.start;
+  const fromEnd = scene.start + scene.duration - shotStart;
+  const at = fromStart < clip.out - clip.in ? clip.in + fromStart : clip.out - fromEnd;
+  return Number(Math.max(clip.in, at).toFixed(6));
+}
+
+/** The end of the opening tag that starts at `from`, past any `>` inside a quoted value. */
+function openingTagEnd(html: string, from: number): number {
+  let quote = '';
+  for (let i = from; i < html.length; i++) {
+    const char = html[i]!;
+    if (quote) { if (char === quote) quote = ''; } else if (char === '"' || char === "'") quote = char;
+    else if (char === '>') return i + 1;
+  }
+  return html.length;
+}
+
+const DURATION_SCRIPT = /<script data-kinotta-duration>[^<]*<\/script>/;
+
+/**
+ * Writes changed picture timing into the page: each moved scene's `data-start` and `data-duration`, and the reel
+ * length when it changed. Only those values are replaced in the source, so the rest of the agent's page is untouched.
+ */
+export async function writeSceneTiming(dir: string, before: Sources, after: Sources): Promise<void> {
+  const file = join(dir, PAGE_FILE);
+  const source = await readFile(file, 'utf8');
+  let html = source;
+  // Last scene first, so the positions of the scenes still to rewrite hold.
+  const nodes = parse(source).querySelectorAll('[data-scene]').sort((a, b) => b.range[0] - a.range[0]);
+  for (const node of nodes) {
+    const id = node.getAttribute('data-scene');
+    const clip = after.plan.clips?.find((c) => c.id === id);
+    const was = before.plan.clips?.find((c) => c.id === id);
+    if (!clip || (was?.in === clip.in && was?.out === clip.out)) continue;
+    const [from] = node.range;
+    const to = openingTagEnd(html, from);
+    const set = (tag: string, name: string, value: number): string => tag.replace(new RegExp(`(\\s${name}\\s*=\\s*)("[^"]*"|'[^']*'|[^\\s>]+)`), (_, lead: string) => `${lead}"${value}"`);
+    const tag = set(set(html.slice(from, to), 'data-start', clip.in), 'data-duration', Number((clip.out - clip.in).toFixed(6)));
+    html = html.slice(0, from) + tag + html.slice(to);
+  }
+  if (before.plan.duration !== after.plan.duration) {
+    const script = `<script data-kinotta-duration>window.DURATION = ${after.plan.duration};</script>`;
+    const body = html.lastIndexOf('</body>');
+    if (DURATION_SCRIPT.test(html)) html = html.replace(DURATION_SCRIPT, () => script);
+    else html = body < 0 ? html + script : html.slice(0, body) + script + html.slice(body);
+  }
+  if (html !== source) await writeFile(file, html, 'utf8');
+}
+
+/** Code pages take free shot timing, element offsets, and sound edits, without cutting the whole reel. */
 export function assertCodeOnlyOperations(operations: readonly Operation[]): void {
-  const allowed = new Set(['source-beats', 'element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-replace', 'word-text', 'word-timing', 'phrase-text']);
+  const allowed = new Set(['shot-alternate', 'shot-alternate-dismiss', 'clip-slide', 'clip-trim', 'source-beats', 'element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-replace', 'placement-split', 'word-text', 'word-timing', 'phrase-text']);
   if (operations.some((op) => !allowed.has(op.kind) || ((op.kind === 'placement-add' || op.kind === 'placement-replace') && op.placement.role !== 'audio'))) {
-    throw new KinottaError('invalid', 'This reel is built from code, so only elements can be moved or scaled. To change its timing, ask your agent for a new version.');
+    throw new KinottaError('invalid', 'This reel is built from code. Move or trim its shots, move or scale its elements, or edit its sound.');
   }
 }
 

@@ -1,6 +1,6 @@
-import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
-import { join, relative, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { requireVersionDir } from './approval.ts';
 import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
@@ -8,11 +8,11 @@ import { versionIssues } from './footage-issues.ts';
 import { readRenderSettings, requestSettings } from './render-settings.ts';
 import { encodeMedia, joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
 import { mediaRenderArgs } from './media-render.ts';
-import { describeOverload, mixOverload } from './media-overload.ts';
+import { describeOverload, measureOverload, mixOverload } from './media-overload.ts';
 import { mediaTimeline } from './media-model.ts';
 import { mediaPlanTimeline } from './edit-model.ts';
-import type { RenderJob, RenderPreset, RenderRequest, RenderSettings } from './types.ts';
-import { readVersion } from './version.ts';
+import type { RenderJob, RenderPreset, RenderRequest, RenderSettings, Version } from './types.ts';
+import { readCapturedVersion, readVersion, requireReelDir } from './version.ts';
 
 /** Where a reel's renders go, beside its versions (R7). */
 export const RENDERS_DIR = 'renders';
@@ -22,8 +22,8 @@ const VERSION_PLAN_FILE = 'plan.json';
 const PRESET_NAMES: Record<RenderPreset, string> = { draft: 'a Draft', final: 'a Final', overlay: 'an Overlay' };
 const PRESETS: readonly RenderPreset[] = ['draft', 'final', 'overlay'];
 /** Windows holds a killed process's files for a moment, so removing a cancelled render's files retries. */
-const CLEANUP_RETRIES = 10;
-const CLEANUP_RETRY_MS = 100;
+export const CLEANUP_RETRIES = 10;
+export const CLEANUP_RETRY_MS = 100;
 /** Each segment is a Chromium page plus an ffmpeg encoder, so a worker gets two cores. */
 const CORES_PER_WORKER = 2;
 /** A shorter render stays in one page: starting more browsers would cost more than it saves. */
@@ -50,6 +50,7 @@ const SHORT_SIDE: Record<'1080p' | '4k', number> = { '1080p': 1080, '4k': 2160 }
 /** A request that has been checked, with the folders it renders from and into. */
 export interface RenderTask {
   request: RenderRequest;
+  captured?: Version;
   reelDir: string;
   versionDir: string;
   /** Code-only reels: the page is the whole picture. */
@@ -65,9 +66,9 @@ const exists = (path: string): Promise<boolean> => access(path).then(() => true,
  * would come from a later plan; or it has contract issues, footage ones included. Empty when it can. Approval is not a
  * reason: pressing Render is the decision (R19).
  */
-async function gateReasons(projectDir: string, request: RenderRequest, versionDir: string, codeOnly: boolean): Promise<string[]> {
+async function gateReasons(projectDir: string, request: RenderRequest, versionDir: string, codeOnly: boolean, captured?: Version): Promise<string[]> {
   const reasons: string[] = [];
-  const version = await readVersion(projectDir, request.reel, request.version);
+  const version = captured ?? await readVersion(projectDir, request.reel, request.version);
   // A code-only reel has no plan: its page is the whole picture, frozen with the version. The newest footage version
   // without a plan plays the reel's current plan, which is its own.
   if (!codeOnly && !version.isNewest && !(await exists(join(versionDir, VERSION_PLAN_FILE)))) reasons.push('it was built before plans were kept');
@@ -93,28 +94,28 @@ export async function checkRenderChoice(projectDir: string, request: Omit<Render
  * is silent), for an unknown preset or setting, a Final or Overlay the gate refuses (naming every reason; a Draft skips the gate), or
  * an Overlay of a code-only page that isn't transparent (R11).
  */
-export async function prepareRender(projectDir: string, request: RenderRequest): Promise<RenderTask> {
+export async function prepareRender(projectDir: string, request: RenderRequest, capturedDir?: string): Promise<RenderTask> {
   await checkRenderChoice(projectDir, request);
-  const { reelDir, versionDir } = await requireVersionDir(projectDir, request.reel, request.version);
+  const { reelDir, versionDir } = capturedDir ? { reelDir: await requireReelDir(projectDir, request.reel), versionDir: capturedDir } : await requireVersionDir(projectDir, request.reel, request.version);
   const settings = requestSettings((await readRenderSettings(projectDir, request.reel))[request.preset], request);
-  const version = await readVersion(projectDir, request.reel, request.version);
+  const version = capturedDir ? await readCapturedVersion(projectDir, request.reel, request.version, capturedDir) : await readVersion(projectDir, request.reel, request.version);
   if (version.media && mediaTimeline(version.media, version.duration).placements.some((p) => p.attachmentBroken)) throw new KinottaError('invalid', 'Repair broken footage attachments before rendering.');
   if (version.media && mediaPlanTimeline({ media: version.media, duration: version.duration, clips: version.clips, sections: version.mediaSections }).clips?.some((c) => c.attachmentBroken)) throw new KinottaError('invalid', 'Repair broken graphic attachments before rendering.');
   if (version.media && !version.media.legacy && request.preset !== 'overlay' && request.acceptOverload !== true) {
-    const overload = await mixOverload(projectDir, request.reel, request.version);
+    const overload = capturedDir ? await measureOverload(version.media, versionDir, version.duration) : await mixOverload(projectDir, request.reel, request.version);
     if (overload.spans.length > 0) {
       throw new KinottaError('invalid', `The mix of v${request.version} goes above full scale at ${describeOverload(overload)}. Lower a level, or render it as it is.`);
     }
   }
   const codeOnly = (await readReelFootage(projectDir, reelDir)) === null;
   if (request.preset !== 'draft') {
-    const reasons = await gateReasons(projectDir, request, versionDir, codeOnly);
+    const reasons = await gateReasons(projectDir, request, versionDir, codeOnly, capturedDir ? version : undefined);
     if (reasons.length > 0) throw new KinottaError('invalid', `v${request.version} can't be rendered as ${PRESET_NAMES[request.preset]}: ${reasons.join('; ')}.`);
   }
   if (codeOnly && request.preset === 'overlay' && !(await pageInfo(join(versionDir, PAGE_FILE))).alpha) {
     throw new KinottaError('invalid', `v${request.version} has no transparent background, so it has no Overlay. Render a Final instead.`);
   }
-  return { request, reelDir, versionDir, codeOnly, settings };
+  return { request, reelDir, versionDir, codeOnly, settings, ...(capturedDir ? { captured: version } : {}) };
 }
 
 /** An even number of pixels, as H.264 at 4:2:0 needs. */
@@ -136,10 +137,10 @@ function targetSize(source: { width: number; height: number }, size: RenderSetti
  * `<reel>-v<n>-<preset>-<height>p<fps>[-high][-hardcuts].<ext>` (R7, R18): a non-default quality, and Hard cuts in a
  * render with sound, get their own name so they don't replace the default render.
  */
-function renderName({ reel, version, preset }: RenderRequest, settings: RenderSettings, sound: boolean, height: number, fps: string, ext: string): string {
+function renderName({ reel, version, preset, working }: RenderRequest, settings: RenderSettings, sound: boolean, height: number, fps: string, ext: string, jobId: string): string {
   const high = settings.quality === 'high' ? '-high' : '';
   const hard = sound && settings.audio === 'hard' ? '-hardcuts' : '';
-  return `${reel}-v${version}-${preset}-${height}p${fpsLabel(fps)}${high}${hard}.${ext}`;
+  return `${reel}-${working ? `working-v${version}-${jobId}` : `v${version}`}-${preset}-${height}p${fpsLabel(fps)}${high}${hard}.${ext}`;
 }
 
 /** A whole render's frame range split into `count` contiguous, near-equal `[from, to)` ranges. */
@@ -249,7 +250,8 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
       await joinSegments(list, temp, null, signal);
       return whole;
     };
-    const native = (await readVersion(projectDir, request.reel, request.version)).media;
+    const captured = task.captured ?? await readVersion(projectDir, request.reel, request.version);
+    const native = captured.media;
     if (native && request.preset !== 'overlay') {
       // Keep graphics segmented if requested, then compose picture and audio once over the whole timeline.
       await mkdir(work, { recursive: true });
@@ -284,7 +286,8 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
       rendered = count === 1 ? await renderPage({ ...pageJob, out: temp }, report, signal) : await pageInSegments(pageJob, count);
     } else {
       // The original, not the browser's playback copy of an HEVC or ProRes file.
-      const footage = (await readReelFootage(projectDir, task.reelDir))?.file ?? null;
+      const plan = JSON.parse(await readFile(join(versionDir, VERSION_PLAN_FILE), 'utf8').catch(() => '{}')) as { video?: string };
+      const footage = typeof plan.video === 'string' ? resolve(versionDir, plan.video) : (await readReelFootage(projectDir, task.reelDir))?.file ?? null;
       if (footage === null || !(await exists(footage))) throw new Error("The reel's footage file is missing.");
       const source = await probeFootage(footage);
       signal.throwIfAborted();
@@ -297,7 +300,7 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
         rendered = count === 1 ? await renderPage({ ...pageJob, out: temp, codec: 'prores' }, report, signal) : await pageInSegments({ ...pageJob, codec: 'prores' }, count);
       } else {
         // The version's own pieces through the plan resolver (E14, R13), never the reel's current sources.
-        const { pieces = [] } = await readVersion(projectDir, request.reel, request.version);
+        const { pieces = [] } = captured;
         if (pieces.length === 0) throw new Error(`v${request.version} has no pieces of the footage to render.`);
         const audio = source.audio ? settings.audio : null;
         sound = audio !== null;
@@ -321,7 +324,7 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
         rendered = { ...rendered, height };
       }
     }
-    const file = join(dir, renderName(request, settings, sound, rendered.height, fps, ext));
+    const file = join(dir, renderName(request, settings, sound, rendered.height, fps, ext, job.id));
     await rename(temp, file);
     return relative(projectDir, file).split(sep).join('/');
   } catch (err) {

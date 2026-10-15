@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Operation } from '../../../../server/core/model.ts';
-import { fetchMediaModel, footageUrl, versionPageUrl } from '../../api/index.ts';
+import { fetchMediaModel, footageUrl, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
 import type { Comment, MediaEditingModel, NewComment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
 import type { CaptionMove, CaptionPhrase, CaptionText, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
@@ -22,6 +22,11 @@ import type { Piece, TimeWindow } from './timeline.ts';
 import { laneProgress } from './transcribing.ts';
 import { usePlayback } from './usePlayback.ts';
 import { MediaEditor } from './MediaEditor.tsx';
+import { ViewerDivider } from './ViewerDivider.tsx';
+import { useEditorWorkspace } from './EditorWorkspace.tsx';
+import { MarkerPanel, useMarkers } from './useMarkers.tsx';
+import { actionForKey, keyChord } from './editor-settings.ts';
+import { shotTarget } from './Transport.tsx';
 import '../review.css';
 
 /** The lanes open on this many seconds of the reel (all of it when it is shorter). */
@@ -42,6 +47,8 @@ const SNIP_LEAD_IN = 2;
 const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
+  frozen?: boolean;
+  onWorking?(): void;
   reel: ReelSummary;
   /** `none`: the reel has no version yet, so its footage plays alone. */
   state: 'loading' | 'error' | 'none' | 'ready';
@@ -78,6 +85,8 @@ function remapped<T extends Span>(items: readonly T[], map: Remap): T[] {
 }
 
 function Playing({ reel, state, version, comments, section = null, edits, transcription, actions }: ReviewProps) {
+  const workspace = useEditorWorkspace();
+  const markerState = useMarkers(reel.slug);
   const video = useRef<HTMLVideoElement>(null);
   const [videoLength, setVideoLength] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -110,7 +119,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
   // Clips: the plan's, in source time, with the unsaved trims and slides applied, placed on the edited timeline. A version without a plan shows its shots' clips.
-  const planClips = useMemo(() => (version?.code ? codeClips(version.code) : version?.clips), [version]);
+  const planClips = useMemo(() => (version?.clips ?? (version?.code ? codeClips(version.code) : undefined)), [version]);
   const clips = useMemo(
     () => (planClips && pieces ? editedClips(planClips, operations, pieces) : remapped(clipSpans(version?.shots ?? []), moved)),
     [version, planClips, pieces, operations, moved],
@@ -355,9 +364,22 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const markIn = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  const viewerKey = useRef<(event: KeyboardEvent) => boolean>(() => false);
+  viewerKey.current = (event) => {
+    if (workspace.settingsOpen || workspace.shortcutsOpen || (event.target as HTMLElement).closest('dialog, [role="dialog"]')) return true;
+    if (ignoresKey(event)) return false;
+    if (event.key === 'Escape' && workspace.focus) { event.preventDefault(); workspace.setFocus(false); return true; }
+    const action = actionForKey(workspace.settings.keys, keyChord(event));
+    if (action === 'prevShot' || action === 'nextShot') playback.seek(shotTarget(clips.map((clip) => clip.start), time, action === 'prevShot' ? -1 : 1, total));
+    else if (action === 'marker') void markerState.drop(time);
+    else if (action === 'fit') setRaw({ start: 0, length: total });
+    else return false;
+    event.preventDefault(); return true;
+  };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (viewerKey.current(e)) return;
       // Ctrl or Cmd with Z (Shift for redo) or Y steps the edit list, unless a field has its own undo.
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
         const field = e.target instanceof HTMLElement && (TYPING.has(e.target.tagName) || e.target.isContentEditable);
@@ -403,11 +425,11 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
   const problem =
     withFootage && videoFailed ? 'The footage could not be loaded.' : !withFootage && version !== undefined && version.footage?.exists === false ? 'The footage file is missing.' : null;
-  const pageUrl = version ? versionPageUrl(reel.slug, version.number) : undefined;
+  const pageUrl = version ? version.workingParts ? workingPartsPageUrl(reel.slug, version.workingParts.key) : versionPageUrl(reel.slug, version.workingBase ?? version.number) : undefined;
   const playable = total > 0 && win.length > 0;
 
   return (
-    <main className="main rv-main" aria-label="Review">
+    <main className="main rv-main rv-resizable" aria-label="Review">
       <div className="head">
         <h1>{reel.title}</h1>
         <span className="meta">
@@ -416,6 +438,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         {actions}
       </div>
       <Player
+        transport={{ markers: markerState.markers, onMarker: (id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }, onSeek: playback.seek, shots: clips.map((clip) => clip.start), pins: shownComments.filter((c) => !c.state).map((c) => ({ id: c.id, time: c.pin.time, number: c.number, text: c.text })), keys: workspace.settings.keys, timecode: workspace.settings.timecode, focus: workspace.focus, onFocus: () => workspace.setFocus(!workspace.focus) }}
         title={reel.title}
         footageSrc={withFootage ? footageUrl(reel.slug) : undefined}
         video={video}
@@ -455,6 +478,9 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
+      <MarkerPanel state={markerState}/>
+      <ViewerDivider />
+      <div className="rv-tracks-pane">
       {playable && (
         <Lanes
           win={win}
@@ -484,12 +510,13 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
           onSelect={setSelection}
         />
       )}
+      </div>
     </main>
   );
 }
 
 /** The Review tab: the reel in the Gate well, playing, with the lanes under it. */
-export function Review(props: ReviewProps) {
+function ReviewContent(props: ReviewProps) {
   const { state, message, reel } = props;
   const [mediaModel, setMediaModel] = useState<MediaEditingModel | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -509,4 +536,15 @@ export function Review(props: ReviewProps) {
   if (mediaModel && adaptedVersion) return <MediaEditor key={`${reel.slug}/${adaptedVersion.number}`} {...props} sourceRoot={mediaModel.sourceRoot} legacySources={mediaModel.legacySources} version={adaptedVersion} />;
   if (version?.isNewest) return <main className="main" aria-label="Review">{mediaError ? <><p role="alert">{mediaError}</p><button type="button" className="rv-tool" onClick={() => setMediaAttempt((attempt) => attempt + 1)}>Retry Review</button></> : <div className="state">Preparing Review…</div>}</main>;
   return <Playing key={`${reel.slug}/${version?.number ?? 'footage'}`} {...props} />;
+}
+
+function reviewVerifyAttrs(props: ReviewProps) {
+  return { 'data-verify-unit': 'Review', 'data-verify-status': props.state, 'data-verify-loading': String(props.state === 'loading'), 'data-verify-error': String(props.state === 'error'), 'data-verify-frozen': String(props.frozen === true) };
+}
+
+export function Review(props: ReviewProps) {
+  return <div className="rv-review-stack" {...reviewVerifyAttrs(props)}>
+    {props.frozen && props.version && <div className="frozen-version-line"><span>{`You are viewing v${props.version.number}, a frozen version.`}</span><button type="button" className="btn quiet" onClick={props.onWorking}>Back to Working</button></div>}
+    <ReviewContent {...props} />
+  </div>;
 }

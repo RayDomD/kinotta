@@ -13,8 +13,8 @@ One video deliverable inside a project, such as a product showreel or a b-roll e
 _Avoid_: Video, project, clip
 
 **Version**:
-A frozen build of a reel, made by your Save or by an agent from one comment batch, retaining the exact media, transcript and plan it was built from.
-Only the newest version of a reel takes comments; older versions can be viewed but not commented on.
+A frozen build of a reel, retaining the exact media, transcript, page and plan it was built from. A Final or Overlay render or a comment hand-off freezes Working only when its content changed. An agent's picture rebuild also produces a version. Numbered versions can be viewed and rendered, while editing happens in Working.
+For a parts reel, its manifest names immutable shot revisions and one shared revision. Kinotta generates its single page from those files.
 _Avoid_: Draft, revision, iteration
 
 **Storyboard**:
@@ -22,8 +22,16 @@ A version with every scene built in its final look but not animated, plus a shot
 _Avoid_: Mockup, sketch
 
 **Shot**:
-One storyboard entry: a number, a start time, a title, and a description of what happens.
+One storyboard entry with a title and description. In a parts reel its fixed name follows it through reordering, its number is its current position, and its start is computed from preceding durations.
 _Avoid_: Frame, panel, slide
+
+**Revision**:
+One immutable folder of a shot's markup, styles, module and assets, or of the reel's shared styles and assets. Changing a shot writes a new revision of that shot.
+_Avoid_: Version, iteration
+
+**Alternate**:
+One named revision offered as an answer for a shot. You can view and pin it, use it in Working, or mark it Not this with an optional reason. Use and Not this are undoable edits. Undismissed options travel forward until you dismiss them. A shot needing a choice is a reminder and blocks nothing.
+_Avoid_: Take, variation
 
 **Section**:
 A named stretch of a reel, a few minutes long, chosen by topic from the transcript. It groups shots so a long reel can be reviewed one part at a time.
@@ -39,6 +47,9 @@ _Avoid_: Node, layer, component
 
 **Clip**:
 A generated graphic with its own timing on the reel, such as animated b-roll or a lower third.
+On a code-built reel, each page scene is a clip on the Picture row, named from the storyboard.
+Moves and trims change picture timing independently of sound. Gaps show the page background,
+and overlapping shots occupy separate timeline rows and paint in page document order.
 _Avoid_: Footage take, placement, segment
 
 **Source**:
@@ -65,6 +76,10 @@ _Avoid_: B-roll track, layer
 An arrangement showing different pictures at the same moment in separate regions of the reel's frame.
 _Avoid_: Picture-in-picture
 
+**Picture track**:
+A timeline row for pictures. Picture 1 holds the main cut. Higher picture tracks hold inserts grouped by their front-to-back layer order. Graphics and captions have their own rows.
+_Avoid_: Video track, picture lane
+
 **Free layout**:
 An arrangement of several source placements in custom regions of the reel's frame, each with its own timing and framing. Regions can overlap, with an order deciding which picture is in front.
 _Avoid_: Two-source preset
@@ -75,13 +90,17 @@ _Avoid_: Two-source preset
 An AI coding tool that builds versions from the reel's sources, such as Claude. Optional: Kinotta works without one.
 _Avoid_: AI, bot, assistant
 
+**Working reel**:
+The persistent reel you edit and comment on. Changes apply immediately and survive a reload with Undo and Redo. Freezing keeps its history and leaves the numbered version exact.
+_Avoid_: Unsaved version, draft version
+
 **Edit list**:
-Your unsaved changes to the newest version, kept on disk as operations until you Save or Discard them.
+The working reel's durable operation journal, including who made each edit and the history Undo and Redo follow.
 _Avoid_: Draft, changes, pending
 
 **Save**:
-Writing the edit list into the reel's sources and building the next version from them.
-_Avoid_: Commit, export, publish
+A former manual action, replaced by durable live edits. The editor has no Save or Discard step. A Final or Overlay render or a comment hand-off freezes changed working content.
+_Avoid_: Commit, checkpoint
 
 **Piece**:
 A timed stretch of a video source in the reel's main sequence. A footage reel is an ordered sequence of pieces, with any deliberate gaps between them.
@@ -141,7 +160,8 @@ _Avoid_: General comment
 
 **Comment batch**:
 The comments on one section of a version (or on the whole reel, when it has one section), handed to an agent together to produce the next version.
-It can be copied again, with changes, until the next version exists. Only a handed-off batch freezes; unsent comments on sections the next version left unchanged move forward to it.
+A hand-off captures Working as an exact version before mapping and writing the batch. Repeating it without a content change reuses that version. Later live edits continue and replay onto the agent's next version, with missing targets flagged. Unsent comments carry through the existing section rules.
+On a parts reel the batch groups comments by shot and opens with a `Rebuild:` line naming those shots.
 _Avoid_: Feedback round, export
 
 **Approval**:
@@ -149,7 +169,7 @@ Your mark that a version is final. It is a label only: rendering doesn't need it
 _Avoid_: Sign-off, lock
 
 **Render**:
-A video file made from a version: Draft (a quick check of any version), Final (the whole reel as an MP4) or Overlay (the clips and captions with transparency).
+A video file made from captured inputs: Draft of Working uses temporary immutable inputs without adding a version. Final and Overlay freeze changed Working first. An explicit numbered-version render keeps using that exact version.
 _Avoid_: Export, bounce
 
 **Preset**:

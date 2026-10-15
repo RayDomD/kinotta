@@ -41,7 +41,7 @@ describe('shared placement audio mix', () => {
       placements: [{ id: 'song', role: 'audio', source: 'music', at: 0, in: 0, out: 4 }], sequence: [],
     };
     const edited = applyOperation({ plan: { media, duration: 4 }, words: [] }, {
-      id: 'quiet', kind: 'placement-change', placement: 'song', changes: { gain: 0.5, fadeIn: 1, volume: [{ at: 2, gain: 0 }] },
+      by: 'you', id: 'quiet', kind: 'placement-change', placement: 'song', changes: { gain: 0.5, fadeIn: 1, volume: [{ at: 2, gain: 0 }] },
     });
     expect(mixAt(edited.plan.media!, 1, 4)[0].gain).toBe(0.25);
     expect(mixAt(media, 1, 4)[0].gain).toBe(1);

@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
+import type { Locator } from 'playwright';
 import { expect, it } from 'vitest';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
@@ -36,6 +37,20 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
     const library = page.getByRole('region', { name: 'Project media library' });
+    const dropLibrary = async (path: string, target: Locator) => {
+      const row = library.locator(`[data-media-path="${path}"]`);
+      await row.scrollIntoViewIfNeeded();
+      const source = (await row.boundingBox())!;
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(source.x + source.width / 2 + 12, source.y + source.height / 2, { steps: 4 });
+      await page.getByText('New picture track', { exact: true }).waitFor();
+      await target.scrollIntoViewIfNeeded();
+      const box = (await target.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 });
+      await page.mouse.move(box.x + box.width / 2 + 1, box.y + box.height / 2);
+      await page.mouse.up();
+    };
     await library.locator('[data-media-path="duplicate.wav"]').waitFor();
     expect(await library.locator('[data-media-path="tone.wav"]').count()).toBe(1);
     expect(await library.getByRole('heading', { name: 'In this project' }).count()).toBe(0);
@@ -57,8 +72,9 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     const last = async () => (await server.project.readEditList('founder-talk')).operations.at(-1)!;
     await expect.poll(last).toMatchObject({ kind: 'placement-add', placement: { source: original.id, role: 'audio', at: 1, fadeIn: 0.2, fadeOut: 0.2 } });
     const track = page.locator('[data-track="music"] .native-lane-bars');
-    await library.locator('[data-media-path="duplicate.wav"]').dragTo(track);
-    await expect.poll(last).toMatchObject({ kind: 'placement-add', placement: { source: original.id, role: 'audio', track: 'music', at: 2 } });
+    await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled()).toBe(true);
+    await dropLibrary('duplicate.wav', track);
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-add', placement: { source: original.id, role: 'audio', track: 'music', at: 2 } });
     await library.getByRole('tab', { name: 'Audio', exact: true }).click();
     await library.getByLabel('Search media').fill('duplicate');
     expect(await library.locator('[data-media-path]').count()).toBe(1);
@@ -82,11 +98,16 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     await expect.poll(() => preview.getByRole('alert').count()).toBe(0);
     await expect.poll(() => preview.getByLabel('Preview of film.mp4').evaluate((element: HTMLVideoElement) => element.readyState)).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Close media preview' }).click();
-    await library.locator('[data-media-path="film.mp4"]').dragTo(page.locator('[data-role="main"] .native-lane-bars'));
+    await dropLibrary('film.mp4', page.locator('[data-role="main"] .native-lane-bars'));
     const film = (await server.project.listMedia()).find((entry) => entry.path === 'film.mp4')!;
     await expect.poll(last).toMatchObject({ kind: 'placement-add', index: 1, placement: { source: film.id, role: 'main', in: 0, out: 2 } });
     const operations = (await server.project.readEditList('founder-talk')).operations;
     expect(operations.at(-2)).toMatchObject({ kind: 'placement-split', placement: 'gap', at: 2 });
+    await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled()).toBe(true);
+    await dropLibrary('film.mp4', page.getByText('New picture track', { exact: true }).locator('..').locator('.native-lane-bars'));
+    await expect.poll(last).toMatchObject({ kind: 'placement-add', placement: { source: film.id, role: 'insert', layer: 1 } });
+    await expect.poll(() => page.locator('[data-picture-layer="1"] [data-placement]').count()).toBe(1);
+    await expect.poll(() => page.getByText('New picture track', { exact: true }).count()).toBe(0);
     // Native mix analysis also holds the original file until FFmpeg exits.
     await expect.poll(() => analyses.size, { timeout: 20_000 }).toBe(0);
     // Close the player requests before simulating an externally moved file on Windows.

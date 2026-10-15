@@ -52,4 +52,9 @@ Editing or deleting comments, notes and SSE. Later tickets add them.
 
 ## Dependencies
 
+Review additions: `GET/POST /api/reels/<reel>/markers`, `PATCH/DELETE /api/reels/<reel>/markers/<id>`;
+`GET /api/media/<source>/still?time=<seconds>&width=<pixels>` (optional `reel` and `version` for frozen sources);
+and `GET /api/reels/<reel>/footage-still?time=<seconds>&width=<pixels>` for legacy footage. Still widths are bounded
+from 32 to 640, times must lie inside the source, and no caller-supplied file path is accepted.
+
 `server/core` (through its `index.ts`: types and `KinottaError`) and Node's `http`, `fs` and `path`.

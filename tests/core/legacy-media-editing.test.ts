@@ -29,7 +29,7 @@ it('adapts legacy source-linked graphics and sections without rewriting the old 
   const project = openProject(dir);
   const model = await project.readMediaModel('founder-talk');
   expect(model.legacySources).toBeDefined();
-  const replayed = mediaEditingPlan(applyOperations(model.legacySources!, [{ id: 'legacy-pending', kind: 'snip', from: 8.5, to: 9 }])).media!;
+  const replayed = mediaEditingPlan(applyOperations(model.legacySources!, [{ by: 'you', id: 'legacy-pending', kind: 'snip', from: 8.5, to: 9 }])).media!;
   expect(replayed.sequence).toHaveLength(3);
   const mapped = mediaPlanTimeline({ media: model.media, duration: model.duration, clips: model.clips, sections: model.sections });
   expect(model.duration).toBe(4);
@@ -37,10 +37,10 @@ it('adapts legacy source-linked graphics and sections without rewriting the old 
   expect(mapped.sections?.map((s) => [s.start, s.end])).toEqual([[0, 4]]);
   expect(readFileSync(file, 'utf8')).toBe(original);
   await project.addOperation('founder-talk', { kind: 'placement-move', placement: model.media.sequence[1]!, index: 0 });
-  await expect(project.saveEdits('founder-talk')).rejects.toThrow('attachment');
+  await expect(project.freezeEdits('founder-talk')).rejects.toThrow('attachment');
   expect((await project.readEditList('founder-talk')).operations).toHaveLength(1);
   await project.addOperation('founder-talk', { kind: 'clip-split', clip: '01' });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const saved = await project.readVersion('founder-talk', 2);
   expect(saved.shots.map((s) => [s.line?.start, s.line?.end])).toEqual([[0, 1], [3, 4]]);
   expect(saved.sections.map((s) => [s.start, s.end])).toEqual([[0, 2], [2, 4]]);
@@ -55,7 +55,7 @@ it('keeps placement-specific speech corrections independent when the first edit 
   const project = openProject(dir);
   const model = await project.readMediaModel('founder-talk');
   await project.addOperation('founder-talk', { kind: 'word-text', placement: model.media.sequence[0]!, at: 1, text: 'corrected' });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const saved = await project.readVersion('founder-talk', 2);
   expect(saved.media?.sources[0]?.words?.[0]?.text).toBe('hello');
   expect(saved.media?.placements[0]?.role !== 'gap' && saved.media?.placements[0]?.words?.[0]?.text).toBe('corrected');
@@ -71,7 +71,7 @@ it('converts a first graphic repair trim and rejects a mismatched attachment ide
   const placement = model.clips![0]!.placement!;
   await expect(project.addOperation('founder-talk', { kind: 'clip-trim', clip: '01', placement: 'wrong-occurrence', in: 9, out: 10 })).rejects.toThrow('attachment');
   await project.addOperation('founder-talk', { kind: 'clip-trim', clip: '01', placement, in: 9, out: 10 });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const saved = await project.readVersion('founder-talk', 2);
   expect(saved.media).toBeDefined();
   expect(saved.sections.map((s) => [s.start, s.end])).toEqual([[0, 2], [2, 3]]);
@@ -109,7 +109,7 @@ it('pins legacy review moments and carries them through first native conversion 
   const first = model.media.sequence[0]!;
   const second = model.media.sequence[1]!;
   await project.addOperation('founder-talk', { kind: 'placement-move', placement: second, index: 0 });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const carried = await project.listComments('founder-talk', 2);
   expect(carried.map((c) => [c.text, c.pin.time, c.pin.placement, c.pin.sourceTime])).toEqual([['Word', 3, first, 9], ['Frame', 3.25, first, 9.25]]);
   const original = model.media.placements[0]!;
@@ -117,7 +117,7 @@ it('pins legacy review moments and carries them through first native conversion 
   if (original.role === 'gap') throw new Error('Expected footage');
   await project.addOperation('founder-talk', { kind: 'placement-add', placement: { ...original, id: 'duplicate', origin: undefined }, index: 0 });
   await project.addOperation('founder-talk', { kind: 'placement-remove', placement: first });
-  await project.saveEdits('founder-talk');
+  await project.freezeEdits('founder-talk');
   const removed = await project.listComments('founder-talk', 3);
   expect(removed.map((c) => c.state)).toEqual(['moment-removed', 'moment-removed']);
   expect(removed.map((c) => c.pin.placement)).toEqual([first, first]);

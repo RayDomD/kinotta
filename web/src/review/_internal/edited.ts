@@ -171,7 +171,7 @@ const stemOf = (path: string): string => (path.split('/').pop() ?? path).replace
 /** The plan clip a scene of the page is, as `build.py` names it: the fragment's file name, else `<id>-<name>`. */
 export function clipIdForScene(scene: string, clips: readonly PlanClip[]): string | undefined {
   const exact = clips.find((c) => typeof c.clip === 'string' && stemOf(c.clip) === scene);
-  return (exact ?? clips.find((c) => scene === c.id || scene.startsWith(`${c.id}-`)))?.id;
+  return (exact ?? clips.find((c) => scene === c.id) ?? clips.find((c) => scene.startsWith(`${c.id}-`)))?.id;
 }
 
 /**

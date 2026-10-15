@@ -16,6 +16,24 @@ export interface TimeWindow {
   length: number;
 }
 
+/** Timeline bars keep the existing 34px row; sound leaves room for waveforms and track controls. */
+export const TIMELINE_ROW_HEIGHT = 34;
+export const SOUND_ROW_HEIGHT = 64;
+
+/** Overlapping spans get separate rows. Touching spans reuse the first available row. */
+export function stackRows<T>(items: readonly T[], span: (item: T) => { start: number; end: number }) {
+  const ends: number[] = [];
+  const rows = new Map<T, number>();
+  const ordered = items.map((item) => ({ item, ...span(item) })).sort((a, b) => a.start - b.start);
+  for (const item of ordered) {
+    const available = ends.findIndex((end) => end <= item.start);
+    const row = available < 0 ? ends.length : available;
+    ends[row] = item.end;
+    rows.set(item.item, row);
+  }
+  return { rows, count: ends.length };
+}
+
 /** What one step of playback reports after reading the video's clock. */
 export interface Follow {
   /** The piece now playing. */

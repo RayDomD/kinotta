@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addOperation, cancelHandoff, discardEdits, fetchEdits, redoEdit, removeOperation, saveEdits, undoEdit } from '../../api/index.ts';
+import { addOperation, cancelHandoff, fetchEdits, redoEdit, removeOperation, undoEdit } from '../../api/index.ts';
 import type { EditList } from '../../api/index.ts';
 import type { NewOperation } from '../../../../server/core/model.ts';
 
 export interface EditsState {
   /** Null until the reel's list has arrived. */
   list: EditList | null;
-  /** An add, a Discard or a Save is on its way. */
+  /** A durable edit or history change is on its way. */
   busy: boolean;
   /** Why the last change was refused, in plain words. */
   error: string | null;
@@ -17,11 +17,9 @@ export interface EditsState {
   /** Steps the list back, or forward again. */
   undo(): Promise<void>;
   redo(): Promise<void>;
-  discard(): Promise<void>;
-  /** Ends the hand-off a copied batch started, so Save is allowed again. */
+  /** Ends the hand-off a copied batch started, without changing Working. */
   cancelHandoff(): Promise<void>;
-  /** Builds the next version. Resolves with its number, or null when it failed (the list is kept; the reason is in `error`). */
-  save(): Promise<number | null>;
+
 }
 
 const reason = (err: unknown): string => (err instanceof Error ? err.message : 'Could not reach the server.');
@@ -64,8 +62,12 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
 
   const add = useCallback(
     async (operation: NewOperation) => {
-      const list = await run((reel) => addOperation(reel, operation));
-      if (list !== null && slug !== undefined) setLoaded({ slug, list });
+      // The list lands in the same render that ends `busy`, so a dragged clip goes straight to its new place.
+      const list = await run(async (reel) => {
+        const next = await addOperation(reel, operation);
+        setLoaded({ slug: reel, list: next });
+        return next;
+      });
       return list !== null;
     },
     [run, slug],
@@ -73,25 +75,15 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
 
   const change = useCallback(
     async (task: (reel: string) => Promise<EditList>) => {
-      const list = await run(task);
-      if (list !== null && slug !== undefined) setLoaded({ slug, list });
+      await run(async (reel) => setLoaded({ slug: reel, list: await task(reel) }));
     },
     [run, slug],
   );
-  const discard = useCallback(() => change(discardEdits), [change]);
   const endHandoff = useCallback(() => change(cancelHandoff), [change]);
   const remove = useCallback((id: string) => change((reel) => removeOperation(reel, id)), [change]);
   const undo = useCallback(() => change(undoEdit), [change]);
   const redo = useCallback(() => change(redoEdit), [change]);
 
-  const save = useCallback(async () => {
-    const version = await run((reel) => saveEdits(reel));
-    if (version !== null && slug !== undefined) {
-      const list = await fetchEdits(slug).catch(() => null);
-      if (list !== null) setLoaded({ slug, list });
-    }
-    return version;
-  }, [run, slug]);
 
-  return { list: loaded !== null && loaded.slug === slug ? loaded.list : null, busy, error, add, remove, undo, redo, discard, cancelHandoff: endHandoff, save };
+  return { list: loaded !== null && loaded.slug === slug ? loaded.list : null, busy, error, add, remove, undo, redo, cancelHandoff: endHandoff };
 }

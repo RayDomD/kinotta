@@ -1,22 +1,32 @@
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BUILT_BY_YOU, applyOperations, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
-import { EDIT_LIST_FILE, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
-import { handoffReason, readHandoff } from './handoff.ts';
-import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, writeEdits } from './code-edits.ts';
+import { readEditListNow, recordFreeze, workingInputs, workingState, withPreservedMediaHashes, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { contentIdentity } from './content-identity.ts';
+import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, sceneForShot, stillTime, writeEdits, writeSceneTiming } from './code-edits.ts';
 import { freezePageDependencies } from './graphic-preservation.ts';
 import { preserveMedia } from './media-preservation.ts';
 import { withSpeech } from './media-speech.ts';
 import { mediaWithTracks } from './media-model.ts';
-import { readReelPlan, readReelTranscript, readReelWords, readSourceAudio } from './sources.ts';
-import { beginSave, endSave, rollBackSources } from './save-journal.ts';
+import { beginSave, endSave } from './save-journal.ts';
 import { settleNewest } from './carry.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
-import type { SavedVersion, TranscriptWord } from './types.ts';
+import type { SavedVersion } from './types.ts';
 import { STAGE_DIR, publishVersion, snapshotLegacyVersion, stageVersion } from './version-build.ts';
 import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
+import { checkPartsManifest } from './parts.ts';
+import { assembleParts } from './parts-assembler.ts';
+import { assertPartsHashes, partsRevisionHashes, readPartsInputs } from './parts-files.ts';
+
+interface CaptureOptions {
+  locked?: boolean;
+  reason?: string;
+  capture?: (dir: string) => Promise<SavedVersion>;
+  validate?: (dir: string, version: number) => Promise<void>;
+}
 
 const SPAN_TOLERANCE = 1e-6;
 
@@ -67,41 +77,81 @@ export function changedSectionsOf(before: Plan, after: Plan, operations: readonl
  * element offsets (the ones the newest version already had, with the list applied over them) and is linked from the copied
  * page. Built in the stage folder, `edits.json` then `shots.json` last, and renamed to `v<n+1>` in one step.
  */
-async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, list: { base: number; operations: readonly Operation[] }): Promise<SavedVersion> {
+async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string, list: { base: number; operations: readonly Operation[] }, options: CaptureOptions = {}): Promise<SavedVersion> {
   assertCodeOnlyOperations(list.operations);
   const newest = await newestVersionNumber(reelDir);
-  const from = join(reelDir, `v${newest}`);
+  const from = join(reelDir, `v${list.base}`);
   const { sources, scenes } = await codeSources(from);
-  const applied = applyOperations(sources, list.operations);
+  const shots = JSON.parse(await readFile(join(from, 'shots.json'), 'utf8')) as Record<string, unknown>;
+  const parts = shots.contract === 2 ? checkPartsManifest(shots).manifest : null;
+  if (shots.contract === 2 && !parts) throw new KinottaError('invalid', 'The parts manifest must pass check before it can be frozen.');
+  const applied = await withPreservedMediaHashes(reelDir, applyOperations(sources, list.operations));
   const edited = applied.plan.media ? { ...applied, plan: { ...applied.plan, media: mediaWithTracks(applied.plan.media) } } : applied;
   const stage = join(reelDir, STAGE_DIR);
   await rm(stage, { recursive: true, force: true });
   try {
     await copyVersion(from, stage);
     // Files the page uses from outside its version folder are frozen too, so the new version cannot change later (AM33).
-    await freezePageDependencies(stage);
+    if (parts) {
+      const workingManifest = edited.plan.parts ?? parts;
+      const inputs = await readPartsInputs(reelDir, workingManifest);
+      if (parts.revisionHashes) assertPartsHashes(parts.revisionHashes, await partsRevisionHashes(reelDir, parts));
+      const nextShots = workingManifest.shots.map((shot) => {
+        const clip = edited.plan.clips?.find((clip) => clip.id === shot.name);
+        return clip ? { ...shot, duration: clip.out - clip.in } : shot;
+      });
+      const next = { ...workingManifest, shots: nextShots, duration: nextShots.reduce((sum, shot) => sum + shot.duration, 0) };
+      Object.assign(shots, next);
+      await writeFile(join(stage, 'index.html'), assembleParts(next, inputs), 'utf8');
+    } else await freezePageDependencies(stage);
     await writeEdits(stage, offsetsOf(edited));
+    if (!parts) await writeSceneTiming(stage, sources, edited);
     if (edited.plan.media) {
-      const media = await preserveMedia(from, stage, await withSpeech(projectDir, from, edited.plan.media));
+      const media = await preserveMedia(from, stage, await withSpeech(projectDir, from, edited.plan.media), options.capture !== undefined);
       await writeJsonAtomic(join(stage, MEDIA_SIDECAR_FILE), { media, duration: edited.plan.duration });
     }
     await writeFile(join(stage, 'edits.json'), `${JSON.stringify({ base: list.base, operations: list.operations }, null, 2)}
 `, 'utf8');
-    const shots = JSON.parse(await readFile(join(from, 'shots.json'), 'utf8')) as Record<string, unknown>;
     const sections = (await readVersion(projectDir, slug, newest)).sections;
     // A section changed when a scene whose offsets differ plays inside it: what comparing the pages finds too.
     const moved = new Set(changedScenes(offsetsOf(sources), offsetsOf(edited)));
+    for (const clip of edited.plan.clips ?? []) {
+      const before = sources.plan.clips?.find((c) => c.id === clip.id);
+      if (before?.in !== clip.in || before?.out !== clip.out) moved.add(clip.id);
+    }
     const spans = scenes.filter((s) => moved.has(s.name));
-    const changedSections = sections.filter((sec) => spans.some((s) => s.start < sec.end && s.start + s.duration > sec.start)).map((sec) => sec.id);
+    const changedSections = sections.filter((sec) => spans.some((s) => s.start < sec.end && s.start + s.duration > sec.start) || (edited.plan.clips ?? []).some((c) => moved.has(c.id) && c.in < sec.end && c.out > sec.start)).map((sec) => sec.id);
+    const timingChanged = list.operations.some((op) => op.kind === 'clip-slide' || op.kind === 'clip-trim');
+    if (timingChanged && !parts) {
+      shots.duration = edited.plan.duration;
+      shots.shots = (shots.shots as { start: number; title: string; scene?: string }[]).map((shot) => {
+        const scene = sceneForShot(shot, scenes);
+        const clip = edited.plan.clips?.find((c) => c.id === scene?.name);
+        return scene && clip ? { ...shot, scene: clip.id, start: stillTime(shot.start, scene, clip) } : shot;
+      }).sort((a, b) => a.start - b.start);
+    }
     await writeFile(join(stage, 'shots.json'), `${JSON.stringify({ ...shots, changedSections, builtBy: BUILT_BY_YOU }, null, 2)}
 `, 'utf8');
   } catch (err) {
     await rm(stage, { recursive: true, force: true });
     throw err;
   }
+  if (options.reason) {
+    const file = join(stage, 'shots.json');
+    await writeJsonAtomic(file, { ...JSON.parse(await readFile(file, 'utf8')), frozenBy: options.reason });
+  }
+  if (options.capture) return options.capture(stage);
+  try { await options.validate?.(stage, newest + 1); } catch (error) {
+    await rm(stage, { recursive: true, force: true });
+    throw error;
+  }
+  if (await contentIdentity(stage) === await contentIdentity(join(reelDir, `v${newest}`))) {
+    await rm(stage, { recursive: true, force: true });
+    return { version: newest };
+  }
   const number = newest + 1;
   try {
-    await beginSave(reelDir, number, [], list.operations.map((op) => op.id));
+    await beginSave(reelDir, number, [], list.operations.map((op) => op.id), await workingState(reelDir));
     await publishVersion(reelDir, { dir: stage }, number);
   } catch (failure) {
     await endSave(reelDir);
@@ -113,38 +163,38 @@ async function saveCodeOnly(projectDir: string, slug: string, reelDir: string, l
 }
 
 /**
- * Save: writes the edit list into the reel's sources and builds the next version from them, with no agent. The version is
- * built in a stage folder and renamed to `v<n+1>` last, so any failure leaves no new version, the sources as they were,
- * and the edit list in place. On success the list is cleared.
+ * Capture the anchored working inputs under the reel lock. Publish only changed content,
+ * with one stage-and-rename boundary and a journal that retains the full undo/redo history.
  */
-export async function saveEdits(projectDir: string, slug: string): Promise<SavedVersion> {
+async function buildWorking(projectDir: string, slug: string, options: CaptureOptions = {}): Promise<SavedVersion> {
   const reelDir = await requireReelDir(projectDir, slug);
-  return withReelLock(reelDir, async () => {
+  const task = async (): Promise<SavedVersion> => {
     const list = await readEditListNow(projectDir, slug);
-    if (list.operations.length === 0) throw new KinottaError('invalid', 'There are no edits to save.');
-    if ((await newestVersionNumber(reelDir)) === 0) throw new KinottaError('invalid', 'This reel has no version yet. Save is off until its transcript is done and v1 is built. Edits still collect.');
-    if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Discard it to start again.`);
-    if ((await readHandoff(reelDir, await newestVersionNumber(reelDir))) !== null) throw new KinottaError('invalid', handoffReason(list.base));
+    if ((await newestVersionNumber(reelDir)) === 0) throw new KinottaError('invalid', 'This reel has no version yet. Working renders wait until its transcript is done and v1 is built. Edits still collect.');
+    if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Check its flagged edits before freezing it.`);
     const flagged = Object.keys(list.flagged ?? {}).length;
     if (flagged > 0) {
-      throw new KinottaError('invalid', `${flagged === 1 ? 'One edit no longer applies' : `${flagged} edits no longer apply`} to v${list.base}. Remove ${flagged === 1 ? 'it' : 'them'} or redo ${flagged === 1 ? 'it' : 'them'}, then Save.`);
+      throw new KinottaError('invalid', `${flagged === 1 ? 'One edit no longer applies' : `${flagged} edits no longer apply`} to v${list.base}. Remove ${flagged === 1 ? 'it' : 'them'} or redo ${flagged === 1 ? 'it' : 'them'}, then freeze Working.`);
     }
 
+
     if (await isCodeOnly(projectDir, reelDir)) {
-      const saved = await saveCodeOnly(projectDir, slug, reelDir, list);
-      await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
+      const saved = await freezeCodeOnly(projectDir, slug, reelDir, list, options);
+      if (options.capture) return saved;
+      await recordFreeze(reelDir, saved.version, await workingState(reelDir), await contentIdentity(join(reelDir, `v${saved.version}`)));
       await endSave(reelDir);
       await settleNewest(projectDir, slug);
       return saved;
     }
-    const { plan, planFile, planDir, transcriptFile } = await readReelPlan(projectDir, reelDir);
-    const transcript = transcriptFile ? await readReelTranscript(transcriptFile) : {};
-    const words = await readReelWords(transcriptFile);
-    const applied: Sources = applyOperations({ plan, words, videoAudio: await readSourceAudio(plan, planDir) }, list.operations);
+    const { sources, planDir, transcript } = await workingInputs(projectDir, reelDir);
+    const { plan, words } = sources;
+    const applied: Sources = await withPreservedMediaHashes(reelDir, applyOperations(sources, list.operations));
     const edited: Sources = applied.plan.media ? { ...applied, plan: { ...applied.plan, media: await withSpeech(projectDir, planDir, mediaWithTracks(applied.plan.media)) } } : applied;
     const number = (await newestVersionNumber(reelDir)) + 1;
 
     const staged = await stageVersion(reelDir, {
+      freezeSources: true,
+      referenceVideo: options.capture !== undefined,
       plan: edited.plan,
       planDir,
       words: edited.words,
@@ -154,31 +204,57 @@ export async function saveEdits(projectDir: string, slug: string): Promise<Saved
       operations: { base: list.base, list: list.operations },
     });
 
-    // The editable plan keeps original paths but remembers the bytes the published version preserved.
-    let nextPlan = edited.plan;
-    if (edited.plan.media) {
-      const preserved = (JSON.parse(await readFile(join(staged.dir, 'plan.json'), 'utf8')) as Plan).media!;
-      nextPlan = { ...edited.plan, media: { ...edited.plan.media, sources: edited.plan.media.sources.map((source) => ({ ...source, contentHash: preserved.sources.find((s) => s.id === source.id)!.contentHash })) } };
+    if (options.reason) {
+      const file = join(staged.dir, 'shots.json');
+      await writeJsonAtomic(file, { ...JSON.parse(await readFile(file, 'utf8')), frozenBy: options.reason });
+    }
+    if (options.capture) return options.capture(staged.dir);
+    try { await options.validate?.(staged.dir, number); } catch (error) {
+      await rm(staged.dir, { recursive: true, force: true });
+      throw error;
+    }
+    const identity = await contentIdentity(staged.dir);
+    const stored = await workingState(reelDir);
+    const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !applied.plan.media?.sources.find((original) => original.id === source.id)?.words) ?? false;
+    if (((list.operations.length === 0 && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
+      await rm(staged.dir, { recursive: true, force: true });
+      await recordFreeze(reelDir, number - 1, stored, identity);
+      return { version: number - 1 };
     }
 
-    // The journal first, then the sources, then the rename that commits: a crash in between is settled on the next read.
-    const before = [{ file: planFile, text: await readFile(planFile, 'utf8') }];
-    if (transcriptFile) before.push({ file: transcriptFile, text: await readFile(transcriptFile, 'utf8') });
     try {
       if (!plan.media && edited.plan.media) await snapshotLegacyVersion(planDir, join(reelDir, `v${list.base}`), plan, { ...transcript, words });
-      await beginSave(reelDir, number, before, list.operations.map((op) => op.id));
-      await writeJsonAtomic(planFile, nextPlan);
-      if (!edited.plan.media && transcriptFile && JSON.stringify(edited.words) !== JSON.stringify(words)) await writeJsonAtomic(transcriptFile, { ...transcript, words: edited.words });
+      await beginSave(reelDir, number, [], list.operations.map((op) => op.id), await workingState(reelDir));
       await publishVersion(reelDir, staged, number);
-    } catch (err) {
-      await rollBackSources(before);
+    } catch (error) {
       await endSave(reelDir);
       await rm(staged.dir, { recursive: true, force: true });
-      throw err;
+      throw error;
     }
-    await rm(join(reelDir, EDIT_LIST_FILE), { force: true });
+    await recordFreeze(reelDir, number, await workingState(reelDir), identity);
     await endSave(reelDir);
     await settleNewest(projectDir, slug);
     return { version: number };
-  });
+  };
+  return options.locked ? task() : withReelLock(reelDir, task);
 }
+
+/** Preserve the current working reel without consuming its operation history. */
+export const freezeEdits = (projectDir: string, slug: string, validate?: CaptureOptions['validate'], reason?: string): Promise<SavedVersion> => buildWorking(projectDir, slug, { validate, reason });
+
+/** A queue owns this immutable capture until completion, failure or cancellation. */
+export async function captureWorking(projectDir: string, slug: string): Promise<{ dir: string; version: number }> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const dir = join(reelDir, `.draft-${randomUUID()}`);
+  const captured = await buildWorking(projectDir, slug, { capture: async (stage) => {
+    try { await rename(stage, dir); } catch (error) {
+      await rm(stage, { recursive: true, force: true });
+      throw error;
+    }
+    return { version: await newestVersionNumber(reelDir) };
+  } });
+  return { dir, version: captured.version };
+}
+
+/** The hand-off holds the reel lock through capture, mapping and batch recording. */
+export const freezeEditsNow = (projectDir: string, slug: string): Promise<SavedVersion> => buildWorking(projectDir, slug, { locked: true, reason: 'Comments to the agent' });

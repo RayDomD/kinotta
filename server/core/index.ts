@@ -1,8 +1,12 @@
+import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { approveVersion, withdrawApproval } from './_internal/approval.ts';
+import { buildParts } from './_internal/parts-build.ts';
+import { workingPartsPage, workingPartsSnapshot } from './_internal/parts-working.ts';
+import { alternatePage } from './_internal/parts-alternates.ts';
 import { copyBatch } from './_internal/batch.ts';
-import { addOperation, cancelHandoff, discardEdits, readEditList, readMediaModel, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
-import { saveEdits } from './_internal/save.ts';
+import { addOperation, cancelHandoff, discardEdits, readEditList, readEditListNow, readMediaModel, withReelLock, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
+import { captureWorking, freezeEdits } from './_internal/save.ts';
 import { readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageFile } from './_internal/footage.ts';
@@ -11,26 +15,35 @@ import { importMedia, listMedia, listProjectMedia, mediaFile, mediaWaveform, ref
 import { createMediaSpeech } from './_internal/media-speech.ts';
 import { createMediaBeats } from './_internal/media-beats.ts';
 import { soundEffects, soundEffectFile, importSoundEffect } from './_internal/sound-effects.ts';
+import { createAudioGeneration } from './_internal/audio-generation.ts';
 import { listReels } from './_internal/reels.ts';
-import { checkRenderChoice, prepareRender, runRender } from './_internal/render.ts';
+import { CLEANUP_RETRIES, CLEANUP_RETRY_MS, checkRenderChoice, prepareRender, runRender } from './_internal/render.ts';
 import { mixOverload } from './_internal/media-overload.ts';
 import { readRenderSettings, saveRenderSettings } from './_internal/render-settings.ts';
 import { listRenders, renderPath, revealRender } from './_internal/past-renders.ts';
-import { createRenderQueue } from './_internal/render-queue.ts';
+import { createRenderQueue, removeStaleDrafts } from './_internal/render-queue.ts';
 import { startReel, startReelFromBrief, transcribeWithWhisper } from './_internal/start.ts';
 import { checkTools, missingToolsMessage } from './_internal/tools.ts';
-import type { Project, ProjectEvent, RenderJob, RenderRequest, Transcriber } from './_internal/types.ts';
+import type { EditList, Project, ProjectEvent, RenderJob, RenderRequest, Transcriber } from './_internal/types.ts';
 import { listVideos } from './_internal/videos.ts';
-import { listVersions } from './_internal/version.ts';
+import { readCapturedVersion, requireReelDir, newestVersionNumber, listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
 import { createTranscriptions } from './_internal/transcription.ts';
+import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/markers.ts';
+import { mediaStill } from './_internal/media-stills.ts';
+export type { TimelineMarker } from './_internal/markers.ts';
 
+export { removeStaleDrafts } from './_internal/render-queue.ts';
+export { assembleParts } from './_internal/parts-assembler.ts';
+export type { PartsInputs, ShotRevision } from './_internal/parts-assembler.ts';
+export { scanPage, checkShotsAgainstPage } from './_internal/contract.ts';
 export { KinottaError } from './_internal/errors.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
 export { checkTools, missingToolsMessage };
 export { versionIssues } from './_internal/footage-issues.ts';
+export type { AudioGenerationRequest, GeneratedAudio } from './_internal/audio-generation.ts';
 export type {
   SoundEffect,
   MediaSpeech,
@@ -43,8 +56,12 @@ export type {
   AddedComment,
   Approval,
   BatchOptions,
+  BuiltPartsVersion,
   Comment,
   ContractIssue,
+  PartsManifest,
+  PartsAlternate,
+  PartsShot,
   CommentList,
   CopiedBatch,
   EditList,
@@ -100,11 +117,18 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const watcher = createWatcher(join(dir, 'reels'));
   const listeners = new Set<(event: ProjectEvent) => void>();
   const emit = (event: ProjectEvent): void => listeners.forEach((listener) => listener(event));
+  const edited = async (slug: string, task: () => Promise<EditList>): Promise<EditList> => {
+    const list = await task();
+    emit({ type: 'edits-changed', reel: slug });
+    return list;
+  };
   const transcriptions = createTranscriptions(emit);
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
   const beats = createMediaBeats(dir);
+  const generateAudio = createAudioGeneration(dir);
   const render = async (request: RenderRequest): Promise<RenderJob> => {
+    removeStaleDrafts(dir);
     const task = await prepareRender(dir, request);
     if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
@@ -118,16 +142,35 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     listProjectMedia: () => listProjectMedia(dir),
     relinkMedia: (source, path) => relinkMedia(dir, source, path),
     mediaFile: (source, saved) => mediaFile(dir, source, saved),
+    mediaStill: (source, time, width, saved, footageReel) => mediaStill(dir, source, time, width, saved, footageReel),
+    listMarkers: (slug) => listMarkers(dir, slug),
+    addMarker: (slug, input) => addMarker(dir, slug, input),
+    changeMarker: (slug, id, changes) => changeMarker(dir, slug, id, changes),
+    removeMarker: (slug, id) => removeMarker(dir, slug, id),
     mediaWaveform: (source, saved) => mediaWaveform(dir, source, saved),
     listMedia: (filter) => listMedia(dir, filter),
     mediaSpeech: (source, saved) => speech.status(source, saved),
     transcribeMedia: (source, saved) => speech.start(source, saved),
     detectMediaBeats: beats,
+    generateAudio,
     readMediaModel: (slug) => readMediaModel(dir, slug),
     name: basename(dir),
     reelsDir: join(dir, 'reels'),
     listReels: () => listReels(dir),
     readVersion: (slug, number) => readVersion(dir, slug, number),
+    workingPartsPage: (slug, override) => workingPartsPage(dir, slug, override),
+    alternatePage: (slug, number, shot, revision) => alternatePage(dir, slug, number, shot, revision),
+    readWorkingVersion: async (slug) => {
+      const reelDir = await requireReelDir(dir, slug);
+      return withReelLock(reelDir, async () => {
+        const list = await readEditListNow(dir, slug);
+        const number = await newestVersionNumber(reelDir);
+        const version = await readCapturedVersion(dir, slug, number, join(reelDir, `v${list.base}`));
+        const parts = version.parts ? await workingPartsSnapshot(dir, slug) : null;
+        const shots = parts?.shots.map((shot) => ({ ...shot, section: version.shots.find((original) => original.name === shot.name)?.section }));
+        return { ...version, isNewest: true, workingBase: list.base, ...(parts && shots ? { workingParts: { duration: parts.duration, shots, key: parts.key } } : {}) };
+      });
+    },
     listVersions: (slug) => listVersions(dir, slug),
     subscribe: (listener) => {
       listeners.add(listener);
@@ -151,22 +194,33 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     transcriptionProgress: (slug) => transcriptions.progress(slug),
     whenTranscribed: (slug) => transcriptions.whenDone(slug),
     readEditList: (slug) => readEditList(dir, slug),
-    addOperation: (slug, operation) => addOperation(dir, slug, operation),
-    removeOperation: (slug, id) => removeOperation(dir, slug, id),
-    undoEdit: (slug) => undoEdit(dir, slug),
-    redoEdit: (slug) => redoEdit(dir, slug),
+    addOperation: (slug, operation) => edited(slug, () => addOperation(dir, slug, operation)),
+    removeOperation: (slug, id) => edited(slug, () => removeOperation(dir, slug, id)),
+    undoEdit: (slug) => edited(slug, () => undoEdit(dir, slug)),
+    redoEdit: (slug) => edited(slug, () => redoEdit(dir, slug)),
     discardEdits: (slug) => discardEdits(dir, slug),
     cancelHandoff: (slug) => cancelHandoff(dir, slug),
-    saveEdits: (slug) => saveEdits(dir, slug),
+    freezeEdits: (slug) => freezeEdits(dir, slug),
+    buildParts: (slug, by) => buildParts(dir, slug, by),
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
     approveVersion: (slug, number) => approveVersion(dir, slug, number),
     withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
     render,
-    saveAndRender: async (request) => {
+    renderWorking: async (request) => {
+      removeStaleDrafts(dir);
       await checkRenderChoice(dir, request);
-      // Save refusing or failing throws here, so no render of stale or pending content starts (AM40).
-      const { version } = await saveEdits(dir, request.reel);
-      return { version, job: await render({ ...request, version }) };
+      if (request.preset !== 'draft') {
+        const { version } = await freezeEdits(dir, request.reel, async (stage, number) => { await prepareRender(dir, { ...request, version: number }, stage); }, request.preset === 'final' ? 'Final render' : 'Overlay render');
+        return render({ ...request, version });
+      }
+      const capture = await captureWorking(dir, request.reel);
+      const cleanup = () => rm(capture.dir, { recursive: true, force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS });
+      try {
+        const draft = { ...request, version: capture.version, working: true as const };
+        const task = await prepareRender(dir, draft, capture.dir);
+        if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
+        return renders.add(draft, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments), cleanup);
+      } catch (error) { await cleanup(); throw error; }
     },
     mixOverload: (slug, version) => mixOverload(dir, slug, version),
     renderJobs: () => renders.jobs(),

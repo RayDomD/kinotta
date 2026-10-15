@@ -1,7 +1,9 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { EDITS_CSS, isCodeOnly, readEditsCss } from './code-edits.ts';
+import { EDITS_CSS, codeSources, isCodeOnly, readEditsCss } from './code-edits.ts';
 import { checkShotsAgainstPage, checkShotsFile, scanVersionPage } from './contract.ts';
+import { checkPartsManifest } from './parts.ts';
+import { assertPartsHashes, partsRevisionHashes, readPartsInputs } from './parts-files.ts';
 import { detectChanges } from './changes.ts';
 import { KinottaError } from './errors.ts';
 import { SAFE_SLUG, addFootage } from './footage.ts';
@@ -63,7 +65,7 @@ export async function listVersions(projectDir: string, slug: string): Promise<Ve
       const approved = await isFile(join(reelDir, `v${number}`, APPROVAL_FILE));
       const comments = (await readState(stateFilePath(projectDir, slug, number), number).catch(() => ({ comments: [] }))).comments.length;
       const issues = version === null ? 0 : versionIssues(version).length;
-      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, approved, comments, issues, ...(version?.builtBy ? { builtBy: version.builtBy } : {}) };
+      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, approved, comments, issues, ...(version?.builtBy ? { builtBy: version.builtBy } : {}), ...(version?.frozenBy ? { frozenBy: version.frozenBy } : {}) };
       if (number === STORYBOARD_VERSION) return entry;
       // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
       return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;
@@ -142,9 +144,9 @@ function readShots(raw: unknown, duration: number): Shot[] {
   });
 }
 
-async function readVersionFiles(projectDir: string, slug: string, number: number): Promise<Version> {
+async function readVersionFiles(projectDir: string, slug: string, number: number, capturedDir?: string): Promise<Version> {
   const reelDir = await requireReelDir(projectDir, slug);
-  const versionDir = join(reelDir, `v${number}`);
+  const versionDir = capturedDir ?? join(reelDir, `v${number}`);
   if (!Number.isInteger(number) || number < 1 || !(await isDirectory(versionDir))) {
     throw new KinottaError('not-found', `Version ${number} of reel "${slug}" not found.`);
   }
@@ -157,8 +159,17 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
   const lastStart = Math.max(0, ...fileCheck.shots.map((s) => s.start));
   const pageEnd = Math.max(0, ...page.scenes.map((s) => s.start + s.duration));
   const duration = hasDuration ? Number(file.duration) : Math.max(lastStart, pageEnd);
-  const { sections, shots } = readSections(file.sections, readShots(file.shots, duration), duration, (await readTitle(reelDir)) ?? slug);
+  const parts = file.contract === 2 ? checkPartsManifest(file) : null;
+  if (parts?.manifest) {
+    try {
+      await readPartsInputs(reelDir, parts.manifest);
+      if (parts.manifest.revisionHashes) assertPartsHashes(parts.manifest.revisionHashes, await partsRevisionHashes(reelDir, parts.manifest));
+    }
+    catch (error) { fileCheck.issues.push({ code: 'parts-files', message: error instanceof Error ? error.message : 'Parts revision files could not be read.' }); }
+  }
+  const { sections, shots } = readSections(file.sections, parts?.shots ?? readShots(file.shots, duration), duration, (await readTitle(reelDir)) ?? slug);
   const version: Version = {
+    ...(parts?.manifest ? { parts: parts.manifest } : {}),
     number,
     isNewest: number === (await newestVersionNumber(reelDir)),
     duration,
@@ -169,8 +180,12 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
     issues: parsed === null ? fileCheck.issues : [...fileCheck.issues, ...page.issues, ...checkShotsAgainstPage(fileCheck.shots, page.scenes)],
   };
   if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
+  if (typeof file.frozenBy === 'string') version.frozenBy = file.frozenBy;
   if (typeof file.builtBy === 'string' && file.builtBy.trim() !== '') version.builtBy = file.builtBy;
-  if (await isCodeOnly(projectDir, reelDir)) version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
+  if (await isCodeOnly(projectDir, reelDir)) {
+    version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
+    if (parsed && page.scenes.length > 0) version.clips = (await codeSources(versionDir)).sources.plan.clips;
+  }
   const withFootage = await addFootage(projectDir, reelDir, versionDir, version);
   if (withFootage.shots.length > 0) return withFootage;
   return { ...withFootage, brollRequest: brollRequest(slug, (await readTitle(reelDir)) ?? slug, number) };
@@ -205,3 +220,6 @@ export async function readVersion(projectDir: string, slug: string, number: numb
   );
   return { ...version, changedSections: changed, claimMismatch };
 }
+
+/** Reads a captured or staged page through the same contract and source resolvers as a version. */
+export const readCapturedVersion = (projectDir: string, slug: string, number: number, dir: string): Promise<Version> => readVersionFiles(projectDir, slug, number, dir);

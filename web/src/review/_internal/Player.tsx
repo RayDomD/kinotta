@@ -2,10 +2,13 @@ import type { ReactNode, RefObject } from 'react';
 import { PagePlayer } from '../../stage/index.ts';
 import type { CaptionMove, CaptionPhrase, CaptionShift, CaptionText, CaptionWord, ClipTiming, ElementEditing } from '../../stage/index.ts';
 import { formatClock } from '../../timecode.ts';
-import { formatTransport } from './clock.ts';
+
 import type { TimeWindow } from './timeline.ts';
+import { Transport } from './Transport.tsx';
+import type { TransportProps } from './Transport.tsx';
 
 export interface PlayerProps {
+  transport: Omit<TransportProps, 'time' | 'total' | 'playing' | 'onToggle'>;
   title: string;
   /** The footage to play under the page, when the reel has footage. */
   footageSrc: string | undefined;
@@ -44,20 +47,12 @@ export interface PlayerProps {
 const ZOOM_IN = 0.5;
 const ZOOM_OUT = 2;
 
-function PlayMark({ playing }: { playing: boolean }) {
-  return (
-    <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true">
-      <path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--ink)" />
-      {playing ? <path d="M11 9.5h2.2v9H11zM14.8 9.5H17v9h-2.2z" fill="var(--ground)" /> : <path d="M11.5 9.8l6 4.2-6 4.2z" fill="var(--ground)" />}
-    </svg>
-  );
-}
-
 /** The Gate well: the reel's frame (footage under the version page) and the transport under it. */
 export function Player(props: PlayerProps) {
   const { title, footageSrc, video, pageUrl, problem, time, pageTime, total, playing, win, tools, onToggle, onZoom, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, onCaptionText, onVideoMetadata, onVideoError } = props;
   return (
     <div className="well rv-well">
+      <div className="rv-picture-stage">
       <div className="rv-frame" aria-label={`${title} frame`}>
         {footageSrc !== undefined && (
           <video
@@ -75,20 +70,15 @@ export function Player(props: PlayerProps) {
         {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} captionShifts={captionShifts} onCaptionMove={onCaptionMove} elements={elements} clipTiming={clipTiming} captionWords={captionWords} onCaptionText={onCaptionText} />}
         {problem !== null && <div className="rv-problem" role="status">{problem}</div>}
       </div>
-      <div className="rv-transport">
-        <button type="button" className="rv-play" aria-label={playing ? 'Pause' : 'Play'} onClick={onToggle}>
-          <PlayMark playing={playing} />
-        </button>
-        <div className="rv-tc" aria-label="Timecode">
-          {formatTransport(time)} <span>{`/ ${formatTransport(total)}`}</span>
-        </div>
+      </div>
+      <Transport {...props.transport} time={time} total={total} playing={playing} onToggle={onToggle}>
         {tools}
         <div className="rv-zoom">
           Showing <b>{`${formatClock(win.start)} to ${formatClock(win.start + win.length)}`}</b>
           <button type="button" className="rv-tool" aria-label="Zoom out" disabled={win.length >= total} onClick={() => onZoom(ZOOM_OUT)}>−</button>
           <button type="button" className="rv-tool" aria-label="Zoom in" onClick={() => onZoom(ZOOM_IN)}>+</button>
         </div>
-      </div>
+      </Transport>
     </div>
   );
 }

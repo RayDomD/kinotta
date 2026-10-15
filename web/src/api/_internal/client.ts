@@ -1,5 +1,5 @@
 import type { CaptionsPlan, ElementOffset, MediaPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
-import type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
+import type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, PartsAlternate, PartsManifest, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {
   slug: string;
@@ -18,7 +18,7 @@ export interface ReelListing {
 }
 
 export interface ToolStatus {
-  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium';
+  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium' | 'kokoro-onnx' | 'stable-audio';
   name: string;
   present: boolean;
   hint: string;
@@ -36,6 +36,11 @@ export interface ProjectInfo {
 }
 
 export interface Shot {
+  alternates?: Array<PartsAlternate & { inReel: boolean }>;
+  choiceMade?: boolean;
+  name?: string;
+  scene?: string;
+  revision?: string;
   number: string;
   start: number;
   duration: number;
@@ -93,6 +98,10 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  parts?: PartsManifest;
+  workingParts?: { duration: number; shots: Shot[]; key: string };
+  workingBase?: number;
+  frozenBy?: string;
   mediaSections?: { id: string; name: string; start: number; end: number; placement?: string; partOf?: string }[];
   media?: MediaPlan;
   number: number;
@@ -124,6 +133,7 @@ export interface Version {
 
 /** One row of a reel's version rail. */
 export interface VersionEntry {
+  frozenBy?: string;
   number: number;
   isNewest: boolean;
   /** v1 in this phase. */
@@ -159,6 +169,7 @@ export interface RenderSettings {
 
 /** A finished render in a reel's renders/ folder. */
 export interface RenderFile {
+  working?: true;
   file: string;
   version: number;
   preset: RenderPreset;
@@ -169,6 +180,7 @@ export interface RenderFile {
 
 /** One render in the project's queue. */
 export interface RenderJob {
+  working?: true;
   id: string;
   reel: string;
   version: number;
@@ -185,6 +197,7 @@ export interface RenderJob {
 
 /** What the server reports as it happens. */
 export type ProjectEvent =
+  | { type: 'edits-changed'; reel: string }
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
@@ -204,6 +217,8 @@ export interface TranscriptionProgress {
 }
 
 export interface FramePin {
+  alternate?: string;
+  shotName?: string;
   placement?: string;
   sourceTime?: number;
   offset?: number;
@@ -235,6 +250,8 @@ export interface WordPin {
 }
 
 export interface Comment {
+  stateReason?: string;
+  options?: 2 | 3 | 4;
   id: string;
   /** Position in the version's comments by pin time then creation. The number shown everywhere. */
   number: number;
@@ -255,7 +272,8 @@ export interface CommentsOfVersion {
 }
 
 export interface NewComment {
-  pin: { kind?: 'frame'; placement?: string; time?: number; shot: string; x: number; y: number; element: string | null } | { kind: 'word'; placement?: string; shot: string; time: number; word: string };
+  options?: 2 | 3 | 4;
+  pin: { kind?: 'frame'; alternate?: string; shotName?: string; placement?: string; time?: number; shot: string; x: number; y: number; element: string | null } | { kind: 'word'; placement?: string; shot: string; time: number; word: string };
   text: string;
 }
 
@@ -296,14 +314,8 @@ export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPr
 export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
   requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true, acceptOverload }) });
 /**
- * Save and render (AM40): saves the pending edits as the next version, then queues its render with these settings, saved
- * as the reel's for the preset. A refused or failed Save throws with the reason and queues nothing.
- */
-export const saveAndRender = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<{ version: number; job: RenderJob }> =>
-  requestJson(`/api/reels/${encodeURIComponent(slug)}/save-and-render`, { method: 'POST', body: JSON.stringify({ preset, ...settings, remember: true, acceptOverload }) });
-/**
  * Where a reel's mix passes full scale, measured from the mix a render makes (AM29, AM38): a saved version's, or with no
- * version the pending mix Save would preserve. No spans when it stays within full scale.
+ * version the current Working mix. No spans when it stays within full scale.
  */
 export const fetchOverload = (slug: string, version?: number): Promise<MixOverload> =>
   getJson<MixOverload>(`/api/reels/${encodeURIComponent(slug)}/overload${version === undefined ? '' : `?version=${version}`}`);
@@ -389,6 +401,9 @@ export const copyBatch = (slug: string, number: number, options: BatchOptions = 
 export const versionPageUrl = (slug: string, number: number): string =>
   `/reels/${encodeURIComponent(slug)}/v${number}/index.html`;
 
+export const workingPartsPageUrl = (slug: string, key: string): string => `/reels/${encodeURIComponent(slug)}/working/index.html?state=${encodeURIComponent(key)}`;
+export const alternatePageUrl = (slug: string, version: number, shot: string, revision: string, workingKey?: string): string => `${workingKey ? workingPartsPageUrl(slug, workingKey) + '&' : `/reels/${encodeURIComponent(slug)}/v${version}/alternate.html?`}shot=${encodeURIComponent(shot)}&revision=${encodeURIComponent(revision)}`;
+
 /** Listens to the server's change events. Returns the function that stops listening; the browser reconnects on its own. */
 export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
   const source = new EventSource('/api/events');
@@ -437,6 +452,9 @@ export const fetchProjectMedia = async (): Promise<ProjectMediaFile[]> => (await
 export const referenceMedia = (path: string): Promise<ImportedMedia> => requestJson('/api/media/reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) });
 export const relinkMedia = (source: string, path: string): Promise<MediaEntry> => requestJson('/api/media/relink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, path }) });
 export const importMedia = (file: File): Promise<ImportedMedia> => requestJson(`/api/media?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+/** Generates a sound on this machine and adds it to the library. Takes about half a minute. Aborting stops the model. */
+export const generateAudio = (request: { prompt: string; seconds: number; seed?: number }, signal?: AbortSignal): Promise<GeneratedAudio> =>
+  requestJson('/api/media/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request), signal });
 export const fetchSoundEffects = async (): Promise<SoundEffect[]> => (await getJson<{ effects: SoundEffect[] }>('/api/sound-effects')).effects;
 export const soundEffectUrl = (id: string): string => `/sound-effects/${encodeURIComponent(id)}`;
 export const importSoundEffect = (id: string): Promise<ImportedMedia> => requestJson(`/api/sound-effects/${encodeURIComponent(id)}`, { method: 'POST' });
@@ -477,20 +495,29 @@ export const fetchTranscription = async (slug: string): Promise<TranscriptionPro
 
 /** A reel's unsaved edits. A `stale` list was made on a version that is no longer the newest. */
 export interface EditList {
+  frozen?: number;
+  editsSinceFreeze?: number;
   base: number;
   operations: Operation[];
   canUndo: boolean;
   canRedo: boolean;
-  /** Edits replayed from this base, resetting Undo/Redo. Kept until Save or Discard. */
+  /** Edits replayed from this authored base, with history for the new base. */
   replayedFrom?: number;
   stale?: true;
-  /** A comment batch is out: Save is blocked with this reason until the next version appears or the hand-off is cancelled. */
+  /** A comment batch is out. Working stays editable until the next version or cancellation. */
   handedOff?: { version: number; copiedAt: string; reason: string };
-  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and block Save. */
+  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and block a freeze. */
   flagged?: Record<string, string>;
 }
 
 const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
+export type { TimelineMarker } from '../../../../server/core/index.ts';
+type Marker = import('../../../../server/core/index.ts').TimelineMarker;
+const markersPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/markers`;
+export const fetchMarkers = (slug: string): Promise<Marker[]> => getJson(markersPath(slug));
+export const addMarker = (slug: string, input: { time: number; name: string }): Promise<Marker> => requestJson(markersPath(slug), jsonBody('POST', input));
+export const changeMarker = (slug: string, id: string, changes: Partial<{ time: number; name: string }>): Promise<Marker> => requestJson(`${markersPath(slug)}/${encodeURIComponent(id)}`, jsonBody('PATCH', changes));
+export const removeMarker = async (slug: string, id: string): Promise<void> => { const response = await fetch(`${markersPath(slug)}/${encodeURIComponent(id)}`, { method: 'DELETE' }); if (!response.ok) throw new Error('The marker could not be removed.'); };
 
 export const fetchEdits = (slug: string): Promise<EditList> => getJson(editsPath(slug));
 export const addOperation = (slug: string, operation: NewOperation): Promise<EditList> => requestJson(editsPath(slug), jsonBody('POST', operation));
@@ -499,11 +526,9 @@ export const removeOperation = (slug: string, id: string): Promise<EditList> => 
 export const undoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/undo`, { method: 'POST' });
 export const redoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/redo`, { method: 'POST' });
 export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
-/** Ends the hand-off a copied batch started, so Save is allowed again. */
+/** Ends the hand-off a copied batch started, keeping Working and its history. */
 export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/handoff`, { method: 'DELETE' });
 /** Builds the next version from the edits. Resolves with its number. */
-export const saveEdits = async (slug: string): Promise<number> =>
-  (await requestJson<{ version: number }>(`/api/reels/${encodeURIComponent(slug)}/save`, { method: 'POST' })).version;
 
 /**
  * Sends a dropped video into the project's footage/ folder, reporting the share sent so far (0 to 1). XHR rather than
@@ -527,3 +552,7 @@ export const importVideo = (file: File, onProgress?: (sent: number) => void): Pr
     xhr.onerror = () => reject(new Error('Could not reach the Kinotta server'));
     xhr.send(file);
   });
+
+export const fetchWorkingVersion = (slug: string): Promise<Version> => getJson(`/api/reels/${encodeURIComponent(slug)}/working`);
+export const renderWorking = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/working-render`, { method: 'POST', body: JSON.stringify({ preset, ...settings, remember: true, acceptOverload }) });

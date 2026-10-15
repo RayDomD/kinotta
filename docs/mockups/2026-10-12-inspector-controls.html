@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspector controls</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500&family=Doto:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: oklch(.184 .004 106); --ground-deep: oklch(.150 .003 106); --card-raised: oklch(.246 .005 90);
+    --ink: oklch(.945 .004 106); --ink-2: oklch(.820 .007 106); --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14); --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225); --light-glow: oklch(.84 .11 225 / .5);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 22px; background: var(--ground); color: var(--ink); font: 400 15px/1.5 Outfit, "Segoe UI", sans-serif; }
+  h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; margin: 0 0 4px; }
+  p { margin: 0 0 16px; color: var(--muted); font-size: 13px; max-width: 70ch; }
+  .panel { width: 330px; max-width: 100%; border: 1px solid var(--hairline); padding: 6px 12px 12px; }
+  .panel h2 { font-size: 13px; font-weight: 500; margin: 10px 0 2px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; font-size: 13px; }
+  :focus-visible { outline: 1px solid var(--light); outline-offset: 2px; }
+
+  /* Chosen on/off control: tally lamp */
+  .lamp { display: inline-flex; align-items: center; gap: 7px; min-width: 58px; padding: 2px 8px 2px 6px; border: 1px solid var(--hairline); background: var(--ground-deep); color: var(--muted); font: 800 12px Doto, monospace; cursor: pointer; }
+  .lamp i { width: 11px; height: 12px; background: var(--hairline); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .lamp[aria-checked="true"] { color: var(--ink); border-color: var(--light); }
+  .lamp[aria-checked="true"] i { background: var(--light); filter: drop-shadow(0 0 4px var(--light-glow)); }
+  .lamp:disabled { opacity: .5; cursor: default; }
+
+  /* Chosen slider: scrub field with a number beside it */
+  .field { display: grid; grid-template-columns: 96px minmax(0, 1fr) 54px; align-items: center; gap: 8px; min-height: 34px; font-size: 13px; }
+  .scrub { position: relative; height: 24px; border: 1px solid var(--hairline); background: var(--ground-deep); cursor: ew-resize; touch-action: none; user-select: none; }
+  .scrub i { position: absolute; inset: 0 auto 0 0; background: var(--card-raised); border-right: 2px solid var(--ink-2); }
+  .scrub:is(:active, :focus-visible) i { border-right-color: var(--light); }
+  .num { width: 54px; padding: 3px 6px; border: 1px solid var(--hairline); background: var(--ground-deep); color: var(--ink); font: 800 12px Doto, monospace; font-variant-numeric: tabular-nums; text-align: right; }
+</style>
+</head>
+<body>
+<h1>Inspector controls</h1>
+<p>Decision, 2026-10-12: on/off settings use the tally lamp; bounded numbers use a scrub field with a typeable number beside it. Drag across the field or use the arrow keys; type in the number for an exact value.</p>
+<section class="panel">
+  <h2>Clip volume</h2>
+  <div class="field"><span>Volume</span><div class="scrub" role="slider" tabindex="0" aria-label="Volume" data-min="0" data-max="2" data-step="0.01" data-value="0.35"><i></i></div><input class="num" aria-label="Volume value"></div>
+  <div class="field"><span>Fade in (s)</span><div class="scrub" role="slider" tabindex="0" aria-label="Fade in" data-min="0" data-max="5" data-step="0.05" data-value="0"><i></i></div><input class="num" aria-label="Fade in value"></div>
+  <div class="field"><span>Fade out (s)</span><div class="scrub" role="slider" tabindex="0" aria-label="Fade out" data-min="0" data-max="5" data-step="0.05" data-value="1.2"><i></i></div><input class="num" aria-label="Fade out value"></div>
+  <h2>Beats</h2>
+  <div class="row"><span>Show beat ticks</span><button class="lamp" role="switch" aria-checked="true" aria-label="Show beat ticks"><i></i><span>ON</span></button></div>
+  <div class="row"><span>Emphasize downbeats</span><button class="lamp" role="switch" aria-checked="true" aria-label="Emphasize downbeats"><i></i><span>ON</span></button></div>
+  <div class="row"><span>Snap edits to beats</span><button class="lamp" role="switch" aria-checked="false" aria-label="Snap edits to beats"><i></i><span>OFF</span></button></div>
+  <div class="row"><span>Bypass EQ</span><button class="lamp" role="switch" aria-checked="false" aria-label="Bypass EQ" disabled><i></i><span>OFF</span></button></div>
+</section>
+<script>
+  document.querySelectorAll('.lamp').forEach((b) => b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-checked') !== 'true';
+    b.setAttribute('aria-checked', on); b.querySelector('span').textContent = on ? 'ON' : 'OFF';
+  }));
+  document.querySelectorAll('.field').forEach((f) => {
+    const s = f.querySelector('.scrub'), n = f.querySelector('.num');
+    const min = +s.dataset.min, max = +s.dataset.max, step = +s.dataset.step, digits = (String(step).split('.')[1] || '').length;
+    const set = (v) => { const value = Math.max(min, Math.min(max, Math.round(v / step) * step)); s.dataset.value = value; s.setAttribute('aria-valuenow', value); s.querySelector('i').style.width = (value - min) / (max - min) * 100 + '%'; n.value = value.toFixed(digits); };
+    const at = (e) => { const b = s.getBoundingClientRect(); set(min + (e.clientX - b.left) / b.width * (max - min)); };
+    s.addEventListener('pointerdown', (e) => { s.setPointerCapture(e.pointerId); at(e); });
+    s.addEventListener('pointermove', (e) => { if (s.hasPointerCapture(e.pointerId)) at(e); });
+    s.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); set(+s.dataset.value + (e.key === 'ArrowLeft' ? -step : step)); } });
+    n.addEventListener('change', () => set(Number(n.value) || 0));
+    set(+s.dataset.value);
+  });
+</script>
+</body>
+</html>

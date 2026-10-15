@@ -22,13 +22,13 @@ describe('applyOperation', () => {
   const sources = { plan: { duration: 12 }, words: [] };
 
   it('treats a plan without pieces as one piece over the video', () => {
-    const next = applyOperation(sources, { id: 'a', kind: 'snip', from: 3, to: 5 });
+    const next = applyOperation(sources, { by: 'you', id: 'a', kind: 'snip', from: 3, to: 5 });
     expect(next.plan.pieces).toEqual([{ in: 0, out: 3 }, { in: 5, out: 12 }]);
-    expect(editedPieces(sources.plan, [{ id: 'a', kind: 'snip', from: 3, to: 5 }]).length).toBe(10);
+    expect(editedPieces(sources.plan, [{ by: 'you', id: 'a', kind: 'snip', from: 3, to: 5 }]).length).toBe(10);
   });
 
   it('describes a snip with its length and source times', () => {
-    expect(describeOperation({ id: 'a', kind: 'snip', from: 36.9, to: 38.4 })).toEqual({ target: 'Footage', text: 'Snipped 1.5s (00:36.90 to 00:38.40)' });
+    expect(describeOperation({ by: 'you', id: 'a', kind: 'snip', from: 36.9, to: 38.4 })).toEqual({ target: 'Footage', text: 'Snipped 1.5s (00:36.90 to 00:38.40)' });
   });
 });
 
@@ -38,8 +38,8 @@ describe('cut and move-piece', () => {
     plan: { duration: 12, sections: [{ id: 'one', name: 'One', start: 0, end: 6 }, { id: 'two', name: 'Two', start: 6, end: 12 }] },
     words: [],
   };
-  const cut = (at: number) => ({ id: 'c', kind: 'cut', at }) as const;
-  const move = (from: number, to: number) => ({ id: 'm', kind: 'move-piece', from, to }) as const;
+  const cut = (at: number) => ({ by: 'you', id: 'c', kind: 'cut', at }) as const;
+  const move = (from: number, to: number) => ({ by: 'you', id: 'm', kind: 'move-piece', from, to }) as const;
 
   it('cuts a piece into two and removes nothing', () => {
     const next = applyOperation(whole, cut(6));
@@ -85,8 +85,8 @@ describe('word-text and word-timing', () => {
     { text: 'there', start: 1, end: 1.4 },
   ];
   const sources = { plan: {}, words };
-  const text = (at: number, value: string) => ({ id: 'a', kind: 'word-text' as const, at, text: value });
-  const timing = (at: number, start: number, end: number) => ({ id: 'b', kind: 'word-timing' as const, at, start, end });
+  const text = (at: number, value: string) => ({ by: 'you', id: 'a', kind: 'word-text' as const, at, text: value });
+  const timing = (at: number, start: number, end: number) => ({ by: 'you', id: 'b', kind: 'word-timing' as const, at, start, end });
 
   it('changes the word that starts at the time, and leaves the rest', () => {
     expect(applyOperation(sources, text(1, ' where ')).words).toEqual([words[0], { text: 'where', start: 1, end: 1.4 }]);
@@ -117,7 +117,7 @@ describe('phrase-text', () => {
     { text: 'next', start: 2, end: 2.4 },
   ];
   const sources = { plan: {}, words };
-  const phrase = (text: string, from = 0.5, to = 1.5) => ({ id: 'p', kind: 'phrase-text' as const, from, to, text });
+  const phrase = (text: string, from = 0.5, to = 1.5) => ({ by: 'you', id: 'p', kind: 'phrase-text' as const, from, to, text });
 
   it('keeps each word timing when the count stays the same', () => {
     expect(applyOperation(sources, phrase(' hi  you ')).words).toEqual([words[0], { text: 'hi', start: 0.5, end: 0.9 }, { text: 'you', start: 1, end: 1.5 }, words[3]]);
@@ -158,8 +158,8 @@ describe('caption-position and caption-phrase-position', () => {
     { text: 'there', start: 1, end: 1.4 },
   ];
   const sources = { plan: { captions: true as const }, words };
-  const all = (x: number, y: number) => ({ id: 'a', kind: 'caption-position' as const, x, y });
-  const one = (at: number, x: number, y: number) => ({ id: 'b', kind: 'caption-phrase-position' as const, at, x, y });
+  const all = (x: number, y: number) => ({ by: 'you', id: 'a', kind: 'caption-position' as const, x, y });
+  const one = (at: number, x: number, y: number) => ({ by: 'you', id: 'b', kind: 'caption-phrase-position' as const, at, x, y });
 
   it('writes the reel-wide position into the plan, turning `true` into an object, and a second move replaces the first', () => {
     const first = applyOperation(sources, all(40, -20));
@@ -178,10 +178,10 @@ describe('caption-position and caption-phrase-position', () => {
 
   it('moves a phrase position with its first word when that word is re-timed, and leaves the others', () => {
     const placed = applyOperation(applyOperation(sources, one(1, 0, -100)), one(0.5, 7, 7));
-    const next = applyOperation(placed, { id: 'c', kind: 'word-timing', at: 1, start: 1.1, end: 1.4 });
+    const next = applyOperation(placed, { by: 'you', id: 'c', kind: 'word-timing', at: 1, start: 1.1, end: 1.4 });
     expect(next.plan.captions).toEqual({ phrases: [{ at: 0.5, x: 7, y: 7 }, { at: 1.1, x: 0, y: -100 }] });
     // A re-time of a word that opens no phrase changes nothing in the plan's captions.
-    expect(applyOperation(sources, { id: 'c', kind: 'word-timing', at: 1, start: 1.1, end: 1.4 }).plan.captions).toBe(true);
+    expect(applyOperation(sources, { by: 'you', id: 'c', kind: 'word-timing', at: 1, start: 1.1, end: 1.4 }).plan.captions).toBe(true);
   });
 
   it('refuses when captions are off, a position that is not a number, and a phrase with no word at its time', () => {
@@ -206,8 +206,8 @@ describe('clip trim and slide', () => {
     { id: '02', title: 'Two', in: 3, out: 6, section: 'a', stills: [{ from: 0, title: 'a' }, { from: 1, title: 'b', still: 1.5 }, { from: 2, title: 'c' }] },
   ];
   const sources = { plan: { duration: 12, clips }, words: [] };
-  const trim = (clip: string, from: number, to: number) => ({ id: 't', kind: 'clip-trim' as const, clip, in: from, out: to });
-  const slide = (clip: string, delta: number) => ({ id: 's', kind: 'clip-slide' as const, clip, delta });
+  const trim = (clip: string, from: number, to: number) => ({ by: 'you', id: 't', kind: 'clip-trim' as const, clip, in: from, out: to });
+  const slide = (clip: string, delta: number) => ({ by: 'you', id: 's', kind: 'clip-slide' as const, clip, delta });
 
   it('trims a clip to a new in and out and leaves the others', () => {
     const next = applyOperation(sources, trim('01', 0.5, 2));
@@ -260,7 +260,7 @@ describe('element-offset', () => {
     { id: '02', title: 'Two', in: 3, out: 6, offsets: { badge: { x: 5, y: 6, scale: 1 } } },
   ];
   const sources = { plan: { duration: 12, clips }, words: [] };
-  const move = (clip: string, element: string, x: number, y: number, scale = 1) => ({ id: 'o', kind: 'element-offset' as const, clip, element, x, y, scale });
+  const move = (clip: string, element: string, x: number, y: number, scale = 1) => ({ by: 'you', id: 'o', kind: 'element-offset' as const, clip, element, x, y, scale });
 
   it('writes the element\'s offset into its clip, replacing the last one and leaving the others', () => {
     const next = applyOperation(sources, move('01', 'badge', 12, -8, 1.25));

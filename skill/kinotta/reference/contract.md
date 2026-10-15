@@ -1,11 +1,44 @@
 # The timing contract
 
 Every version is one HTML page the editor controls through time (ADR 0001 in the Kinotta repo).
+For code-built reels, each scene is a movable shot on the Picture row. On every `seek(t)`, read
+its current `data-start` and `data-duration`, and animate using `t - start`. Keep scene names
+stable. A scene shows only during its own range, gaps show the page background, and overlapping
+scenes paint in document order. Exit animations belong to their scene and work independently of
+the next scene. Sound stays on the shared mix's reel time. Derive animation bounds from the
+current scene attributes so a shot moved beyond the original reel length still plays.
+
+Before handing off a page, change one scene's timing in the browser and seek inside and outside
+its new range. Restore the original attributes afterward. A cached or hard-coded schedule fails
+this check. `kinotta check` validates timing markup, but cannot prove arbitrary script behavior.
+
 The editor loads `v<n>/index.html?render` in a 1920x1080 frame, calls `seek(t)` for each shot's
 start, waits two animation frames (or 500ms, whichever comes first), and shows the result as that shot's still. A click on a still
 lands on the `data-el` element under it.
 
 ## Folder layout
+
+### Parts reels (new code-built reels)
+
+Write the authored input at `reels/<slug>/shots.json`, with `contract: 2`, `duration`, `shared: "r1"` and ordered `shots` containing `{ name, revision, duration, title, description }`. Names are fixed portable folder names. Starts are computed, so omit `start` and `number`.
+
+For a transparent reel, set `alpha: true` and keep the shared background transparent. The assembler emits the existing alpha page contract so Overlay uses the unchanged render engine.
+
+Write each new revision at `shots/<name>/r<n>/` with `shot.html`, `shot.css`, `shot.js` and optional `assets/`. The fragment has one root `<section data-scene="<name>">` with named `data-el` elements. Every shot CSS selector starts under its own `[data-scene="<name>"]`. Put global styles in `shared/r<n>/shared.css`, with fonts and assets beside it. Dependencies stay inside their revision folder. Modules are self-contained, export `seek(local)`, and have no imports or global variables. Use `transform` for animation, reserving individual `translate` and `scale` for the owner's offsets.
+
+Run `kinotta build <slug> --by <your name>`, then `kinotta check <slug>`. Kinotta generates `v<n>/index.html` and `shots.json`. Published revision folders are immutable, including assets. Change only the shots named by `Rebuild:` and reuse every other revision in the authored manifest. A shared revision change counts as changing every shot. A duration change moves later shots, while only attached sound follows. A sound attachment uses the shot name as `attachment.placement` and a local `attachment.time`. Kinotta generates the media anchor positions.
+
+`parts-files` reports missing revision files, missing local dependencies and changed published bytes. `parts-name`, `parts-revision`, `parts-shared`, `parts-duration` and `parts-start` report malformed manifest values. Keep contract 1 reels in their existing layout unless the owner asks to convert them.
+
+For a parts options request, add two to four `alternates` to that shot: each `{ revision, label, title, note, duration }`. Give labels such as A, B and C, a distinct title, and a one-line note explaining the difference. Write one immutable revision per answer. List the recommended answer first and use its revision and duration on the shot. Omit `choiceMade` on a new options answer so the Storyboard reminds the owner to choose. The manifest's total duration follows the revision in the reel.
+
+The batch names the alternate in the reel, each dismissed alternate with its reason and alternate-specific pins. Answer those labels explicitly. When a later manifest leaves `alternates` out, build preserves undismissed options from Working. An explicit list replaces the answer. Keep the list within four entries. Published fingerprints, dismissals and owner choices are Kinotta's metadata, carried by build and freeze.
+
+Alternatives include finished motion by default. Supply each revision's animation in its self-contained `shot.js`, driven entirely by `seek(local)`. The same local time must reproduce the same frame after forward or backward seeking and replay. Use `transform` for authored motion, leaving individual `translate` and `scale` for owner edits. Avoid timers, autonomous CSS animations and animation loops. Still-only concepts require an explicit request.
+
+Keep the shot's fixed `name` and retain existing `data-el` names for equivalent components, so swapping preserves editing and feedback targets. Prefer the current duration unless the alternative needs a different length; declare that length accurately. Reuse unaffected shot and shared revisions, and keep sound on Kinotta's shared mix. Each label describes both the visual treatment and its motion. Before delivery, check every revision, compare early and later frames, and seek backward to confirm repeatability. Verify that Use replaces the shot in Working Review and Undo restores it. Storyboard thumbnails remain still previews of these animated revisions.
+
+### Existing single-page reels
 
 ```
 reels/
@@ -32,7 +65,7 @@ Files you may find or write inside a version folder, besides the page and `shots
 | `edits.json` | Kinotta | The operations a Kinotta save applied. Never copy it into a new version. |
 | `answers.md`, `comments*.json` | you, the editor | As above. |
 
-At the reel level, `edit-list.json` (the owner's unsaved edits), `handoff.json` (a batch is out) and
+At the reel level, `edit-list.json` (durable Working history), `handoff.json` (a batch is out) and
 `.save/` are Kinotta's. Never read, write or delete them.
 
 `reels/.kinotta/` is the editor's working state. Never read or write it.
@@ -104,6 +137,8 @@ window.seek(0);
 - `contract` is `1`. `duration` is a number in seconds.
 - Each shot has a unique `number` (two-digit string), a numeric `start`, a `title` and a
   `description` of what happens, including the motion the storyboard doesn't show yet.
+- Set `scene` to its page scene's stable `data-scene` name. Kinotta uses it to keep titles with
+  their shots when scenes overlap or change order. Older shot lists are matched by scene timing.
 - Starts are ascending and every start is before `duration`.
 - `changedSections` goes in v2 and later only: the ids of the sections this version changed, such as
   `"changedSections": ["reel"]`. A reel with no `sections` has one section with id `reel`.

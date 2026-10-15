@@ -4,6 +4,18 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
 
 ## Public interface
 
+Parts reels use contract 2. `buildParts(slug, by?)` reads the authored `reels/<slug>/shots.json`, loads immutable `shots/<name>/r<n>/` and `shared/r<n>/` folders, validates dependencies and publication fingerprints, and publishes one assembled version atomically. It returns `{ version, issues }`. The CLI is `kinotta build <slug> [--by <name>] [--project <dir>]`. `readVersion` exposes `parts` and shot `name`/`revision` with computed starts. Missing or changed revision files become `parts-files` issues shared by check and the Final render gate. `assembleParts(manifest, inputs)` is the pure assembler. It writes no files.
+
+Parts Working timing closes the ordered sequence and a freeze reassembles its manifest. The existing sound attachment field uses the shot name as `placement` and a shot-local `time`; generated `media.shotAnchors` resolve it for preview and render. Unattached sound stays at its reel time. Pins record `shotName` and carry by name. Change detection compares manifests, including shared revisions, and parts batches open with `Rebuild:` and group comments by shot. Older single-page versions keep their existing behavior.
+
+`readWorkingVersion` includes `workingParts` (`duration`, computed `shots`, content `key`) for parts Storyboard stills while retaining the base clips for operation replay. `workingPartsPage(slug)` returns the assembled Working HTML with owner offsets, served at `/reels/<slug>/working/index.html`. The client adds the content key to refresh stills after edits. It publishes no version. Undo of a consumed offset becomes a supported reversal on the next authored build. Other consumed reversals that require review are retained as flagged operations rather than silently lost.
+
+A parts shot may offer two to four `alternates` (`revision`, `label`, `title`, `note`, `duration`). Its own revision must be in that list and match its duration. `Shot.alternates` marks `inReel`, with optional `dismissed: { reason }`. `choiceMade` records an explicit Use. `alternatePage(slug, version, shotName, revision)` caches a frozen assembled override, served at `/reels/<slug>/v<n>/alternate.html?shot=<name>&revision=<revision>`. Working page requests can use the same two query fields to preview against current timing and offsets. The assembled page remains one document.
+
+The optional parts `alpha: true` emits the existing transparent-page class for Overlay. Shared styles must retain a transparent background. Both Draft and Overlay parts renders use the unchanged engine. The assembled global seek returns the active shot's result, so asynchronous shot seeks remain awaitable by stills and renders.
+
+`NewComment.options` and `Comment.options` are 2, 3 or 4. Only one shot per version may ask. Carry clears requests on a later authored version, while hand-off mapping preserves the current request. `FramePin.alternate` identifies the viewed revision. Carry keeps it while available, otherwise flags the comment with `stateReason`. Batches report requests, the alternate in the reel, dismissals and alternate labels on pins. `shot-alternate` (`shot` name, `revision`) and `shot-alternate-dismiss` (`shot`, `revision`, optional `reason`) use the ordinary durable journal and Undo. A choice updates duration and later starts. Build carries undismissed options when the authored manifest omits the list. An explicit list is the agent's new answer, and the four-entry limit still holds.
+
 `index.ts` exports:
 
 - `openProject(projectDir)` returns a `Project` with `name` (the folder's name) and `listReels()`.
@@ -61,7 +73,7 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `{ approved: true, at, warning? }`. Approving again keeps the first `at`. A version with contract issues is approved
   with a `warning` naming them. `withdrawApproval(slug, n)` deletes the file and returns `{ approved: false }`; renders
   stay. Both throw `not-found` for an unknown reel or version. Only the HTTP API calls them; the CLI has no approve
-  command (R17). A code-only Save never copies `approval.json` into the next version.
+  command (R17). A code-only freeze never copies `approval.json` into the next version.
 - `render({ reel, version, preset, audio? })` queues a render and returns the job (`{ id, reel, version, preset, state, progress,
   remaining, output?, error? }`) as `queued`. Jobs run one at a time in queue order (`_internal/render-queue.ts`), in
   memory only; each change raises `{ type: 'render-progress', job }` (progress in whole percents). `renderJobs()` lists
@@ -98,13 +110,10 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
   `versionIssues`; otherwise `invalid` naming every reason, as in `v1 can't be rendered as a Final: it was built before
   plans were kept; it has 1 contract issue: …`. Approval is not checked: pressing Render is the decision (R19). A Draft
   skips the gate.
-- `saveAndRender({ reel, preset, ...settings })` is Save and render (AM40): it refuses an unknown preset or setting, then
-  runs `saveEdits` and queues `render` for the version it made, returning `{ version, job }`. A refused or failed Save
-  throws and queues nothing, so pending edits never reach a render without becoming a saved version first. `render` with
-  an explicit version is Render saved version. HTTP: `POST /api/reels/<reel>/save-and-render`.
+- `renderWorking({ reel, preset, ...settings })` captures a Draft into a unique `.draft-<id>` folder without publishing a version. Its immutable inputs are removed on completion, failure or queued/running cancellation. Jobs and past renders carry `working: true`, and their filenames distinguish Working from numbered versions. Final and Overlay validate settings, contract, attachments, overload and transparency against staged inputs before freezing changed content, then queue an explicit render of the frozen result. HTTP: `POST /api/reels/<reel>/working-render`. `render` with an explicit version is unchanged.
 - `mixOverload(slug, version?)` (`_internal/media-overload.ts`) measures where a native mix passes full scale: the same
   FFmpeg mix the render makes (`mediaMixArgs` shares its per-placement chain with `mediaRenderArgs`), one peak per 10 ms,
-  joined into `{ spans: [{ start, end, peak }] }`. Without a version it measures the pending mix Save would preserve. A
+  joined into `{ spans: [{ start, end, peak }] }`. Without a version it measures the captured working mix. A
   Draft or Final of a version whose mix overloads is refused (`invalid`, naming the spans) unless the request has
   `acceptOverload: true`; levels are never changed (AM38). Overlay is silent and skips it. Mono sources play at full level
   on both sides, as Web Audio plays them in preview. FFmpeg's AAC encoder applies its own clip avoidance inside an
@@ -120,35 +129,22 @@ The reels core. All Kinotta behaviour lives here, with no HTTP and no `node:http
 From v2 on, `readVersion` compares each section with the version before (its fields, its shots, the markup of the scenes over it)
 and returns `changedSections` (also counting what shots.json claims) and `claimMismatch`; sections handed off and not changed
 since carry `waiting: true`. The first touch of a new newest version (a read, a comment call, the watcher's `version-added`) settles
-it once, whoever built it (a Save or an agent): every unsent comment moves up from the version before at its remapped time, old
+it once, whoever built it (a freeze or an agent): every unsent comment moves up from the version before at its remapped time, old
 timeline to source time through the old version's pieces and onto the new timeline through the new version's. The pin's shot is
 the new shot playing there; element and word pins keep their element or word. A moment that was snipped keeps the comment's text
 and gives it `state: 'moment-removed'`, pinned where the snip closed up, until it is deleted or re-pinned as a new comment. Sent
 comments never move. Comments say whether they were `sent` and which version they `carried` on to.
 
-- `cancelHandoff(slug)`: a copied batch marks the reel handed off in `reels/<reel>/handoff.json` (the version it was copied from). It ends when
-  a newer version appears or `cancelHandoff` is called. While it holds, `readEditList` carries `handedOff: { version, copiedAt, reason }`,
-  `saveEdits` throws `invalid` with that reason, and operations still collect. When a newer version appears (the watcher's `version-added`,
-  or the next `readEditList`) an unsaved edit list is replayed onto its sources instead of going `stale`: each operation is checked in order,
-  one whose target is gone (clip, word, piece index, element) stays in the list and is reported in `flagged` (id to reason), and the undo
-  history goes. `saveEdits` throws `invalid` while any edit is flagged; remove it (or redo it) first.
-
-- `readEditList(slug)`, `addOperation(slug, op)`, `removeOperation(slug, id)`, `undoEdit(slug)`, `redoEdit(slug)`, `discardEdits(slug)`,
-  `saveEdits(slug)`: the reel's edit list and Save. The
-  list is `{ base, operations, undo, redo }` (the last two are lists of whole lists, up to 100 back, shown to callers as `canUndo` and `canRedo`; any new change, an add or a removal, ends the redo history, and a removal can be undone) at `reels/<reel>/edit-list.json`, outside every version, rewritten atomically on every change;
-  `base` is the newest version when the edits were made, and a list for an older one is `stale` (no edits, no Save, Discard
-  works). An operation is `{ id, kind, ... }`; so far `snip` (`from`, `to`, source seconds). `addOperation` checks it applies on
-  top of the list, else throws `invalid`. `removeOperation` drops one by id and keeps the later ones (operations name things in source
-  time, so the result is worked out again from what remains; `invalid` if it would not apply, `not-found` for an unknown id). `saveEdits` writes the operations into the reel's `plan.json` (and `transcript.json`
-  when an operation changes words), builds `v<n+1>` in `reels/<reel>/.save/` (its own `plan.json` and `transcript.json`,
-  `index.html`, `edits.json`, then `shots.json` last with `builtBy: "you"` and `changedSections`), renames it into place and
-  clears the list. Any failure (a build error, an empty list, a batch that is out) leaves no new version, the sources as they were
-  and the list in place. `_internal/sources.ts` is the one resolver for the plan: the reel folder's `plan.json` (started in Kinotta), else the project's `motion/plan.json` for an agent-built footage reel, whose edits Save writes there; a code-only reel (no footage, no plan) takes `element-offset` only (anything else is `invalid`): each scene of its newest page stands in as a clip, and Save copies `v<n>` to `v<n+1>` plus `kinotta-edits.css` (`_internal/code-edits.ts`), linked from the page, holding the offsets the version already had with the list applied over them; `Version.code` carries its scene names and offsets. A
-  new kind of edit is one member of the `Operation` union and one apply function in `_internal/edit-model.ts`.
+- `cancelHandoff(slug)` removes the outstanding batch marker without changing working content or history. A hand-off never blocks editing. `copyBatch` holds the reel lock through freeze, comment mapping and batch recording, and returns a batch naming the exact frozen version. Comments created on live footage use its visible word times and source anchors.
+- `readEditList`, `addOperation`, `removeOperation`, `undoEdit` and `redoEdit` operate on the durable working journal outside version folders. Each operation has `{ id, by, kind, ... }`. Editor operations default to `you`; HTTP callers can supply an agent name. `kinotta edit <reel> --by <name> <operation json>` uses the same API and lock. Accepted changes emit `edits-changed` for live editor updates.
+- The journal stores the authored `base`, native `anchor` (sources, transcript metadata and path base), `operations`, whole-list `undo`/`redo` history, `flagged` conflicts, and a separate `frozen`, `frozenIdentity`, `frozenOperations` and `sourceHashes`. Legacy lists migrate without a second application. The API exposes `base`, `frozen`, `editsSinceFreeze`, `canUndo` and `canRedo`. A freeze preserves history. A newer agent build consumes frozen operations and replays only later edits against its own inputs, resetting history at that authored-base change and flagging targets that no longer exist.
+- `readWorkingVersion(slug)` returns the authored page and source view with `workingBase` naming its page folder and `number` naming the latest frozen snapshot. The editor applies the durable operations to that base. HTTP: `GET /api/reels/<reel>/working`. Numbered versions remain read-only in the editor, including the latest one.
+- `freezeEdits(slug)` is the core boundary used by renders and hand-offs, not a manual editor action. It stages exact working inputs, compares effective content rather than operation count, reuses identical content, or publishes one new version atomically. It never clears history or writes edits back into authored source files. There is no `/save` or `/save-and-render` endpoint. The legacy `discardEdits` core/API remains for existing callers, but there is no Discard control.
+- Code-built pages retain their authored graphics. Scene timing and `kinotta-edits.css` are generated from the working base plus its operations. Native and legacy footage captures retain exact media and local graphic dependencies. Missing media, changed originals, broken attachments or publication failures leave the journal intact and no half-built version discoverable.
 - `server/core/model.ts` re-exports the pure parts (pieces mapping, the operation model) with no file access, for the web editor.
 - A version may hold its own `transcript.json` and `plan.json`; `readVersion` reads them before the reel's (E14), and
-  `builtBy` (from `shots.json`) says who made it. `startReel` and Save both write them.
-- `startReel` returns once the reel and its plan exist; transcription runs in the background (`_internal/transcription.ts`). `transcriptionProgress(slug)` and `transcription-progress` events say how far it is, with an estimate; `whenTranscribed(slug)` resolves when the job ends. When it does, the transcript, the plan's sections (one, or about one per three minutes split at the largest pause) and v1 are written. A reel with no version yet collects edits (base 0) that replay onto v1; Save is refused until it exists. Progress is in memory only.
+  `builtBy` (from `shots.json`) says who made it. `startReel` and a freeze both write them.
+- `startReel` returns once the reel and its plan exist; transcription runs in the background (`_internal/transcription.ts`). `transcriptionProgress(slug)` and `transcription-progress` events say how far it is, with an estimate; `whenTranscribed(slug)` resolves when the job ends. When it does, the transcript, the plan's sections (one, or about one per three minutes split at the largest pause) and v1 are written. A reel with no version yet collects edits (base 0) that replay onto v1; Working renders and hand-offs wait until it exists. Progress is in memory only.
 
 Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at
@@ -162,9 +158,15 @@ Outside code imports from `index.ts` only.
   `missingToolsMessage(check)` is the startup text naming each missing tool under what needs it, or null when all are
   present. The server serves the check at `GET /api/tools`.
 
+Review markers are saved per reel under `reels/.kinotta/<slug>/markers.json`. `listMarkers`, `addMarker`,
+`changeMarker` and `removeMarker` serialize writes to that file; markers never enter a version, render or comment batch.
+`mediaStill` resolves registered or saved video sources (or the reel's legacy footage), then caches a JPEG by source
+content, time and width. The encoder runs through `runner.ts`, and concurrent requests reuse one extraction.
+`placement-ripple-remove` removes a clip and closes its own track; the existing main-sequence attachment rules still apply.
+
 ## Does not handle
 
-Runtime contract checks (the stage does those) and stills.
+Runtime contract checks (the stage does those).
 
 ## Dependencies
 

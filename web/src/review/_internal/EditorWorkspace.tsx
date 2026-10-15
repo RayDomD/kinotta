@@ -3,8 +3,13 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { actionForKey, keyChord, readEditorSettings, saveEditorSettings } from './editor-settings.ts';
 import type { EditorSettings } from './editor-settings.ts';
 import { EditorSettingsSheet } from './EditorSettingsSheet.tsx';
+import { ShortcutSheet } from './ShortcutSheet.tsx';
 
 interface Workspace {
+  focus: boolean;
+  setFocus: Dispatch<SetStateAction<boolean>>;
+  shortcutsOpen: boolean;
+  setShortcutsOpen: Dispatch<SetStateAction<boolean>>;
   settings: EditorSettings;
   setSettings: Dispatch<SetStateAction<EditorSettings>>;
   railOpen: boolean;
@@ -43,6 +48,8 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
   const [railOpen, setRailOpen] = useState(settings.railOpen);
   const [railTab, setRailTab] = useState<'reel' | 'media'>('reel');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [focus, setFocus] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [mediaHost, setMediaHost] = useState<HTMLDivElement | null>(null);
   const [clipHost, setClipHost] = useState<HTMLDivElement | null>(null);
   const [soundHost, setSoundHost] = useState<HTMLDivElement | null>(null);
@@ -54,7 +61,24 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
     document.documentElement.dataset.accent = settings.accent;
     saveEditorSettings(settings);
   }, [settings]);
-  return <Context.Provider value={{ settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab }}>
+  useEffect(() => {
+    const handle = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (event.defaultPrevented || settingsOpen || shortcutsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog') || !document.querySelector('[data-review-shell="true"]')) return;
+      const action = actionForKey(settings.keys, keyChord(event));
+      if (event.key === 'Escape' && focus) { event.preventDefault(); setFocus(false); return; }
+      if (!['focus', 'shortcuts', 'rail', 'settings'].includes(action ?? '')) return;
+      if (target.closest('button, a, summary, [role="tab"]') && !target.closest('[data-review-shell="true"]')) return;
+      event.preventDefault();
+      if (action === 'focus') setFocus((value) => !value);
+      if (action === 'shortcuts') setShortcutsOpen(true);
+      if (action === 'rail') { setRailTab('media'); setRailOpen((open) => !open); }
+      if (action === 'settings') setSettingsOpen(true);
+    };
+    window.addEventListener('keydown', handle);
+    return () => window.removeEventListener('keydown', handle);
+  }, [focus, settings.keys, settingsOpen, shortcutsOpen]);
+  return <Context.Provider value={{ focus, setFocus, shortcutsOpen, setShortcutsOpen, settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab }}>
     <div className="editor-workspace" {...verifyAttrs(settings, railOpen, railTab, settingsOpen)} onKeyDown={(event) => {
       const target = event.target as HTMLElement;
       if (event.defaultPrevented || settingsOpen || target.closest('input, textarea, select, [contenteditable="true"]') || !target.closest('[data-review-shell="true"]')) return;
@@ -64,6 +88,7 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
     }}>
       {children}
       <EditorSettingsSheet open={settingsOpen} settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
+      <ShortcutSheet open={shortcutsOpen} settings={settings} onClose={() => setShortcutsOpen(false)} />
     </div>
   </Context.Provider>;
 }

@@ -101,8 +101,12 @@ export const EQ_MIN_Q = 0.1;
 export const EQ_MAX_Q = 10;
 export const EQ_DEFAULT_Q = Math.SQRT1_2;
 export const EQ_MAX_FILTERS = 8;
+/** The longest sound the local generator is asked for. The generator script enforces the same limit. */
+export const MAX_GENERATED_SECONDS = 47;
 
 export interface MediaPlan {
+  /** Generated parts positions resolve the existing attachment identity as a shot name and local moment. */
+  shotAnchors?: { id: string; start: number; duration: number }[];
   schema: 1;
   tracks?: MediaTrack[];
   sources: MediaSource[];
@@ -280,8 +284,9 @@ export function mediaTimeline(media: MediaPlan, authoredDuration = 0): MediaTime
     if (p.role === 'main' || p.role === 'gap') continue;
     const anchor = p.attachment;
     const target = anchor ? placements.find((candidate) => candidate.role === 'main' && (candidate.id === anchor.placement || candidate.origin === anchor.placement) && sources.get(candidate.source)?.kind === 'video' && candidate.in <= anchor.time && anchor.time < candidate.out) : undefined;
-    const start = target && target.role === 'main' ? target.at + anchor!.time - target.in + (anchor!.offset ?? 0) : p.at!;
-    const broken = !!anchor && (!target || start < 0);
+    const shot = anchor ? media.shotAnchors?.find((shot) => shot.id === anchor.placement && anchor.time < shot.duration) : undefined;
+    const start = target && target.role === 'main' ? target.at + anchor!.time - target.in + (anchor!.offset ?? 0) : shot ? shot.start + anchor!.time + (anchor!.offset ?? 0) : p.at!;
+    const broken = !!anchor && ((!target && !shot) || start < 0);
     const length = Math.max(0, Math.min(p.duration ?? p.out - p.in, duration - start));
     placements.push({ ...p, at: broken ? p.at! : start, duration: length, ...(broken ? { attachmentBroken: true } : {}) });
   }
@@ -351,6 +356,13 @@ export function remapMediaMoment(before: MediaTimeline, after: MediaTimeline, ti
   const id = anchor?.placement ?? original?.id;
   const root = original?.origin ?? id;
   const targets = after.placements.filter((p) => p.id === id || (p.origin ?? p.id) === root).sort((a, b) => Number(b.id === id) - Number(a.id === id));
+  if (!original && anchor?.placement) {
+    const target = targets.find((placement) => placement.id === anchor.placement && !placement.attachmentBroken);
+    if (target && target.role !== 'gap' && anchor.sourceTime !== undefined && !target.loop) {
+      const offset = anchor.sourceTime - target.in;
+      if (offset >= 0 && offset < target.duration) return { time: rounded(target.at + offset), removed: false };
+    }
+  }
   for (const target of original ? targets : []) {
     if (target.attachmentBroken || !(original!.role === 'gap' ? target.role === 'gap' : target.role !== 'gap' && original!.source === target.source)) continue;
     const timeless = target.role === 'gap' || target.in === target.out || target.loop;

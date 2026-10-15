@@ -3,7 +3,7 @@ import type { Page } from 'playwright';
 /** Read the displayed clock from either the retained legacy player or the native editor. */
 export async function reviewClockText(page: Page): Promise<string> {
   const review = page.getByRole('main', { name: 'Review' });
-  const oldClock = review.getByLabel('Timecode', { exact: true });
+  const oldClock = review.getByLabel('Playback timecode', { exact: true });
   if (await oldClock.count()) return oldClock.innerText();
   const at = Number(await review.getByLabel('Playhead', { exact: true }).inputValue());
   const duration = Number((await review.locator('.rv-tc').innerText()).match(/([\d.]+)s/)?.[1]);

@@ -5,6 +5,8 @@ import type { EditorSettings } from './editor-settings.ts';
 import type { TimeWindow } from './timeline.ts';
 
 interface Props {
+  markers?: readonly import('./Transport.tsx').TransportMarker[];
+  onMarker?(id: string): void;
   timeline: MediaTimeline;
   win: TimeWindow;
   time: number;
@@ -17,7 +19,7 @@ function verifyAttrs(total: number, win: TimeWindow) {
 }
 
 /** The whole reel stays visible while one shared window pans the detailed lanes. */
-export function TimelineOverview({ timeline, win, time, keys, nudge, onWindow }: Props) {
+export function TimelineOverview({ timeline, win, time, keys, nudge, onWindow, markers = [], onMarker }: Props) {
   const drag = useRef<{ x: number; start: number; width: number } | null>(null);
   const total = Math.max(timeline.duration, 1);
   const moveWindow = (start: number) => onWindow({ ...win, start: Math.max(0, Math.min(total - win.length, start)) });
@@ -40,6 +42,7 @@ export function TimelineOverview({ timeline, win, time, keys, nudge, onWindow }:
         moveWindow(action === 'start' ? 0 : action === 'end' ? total - win.length : win.start + (action === 'left' ? -nudge : nudge));
       }} />
       <span className="native-playhead" style={{ left: `${time / total * 100}%` }} />
+      {markers.filter((marker) => marker.time <= total).map((marker) => <button type="button" key={marker.id} className="rv-marker" aria-label={`Marker ${marker.name || marker.time.toFixed(2)}`} style={{ left: `${marker.time / total * 100}%` }} onPointerDown={(event) => event.stopPropagation()} onClick={() => onMarker?.(marker.id)}>◇</button>)}
     </div>
   </div>;
 }
