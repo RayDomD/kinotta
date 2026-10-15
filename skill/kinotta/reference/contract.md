@@ -28,7 +28,19 @@ Write each new revision at `shots/<name>/r<n>/` with `shot.html`, `shot.css`, `s
 
 Run `kinotta build <slug> --by <your name>`, then `kinotta check <slug>`. Kinotta generates `v<n>/index.html` and `shots.json`. Published revision folders are immutable, including assets. Change only the shots named by `Rebuild:` and reuse every other revision in the authored manifest. A shared revision change counts as changing every shot. A duration change moves later shots, while only attached sound follows. A sound attachment uses the shot name as `attachment.placement` and a local `attachment.time`. Kinotta generates the media anchor positions.
 
-`parts-files` reports missing revision files, missing local dependencies and changed published bytes. `parts-name`, `parts-revision`, `parts-shared`, `parts-duration` and `parts-start` report malformed manifest values. Keep contract 1 reels in their existing layout unless the owner asks to convert them.
+`parts-files` reports missing revision files, missing local dependencies and changed published bytes. `parts-name`, `parts-revision`, `parts-shared`, `parts-duration` and `parts-start` report malformed manifest values. Keep contract 1 reels in their existing layout unless the owner asks to convert them. An options request on a contract 1 reel is that ask.
+
+### Converting a single-page reel to parts
+
+Convert the same reel. Never create a new reel to hold the alternates: the owner's comments, Working edits and version history stay with the reel they were made on. The conversion is the reel's next version, so a reel at v18 becomes parts at v19.
+
+1. Start from the newest version's `index.html` and `shots.json`. Give each scene a fixed portable `name`, using its `data-scene` value.
+2. Move each scene's markup, styles and script into `shots/<name>/r1/` as the fragment rules above describe, and the page's global styles, fonts and assets into `shared/r1/`. Keep every `data-el` name, so pins and the owner's offsets still find their elements.
+3. Write the root `reels/<slug>/shots.json` with `contract: 2`, one entry per scene in play order with its current duration, title and description.
+4. For the shot the batch heading names (`Shot 03 · 3 alternates` under `Convert to parts:`), write one further revision per extra answer and add `alternates` to that shot as described below.
+5. Run `kinotta build <slug> --by <your name>` and `kinotta check <slug>`. Build publishes `v<n+1>` in the same reel. Never edit or remove the single-page `v<n>` folders.
+
+Unsent comments carry onto the parts shot playing at their time and follow its name from then on.
 
 For a parts options request, add two to four `alternates` to that shot: each `{ revision, label, title, note, duration }`. Give labels such as A, B and C, a distinct title, and a one-line note explaining the difference. Write one immutable revision per answer. List the recommended answer first and use its revision and duration on the shot. Omit `choiceMade` on a new options answer so the Storyboard reminds the owner to choose. The manifest's total duration follows the revision in the reel.
 

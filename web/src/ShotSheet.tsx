@@ -17,6 +17,8 @@ function verifyAttrs(shot: Shot, count: number, viewed: string | undefined, pins
 
 export interface ShotSheetProps {
   edits?: EditsState;
+  /** A code-built reel can ask for options; a single-page one is converted to parts by the agent to answer. */
+  canAskOptions?: boolean;
   alternatePage?(shot: string, revision: string): string;
   pageUrl: string;
   /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
@@ -61,7 +63,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, unavailable, save, onStep, onClose, edits, alternatePage }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, unavailable, save, onStep, onClose, edits, alternatePage, canAskOptions = false }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -253,7 +255,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
           disabled={saving}
         />
         <button type="button" className="draft-cancel" disabled={saving} onClick={cancelDraft}>Cancel</button>
-        {shot.name && <div className="draft-options">
+        {canAskOptions && <div className="draft-options">
           <label><input type="checkbox" checked={askOptions} disabled={saving || !!askingOther} onChange={(event) => setAskOptions(event.target.checked)} />Ask for options</label>
           {askOptions && <label>Alternates <select aria-label="Number of alternates" value={optionsCount} disabled={saving} onChange={(event) => { const count = Number(event.target.value); if (count === 2 || count === 3 || count === 4) setOptionsCount(count); }}><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>}
           {askingOther && <span>{`Shot ${askingOther.pin.shot} already asks for options.`}</span>}

@@ -17,6 +17,8 @@ const SECONDS_PER_MINUTE = 60;
 const PLAIN_LIMIT = 100;
 const PERCENT = 100;
 const UNSAFE_FILE_CHARS = /[^A-Za-z0-9._-]/g;
+/** A single-page reel has no shot revisions to offer, so the answer to an options request is its conversion. */
+const CONVERT_TO_PARTS = 'Convert to parts: this reel is single-page. Build its next version as parts, then offer the alternates on that shot.';
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
@@ -44,6 +46,8 @@ function pasteableText(heading: string, file: string, comments: Comment[], notes
     lines.push(`In the reel: ${chosen?.label ?? shot.revision}`);
     for (const alternate of shot.alternates) if (alternate.dismissed) lines.push(`Not this: ${alternate.label}${alternate.dismissed.reason ? ` · ${alternate.dismissed.reason}` : ''}`);
   };
+  const asking = version.parts ? undefined : comments.find((comment) => comment.options !== undefined);
+  if (asking) lines.push(`Shot ${asking.pin.shot} · ${asking.options} alternates`, CONVERT_TO_PARTS, '');
   let group = '';
   for (const c of version.parts ? partsShots.flatMap((shot) => comments.filter((comment) => onShot(comment, shot))) : comments) {
     if (version.parts && group !== c.pin.shot) {

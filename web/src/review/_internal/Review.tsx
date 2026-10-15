@@ -27,6 +27,7 @@ import { useEditorWorkspace } from './EditorWorkspace.tsx';
 import { MarkerPanel, useMarkers } from './useMarkers.tsx';
 import { actionForKey, keyChord } from './editor-settings.ts';
 import { shotTarget } from './Transport.tsx';
+import { onReelAlternate } from '../../alternates.ts';
 import '../review.css';
 
 /** The lanes open on this many seconds of the reel (all of it when it is shorter). */
@@ -180,10 +181,11 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const shownComments = useMemo(
     () =>
       comments.flatMap((c) => {
+        if (!onReelAlternate(c, version?.shots ?? [])) return [];
         const at = moved.point(c.pin.time);
         return at === null ? [] : [{ ...c, pin: { ...c.pin, time: at } }];
       }),
-    [comments, moved],
+    [comments, moved, version?.shots],
   );
   const win = useMemo<TimeWindow>(() => ({ start: Math.min(raw.start, Math.max(0, total - raw.length)), length: Math.min(raw.length, total) }), [raw, total]);
 
