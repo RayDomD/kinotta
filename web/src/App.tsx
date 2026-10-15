@@ -651,6 +651,7 @@ function Studio() {
       frozen={frozen}
       version={openVersion?.number}
       newest={newest}
+      shots={openVersion?.workingParts?.shots ?? openVersion?.shots}
       state={comments}
       note={note}
       onOpenComment={(comment: Comment, opener: HTMLElement) =>

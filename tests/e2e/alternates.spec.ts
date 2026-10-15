@@ -184,3 +184,59 @@ test('a single-page code-built reel can ask for options, and the batch asks the 
     expect((await server.project.copyBatch('product-showreel', 2)).text).toContain('Shot 03 · 3 alternates');
   } finally { await server.close(); }
 });
+
+test('Review draws only the pins on the alternate in the reel', async ({ page }) => {
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    for (const [revision, text] of [['r1', 'Only A'], ['r2', 'Only B'], [undefined, 'Any alternate']] as const) {
+      await server.project.addComment('parts', 1, { pin: { shot: '02', alternate: revision, x: 0.5, y: 0.5, element: 'label' }, text });
+    }
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Next shot', exact: true }).click();
+    await expect(page.getByRole('slider', { name: 'Scrub reel' })).toHaveAttribute('aria-valuenow', '1');
+    const shown = async () => ({
+      frame: await page.locator('.rv-page .pintext').allTextContents(),
+      transport: await page.locator('.rv-scrub-pin').evaluateAll((pins) => pins.map((pin) => pin.getAttribute('aria-label'))),
+      lane: await page.locator('.editorial-pin').evaluateAll((pins) => pins.map((pin) => pin.getAttribute('aria-label'))),
+    });
+    await expect.poll(shown).toEqual({ frame: ['Only A', 'Any alternate'], transport: ['1. Only A', '3. Any alternate'], lane: ['1. Only A', '3. Any alternate'] });
+    await server.project.addOperation('parts', { kind: 'shot-alternate', shot: 'proof', revision: 'r2' });
+    await expect.poll(shown).toEqual({ frame: ['Only B', 'Any alternate'], transport: ['2. Only B', '3. Any alternate'], lane: ['2. Only B', '3. Any alternate'] });
+  } finally { await server.close(); }
+});
+
+test('a Review pin asks for options, and the comments column shows the request and the alternate', async ({ page }) => {
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await server.project.addComment('parts', 1, { pin: { shot: '02', alternate: 'r2', x: 0.5, y: 0.5, element: 'label' }, text: 'On B' });
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Next shot', exact: true }).click();
+    await page.getByRole('button', { name: 'Next shot', exact: true }).click();
+    await expect(page.getByRole('slider', { name: 'Scrub reel' })).toHaveAttribute('aria-valuenow', '2');
+    await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose pin position' }).press('Enter');
+    const draft = page.getByRole('form', { name: 'New review pin' });
+    await draft.getByRole('checkbox', { name: 'Ask for options' }).check();
+    await expect(draft.getByRole('combobox', { name: 'Number of alternates' })).toHaveValue('3');
+    await draft.getByLabel('Pin comment', { exact: true }).fill('Show me a few closes');
+    await draft.getByRole('button', { name: 'Save pin', exact: true }).click();
+    await expect.poll(async () => (await server.project.listComments('parts', 1)).find((c) => c.text === 'Show me a few closes')).toMatchObject({ options: 3, pin: { shot: '03' } });
+    await page.getByRole('tab', { name: /^Comments/ }).click();
+    await expect(page.locator('li.c').filter({ hasText: 'Show me a few closes' }).locator('.where')).toContainText('3 options');
+    await expect(page.locator('li.c').filter({ hasText: 'On B' }).locator('.where')).toContainText('Shot 02 · B · ');
+
+    await page.getByRole('button', { name: 'Previous shot', exact: true }).click();
+    await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose pin position' }).press('Enter');
+    await expect(draft.getByRole('checkbox', { name: 'Ask for options' })).toBeDisabled();
+    await expect(draft).toContainText('Shot 03 already asks for options.');
+  } finally { await server.close(); }
+});
