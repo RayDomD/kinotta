@@ -132,14 +132,24 @@ The owner supplies a complete local Diffusers snapshot outside the repository.
 The script loads local files only and uses half precision on CUDA.
 
 ```text
-kinotta generate-audio --prompt "Soft ambient synth bed, no speech" --seconds 12 [--seed 7] --out assets/bed.wav
+kinotta generate-audio --prompt "Soft ambient synth bed, no speech" --seconds 12 --out assets/bed.wav
 ```
 
 `kinotta generate-audio` is the same service as the editor's Generate section at
 the top of the Sound tab. It adds the WAV to the project library, so the owner
 can play and reuse it, and `--out` also copies it beside a code-only plan. It
-prints one JSON line with the file, duration, prompt, length and seed. The same
-prompt, length and seed give the same sound. One generation runs at a time and
+prints one JSON line with the file, duration, prompt, length and seed.
+
+For each new generation, omit `--seed` to choose a fresh random seed. Supply
+`--seed <number>` only when the owner asks to reproduce a sound. In the editor,
+leave Seed blank for the same random behavior; the raw script also randomizes
+an omitted seed and reports the chosen value.
+
+For new reel music, build the prompt from that reel's identity, mood, instruments,
+and pacing. Generate a new file; reuse another reel's music only when the owner
+requests reuse. A random seed varies the sound within the prompt's musical direction.
+
+The same prompt, length and seed give the same sound. One generation runs at a time and
 takes about half a minute, so generate once per request and audition the result
 before iterating. The model folder comes from `KINOTTA_STABLE_AUDIO_MODEL`; when
 that is unset the command says so and you fall back as below. The raw
