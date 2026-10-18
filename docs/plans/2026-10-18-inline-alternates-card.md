@@ -1,7 +1,7 @@
 ---
 title: Inline alternates card
 date: 2026-10-18
-status: In Progress
+status: Done
 summary: Preview, switch and choose a shot's alternates inside its stacked Storyboard card, with animated playback, without opening the shot sheet.
 spec: AGENTS.md (Pending owner decision: inline alternatives)
 ---
@@ -87,3 +87,4 @@ Tickets: `docs/tickets-inline-alternates.md`.
 - O6 settled by the owner: pinning stays in the shot sheet. All open questions are settled. Next: a card mockup, then Goal and Approach for approval.
 - Behaviour mockup accepted by the owner: `docs/mockups/2026-10-18-inline-alternates-card.html`. Next: Goal and Approach.
 - Goal (G1 to G6), Approach, Steps, Risks and Checks written. Tickets in `docs/tickets-inline-alternates.md`. One-lane AGY brief for Gemini 4 Argon in `docs/briefs/2026-10-18-inline-alternates-card/`. Awaiting the owner's approval of the split and the dispatch.
+- T1, T2 and T3 implemented and verified on `agent-loop/inline-alternates-card/card` (`2fd80c0`, `b8c1318`, `c2a3d60`) and merged `--no-ff` into `feat/inline-alternates-card` (`91c35d4`). `DESIGN.md` updated with the inline alternates card states, `/impeccable critique` recorded in `docs/session-summaries/2026-10-18-inline-alternates-card-summary.md`, and dashboard regenerated. Awaiting the owner's go-ahead to merge to `main`.
