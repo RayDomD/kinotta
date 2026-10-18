@@ -1,7 +1,7 @@
 ---
 title: live-edits-freeze-at-render
 date: 2026-10-12
-status: Approved
+status: Done
 summary: Edits apply to the reel in place; a version is frozen only at a render or a comment hand-off.
 spec:
 ---
@@ -86,3 +86,6 @@ Update ADR 0003 and the glossary to distinguish the working reel from a frozen v
 - The Working screen is to be designed with the owner in a preview before dispatch; step 5 builds to that mockup.
 - To be built by Codex (`gpt-6.1-sol`, medium effort) as the first part of one continuous run: live edits, shots as parts, alternates.
 - Working screen chosen by the owner: option A of `docs/mockups/2026-10-14-working-reel.html`.
+
+### 2026-10-18
+- Closed the implementation merged on October 15. Retrospective summary: `docs/session-summaries/2026-10-18-live-edits-freeze-at-render-summary.md`. The cleanup plan records current verification and the deferred UI review.

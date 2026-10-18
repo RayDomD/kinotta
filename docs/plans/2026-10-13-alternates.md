@@ -1,7 +1,7 @@
 ---
 title: alternates
 date: 2026-10-13
-status: Approved
+status: Done
 summary: A comment can ask for options; the agent answers with alternates of one shot, chosen on the storyboard.
 spec:
 ---
@@ -112,3 +112,7 @@ Each step is a failing test first, then the change.
 - Span pins split out into `2026-10-14-span-pins.md`.
 - Goal, Approach, Steps, Risks and Checks written on top of the parts design. Awaiting approval before code.
 - Approved by the owner on 2026-10-14 with the Codex brief `docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md`.
+
+### 2026-10-18
+- Closed the implementation merged on October 15. Retrospective summary: `docs/session-summaries/2026-10-18-alternates-summary.md`. The cleanup plan records current verification and the deferred UI review.
+- The newer inline animated Storyboard-card decision remains in `docs/plans/2026-10-18-inline-alternates-card.md`; Done here closes the original chooser implementation only.

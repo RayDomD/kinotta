@@ -57,3 +57,15 @@ spec: docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md
 
 ### 2026-10-18
 - Plan created from the review of recent plans. Approved by the owner; execution started on `fix/codex-run-cleanup`.
+- All four inherited failures pass in isolated reruns; no speculative failure fixes or timeout changes.
+- Added a failing cross-process regression and fixed live Draft deletion with an owner PID published before the capture rename. All 12 Working render tests pass, including removal after the owner exits. Commits: `ba0a4ac` (saved plan), `49b0492` (race).
+- Typecheck and production build pass. The first complete core run finished with 808 passed, three failed and one existing skip. All four inherited failures passed. The three new failures reproduced alone: ambiguous pin selection, checking before the split/Undo response completed, and dragging a handle outside the scrolling tracks viewport. Focused corrections preserve the behavioral assertions and change no timeouts or editor implementation.
+- Drafted the three retrospective summaries and corrected Save-era design wording. UI reviewer model authorization and final merge approval remain pending.
+- The four requested browser configurations pass all 46 tests. Regression test corrections are in `04e8e60`. The second full invocation exposed another attachment request/Undo synchronization failure, reproduced and corrected in `aea5b3a`; a complete green rerun is still required.
+- Fresh full verification from `aea5b3a`: all 109 core files pass; 811 tests pass with one existing opt-in faster-whisper skip; exit 0, 1029.22 seconds. Command: `npx vitest run tests/core --maxWorkers=1 --reporter=verbose --bail=1`. Typecheck, build and all 46 requested browser checks pass. Logs and limitations are recorded in `docs/session-summaries/2026-10-18-codex-run-cleanup-summary.md`.
+
+## Execution status
+
+- Goals 1–3 are complete: one green full core run, the proven Draft owner fix, corrected design wording, three closed original plans with summaries, and the regenerated dashboard.
+- Goal 4 is pending reviewer-model approval. The requested choice is two GPT-6.1-sol reviewers at high reasoning effort, or an explicitly disclosed single-context review. No agents have been spawned; the UI critique/audit and the 39 font-size advisories remain unreviewed.
+- Goal 5 is pending the owner's final merge approval. Neither this branch nor the seeds branch has been merged or pushed. The plan remains In Progress until the remaining outcomes satisfy the original Intent.
