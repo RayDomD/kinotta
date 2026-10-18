@@ -1,12 +1,12 @@
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { availableParallelism } from 'node:os';
+import { availableParallelism, freemem } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { requireVersionDir } from './approval.ts';
 import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
 import { versionIssues } from './footage-issues.ts';
 import { readRenderSettings, requestSettings } from './render-settings.ts';
-import { encodeMedia, joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
+import { RENDER_THREADS, encodeMedia, joinSegments, pageInfo, probeFootage, renderOverFootage, renderPage, type PageRender, type RenderedPage } from './runner.ts';
 import { mediaRenderArgs } from './media-render.ts';
 import { describeOverload, measureOverload, mixOverload } from './media-overload.ts';
 import { mediaTimeline } from './media-model.ts';
@@ -24,8 +24,11 @@ const PRESETS: readonly RenderPreset[] = ['draft', 'final', 'overlay'];
 /** Windows holds a killed process's files for a moment, so removing a cancelled render's files retries. */
 export const CLEANUP_RETRIES = 10;
 export const CLEANUP_RETRY_MS = 100;
-/** Each segment is a Chromium page plus an ffmpeg encoder, so a worker gets two cores. */
-const CORES_PER_WORKER = 2;
+/**
+ * A segment's Chromium and ffmpeg encoders peak around a gigabyte on a 4K render; a worker that cannot get this much
+ * free memory would push the machine into paging.
+ */
+const MEMORY_PER_WORKER = 1.5 * 1024 ** 3;
 /** A shorter render stays in one page: starting more browsers would cost more than it saves. */
 const MIN_SEGMENT_FRAMES = 60;
 /** The concat list that joins a parallel render's segments, inside its `.work-<job>/` folder. */
@@ -154,8 +157,13 @@ function frameRanges(frames: number, count: number): Array<[number, number]> {
  */
 function segmentCount(frames: number, pinned: number | undefined): number {
   if (pinned !== undefined) return Math.max(1, Math.min(pinned, frames));
-  const workers = Math.max(1, Math.floor(availableParallelism() / CORES_PER_WORKER));
+  const workers = renderWorkers(availableParallelism(), freemem());
   return Math.max(1, Math.min(workers, Math.floor(frames / MIN_SEGMENT_FRAMES)));
+}
+
+/** Workers a render can run at once: each takes `RENDER_THREADS` of the CPU's threads and its share of free memory. */
+export function renderWorkers(cores: number, freeBytes: number): number {
+  return Math.max(1, Math.min(Math.floor(cores / RENDER_THREADS), Math.floor(freeBytes / MEMORY_PER_WORKER)));
 }
 
 /** Frames a second as a number, from `30` or `30000/1001`. */

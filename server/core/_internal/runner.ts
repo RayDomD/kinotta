@@ -1,4 +1,5 @@
-import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { constants, setPriority } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { BeatGrid } from './media-model.ts';
@@ -16,6 +17,11 @@ const BEATS_SCRIPT = resolve(SKILL_DIR, 'scripts/beats.py');
 const GENERATE_AUDIO_SCRIPT = resolve(SKILL_DIR, 'scripts/generate_audio.py');
 const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
+/**
+ * Threads each render process may use: an ffmpeg left to itself takes one per core, so a parallel render's segments
+ * would each try to fill the machine. The render's worker count is sized from the same budget.
+ */
+export const RENDER_THREADS = 4;
 const BUILD_TIMEOUT_MS = 120_000;
 /** Loading the model and 100 inference steps take about half a minute on a laptop GPU. A cold first load is slower. */
 const GENERATE_AUDIO_TIMEOUT_MS = 600_000;
@@ -223,7 +229,27 @@ function renderArgs(job: Omit<PageRender, 'out' | 'codec'>, out: string, codec: 
   if (!job.blur) args.push('--no-blur');
   if (codec === 'prores' && job.proresProfile !== undefined) args.push('--prores-profile', job.proresProfile);
   if (job.frames !== undefined) args.push('--frames', `${job.frames[0]}:${job.frames[1]}`);
+  args.push('--threads', String(RENDER_THREADS));
   return args;
+}
+
+/** ffmpeg arguments held to `RENDER_THREADS`: each input's decoder, the filters and the encoder before the output. */
+function threaded(args: string[]): string[] {
+  const limit = ['-threads', String(RENDER_THREADS)];
+  const out = args.flatMap((arg) => (arg === '-i' ? [...limit, arg] : [arg]));
+  return [...out.slice(0, -1), '-filter_threads', String(RENDER_THREADS), ...limit, out[out.length - 1]!];
+}
+
+/**
+ * Starts a render process below normal priority, so the editor and the rest of the machine stay responsive. On Windows
+ * the Chromium and ffmpeg a renderer starts inherit it. ffmpeg is also held to its thread budget.
+ */
+function spawnRender(command: string, args: string[]): ChildProcessWithoutNullStreams {
+  const child = spawn(command, command === 'ffmpeg' ? threaded(args) : args, { windowsHide: true });
+  if (child.pid !== undefined) {
+    try { setPriority(child.pid, constants.priority.PRIORITY_BELOW_NORMAL); } catch { /* the process may already be gone */ }
+  }
+  return child;
 }
 
 /**
@@ -265,7 +291,7 @@ function renderListener(onProgress?: (done: number, frames: number) => void) {
  */
 export function renderPage(job: PageRender, onProgress?: (done: number, frames: number) => void, signal?: AbortSignal): Promise<RenderedPage> {
   return new Promise((resolveRun, reject) => {
-    const child = spawn(process.execPath, renderArgs(job, job.out, job.codec, job.codec === 'h264'), { windowsHide: true });
+    const child = spawnRender(process.execPath, renderArgs(job, job.out, job.codec, job.codec === 'h264'));
     const { state, onLine } = renderListener(onProgress);
     eachLine(child.stdout, onLine);
     eachLine(child.stderr, onLine);
@@ -351,8 +377,8 @@ export function compositeArgs(job: FootageComposite): string[] {
  */
 export function renderOverFootage(page: Omit<PageRender, 'out' | 'codec'>, composite: FootageComposite, onProgress?: (done: number, frames: number) => void, signal?: AbortSignal): Promise<RenderedPage> {
   return new Promise((resolveRun, reject) => {
-    const renderer = spawn(process.execPath, renderArgs(page, '-', 'rgba', false), { windowsHide: true });
-    const encoder = spawn('ffmpeg', compositeArgs(composite), { windowsHide: true });
+    const renderer = spawnRender(process.execPath, renderArgs(page, '-', 'rgba', false));
+    const encoder = spawnRender('ffmpeg', compositeArgs(composite));
     const { state, onLine } = renderListener(onProgress);
     let encoderErrors = '';
     renderer.stdout.pipe(encoder.stdin);
@@ -420,7 +446,7 @@ export function joinArgs(list: string, out: string, audio: JoinAudio | null): st
 /** ffmpeg joining a parallel render's segments (see `joinArgs`). When `signal` aborts, ffmpeg is stopped and it rejects. */
 export function joinSegments(list: string, out: string, audio: JoinAudio | null, signal?: AbortSignal): Promise<void> {
   return new Promise((resolveRun, reject) => {
-    const child = spawn('ffmpeg', joinArgs(list, out, audio), { windowsHide: true });
+    const child = spawnRender('ffmpeg', joinArgs(list, out, audio));
     let errors = '';
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => (errors = (errors + chunk).slice(-ERROR_TAIL_CHARS)));
     let stopped: Promise<void> = Promise.resolve();
@@ -521,7 +547,7 @@ export async function mixPeaks(args: string[]): Promise<number[]> {
 /** Compose native media with one whole-reel audio mix. Cancellation waits for the encoder to stop. */
 export function encodeMedia(args: string[], signal: AbortSignal): Promise<void> {
   return new Promise((resolveRun, reject) => {
-    const child = spawn('ffmpeg', args, { windowsHide: true });
+    const child = spawnRender('ffmpeg', args);
     let errors = '';
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => (errors = (errors + chunk).slice(-ERROR_TAIL_CHARS)));
     let stopped: Promise<void> = Promise.resolve();
