@@ -98,7 +98,7 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
     expect((await server.project.listComments('founder-talk', 2)).map((c) => [c.text, c.pin.time, c.pin.sourceTime])).toEqual([['Legacy word', 3, 9], ['Legacy frame', 3.5, 9.5], ['Pending legacy frame', 3.75, 9.75]]);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).click();
-    const frozenPicture = page.locator('video.mv-picture');
+    const frozenPicture = page.locator('[data-verify-unit="PictureLayer"] > video.mv-picture');
     await expect.poll(() => frozenPicture.getAttribute('src')).toContain('/media/founder-talk/2/');
     const original = readFileSync(join(dir, 'media/talk.mp4'));
     writeFileSync(join(dir, 'media/talk.mp4'), 'changed original');
@@ -383,7 +383,7 @@ it('changes picture framing independently, previews it and retains it through Un
       await page.getByRole('button', { name: 'Review', exact: true }).click();
     };
     await review();
-    const picture = page.locator('.mv-picture');
+    const picture = page.locator('[data-verify-unit="PictureLayer"] > .mv-picture');
     const style = () => picture.evaluate((el) => ({ fit: getComputedStyle(el).objectFit, position: getComputedStyle(el).objectPosition }));
     await expect.poll(style).toEqual({ fit: 'cover', position: '50% 50%' });
     await inspectPlacement(page, /^Portrait, main, 2.00/);

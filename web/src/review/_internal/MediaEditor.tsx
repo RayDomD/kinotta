@@ -40,6 +40,8 @@ const SHIFT_NUDGE_FACTOR = 10;
 const SNAP_REACH = 0.05;
 /** A split needs this much on each side. */
 const SPLIT_MARGIN = 0.01;
+/** How far ahead a picture is loaded before its cut. */
+const PRELOAD_SECONDS = 3;
 /** Defaults shared with engine/build.py's caption style and source-start tolerance. */
 const CAPTION_COLOR = '#FF5A1F';
 const CAPTION_AT = 0.005;
@@ -192,6 +194,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     onChange: editable && !pinning ? (change) => changeElement.current(change) : undefined,
   }), [elementOffsets, elementClips, editable, pinning]);
   const active = pictureOrder(timeline).filter((p) => !p.attachmentBroken && time >= p.at && time < p.at + p.duration);
+  // Pictures starting soon load ahead, so a cut does not stop playback to wait for them.
+  const upcoming = pictureOrder(timeline).filter((p) => !p.attachmentBroken && p.role !== 'gap' && p.at > time && p.at - time <= PRELOAD_SECONDS && !active.some((a) => a.id === p.id));
   const picture = active.at(-1);
   const source = picture && picture.role !== 'gap' ? media.sources.find((s) => s.id === picture.source) : undefined;
   const framing = picture && picture.role !== 'gap' ? picture.framing : undefined;
@@ -516,7 +520,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <div className="rv-well">
       <div className="rv-picture-stage">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
-        <PictureLayers pictures={active} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
+        <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
         <PagePlayer className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}

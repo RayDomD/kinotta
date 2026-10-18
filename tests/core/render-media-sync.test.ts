@@ -49,7 +49,7 @@ async function openEditor(page: Page, url: string): Promise<void> {
 /** The sound's clock and the picture's time, read together. */
 const sample = (page: Page) => page.evaluate(() => {
   const main = document.querySelector('[data-verify-unit="MediaEditor"]')!;
-  const video = document.querySelector<HTMLVideoElement>('video.mv-picture');
+  const video = document.querySelector<HTMLVideoElement>('[data-verify-unit="PictureLayer"] > video.mv-picture');
   return { clock: Number(main.getAttribute('data-verify-clock')), waiting: main.getAttribute('data-verify-waiting') === 'true', picture: video?.currentTime ?? null };
 });
 
@@ -133,7 +133,7 @@ it('keeps the picture on the sound clock while playing', { timeout: TIMEOUT_MS }
       if (!now.waiting && now.picture !== null) offsets.push(Math.abs(now.picture - now.clock));
       const scheduled = await page.evaluate(() => {
         const sound = (window as unknown as { soundClock: { source: AudioBufferSourceNode; when: number; offset: number } | null }).soundClock;
-        const video = document.querySelector<HTMLVideoElement>('video.mv-picture');
+        const video = document.querySelector<HTMLVideoElement>('[data-verify-unit="PictureLayer"] > video.mv-picture');
         const waiting = document.querySelector('[data-verify-unit="MediaEditor"]')?.getAttribute('data-verify-waiting') === 'true';
         return sound && video && !waiting ? Math.abs(video.currentTime - (sound.offset + sound.source.context.currentTime - sound.when)) : null;
       });
