@@ -339,11 +339,11 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
-        if (!readOnly && edits && openIndex === null && !isTyping(e.target)) {
-          e.preventDefault();
-          void edits.undo();
-        }
+      // Ctrl or Cmd with Z (Shift for redo) or Y steps the edit list, as in Review.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
+        if (readOnly || !edits || edits.busy || openIndex !== null || isTyping(e.target)) return;
+        e.preventDefault();
+        void (e.key.toLowerCase() === 'y' || e.shiftKey ? edits.redo() : edits.undo());
       }
     }
     window.addEventListener('keydown', onKeyDown);

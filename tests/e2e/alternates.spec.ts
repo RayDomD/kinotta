@@ -369,6 +369,18 @@ test('card Use chooses alternate in the reel with undo, and Not this dismisses w
       return working.workingParts?.shots[1].revision === 'r1' && working.workingParts?.shots[2].start === 2;
     }).toBe(true);
 
+    // Control+Shift+z redoes the choice, and Control+y after another undo redoes it again
+    const shownInReel = (revision: string) => expect(card.locator(`.shot-alternates [data-alternate-revision="${revision}"].on`)).toHaveCount(1);
+    await shownInReel('r1');
+    await page.keyboard.press('Control+Shift+z');
+    await shownInReel('r2');
+    await page.keyboard.press('Control+z');
+    await shownInReel('r1');
+    await page.keyboard.press('Control+y');
+    await shownInReel('r2');
+    await page.keyboard.press('Control+z');
+    await shownInReel('r1');
+
     const openBtn = card.getByRole('button', { name: /^Shot 02,/ });
 
     // Previewing alternate C, clicking Not this, typing reason and pressing Escape closes without edit and focuses card
