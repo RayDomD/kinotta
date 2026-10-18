@@ -1,7 +1,7 @@
 ---
 title: Merge queue
 date: 2026-10-19
-status: Approved
+status: In Progress
 summary: Merge the hidden-stage fix, the playback performance work and the inline alternates card into main, one at a time, each checked against a known baseline.
 spec:
 ---
