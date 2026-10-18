@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { startServer } from '../../server/main.ts';
 import { openProject } from '../../server/core/index.ts';
@@ -20,6 +22,42 @@ function setup() {
 const captures = (dir: string) => readdirSync(dir).filter((name) => name.startsWith('.draft-'));
 
 describe('working renders', () => {
+  it('removes a Draft capture whose owning process exited before rendering', { timeout: TIMEOUT_MS }, async () => {
+    const { dir, reelDir } = setup();
+    const coreModule = pathToFileURL(resolve('server/core/index.ts')).href;
+    const owner = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      import { openProject } from ${JSON.stringify(coreModule)};
+      const project = openProject(${JSON.stringify(dir)});
+      project.subscribe(event => {
+        if (event.type === 'render-progress' && event.job.state === 'queued') process.exit(0);
+      });
+      await project.renderWorking({ reel: ${JSON.stringify(REEL)}, preset: 'draft' });
+    `], { encoding: 'utf8', timeout: 20_000 });
+    expect(owner.status, owner.stderr).toBe(0);
+    expect(captures(reelDir)).toHaveLength(1);
+    const server = await startServer({ projectDir: dir, port: 0 });
+    try { expect(captures(reelDir)).toEqual([]); } finally { await server.close(); }
+  });
+
+  it('keeps a live Draft capture when another server process starts on the same project', { timeout: TIMEOUT_MS }, async () => {
+    const { dir, reelDir, project } = setup();
+    const job = await project.renderWorking({ reel: REEL, preset: 'draft' });
+    try {
+      const [capture] = captures(reelDir);
+      expect(capture).toBeDefined();
+      const serverModule = pathToFileURL(resolve('server/main.ts')).href;
+      const second = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+        import { startServer } from ${JSON.stringify(serverModule)};
+        const server = await startServer({ projectDir: ${JSON.stringify(dir)}, port: 0 });
+        await server.close();
+      `], { encoding: 'utf8', timeout: 20_000 });
+      expect(second.status, second.stderr).toBe(0);
+      expect(existsSync(join(reelDir, capture!, 'index.html'))).toBe(true);
+      expect((await project.whenRendered(job.id)).state).toBe('done');
+      expect(captures(reelDir)).toEqual([]);
+    } finally { await project.cancelRender(job.id); }
+  });
+
   it('removes stale Draft captures at server startup without letting read-only project access delete captures', async () => {
     const dir = emptyProject();
     const reelDir = join(dir, 'reels', REEL);

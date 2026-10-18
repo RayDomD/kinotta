@@ -20,6 +20,7 @@ import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 import { checkPartsManifest } from './parts.ts';
 import { assembleParts } from './parts-assembler.ts';
 import { assertPartsHashes, partsRevisionHashes, readPartsInputs } from './parts-files.ts';
+import { DRAFT_OWNER_FILE } from './render-queue.ts';
 
 interface CaptureOptions {
   locked?: boolean;
@@ -247,7 +248,11 @@ export async function captureWorking(projectDir: string, slug: string): Promise<
   const reelDir = await requireReelDir(projectDir, slug);
   const dir = join(reelDir, `.draft-${randomUUID()}`);
   const captured = await buildWorking(projectDir, slug, { capture: async (stage) => {
-    try { await rename(stage, dir); } catch (error) {
+    try {
+      // Publish ownership with the capture, so another server never sees an unowned live Draft.
+      await writeFile(join(stage, DRAFT_OWNER_FILE), String(process.pid));
+      await rename(stage, dir);
+    } catch (error) {
       await rm(stage, { recursive: true, force: true });
       throw error;
     }
