@@ -19,7 +19,7 @@ test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');
-const video = (page: Page): Locator => review(page).locator('video');
+const video = (page: Page): Locator => review(page).locator('[data-verify-unit="PictureLayer"] > video');
 const videoTime = (page: Page): Promise<number> => video(page).evaluate((el: HTMLVideoElement) => el.currentTime);
 
 /** The timecode's current reading in seconds. */
