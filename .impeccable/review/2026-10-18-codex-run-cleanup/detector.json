@@ -1,0 +1,716 @@
+﻿[
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 99,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 109,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 162,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 193,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 201,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 206,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 214,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 247,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 256,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 257,
+    "snippet": "Undocumented color oklch(.65 .19 30) is outside DESIGN.md colors",
+    "ignoreValue": "oklch(.65 .19 30)",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 271,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 278,
+    "snippet": "font-size: 10px is off the DESIGN.md type ramp",
+    "ignoreValue": "10px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 281,
+    "snippet": "font-size: 18px is off the DESIGN.md type ramp",
+    "ignoreValue": "18px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 282,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 302,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 330,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 333,
+    "snippet": "Undocumented color oklch(.65 .19 30 / .2) is outside DESIGN.md colors",
+    "ignoreValue": "oklch(.65 .19 30 / .2)",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 333,
+    "snippet": "Undocumented color oklch(.65 .19 30) is outside DESIGN.md colors",
+    "ignoreValue": "oklch(.65 .19 30)",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\review\\review.css",
+    "line": 336,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px",
+    "importedBy": [
+      "MediaEditor.tsx",
+      "Review.tsx"
+    ]
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 70,
+    "snippet": "font-size: 18px is off the DESIGN.md type ramp",
+    "ignoreValue": "18px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 132,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 136,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 142,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 166,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 171,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 187,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 202,
+    "snippet": "font-size: 17px is off the DESIGN.md type ramp",
+    "ignoreValue": "17px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 207,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 214,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 217,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 236,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 240,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 266,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 268,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 271,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 272,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 275,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 278,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 291,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 302,
+    "snippet": "font-size: 11px is off the DESIGN.md type ramp",
+    "ignoreValue": "11px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 303,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 377,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 384,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 410,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 419,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 456,
+    "snippet": "font-size: 19px is off the DESIGN.md type ramp",
+    "ignoreValue": "19px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 472,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 486,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 490,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 495,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 508,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 513,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 538,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 554,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 557,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 574,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 586,
+    "snippet": "font-size: 14px is off the DESIGN.md type ramp",
+    "ignoreValue": "14px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "C:\\FIles\\Projects\\Apps\\Kinotta\\web\\src\\styles.css",
+    "line": 591,
+    "snippet": "font-size: 16px is off the DESIGN.md type ramp",
+    "ignoreValue": "16px"
+  }
+]

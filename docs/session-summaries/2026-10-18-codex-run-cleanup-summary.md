@@ -21,12 +21,26 @@ Continuation instructions are in the [cleanup handoff](../briefs/2026-10-18-code
 
 ## Remaining work
 
-The authorized code, test and documentation work is verified. The plan remains In Progress because two outcomes remain:
+The authorized code, test, documentation and UI review work is recorded. The plan remains In Progress pending owner-approved integration:
 
-1. The Impeccable critique/audit of Working, Storyboard and ShotSheet, including the decision on the 39 inherited font-size advisories. The critique skill requires two isolated assessments; the owner's AGENTS.md requires model approval before delegation. Approval was requested for two GPT-6.1-sol reviewers at high reasoning effort and has not been received. No subagents were spawned and no completed UI review or font-size adjudication is claimed. The owner can instead choose a disclosed single-context review.
-2. Owner approval to merge `codex/random-audio-seeds` and `fix/codex-run-cleanup` into `main`. `main` remains at `5f3a23d`; the seeds fix is `367c95e`. Nothing was pushed or merged.
+1. Owner approval to merge `codex/random-audio-seeds` and `fix/codex-run-cleanup` into `main`. `main` remains at `5f3a23d`; the seeds fix is `367c95e`. Nothing was pushed or merged.
+2. After approval, integrate and verify the merged result, then mark the plan Done and regenerate the dashboard.
 
-The original Intent still requires both outcomes before the cleanup plan can be marked Done.
+The original Intent still requires the seeds fix on main before the cleanup plan can be marked Done.
+
+## UI review result
+
+The owner approved two GPT-6.1-sol reviewers at high reasoning effort, then continuation with the proposed Playwright fallback. Independent assessments by `/root/ui_design_assessment` and `/root/ui_technical_assessment` used source, existing same-code captures and the detector because CUA had no connected browser. The technical reviewer saved its full report before a quota interruption. The parent completed fresh headless Chromium checks on isolated commit `78db54a`; these were not two independent live browser reviews.
+
+- [Combined critique](../../.impeccable/critique/2026-10-18T15-38-26Z__web-src-storyboard-tsx.md): **25/40**. Priority findings: P1 continuous Working identity; P2 sheet submission discovery, local Undo and alternate labels on comments.
+- [Technical audit](../../.impeccable/review/2026-10-18-codex-run-cleanup/assessment-b.md): **14/20, provisional**, supplemented by the [live completion record](../../.impeccable/review/2026-10-18-codex-run-cleanup/completion.md). Five P2 findings and one P3: desktop sheet height, typography roles, tab behavior, source-only nested audio controls, timeline pin styling and literal warning colors.
+- [Font-size decision](../../.impeccable/review/2026-10-18-codex-run-cleanup/font-disposition.md): all 55 current occurrences are adjudicated; 39 shared CSS advisories match the inherited count, plus 16 in Review CSS. Preserve documented dense editor/numeral sizes; record specific body/library role drift for a focused follow-up. No blanket 16px change or detector ignores.
+- Fresh checks prove viewing B leaves Working at `r1`, choosing B changes it to `r2`, Enter saves a pin with alternate `r2`, and Review advances B's local time and transform. They confirm no local sheet Undo, unchanged B after sheet Ctrl+Z, absent alternate label on the comment card, and unchanged Edits tab selection/focus after ArrowRight.
+- At 1600×1000 the desktop sheet measured 900×999.05, extending to y=1036.05; its scrim scrolls. Light Storyboard has no horizontal overflow at 1600/390px, and the 390px sheet fits this fixture. Representative captures and raw results are committed beside the completion record.
+- Frozen v1 loaded `r1`; a fresh return-to-Working wait timed out. The earlier regression passed that path. This remains an unresolved discrepancy, not a diagnosed defect or a fresh pass. Screen-reader, zoom, induced errors, performance tracing and the nested audio fixture were not tested.
+- Browser detector injection ran on all three surfaces, logging 1/3/1 browser advisories. The saved CLI scan has 58 advisories: 55 typography and three color. No owner-visible overlay remains. Review browsers/fixture servers closed and the diagnostic server stopped. The isolated production build passed; no application code changed and the full core/browser suites were not repeated for review-only records.
+
+Findings are follow-ups only. Questions skipped because this cleanup authorizes recording the review, not implementing its suggestions.
 
 ## Scope
 

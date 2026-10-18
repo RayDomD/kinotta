@@ -1,12 +1,12 @@
 # Codex run cleanup handoff
 
-Written October 18, 2026. The code fixes, full verification and documentation cleanup are committed. The cleanup plan remains **In Progress**: the UI review and owner-approved merges are unfinished.
+Updated October 18, 2026. The code fixes, full verification, documentation cleanup and UI review are recorded. The cleanup plan remains **In Progress** pending owner-approved merges.
 
 ## Resume here
 
-Continue on `fix/codex-run-cleanup`. The completed cleanup checkpoint is `a4c29ee`; a handoff-only commit follows it. Read the [cleanup plan](../plans/2026-10-18-codex-run-cleanup.md) for scope and the [session summary](../session-summaries/2026-10-18-codex-run-cleanup-summary.md) for detailed evidence and limitations. Check current Git state before editing; the references below describe this handoff's snapshot.
+Continue on `fix/codex-run-cleanup`, checked out in `.worktrees/codex-run-cleanup`. The shared checkout is on separate branch `fix/render-hidden-stage`; do not switch or commit that work for this cleanup. The reviewed UI checkpoint is `78db54a`; review records follow it. Read the [cleanup plan](../plans/2026-10-18-codex-run-cleanup.md) and [session summary](../session-summaries/2026-10-18-codex-run-cleanup-summary.md) for evidence and limitations. Check current Git state before editing.
 
-The next action is resolving the pending reviewer-model choice. The owner has **not** approved delegation or merging. Their latest request was to write this handoff.
+The owner approved the two GPT-6.1-sol/high reviewers and continuation with the proposed Playwright fallback. The review is complete as a bounded assessment with explicit limits. The next owner decision is merge approval; review authorization did not authorize merging or pushing.
 
 ## Completed
 
@@ -44,15 +44,19 @@ Two earlier full invocations failed and remain as diagnostic evidence: `tests/cl
 
 ## Remaining work, in order
 
-1. **Resolve review authorization.** The pending proposal is two GPT-6.1-sol reviewers at high reasoning effort. The owner's AGENTS.md requires model approval before delegation; the Impeccable critique requires independent assessments. No agents were spawned. The owner may instead authorize a disclosed single-context review. Check for a newer explicit answer before asking again.
-2. **Complete and record the UI review.** Apply the installed Impeccable critique and audit workflows to Working, Storyboard and ShotSheet, using fresh running-browser evidence. Follow the current repo instructions and saved references. Record findings and adjudicate the 39 inherited font-size advisories against `DESIGN.md`; neither task has been completed. Findings are follow-ups in this cleanup, rather than authorization to change the UI. This step is complete when the critique, audit, evidence and typography decision are written into the cleanup record.
-3. **Obtain the owner's merge go-ahead.** `main` remains at `5f3a23d`; `codex/random-audio-seeds` remains at `367c95e`. The seeds branch changes its generation script, sound guidance and plan records. Neither branch was merged or pushed. Review authorization alone does not authorize merging.
-4. **After explicit merge approval, finish integration and closure.** Merge the seeds and cleanup branches into `main`, resolve any integration issues, and verify the resulting changes appropriately. Regenerate the dashboard with `powershell -NoProfile -File docs/plans/build-plans-index.ps1` after plan/summary updates. Mark the cleanup plan Done only when both remaining outcomes satisfy its original Intent, and update the summary with review, merge and verification evidence. Push only with explicit authorization.
+1. **Obtain the owner's merge go-ahead.** `main` remains at `5f3a23d`; `codex/random-audio-seeds` remains at `367c95e`. The seeds branch changes its generation script, sound guidance and plan records. Neither branch was merged or pushed. Review authorization alone does not authorize merging.
+2. **After explicit merge approval, finish integration and closure.** Merge the seeds and cleanup branches into `main`, resolve any integration issues, and verify the resulting changes appropriately. Regenerate the dashboard after plan/summary updates. Mark the cleanup plan Done only when the seeds fix is on main and integration is verified. Push only with explicit authorization.
+
+## Completed UI review
+
+The [session summary](../session-summaries/2026-10-18-codex-run-cleanup-summary.md#ui-review-result) links the critique (25/40), provisional audit (14/20), every font-size disposition and the [fresh evidence record](../../.impeccable/review/2026-10-18-codex-run-cleanup/completion.md). Two independent source/artifact reviews were supplemented by parent Playwright checks after CUA proved unavailable. This is not two independent live reviews.
+
+The main follow-ups are continuous Working identity, visible sheet submission/Undo, alternate labels on comments, desktop sheet scrolling and tab keyboard behavior. Choosing B, saving its pin identity and advancing B playback are verified. A fresh Back to Working revision wait timed out despite the earlier passing regression; preserve that discrepancy for investigation. No UI fixes were made. All 55 font-size advisories, including the inherited 39, are adjudicated against the documented roles without a blanket 16px conversion or detector ignores.
 
 ## Workspace and follow-ups
 
-Tracked files were clean before writing this handoff. Preserve the untracked local media, `.kinotta-server.json`, test evidence, and the separate inline-card plan, mockup, brief directory and tickets. They were excluded from cleanup commits.
+Preserve the shared checkout's unrelated files, local media, `.kinotta-server.json`, test evidence, and the separate inline-card/portrait plans and mockups. They were excluded from cleanup commits. Four older uncommitted cleanup-document updates remain in that shared checkout; this isolated branch now supersedes those pending-review descriptions. Do not restore the shared dashboard wholesale, because it also indexes concurrent plans.
 
-The viewer regression rewrites historical October 15 evidence. This run's generated copies were saved to `tests/artifacts/codex-run-cleanup-review/render-viewer/`, then the historical tracked files were restored. The temporary review fixture server was stopped. A fixture helper remains at `tests/artifacts/codex-run-cleanup-review/server.mts`; its saved URL/PID are stale, so start a fresh fixture if reusing it.
+The viewer regression rewrites historical October 15 evidence. This run's generated copies were saved to `tests/artifacts/codex-run-cleanup-review/render-viewer/` in the original checkout, then the historical tracked files were restored. The fresh review scripts closed their browsers and fixture servers; the diagnostic server on port 8400 was stopped. Saved fixture URLs/PIDs are stale. Representative fresh screenshots and raw measurements are committed under `.impeccable/review/2026-10-18-codex-run-cleanup/`.
 
 Two recorded follow-ups are outside the completed changes: `.impeccable/design.json` is stale relative to `DESIGN.md`, and the legacy-media hint in `MediaEditor.tsx` still mentions Save. The hint is a source-only observation, pending verification on a running legacy surface. Keep inline alternates, inspector controls, version compare, span pins and engine changes outside this cleanup.

@@ -67,5 +67,11 @@ spec: docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md
 ## Execution status
 
 - Goals 1–3 are complete: one green full core run, the proven Draft owner fix, corrected design wording, three closed original plans with summaries, and the regenerated dashboard.
-- Goal 4 is pending reviewer-model approval. The requested choice is two GPT-6.1-sol reviewers at high reasoning effort, or an explicitly disclosed single-context review. No agents have been spawned; the UI critique/audit and the 39 font-size advisories remain unreviewed.
+- Goal 4 is complete. The owner approved two GPT-6.1-sol/high reviewers and the proposed Playwright fallback. Independent source/artifact assessments were followed by parent-run live checks on cleanup commit `78db54a`. Design: 25/40; technical audit: 14/20, provisional. The complete review, evidence, limits and all 55 font-size dispositions (including the original 39) are saved under `.impeccable/review/2026-10-18-codex-run-cleanup/`. Findings are recorded only; no UI fixes were made.
 - Goal 5 is pending the owner's final merge approval. Neither this branch nor the seeds branch has been merged or pushed. The plan remains In Progress until the remaining outcomes satisfy the original Intent.
+
+### UI review completion
+
+- The independent reviewers could not connect to CUA. The parent completed fresh Playwright checks in `.worktrees/codex-run-cleanup` after the shared checkout advanced to `fix/render-hidden-stage`. The review applies to cleanup commit `78db54a`, not the separate hidden-stage or inline-card work.
+- Confirmed viewing versus choosing B, saved pin identity, chosen-revision playback, missing sheet submission/Undo affordances, omitted comment alternate labels, desktop sheet scrolling and missing ArrowRight tab switching. Light Storyboard has no horizontal overflow at 1600/390px. A fresh return-from-frozen wait timed out despite the earlier passing regression; the discrepancy is recorded rather than called a pass or diagnosed as a product defect.
+- Production build passes with the existing bundle advisory. Review scripts closed their browsers and fixture servers; the diagnostic overlay server was stopped. The review archive and critique snapshot are linked from the session summary. Main remains `5f3a23d`; seeds remains `367c95e`.

@@ -1,0 +1,149 @@
+{
+  "method": "Source-token contrast calculation, not computed DOM or browser evidence. OKLCH -> linear sRGB, clamped -> WCAG relative luminance. Styles read from web/src/styles.css lines 1-45. Opaque token pairs only; no opacity, overlap, reel-content or disabled-state certification.",
+  "rows": [
+    {
+      "theme": "dark",
+      "fg": "ink",
+      "bg": "ground",
+      "ratio": 15.9
+    },
+    {
+      "theme": "dark",
+      "fg": "ink2",
+      "bg": "ground",
+      "ratio": 10.7
+    },
+    {
+      "theme": "dark",
+      "fg": "muted",
+      "bg": "ground",
+      "ratio": 5.56
+    },
+    {
+      "theme": "dark",
+      "fg": "accent",
+      "bg": "ground",
+      "ratio": 11.71
+    },
+    {
+      "theme": "dark",
+      "fg": "ink",
+      "bg": "card",
+      "ratio": 14.95
+    },
+    {
+      "theme": "dark",
+      "fg": "ink2",
+      "bg": "card",
+      "ratio": 10.07
+    },
+    {
+      "theme": "dark",
+      "fg": "muted",
+      "bg": "card",
+      "ratio": 5.23
+    },
+    {
+      "theme": "dark",
+      "fg": "accent",
+      "bg": "card",
+      "ratio": 11.01
+    },
+    {
+      "theme": "dark",
+      "fg": "ink",
+      "bg": "raised",
+      "ratio": 13.78
+    },
+    {
+      "theme": "dark",
+      "fg": "ink2",
+      "bg": "raised",
+      "ratio": 9.28
+    },
+    {
+      "theme": "dark",
+      "fg": "muted",
+      "bg": "raised",
+      "ratio": 4.82
+    },
+    {
+      "theme": "dark",
+      "fg": "accent",
+      "bg": "raised",
+      "ratio": 10.15
+    },
+    {
+      "theme": "light",
+      "fg": "ink",
+      "bg": "ground",
+      "ratio": 15.64
+    },
+    {
+      "theme": "light",
+      "fg": "ink2",
+      "bg": "ground",
+      "ratio": 10.21
+    },
+    {
+      "theme": "light",
+      "fg": "muted",
+      "bg": "ground",
+      "ratio": 6.43
+    },
+    {
+      "theme": "light",
+      "fg": "accent",
+      "bg": "ground",
+      "ratio": 6.62
+    },
+    {
+      "theme": "light",
+      "fg": "ink",
+      "bg": "card",
+      "ratio": 16.58
+    },
+    {
+      "theme": "light",
+      "fg": "ink2",
+      "bg": "card",
+      "ratio": 10.82
+    },
+    {
+      "theme": "light",
+      "fg": "muted",
+      "bg": "card",
+      "ratio": 6.82
+    },
+    {
+      "theme": "light",
+      "fg": "accent",
+      "bg": "card",
+      "ratio": 7.02
+    },
+    {
+      "theme": "light",
+      "fg": "ink",
+      "bg": "raised",
+      "ratio": 12.45
+    },
+    {
+      "theme": "light",
+      "fg": "ink2",
+      "bg": "raised",
+      "ratio": 8.13
+    },
+    {
+      "theme": "light",
+      "fg": "muted",
+      "bg": "raised",
+      "ratio": 5.12
+    },
+    {
+      "theme": "light",
+      "fg": "accent",
+      "bg": "raised",
+      "ratio": 5.27
+    }
+  ]
+}
