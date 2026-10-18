@@ -23,6 +23,9 @@ const PROBE_TIMEOUT_MS = 20_000;
 const ERROR_TAIL_CHARS = 4000;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const TRANSCODE_CRF = '20';
+/** The editor draws pictures in a 1920x1080 frame; a wider playback copy only costs decode time. */
+const PLAYBACK_MAX_WIDTH = 1920;
+const PLAYBACK_KEYFRAME_SECONDS = 0.5;
 const TOOL_PROBE_TIMEOUT_MS = 10_000;
 const WAVEFORM_BUCKETS = 1024;
 const WAVEFORM_SAMPLE_RATE = 48000;
@@ -456,9 +459,15 @@ export function revealInFolder(file: string): void {
   child.unref();
 }
 
-/** ffmpeg: an H.264 and AAC copy of a video that browsers play, for HEVC or ProRes originals. The source is only read. */
+/**
+ * ffmpeg: an H.264 and AAC copy of a video that browsers play, for HEVC or ProRes originals. The source is only read.
+ * Sized for the editor (no wider than its 1920 px frame) with a keyframe every half second, so a seek decodes few
+ * frames. Renders read the original, so this costs no output quality.
+ */
 export async function makePlaybackCopy(source: string, dest: string): Promise<void> {
-  const args = ['-v', 'error', '-y', '-i', source, '-c:v', 'libx264', '-crf', TRANSCODE_CRF, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', dest];
+  const args = ['-v', 'error', '-y', '-i', source, '-vf', `scale='min(${PLAYBACK_MAX_WIDTH},iw)':-2`,
+    '-force_key_frames', `expr:gte(t,n_forced*${PLAYBACK_KEYFRAME_SECONDS})`,
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', TRANSCODE_CRF, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', dest];
   await run('ffmpeg', args);
 }
 

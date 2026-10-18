@@ -74,11 +74,12 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
       // Keyed by content, so versions holding the same bytes share one copy, and the library's copy is reused.
       const shared = contentPlaybackPath(projectDir, hash);
       if (await stat(shared).then(() => true, () => false)) return shared;
+      // A library entry with a copy already needed one, so no probe is spent on every request.
+      const library = (await readLibrary(projectDir)).find((s) => s.contentHash === hash && s.playback);
+      const reused = library && await projectFile(projectDir, library.playback!).catch(() => null);
+      if (reused) return reused;
       const probe = await probeMedia(file, 'video');
       if (needsPlaybackCopy(probe.codec)) {
-        const library = (await readLibrary(projectDir)).find((s) => s.contentHash === hash && s.playback);
-        const reused = library && await projectFile(projectDir, library.playback!).catch(() => null);
-        if (reused) return reused;
         await ensurePlaybackCopy(projectDir, file, shared);
         return shared;
       }
