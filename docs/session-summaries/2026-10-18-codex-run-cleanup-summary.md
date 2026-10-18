@@ -2,6 +2,8 @@
 
 Work is in progress on `fix/codex-run-cleanup`, branched from `main` at `5f3a23d`. The owner approved the saved cleanup plan on October 18. Merging this branch and `codex/random-audio-seeds` into `main` awaits the owner's final go-ahead.
 
+Continuation instructions are in the [cleanup handoff](../briefs/2026-10-18-codex-run-cleanup-handoff.md).
+
 ## Changes and evidence
 
 - The four failures from the source run each pass in isolation: CLI Draft, accepted overload CLI render, picture layer ordering, and beat detection. Logs: `tests/cleanup-{render,overload,layer,beats}-isolated.log`. No timeout changes or speculative fixes were made.
