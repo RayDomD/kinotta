@@ -77,6 +77,20 @@ describe('render.js', () => {
     expect(probe(out)).toMatchObject({ width: 480, height: 270, frames: 1 });
   });
 
+  it('sizes a composed page by its stage while the stage is in a scene hidden at 0 s', { timeout: RENDER_TIMEOUT_MS }, () => {
+    const { dir, page } = tinyPage();
+    // A footage page whose first clip starts later: its scene, and the stage in it, have no layout box at load.
+    writeFileSync(page, TINY_PAGE.replace('<div id="stage">', '<section style="display:none"><div id="stage" style="width:320px;height:180px">').replace('</div>\n<script>', '</div></section>\n<script>'));
+    const out = join(dir, 'hidden.mp4');
+
+    const info = render([page, '-', '--info']);
+    const run = render([page, out, '30', '--frames', '0:1', '--no-blur']);
+
+    expect(JSON.parse(info.stdout)).toMatchObject({ width: 320, height: 180 });
+    expect(run.status).toBe(0);
+    expect(probe(out)).toMatchObject({ width: 320, height: 180, frames: 1 });
+  });
+
   it('keeps every frame when the page turns from opaque to transparent with a codec given', { timeout: RENDER_TIMEOUT_MS }, () => {
     const { dir, page } = tinyPage();
     // An opaque cover for the first half, then nothing: the screenshots change from RGB to RGBA PNGs.
