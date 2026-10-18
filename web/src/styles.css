@@ -368,6 +368,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .still { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--still-ground); }
 .still-frame { position: absolute; top: 0; left: 0; border: 0; color-scheme: normal; transform-origin: 0 0; pointer-events: none; }
 .still-footage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.still-player { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .footage-failed { position: absolute; left: 0; bottom: 0; width: 55%; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1.4px dashed var(--hairline); color: var(--ink-2); font-size: 12px; line-height: 1.35; }
 .footage-failed strong { color: var(--ink); font-weight: 500; }
 .still-failed { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; border: 1.4px dashed var(--hairline); color: var(--ink-2); font-size: 12px; line-height: 1.35; overflow: hidden; }

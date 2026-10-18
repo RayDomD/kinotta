@@ -241,3 +241,89 @@ test('card previews an alternate, switches pins, steps with keyboard, and opens 
   } finally { await server.close(); }
 });
 
+test('pointing or focusing a card with alternates plays the shown alternate in a loop, stops on leave or blur, and obeys reduced motion', async ({ page }) => {
+  const { dir } = alternatesFixture(false, true);
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const proofCard = page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: /^Shot 02,/ }) });
+    const hookCard = page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: /^Shot 01,/ }) });
+    const closeCard = page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: /^Shot 03,/ }) });
+
+    // Before any hover or focus, [data-card-player="true"] count is 0, and all cards render PageStill (.still:not([data-card-player]))
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+    await expect(page.locator('.grid .shot .still')).toHaveCount(3);
+
+    // Hovering the card with alternates mounts [data-card-player="true"] (count 1)
+    await proofCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(1);
+    await expect(proofCard.locator('[data-card-player="true"]')).toBeVisible();
+
+    // Leaving the card returns it to a still
+    await page.mouse.move(0, 0);
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+
+    // Hovering again resumes playback, and the scene data-local advances over time and loops within duration (r1 duration is 1)
+    await proofCard.hover();
+    await expect(proofCard.locator('[data-card-player="true"]')).toBeVisible();
+    const proofIframe = proofCard.locator('[data-card-player="true"] iframe');
+    const proofScene = proofIframe.contentFrame().locator('[data-scene="proof"]');
+    await expect.poll(async () => {
+      const local = Number(await proofScene.getAttribute('data-local'));
+      return local > 0 && local < 1;
+    }).toBe(true);
+
+    // Switching alternates while playing (e.g. clicking dot B) switches to r2 and restarts playback from shot.start
+    const dotB = proofCard.locator('.shot-alternates [data-alternate-revision="r2"]');
+    await dotB.click();
+    await expect(proofScene).toHaveAttribute('data-revision', 'r2');
+    await expect.poll(async () => {
+      const local = Number(await proofScene.getAttribute('data-local'));
+      return local > 0 && local < 2;
+    }).toBe(true);
+
+    // Hovering a second card with alternates stops the first so at most one [data-card-player="true"] exists in the DOM
+    await hookCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(1);
+    await expect(hookCard.locator('[data-card-player="true"]')).toBeVisible();
+    await expect(proofCard.locator('[data-card-player="true"]')).toHaveCount(0);
+
+    // Hovering a card without alternates (Shot 03) stops playback
+    await closeCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+
+    // Keyboard focus starts playback the same way, steps alternates with keyboard, and blur stops it
+    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    const proofOpenBtn = proofCard.getByRole('button', { name: /^Shot 02,/ });
+    await proofOpenBtn.focus();
+    await expect(proofCard.locator('[data-card-player="true"]')).toHaveCount(1);
+    await page.keyboard.press('ArrowDown');
+    await expect(proofScene).toHaveAttribute('data-revision', 'r3');
+    await proofOpenBtn.blur();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+  } finally { await server.close(); }
+});
+
+test('with prefers-reduced-motion reduce, card with alternates shows still on hover or focus and does not play', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const proofCard = page.locator('.grid .shot.has-alternates');
+    await proofCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+    await expect(proofCard.locator('.still')).toBeVisible();
+
+    const proofOpenBtn = proofCard.getByRole('button', { name: /^Shot 02,/ });
+    await proofOpenBtn.focus();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+  } finally { await server.close(); }
+});
+

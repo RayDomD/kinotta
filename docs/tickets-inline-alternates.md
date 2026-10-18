@@ -29,12 +29,12 @@ Work the frontier top to bottom. This is a linear chain.
 
 **Model:** mid
 
-- [ ] Hovering a card with alternates plays the shown alternate, and the page time advances and loops within that alternate's length.
-- [ ] Switching alternates while the card plays restarts playback on the newly shown alternate.
-- [ ] Hovering a second card stops the first. At most one player exists in the DOM.
-- [ ] Keyboard focus starts playback the same way, and blur stops it.
-- [ ] With `prefers-reduced-motion: reduce`, the card shows the still and does not loop.
-- [ ] Before any hover, the grid loads exactly the stills it loads today.
+- [x] Hovering a card with alternates plays the shown alternate, and the page time advances and loops within that alternate's length.
+- [x] Switching alternates while the card plays restarts playback on the newly shown alternate.
+- [x] Hovering a second card stops the first. At most one player exists in the DOM.
+- [x] Keyboard focus starts playback the same way, and blur stops it.
+- [x] With `prefers-reduced-motion: reduce`, the card shows the still and does not loop.
+- [x] Before any hover, the grid loads exactly the stills it loads today.
 
 ## T3: Use and Not this on the card
 

@@ -10,7 +10,7 @@ import { ShotKind, ShotLine } from './Transcript.tsx';
 import { ShotSheet } from './ShotSheet.tsx';
 import { clipStates, hasSections, pinCounts, sectionNumber, sectionSpan, shotCount, pinCount } from './sections.ts';
 import { WaitingMark } from './Waiting.tsx';
-import { PageStill } from './stage/index.ts';
+import { PagePlayer, PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 import type { EditsState } from './review/index.ts';
 
@@ -31,6 +31,23 @@ function shotVerifyAttrs(shot: Shot, count: number, shownRevision?: string) {
   };
 }
 
+function usePrefersReducedMotion(): boolean {
+  const [reducedMotion, setReducedMotion] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReducedMotion(media.matches);
+    media.addEventListener?.('change', onChange);
+    return () => media.removeEventListener?.('change', onChange);
+  }, []);
+
+  return reducedMotion;
+}
+
 interface ShotCardProps {
   shot: Shot;
   pageUrl: string;
@@ -42,12 +59,14 @@ interface ShotCardProps {
   states: Shot[];
   /** Why this shot cannot render, when it cannot. */
   unavailable: string | undefined;
+  playing: boolean;
+  onPlayingChange(playing: boolean): void;
   open(revision?: string): void;
   buttonRef(button: HTMLButtonElement | null): void;
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, open, buttonRef }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, playing, onPlayingChange, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
   const alternates = shot.alternates?.filter((alternate) => !alternate.dismissed) ?? [];
   const inReelAlternate = alternates.find((a) => a.inReel);
@@ -67,6 +86,29 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
   const partOf = part > 0 ? `${part} of ${states.length}` : null;
   const inReelLabel = inReelAlternate?.label ?? shot.revision;
 
+  const reducedMotion = usePrefersReducedMotion();
+  const isPlaying = playing && alternates.length > 1 && !reducedMotion;
+  const duration = Math.max(0.01, shown?.duration ?? shot.duration);
+  const [playTime, setPlayTime] = useState(shot.start);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let animId: number;
+    const startAt = performance.now();
+    setPlayTime(shot.start);
+
+    const loop = (now: number) => {
+      const elapsed = ((now - startAt) / 1000) % duration;
+      setPlayTime(shot.start + elapsed);
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [isPlaying, shown?.revision, shot.start, duration]);
+
   function stepAlternate(delta: number): void {
     const current = alternates.findIndex((a) => a.revision === shown?.revision);
     const next = alternates[current + delta];
@@ -74,10 +116,36 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
   }
 
   return (
-    <div className={alternates.length > 1 ? 'shot has-alternates' : 'shot'} {...shotVerifyAttrs(shot, alternates.length, shown?.revision)}>
-      <PageStill pageUrl={stillPageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
-        {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
-      </PageStill>
+    <div
+      className={alternates.length > 1 ? 'shot has-alternates' : 'shot'}
+      {...shotVerifyAttrs(shot, alternates.length, shown?.revision)}
+      onMouseEnter={() => {
+        if (alternates.length > 1) onPlayingChange(true);
+      }}
+      onMouseLeave={(e) => {
+        if (alternates.length > 1 && !e.currentTarget.contains(document.activeElement)) {
+          onPlayingChange(false);
+        }
+      }}
+      onFocusCapture={() => {
+        if (alternates.length > 1) onPlayingChange(true);
+      }}
+      onBlurCapture={(e) => {
+        if (alternates.length > 1 && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          onPlayingChange(false);
+        }
+      }}
+    >
+      {isPlaying ? (
+        <div className="still playing" data-card-player="true">
+          <PagePlayer key={stillPageUrl} className="still-player" pageUrl={stillPageUrl} time={playTime} title={`Shot ${shot.number} player`} />
+          {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+        </div>
+      ) : (
+        <PageStill pageUrl={stillPageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
+          {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+        </PageStill>
+      )}
       <div className="lbl">
         <span>
           <span className="dot">{shot.number}</span>
@@ -166,6 +234,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
   const shots = multi ? version.shots.filter((shot) => shot.section === section.id) : version.shots;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [openRevision, setOpenRevision] = useState<string | null>(null);
+  const [playingKey, setPlayingKey] = useState<string | null>(null);
   /** The comment whose pin is highlighted while the sheet is open. */
   const [markedId, setMarkedId] = useState<string | null>(null);
   const handledReveal = useRef(reveal?.seq ?? 0);
@@ -240,6 +309,8 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
             pins={comments.filter((c) => c.pin.kind === 'frame' && c.pin.shotName && shot.name ? c.pin.shotName === shot.name : c.pin.shot === shot.number)}
             states={clipStates(version.shots, shot)}
             unavailable={issues.unavailable.get(shot.number)}
+            playing={playingKey === shot.number}
+            onPlayingChange={(playing) => setPlayingKey((current) => playing ? shot.number : current === shot.number ? null : current)}
             open={(revision) => {
               laneOpener.current = null;
               setOpenRevision(revision ?? null);

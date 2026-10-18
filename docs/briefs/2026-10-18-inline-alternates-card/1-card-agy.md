@@ -39,12 +39,12 @@ Plan goals G2 and G5.
 
 Plan goals G1 and G6.
 
-- [ ] Write failing e2e cases first.
-- [ ] `Storyboard` holds one `playingKey`. A card's `mouseenter` and `focusin` set it, and `mouseleave` and `focusout` (when focus leaves the card) clear it. Only cards with alternates take part.
-- [ ] The playing card renders `PagePlayer` (from `./stage/index.ts`) in place of `PageStill`, on the shown alternate's page, sized like the still. A `requestAnimationFrame` clock loops `time` over `[shot.start, shot.start + shownAlternate.duration)`. Cancel the frame on unmount and on change. Every other card keeps `PageStill`.
-- [ ] Switching the shown alternate while playing restarts at `shot.start`.
-- [ ] Under `prefers-reduced-motion: reduce`, render the still and do not loop. Check it with `matchMedia`, and test it with Playwright's `reducedMotion` option.
-- [ ] Assert that at most one `PagePlayer` iframe exists in the grid at any time, and none before the first hover.
+- [x] Write failing e2e cases first.
+- [x] `Storyboard` holds one `playingKey`. A card's `mouseenter` and `focusin` set it, and `mouseleave` and `focusout` (when focus leaves the card) clear it. Only cards with alternates take part.
+- [x] The playing card renders `PagePlayer` (from `./stage/index.ts`) in place of `PageStill`, on the shown alternate's page, sized like the still. A `requestAnimationFrame` clock loops `time` over `[shot.start, shot.start + shownAlternate.duration)`. Cancel the frame on unmount and on change. Every other card keeps `PageStill`.
+- [x] Switching the shown alternate while playing restarts at `shot.start`.
+- [x] Under `prefers-reduced-motion: reduce`, render the still and do not loop. Check it with `matchMedia`, and test it with Playwright's `reducedMotion` option.
+- [x] Assert that at most one `PagePlayer` iframe exists in the grid at any time, and none before the first hover.
 
 ### T3: Use and Not this on the card
 
