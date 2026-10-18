@@ -15,8 +15,10 @@ const {chromium}=require('playwright');const {spawn}=require('child_process');co
  const b=await chromium.launch();const p=await b.newPage({viewport:{width:1920,height:1080},...(opt.scale?{deviceScaleFactor:scale}:{})});
  const errs=[];p.on('pageerror',e=>errs.push(e.message));
  await p.goto('file://'+path.resolve(html)+'?render');await p.evaluate(()=>document.fonts.ready);
- // A page without a #stage is drawn at the viewport's size.
- const info=await p.evaluate(()=>{const s=document.getElementById('stage');return {T:window.DURATION,W:s?s.offsetWidth:innerWidth,H:s?s.offsetHeight:innerHeight,alpha:document.documentElement.classList.contains('alpha')};});
+ // A page without a #stage is drawn at the viewport's size. A stage in a scene hidden at 0 s (a composed page whose
+ // first clip starts later) has no layout box, so its own declared size is used.
+ const info=await p.evaluate(()=>{const s=document.getElementById('stage'),size=(box,css,full)=>!s?full:box||parseFloat(getComputedStyle(s)[css])||full;
+  return {T:window.DURATION,W:size(s&&s.offsetWidth,'width',innerWidth),H:size(s&&s.offsetHeight,'height',innerHeight),alpha:document.documentElement.classList.contains('alpha')};});
  if(opt.info){console.log(JSON.stringify({width:info.W,height:info.H,duration:info.T,alpha:info.alpha}));await b.close();return;}
  await p.setViewportSize({width:info.W,height:info.H});
  const N=Math.round(info.T*FPS), K=opt['no-blur']?1:4, sub=1/(FPS*2*K);
