@@ -1,7 +1,7 @@
 ---
 title: Inline alternates card review fixes
 date: 2026-10-18
-status: In Progress
+status: Done
 summary: Fix the five findings from the independent review of the inline alternates card before merging to main.
 spec: docs/plans/2026-10-18-inline-alternates-card.md
 ---
@@ -52,3 +52,4 @@ spec: docs/plans/2026-10-18-inline-alternates-card.md
 
 ### 2026-10-18
 - Plan created from the review findings R1 to R5, and approved by the owner.
+- R1 to R5 fixed in `52afb65`, `e2090d4` and `b6c2a37`. Checks passed apart from the existing `editor-settings` unit failure on `main`. Summary: `docs/session-summaries/2026-10-18-inline-alternates-card-review-fixes-summary.md`.
