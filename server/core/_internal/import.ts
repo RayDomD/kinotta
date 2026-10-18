@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
@@ -58,10 +58,19 @@ export async function writeHashed(body: AsyncIterable<Uint8Array>, file: string)
   return { hash: hash.digest('hex'), size };
 }
 
+/** Hashes already computed, by path, kept while the file's size and modification time are unchanged. */
+const hashes = new Map<string, { size: number; mtimeMs: number; hash: string }>();
+
 export async function hashOf(file: string): Promise<string> {
+  const key = resolve(file);
+  const { size, mtimeMs } = await stat(key);
+  const known = hashes.get(key);
+  if (known && known.size === size && known.mtimeMs === mtimeMs) return known.hash;
   const hash = createHash('sha256');
-  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
-  return hash.digest('hex');
+  for await (const chunk of createReadStream(key)) hash.update(chunk as Buffer);
+  const digest = hash.digest('hex');
+  hashes.set(key, { size, mtimeMs, hash: digest });
+  return digest;
 }
 
 /** A file already in footage/ with this exact content, or null. Only files of the same size are read. */
@@ -132,12 +141,31 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
   return { path: `${FOOTAGE_DIR}/${basename(file)}`, copied, playbackCopy: needsCopy };
 }
 
-/** Makes the playback copy unless it is there. Written to a temp name and renamed, so a half-made copy is never served. */
-export async function ensurePlaybackCopy(projectDir: string, file: string): Promise<void> {
-  const dest = playbackPath(projectDir, file);
+/** Where the playback copy of a saved version's video lives: named by content, so every version holding the same bytes shares it. */
+export function contentPlaybackPath(projectDir: string, hash: string): string {
+  return join(resolve(projectDir, FOOTAGE_DIR), PLAYBACK_DIR, `sha256-${hash}${PLAYBACK_EXT}`);
+}
+
+/** Copies being made, by destination. Concurrent callers wait on the one transcode instead of starting their own. */
+const copying = new Map<string, Promise<void>>();
+
+/**
+ * Makes the playback copy unless it is there, at `dest` (by default the path-named copy). Written to a temp name of its
+ * own and renamed, so a half-made copy is never served and two transcodes never share a file.
+ */
+export function ensurePlaybackCopy(projectDir: string, file: string, dest = playbackPath(projectDir, file)): Promise<void> {
+  const key = resolve(dest);
+  const running = copying.get(key);
+  if (running) return running;
+  const job = makeCopy(file, key).finally(() => copying.delete(key));
+  copying.set(key, job);
+  return job;
+}
+
+async function makeCopy(file: string, dest: string): Promise<void> {
   if (await exists(dest)) return;
   await mkdir(dirname(dest), { recursive: true });
-  const staged = join(dirname(dest), `${PARTIAL_PREFIX}${basename(dest)}`);
+  const staged = join(dirname(dest), `${PARTIAL_PREFIX}${randomUUID()}-${basename(dest)}`);
   try {
     await makePlaybackCopy(file, staged);
     await rename(staged, dest);

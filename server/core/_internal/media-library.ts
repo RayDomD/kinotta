@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/pr
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { KinottaError } from './errors.ts';
 import { withReelLock, writeJsonAtomic } from './edit-list.ts';
-import { ensurePlaybackCopy, hashOf, needsPlaybackCopy, playbackPath, writeHashed } from './import.ts';
+import { contentPlaybackPath, ensurePlaybackCopy, hashOf, needsPlaybackCopy, playbackPath, writeHashed } from './import.ts';
 import { probeMedia, waveformPeaks } from './runner.ts';
 import type { ImportedMedia, MediaEntry, MediaFilter, MediaWaveform, ProjectMediaFile } from './types.ts';
 import type { MediaPlan } from './media-model.ts';
@@ -68,12 +68,19 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
     const entry = plan.media?.sources.find((s) => s.id === source);
     if (!entry) return null;
     const file = await projectFile(projectDir, relative(projectDir, resolve(versionDir, entry.path)));
-    if (entry.contentHash && await hashOf(file) !== entry.contentHash) return null;
+    const hash = await hashOf(file);
+    if (entry.contentHash && hash !== entry.contentHash) return null;
     if (!original && entry.kind === 'video') {
+      // Keyed by content, so versions holding the same bytes share one copy, and the library's copy is reused.
+      const shared = contentPlaybackPath(projectDir, hash);
+      if (await stat(shared).then(() => true, () => false)) return shared;
       const probe = await probeMedia(file, 'video');
       if (needsPlaybackCopy(probe.codec)) {
-        await ensurePlaybackCopy(projectDir, file);
-        return playbackPath(projectDir, file);
+        const library = (await readLibrary(projectDir)).find((s) => s.contentHash === hash && s.playback);
+        const reused = library && await projectFile(projectDir, library.playback!).catch(() => null);
+        if (reused) return reused;
+        await ensurePlaybackCopy(projectDir, file, shared);
+        return shared;
       }
     }
     return file;
