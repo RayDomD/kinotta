@@ -12,14 +12,14 @@ Work the frontier top to bottom. This is a linear chain.
 
 **Model:** mid
 
-- [ ] Clicking a dot shows that alternate's still on the card and does not open the shot sheet.
-- [ ] With the card focused, Up and Down step through the undismissed alternates. The page does not scroll, and Left, Right and the other existing keys are unaffected.
-- [ ] The dot in the reel and the dot shown are visibly distinct, and the line text says which alternate is being previewed.
-- [ ] Frame pins on the card follow the shown alternate, by the same rule as the shot sheet.
-- [ ] Previewing changes nothing on the server: the Working version and the Edits list are unchanged.
-- [ ] Opening the sheet from the card shows the alternate the card was showing. The sheet's own strip and keys are unchanged.
-- [ ] `Storyboard.verify.ts` reports the shown revision, and its invariants pass in the e2e test.
-- [ ] Cards without alternates, and single-page reels, are unchanged.
+- [x] Clicking a dot shows that alternate's still on the card and does not open the shot sheet.
+- [x] With the card focused, Up and Down step through the undismissed alternates. The page does not scroll, and Left, Right and the other existing keys are unaffected.
+- [x] The dot in the reel and the dot shown are visibly distinct, and the line text says which alternate is being previewed.
+- [x] Frame pins on the card follow the shown alternate, by the same rule as the shot sheet.
+- [x] Previewing changes nothing on the server: the Working version and the Edits list are unchanged.
+- [x] Opening the sheet from the card shows the alternate the card was showing. The sheet's own strip and keys are unchanged.
+- [x] `Storyboard.verify.ts` reports the shown revision, and its invariants pass in the e2e test.
+- [x] Cards without alternates, and single-page reels, are unchanged.
 
 ## T2: Play the shown alternate on hover or focus
 

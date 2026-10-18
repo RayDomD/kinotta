@@ -26,14 +26,14 @@ Files you may edit: `web/src/Storyboard.tsx`, `web/src/Storyboard.verify.ts`, `w
 
 Plan goals G2 and G5.
 
-- [ ] Write failing e2e cases in `tests/e2e/alternates.spec.ts` (using `alternatesFixture`, as the existing cases do) for each acceptance box, then implement.
-- [ ] `ShotCard` keeps a `shownRevision`, which starts at the alternate with `inReel` and resets when the shot's undismissed alternates change. The still's `pageUrl` uses `alternatePageUrl(slug, version.number, shot.name, shownRevision, version.workingParts?.key)` when it differs from the reel's. The frame-pin filter uses the shown revision, by the same rule as `ShotSheet.tsx:227`.
-- [ ] The dots (`.shot-alternates i`) become `<button type="button">` with `aria-label="Show alternate <label>"` and `aria-pressed`. They keep `data-alternate-revision` and the `on` class for the in-reel dot, and add a `shown` class for the shown one. A click stops propagation and must not open the sheet. Give them a stacking order above `button.open`.
-- [ ] Up and Down on the focused `button.open` step through undismissed alternates, with `preventDefault`, and only when the card has two or more alternates. Enter and click still open the sheet.
-- [ ] The line reads `N alternates · X in the reel`, plus ` · previewing Y` when the shown alternate is not the one in the reel. Keep the `aria-label` in step with it.
-- [ ] `ShotSheet` takes an optional `initialRevision?: string`, used as the initial `viewedRevision`. `Storyboard` passes the opening card's shown revision.
-- [ ] `Storyboard.verify.ts`: add `data-verify-shown` to `shotVerifyAttrs`, plus invariants that the `.shown` marker's revision equals `data-verify-shown` and that the shown revision is among the undismissed markers. Update `cardFixtures` if needed. Run `cardInvariants` in the e2e case the way the existing spec does.
-- [ ] Assert that the Working version (`server.project.readWorkingVersion`) and the Edits list do not change after previewing.
+- [x] Write failing e2e cases in `tests/e2e/alternates.spec.ts` (using `alternatesFixture`, as the existing cases do) for each acceptance box, then implement.
+- [x] `ShotCard` keeps a `shownRevision`, which starts at the alternate with `inReel` and resets when the shot's undismissed alternates change. The still's `pageUrl` uses `alternatePageUrl(slug, version.number, shot.name, shownRevision, version.workingParts?.key)` when it differs from the reel's. The frame-pin filter uses the shown revision, by the same rule as `ShotSheet.tsx:227`.
+- [x] The dots (`.shot-alternates i`) become `<button type="button">` with `aria-label="Show alternate <label>"` and `aria-pressed`. They keep `data-alternate-revision` and the `on` class for the in-reel dot, and add a `shown` class for the shown one. A click stops propagation and must not open the sheet. Give them a stacking order above `button.open`.
+- [x] Up and Down on the focused `button.open` step through undismissed alternates, with `preventDefault`, and only when the card has two or more alternates. Enter and click still open the sheet.
+- [x] The line reads `N alternates · X in the reel`, plus ` · previewing Y` when the shown alternate is not the one in the reel. Keep the `aria-label` in step with it.
+- [x] `ShotSheet` takes an optional `initialRevision?: string`, used as the initial `viewedRevision`. `Storyboard` passes the opening card's shown revision.
+- [x] `Storyboard.verify.ts`: add `data-verify-shown` to `shotVerifyAttrs`, plus invariants that the `.shown` marker's revision equals `data-verify-shown` and that the shown revision is among the undismissed markers. Update `cardFixtures` if needed. Run `cardInvariants` in the e2e case the way the existing spec does.
+- [x] Assert that the Working version (`server.project.readWorkingVersion`) and the Edits list do not change after previewing.
 
 ### T2: Play on hover or focus
 

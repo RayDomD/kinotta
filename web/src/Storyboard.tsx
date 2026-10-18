@@ -20,13 +20,21 @@ function storyboardVerifyAttrs(count: number, duration: number, workingParts: bo
   return { 'data-verify-unit': 'Storyboard', 'data-verify-count': String(count), 'data-verify-empty': String(count === 0), 'data-verify-duration': String(duration), 'data-verify-working-parts': String(workingParts) };
 }
 
-function shotVerifyAttrs(shot: Shot, count: number) {
-  return { 'data-verify-unit': 'ShotCard', 'data-verify-count': String(count), 'data-verify-selected': shot.revision ?? '', 'data-verify-choice-made': String(!!shot.choiceMade), 'data-verify-needs-choice': String(count > 1 && !shot.choiceMade) };
+function shotVerifyAttrs(shot: Shot, count: number, shownRevision?: string) {
+  return {
+    'data-verify-unit': 'ShotCard',
+    'data-verify-count': String(count),
+    'data-verify-selected': shot.revision ?? '',
+    'data-verify-shown': shownRevision ?? '',
+    'data-verify-choice-made': String(!!shot.choiceMade),
+    'data-verify-needs-choice': String(count > 1 && !shot.choiceMade),
+  };
 }
 
 interface ShotCardProps {
   shot: Shot;
   pageUrl: string;
+  alternatePage?(shot: string, revision: string): string;
   /** The reel's footage URL when it has footage; a panel shot draws it under its clip. */
   footage: string | undefined;
   pins: Comment[];
@@ -34,21 +42,40 @@ interface ShotCardProps {
   states: Shot[];
   /** Why this shot cannot render, when it cannot. */
   unavailable: string | undefined;
-  open(): void;
+  open(revision?: string): void;
   buttonRef(button: HTMLButtonElement | null): void;
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, footage, pins, states, unavailable, open, buttonRef }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, open, buttonRef }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
   const alternates = shot.alternates?.filter((alternate) => !alternate.dismissed) ?? [];
-  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === shot.revision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
+  const inReelAlternate = alternates.find((a) => a.inReel);
+  const [shownRevision, setShownRevision] = useState<string | null>(null);
+
+  const alternateRevisions = alternates.map((a) => a.revision).join(',');
+  useEffect(() => {
+    setShownRevision(null);
+  }, [shot.revision, alternateRevisions]);
+
+  const shown = alternates.find((a) => a.revision === shownRevision) ?? inReelAlternate ?? alternates[0];
+  const activeRevision = shown?.revision ?? shot.revision;
+  const stillPageUrl = shown && shown.revision !== shot.revision && shot.name && alternatePage ? alternatePage(shot.name, shown.revision) : pageUrl;
+  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === activeRevision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
   const stacks = tagStacks(framePins);
   const part = states.indexOf(shot) + 1;
   const partOf = part > 0 ? `${part} of ${states.length}` : null;
+  const inReelLabel = inReelAlternate?.label ?? shot.revision;
+
+  function stepAlternate(delta: number): void {
+    const current = alternates.findIndex((a) => a.revision === shown?.revision);
+    const next = alternates[current + delta];
+    if (next) setShownRevision(next.revision);
+  }
+
   return (
-    <div className={alternates.length > 1 ? 'shot has-alternates' : 'shot'} {...shotVerifyAttrs(shot, alternates.length)}>
-      <PageStill pageUrl={pageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
+    <div className={alternates.length > 1 ? 'shot has-alternates' : 'shot'} {...shotVerifyAttrs(shot, alternates.length, shown?.revision)}>
+      <PageStill pageUrl={stillPageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
         {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
       </PageStill>
       <div className="lbl">
@@ -68,11 +95,38 @@ function ShotCard({ shot, pageUrl, footage, pins, states, unavailable, open, but
       )}
       <ShotLine text={shot.spoken} />
       <div className="desc">{shot.description}</div>
-      {alternates.length > 0 && <div className="shot-alternates" aria-label={`${alternates.length} alternates, ${alternates.find((alternate) => alternate.inReel)?.label ?? shot.revision} in the reel`}>
-        {alternates.map((alternate) => <i key={alternate.revision} data-alternate-revision={alternate.revision} className={alternate.inReel ? 'on' : undefined} />)}
-        <span>{`${alternates.length} alternates · ${alternates.find((alternate) => alternate.inReel)?.label ?? shot.revision} in the reel`}</span>
-      </div>}
-      <button ref={buttonRef} type="button" className="open" aria-label={`Shot ${shot.number}, ${shot.title}, ${partOf ? `state ${partOf} of clip ${shot.clip}, ` : ''}${timecode}`} onClick={open} />
+      {alternates.length > 0 && (
+        <div className="shot-alternates" aria-label={`${alternates.length} alternates, ${inReelLabel} in the reel${shown && !shown.inReel ? `, previewing ${shown.label}` : ''}`}>
+          {alternates.map((alternate) => (
+            <button
+              key={alternate.revision}
+              type="button"
+              data-alternate-revision={alternate.revision}
+              aria-label={`Show alternate ${alternate.label}`}
+              aria-pressed={alternate.revision === shown?.revision}
+              className={[alternate.inReel ? 'on' : '', alternate.revision === shown?.revision ? 'shown' : ''].filter(Boolean).join(' ') || undefined}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShownRevision(alternate.revision);
+              }}
+            />
+          ))}
+          <span>{`${alternates.length} alternates · ${inReelLabel} in the reel${shown && !shown.inReel ? ` · previewing ${shown.label}` : ''}`}</span>
+        </div>
+      )}
+      <button
+        ref={buttonRef}
+        type="button"
+        className="open"
+        aria-label={`Shot ${shot.number}, ${shot.title}, ${partOf ? `state ${partOf} of clip ${shot.clip}, ` : ''}${timecode}`}
+        onClick={() => open(shown?.revision)}
+        onKeyDown={(e) => {
+          if (alternates.length > 1 && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            stepAlternate(e.key === 'ArrowDown' ? 1 : -1);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -111,6 +165,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
   /** What the grid and the enlarged shot step through: the current section's shots (all of them on a one-section reel). */
   const shots = multi ? version.shots.filter((shot) => shot.section === section.id) : version.shots;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openRevision, setOpenRevision] = useState<string | null>(null);
   /** The comment whose pin is highlighted while the sheet is open. */
   const [markedId, setMarkedId] = useState<string | null>(null);
   const handledReveal = useRef(reveal?.seq ?? 0);
@@ -141,12 +196,15 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
     if (multi && shot.section !== undefined && shot.section !== section.id) onSection(shot.section);
     laneOpener.current = reveal.opener;
     setMarkedId(comment.id);
+    const pinAlternate = comment.pin.kind === 'frame' ? comment.pin.alternate : undefined;
+    setOpenRevision(pinAlternate ?? null);
     setOpenIndex(version.shots.filter((s) => !multi || s.section === shot.section).indexOf(shot));
   }, [reveal]);
 
   function close(): void {
     returnTo.current = openIndex === null ? null : (shots[openIndex]?.number ?? null);
     setOpenIndex(null);
+    setOpenRevision(null);
     setMarkedId(null);
   }
 
@@ -177,12 +235,14 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
             key={`${pageUrl}/${shot.number}`}
             shot={shot}
             pageUrl={pageUrl}
+            alternatePage={(shotName, revision) => alternatePageUrl(slug, version.number, shotName, revision, version.workingParts?.key)}
             footage={footage}
             pins={comments.filter((c) => c.pin.kind === 'frame' && c.pin.shotName && shot.name ? c.pin.shotName === shot.name : c.pin.shot === shot.number)}
             states={clipStates(version.shots, shot)}
             unavailable={issues.unavailable.get(shot.number)}
-            open={() => {
+            open={(revision) => {
               laneOpener.current = null;
+              setOpenRevision(revision ?? null);
               setOpenIndex(i);
             }}
             buttonRef={(button) => {
@@ -205,6 +265,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
         onSection={onSection}
         onOpen={(shot, opener) => {
           laneOpener.current = opener;
+          setOpenRevision(null);
           // A pin on another section's shot brings that section into the grid first.
           if (multi && shot.section !== undefined && shot.section !== section.id) onSection(shot.section);
           setOpenIndex(version.shots.filter((s) => !multi || s.section === shot.section).indexOf(shot));
@@ -214,6 +275,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
         <ShotSheet
           key={pageUrl}
           pageUrl={pageUrl}
+          initialRevision={openRevision ?? undefined}
           edits={readOnly ? undefined : edits}
           alternatePage={(shot, revision) => alternatePageUrl(slug, version.number, shot, revision, version.workingParts?.key)}
           footage={footage}

@@ -165,3 +165,79 @@ test('a frame pin asks for options with three by default and other shots name th
     await expect(dialog).toContainText('Shot 02 already asks for options');
   } finally { await server.close(); }
 });
+
+test('card previews an alternate, switches pins, steps with keyboard, and opens sheet on previewed alternate without server edits', async ({ page }) => {
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    for (const [revision, text] of [['r1', 'Only A'], ['r2', 'Only B'], [undefined, 'Any alternate']] as const) {
+      await server.project.addComment('parts', 1, { pin: { shot: '02', alternate: revision, x: 0.5, y: 0.5, element: 'label' }, text });
+    }
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const card = page.locator('.grid .shot.has-alternates');
+    await expect(card).toBeVisible();
+
+    // Initially shows in-reel alternate A (r1)
+    await expect(card).toHaveAttribute('data-verify-shown', 'r1');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel');
+    const stillIframe = card.locator('iframe');
+    await expect(stillIframe.contentFrame().locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r1');
+    await expect(card.locator('.hexpin b')).toHaveText(['1', '3']);
+
+    // Invariants check
+    expect(await verify(card, cardInvariants)).toEqual(cardInvariants.map(() => true));
+
+    // Clicking dot B shows alternate B (r2) without opening dialog
+    const dotB = card.locator('.shot-alternates [data-alternate-revision="r2"]');
+    await dotB.click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(card).toHaveAttribute('data-verify-shown', 'r2');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel · previewing B');
+    await expect(dotB).toHaveClass(/shown/);
+    await expect(stillIframe.contentFrame().locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(card.locator('.hexpin b')).toHaveText(['2', '3']);
+
+    // Invariants still pass while previewing
+    expect(await verify(card, cardInvariants)).toEqual(cardInvariants.map(() => true));
+
+    // Server Working version and edits are unchanged
+    const working = await server.project.readWorkingVersion('parts');
+    expect(working.workingParts?.shots[1].revision).toBe('r1');
+    const edits = await server.project.readEditList('parts');
+    expect(edits.operations).toEqual([]);
+
+    // Keyboard navigation with card's button.open focused: ArrowDown / ArrowUp steps through alternates without scrolling
+    const openBtn = card.getByRole('button', { name: /^Shot 02,/ });
+    await openBtn.focus();
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+
+    // Press ArrowDown from B -> steps to C (r3)
+    await page.keyboard.press('ArrowDown');
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBefore);
+    await expect(card).toHaveAttribute('data-verify-shown', 'r3');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel · previewing C');
+    await expect(card.locator('.hexpin b')).toHaveText(['3']);
+
+    // Press ArrowUp -> steps back to B (r2)
+    await page.keyboard.press('ArrowUp');
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBefore);
+    await expect(card).toHaveAttribute('data-verify-shown', 'r2');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel · previewing B');
+
+    // Press Enter opens ShotSheet on previewed alternate B
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Only B', 'Any alternate']);
+
+    // Close sheet and verify return
+    await dialog.getByRole('button', { name: /Close/ }).click();
+    await expect(dialog).toBeHidden();
+  } finally { await server.close(); }
+});
+

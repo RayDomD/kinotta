@@ -19,7 +19,10 @@ export const cardFixtures = [
 ];
 
 export const cardInvariants = [
-  { description: 'Card count matches alternate markers', check: (root: Element) => root.getAttribute('data-verify-unit') === 'ShotCard' && Number(root.getAttribute('data-verify-count')) === root.querySelectorAll('.shot-alternates i').length },
-  { description: 'The selected marker matches the revision in the reel', check: (root: Element) => Number(root.getAttribute('data-verify-count')) === 0 || root.querySelector('.shot-alternates i.on')?.getAttribute('data-alternate-revision') === root.getAttribute('data-verify-selected') },
+  { description: 'Card count matches alternate markers', check: (root: Element) => root.getAttribute('data-verify-unit') === 'ShotCard' && Number(root.getAttribute('data-verify-count')) === root.querySelectorAll('.shot-alternates [data-alternate-revision]').length },
+  { description: 'The selected marker matches the revision in the reel', check: (root: Element) => Number(root.getAttribute('data-verify-count')) === 0 || root.querySelector('.shot-alternates [data-alternate-revision].on')?.getAttribute('data-alternate-revision') === root.getAttribute('data-verify-selected') },
   { description: 'Only unresolved plural options need a choice', check: (root: Element) => (root.getAttribute('data-verify-needs-choice') === 'true') === (Number(root.getAttribute('data-verify-count')) > 1 && root.getAttribute('data-verify-choice-made') !== 'true') },
+  { description: 'The shown marker matches the revision shown on the card', check: (root: Element) => Number(root.getAttribute('data-verify-count')) === 0 || root.querySelector('.shot-alternates [data-alternate-revision].shown')?.getAttribute('data-alternate-revision') === root.getAttribute('data-verify-shown') },
+  { description: 'The shown revision is among the card alternate markers', check: (root: Element) => Number(root.getAttribute('data-verify-count')) === 0 || [...root.querySelectorAll('.shot-alternates [data-alternate-revision]')].some((el) => el.getAttribute('data-alternate-revision') === root.getAttribute('data-verify-shown')) },
 ];
+

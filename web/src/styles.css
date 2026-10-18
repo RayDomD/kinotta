@@ -233,9 +233,11 @@ input { font: inherit; color: inherit; cursor: text; }
 .shot:hover, .shot:has(.open:focus-visible) { background: var(--card); border-color: var(--ink); transform: translate(-3px, -3px); box-shadow: var(--sheet-lift); }
 .shot:active { transform: translate(3px, 3px); box-shadow: var(--sheet-press); background: var(--card-raised); transition-duration: var(--t-press); }
 .shot.has-alternates { background: var(--card); border-color: var(--ink); box-shadow: var(--sheet-rest); }
-.shot-alternates { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; color: var(--light); font-size: 14px; }
-.shot-alternates i { width: 20px; height: 3px; flex: none; background: var(--hairline); }
-.shot-alternates i.on { background: var(--light); }
+.shot-alternates { position: relative; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; color: var(--light); font-size: 14px; }
+.shot-alternates button, .shot-alternates [data-alternate-revision] { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--ink-2); background: none; padding: 0; cursor: pointer; flex: none; }
+.shot-alternates button.on, .shot-alternates [data-alternate-revision].on { background: var(--ink-2); }
+.shot-alternates button.shown, .shot-alternates [data-alternate-revision].shown { outline: 2px solid var(--light); outline-offset: 2px; }
+.shot-alternates button:focus-visible, .shot-alternates [data-alternate-revision]:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
 .shot-alternates span { flex: 1 1 160px; min-width: 0; margin-left: 4px; overflow-wrap: break-word; }
 .alternate-choice-count { color: var(--light); font-size: 14px; }
 .alternate-choice-count .num { font-family: Doto, monospace; font-weight: 800; }
