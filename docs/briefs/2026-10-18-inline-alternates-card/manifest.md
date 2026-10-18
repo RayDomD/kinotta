@@ -9,7 +9,7 @@ base-branch: feat/inline-alternates-card
 
 | # | Lane | Agent | Model | Worktree | Branch | Status |
 |---|---|---|---|---|---|---|
-| 1 | card | agy | gemini-4-argon (effort set at dispatch) | (set at dispatch) | agent-loop/inline-alternates-card/card | briefed |
+| 1 | card | agy | gemini-3.8-flash-high (T1, T3), gemini-3.8-flash-medium (T2) | .claude/worktrees/inline-alternates-card | agent-loop/inline-alternates-card/card | done |
 
 One lane. T1 to T3 are a linear chain in the same component, so splitting them would only create merge conflicts in `Storyboard.tsx`. The owner chose AGY with Gemini 4 Argon.
 

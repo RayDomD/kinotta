@@ -12,14 +12,14 @@ Work the frontier top to bottom. This is a linear chain.
 
 **Model:** mid
 
-- [ ] Clicking a dot shows that alternate's still on the card and does not open the shot sheet.
-- [ ] With the card focused, Up and Down step through the undismissed alternates. The page does not scroll, and Left, Right and the other existing keys are unaffected.
-- [ ] The dot in the reel and the dot shown are visibly distinct, and the line text says which alternate is being previewed.
-- [ ] Frame pins on the card follow the shown alternate, by the same rule as the shot sheet.
-- [ ] Previewing changes nothing on the server: the Working version and the Edits list are unchanged.
-- [ ] Opening the sheet from the card shows the alternate the card was showing. The sheet's own strip and keys are unchanged.
-- [ ] `Storyboard.verify.ts` reports the shown revision, and its invariants pass in the e2e test.
-- [ ] Cards without alternates, and single-page reels, are unchanged.
+- [x] Clicking a dot shows that alternate's still on the card and does not open the shot sheet.
+- [x] With the card focused, Up and Down step through the undismissed alternates. The page does not scroll, and Left, Right and the other existing keys are unaffected.
+- [x] The dot in the reel and the dot shown are visibly distinct, and the line text says which alternate is being previewed.
+- [x] Frame pins on the card follow the shown alternate, by the same rule as the shot sheet.
+- [x] Previewing changes nothing on the server: the Working version and the Edits list are unchanged.
+- [x] Opening the sheet from the card shows the alternate the card was showing. The sheet's own strip and keys are unchanged.
+- [x] `Storyboard.verify.ts` reports the shown revision, and its invariants pass in the e2e test.
+- [x] Cards without alternates, and single-page reels, are unchanged.
 
 ## T2: Play the shown alternate on hover or focus
 
@@ -29,12 +29,12 @@ Work the frontier top to bottom. This is a linear chain.
 
 **Model:** mid
 
-- [ ] Hovering a card with alternates plays the shown alternate, and the page time advances and loops within that alternate's length.
-- [ ] Switching alternates while the card plays restarts playback on the newly shown alternate.
-- [ ] Hovering a second card stops the first. At most one player exists in the DOM.
-- [ ] Keyboard focus starts playback the same way, and blur stops it.
-- [ ] With `prefers-reduced-motion: reduce`, the card shows the still and does not loop.
-- [ ] Before any hover, the grid loads exactly the stills it loads today.
+- [x] Hovering a card with alternates plays the shown alternate, and the page time advances and loops within that alternate's length.
+- [x] Switching alternates while the card plays restarts playback on the newly shown alternate.
+- [x] Hovering a second card stops the first. At most one player exists in the DOM.
+- [x] Keyboard focus starts playback the same way, and blur stops it.
+- [x] With `prefers-reduced-motion: reduce`, the card shows the still and does not loop.
+- [x] Before any hover, the grid loads exactly the stills it loads today.
 
 ## T3: Use and Not this on the card
 
@@ -44,11 +44,11 @@ Work the frontier top to bottom. This is a linear chain.
 
 **Model:** mid
 
-- [ ] Use adds the existing alternate-choice edit for the shown alternate. The Working version reports it in the reel, the Edits list shows it, and later shots move by the parts rule.
-- [ ] Undo restores the previous alternate and shot timing.
-- [ ] Not this with a reason adds the existing dismiss edit carrying that reason. The dot leaves the card, and the card shows the alternate in the reel.
-- [ ] Escape closes the reason field without an edit, and focus returns to the card.
-- [ ] After a dismissal, focus is on the card, not lost.
-- [ ] Both actions are disabled for the alternate in the reel and while edits are busy, and they are absent on frozen versions.
-- [ ] Clicking an action never opens the shot sheet.
-- [ ] The existing alternates browser tests, and the parts and working configs, still pass.
+- [x] Use adds the existing alternate-choice edit for the shown alternate. The Working version reports it in the reel, the Edits list shows it, and later shots move by the parts rule.
+- [x] Undo restores the previous alternate and shot timing.
+- [x] Not this with a reason adds the existing dismiss edit carrying that reason. The dot leaves the card, and the card shows the alternate in the reel.
+- [x] Escape closes the reason field without an edit, and focus returns to the card.
+- [x] After a dismissal, focus is on the card, not lost.
+- [x] Both actions are disabled for the alternate in the reel and while edits are busy, and they are absent on frozen versions.
+- [x] Clicking an action never opens the shot sheet.
+- [x] The existing alternates browser tests, and the parts and working configs, still pass.

@@ -16,6 +16,7 @@ function verifyAttrs(shot: Shot, count: number, viewed: string | undefined, pins
 }
 
 export interface ShotSheetProps {
+  initialRevision?: string;
   edits?: EditsState;
   alternatePage?(shot: string, revision: string): string;
   pageUrl: string;
@@ -61,7 +62,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, unavailable, save, onStep, onClose, edits, alternatePage }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, unavailable, save, onStep, onClose, edits, alternatePage, initialRevision }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -76,7 +77,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   const [elements, setElements] = useState<FrameElement[] | null>(null);
   /** The last saved comment, confirmed in the sheet because the comments column sits behind the scrim. */
   const [savedLine, setSavedLine] = useState<string | null>(null);
-  const [viewedRevision, setViewedRevision] = useState<string | null>(null);
+  const [viewedRevision, setViewedRevision] = useState<string | null>(initialRevision ?? null);
   const [dismissReason, setDismissReason] = useState('');
   const [askOptions, setAskOptions] = useState(false);
   const [optionsCount, setOptionsCount] = useState<2 | 3 | 4>(3);
@@ -84,6 +85,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   const viewed = alternates.find((alternate) => alternate.revision === viewedRevision) ?? alternates.find((alternate) => alternate.inReel) ?? alternates[0];
   const viewedPage = viewed && alternatePage && shot.name ? alternatePage(shot.name, viewed.revision) : pageUrl;
   const askingOther = comments.find((comment) => comment.options !== undefined && comment.pin.shot !== shot.number);
+  const prevShot = useRef(shot.number);
 
   useEffect(() => {
     sheet.current?.focus();
@@ -91,15 +93,18 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
 
   // A new shot starts clean: no draft, and no element list until its frame has drawn.
   useEffect(() => {
-    setDraft(null);
-    setWordDraft(null);
-    setText('');
-    setError(null);
-    setElements(null);
-    setSavedLine(null);
-    setViewedRevision(null);
-    setAskOptions(false);
-    setOptionsCount(3);
+    if (prevShot.current !== shot.number) {
+      prevShot.current = shot.number;
+      setDraft(null);
+      setWordDraft(null);
+      setText('');
+      setError(null);
+      setElements(null);
+      setSavedLine(null);
+      setViewedRevision(null);
+      setAskOptions(false);
+      setOptionsCount(3);
+    }
   }, [shot.number]);
 
   useEffect(() => {

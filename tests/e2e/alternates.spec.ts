@@ -165,3 +165,254 @@ test('a frame pin asks for options with three by default and other shots name th
     await expect(dialog).toContainText('Shot 02 already asks for options');
   } finally { await server.close(); }
 });
+
+test('card previews an alternate, switches pins, steps with keyboard, and opens sheet on previewed alternate without server edits', async ({ page }) => {
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    for (const [revision, text] of [['r1', 'Only A'], ['r2', 'Only B'], [undefined, 'Any alternate']] as const) {
+      await server.project.addComment('parts', 1, { pin: { shot: '02', alternate: revision, x: 0.5, y: 0.5, element: 'label' }, text });
+    }
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const card = page.locator('.grid .shot.has-alternates');
+    await expect(card).toBeVisible();
+
+    // Initially shows in-reel alternate A (r1)
+    await expect(card).toHaveAttribute('data-verify-shown', 'r1');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel');
+    const stillIframe = card.locator('iframe');
+    await expect(stillIframe.contentFrame().locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r1');
+    await expect(card.locator('.hexpin b')).toHaveText(['1', '3']);
+
+    // Invariants check
+    expect(await verify(card, cardInvariants)).toEqual(cardInvariants.map(() => true));
+
+    // Clicking dot B shows alternate B (r2) without opening dialog
+    const dotB = card.locator('.shot-alternates [data-alternate-revision="r2"]');
+    await dotB.click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(card).toHaveAttribute('data-verify-shown', 'r2');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel · previewing B');
+    await expect(dotB).toHaveClass(/shown/);
+    await expect(stillIframe.contentFrame().locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(card.locator('.hexpin b')).toHaveText(['2', '3']);
+
+    // Invariants still pass while previewing
+    expect(await verify(card, cardInvariants)).toEqual(cardInvariants.map(() => true));
+
+    // Server Working version and edits are unchanged
+    const working = await server.project.readWorkingVersion('parts');
+    expect(working.workingParts?.shots[1].revision).toBe('r1');
+    const edits = await server.project.readEditList('parts');
+    expect(edits.operations).toEqual([]);
+
+    // Keyboard navigation with card's button.open focused: ArrowDown / ArrowUp steps through alternates without scrolling
+    const openBtn = card.getByRole('button', { name: /^Shot 02,/ });
+    await openBtn.focus();
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+
+    // Press ArrowDown from B -> steps to C (r3)
+    await page.keyboard.press('ArrowDown');
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBefore);
+    await expect(card).toHaveAttribute('data-verify-shown', 'r3');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel · previewing C');
+    await expect(card.locator('.hexpin b')).toHaveText(['3']);
+
+    // Press ArrowUp -> steps back to B (r2)
+    await page.keyboard.press('ArrowUp');
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBefore);
+    await expect(card).toHaveAttribute('data-verify-shown', 'r2');
+    await expect(card.locator('.shot-alternates span')).toHaveText('3 alternates · A in the reel · previewing B');
+
+    // Press Enter opens ShotSheet on previewed alternate B
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Only B', 'Any alternate']);
+
+    // Close sheet and verify return
+    await dialog.getByRole('button', { name: /Close/ }).click();
+    await expect(dialog).toBeHidden();
+  } finally { await server.close(); }
+});
+
+test('pointing or focusing a card with alternates plays the shown alternate in a loop, stops on leave or blur, and obeys reduced motion', async ({ page }) => {
+  const { dir } = alternatesFixture(false, true);
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const proofCard = page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: /^Shot 02,/ }) });
+    const hookCard = page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: /^Shot 01,/ }) });
+    const closeCard = page.locator('.grid .shot').filter({ has: page.getByRole('button', { name: /^Shot 03,/ }) });
+
+    // Before any hover or focus, [data-card-player="true"] count is 0, and all cards render PageStill (.still:not([data-card-player]))
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+    await expect(page.locator('.grid .shot .still')).toHaveCount(3);
+
+    // Hovering the card with alternates mounts [data-card-player="true"] (count 1)
+    await proofCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(1);
+    await expect(proofCard.locator('[data-card-player="true"]')).toBeVisible();
+
+    // Leaving the card returns it to a still
+    await page.mouse.move(0, 0);
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+
+    // Hovering again resumes playback, and the scene data-local advances over time and loops within duration (r1 duration is 1)
+    await proofCard.hover();
+    await expect(proofCard.locator('[data-card-player="true"]')).toBeVisible();
+    const proofIframe = proofCard.locator('[data-card-player="true"] iframe');
+    const proofScene = proofIframe.contentFrame().locator('[data-scene="proof"]');
+    await expect.poll(async () => {
+      const local = Number(await proofScene.getAttribute('data-local'));
+      return local > 0 && local < 1;
+    }).toBe(true);
+
+    // Switching alternates while playing (e.g. clicking dot B) switches to r2 and restarts playback from shot.start
+    const dotB = proofCard.locator('.shot-alternates [data-alternate-revision="r2"]');
+    await dotB.click();
+    await expect(proofScene).toHaveAttribute('data-revision', 'r2');
+    await expect.poll(async () => {
+      const local = Number(await proofScene.getAttribute('data-local'));
+      return local > 0 && local < 2;
+    }).toBe(true);
+
+    // Hovering a second card with alternates stops the first so at most one [data-card-player="true"] exists in the DOM
+    await hookCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(1);
+    await expect(hookCard.locator('[data-card-player="true"]')).toBeVisible();
+    await expect(proofCard.locator('[data-card-player="true"]')).toHaveCount(0);
+
+    // Hovering a card without alternates (Shot 03) stops playback
+    await closeCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+
+    // Keyboard focus starts playback the same way, steps alternates with keyboard, and blur stops it
+    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    const proofOpenBtn = proofCard.getByRole('button', { name: /^Shot 02,/ });
+    await proofOpenBtn.focus();
+    await expect(proofCard.locator('[data-card-player="true"]')).toHaveCount(1);
+    await page.keyboard.press('ArrowDown');
+    await expect(proofScene).toHaveAttribute('data-revision', 'r3');
+    await proofOpenBtn.blur();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+  } finally { await server.close(); }
+});
+
+test('with prefers-reduced-motion reduce, card with alternates shows still on hover or focus and does not play', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const proofCard = page.locator('.grid .shot.has-alternates');
+    await proofCard.hover();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+    await expect(proofCard.locator('.still')).toBeVisible();
+
+    const proofOpenBtn = proofCard.getByRole('button', { name: /^Shot 02,/ });
+    await proofOpenBtn.focus();
+    await expect(page.locator('[data-card-player="true"]')).toHaveCount(0);
+  } finally { await server.close(); }
+});
+
+test('card Use chooses alternate in the reel with undo, and Not this dismisses with reason', async ({ page }) => {
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const card = page.locator('.grid .shot.has-alternates');
+    await expect(card).toBeVisible();
+
+    // Use and Not this are disabled when in-reel alternate A is shown
+    const useBtnA = card.getByRole('button', { name: 'Use alternate A' });
+    const notThisBtnA = card.getByRole('button', { name: 'Not this alternate A' });
+    await expect(useBtnA).toBeDisabled();
+    await expect(notThisBtnA).toBeDisabled();
+
+    // Previewing alternate B on the card and clicking Use alternate B
+    const dotB = card.locator('.shot-alternates [data-alternate-revision="r2"]');
+    await dotB.click();
+    const useBtnB = card.getByRole('button', { name: 'Use alternate B' });
+    await expect(useBtnB).toBeEnabled();
+    await useBtnB.click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+
+    // Updates Working: shots[1].revision === 'r2' and shots[2].start === 3
+    await expect.poll(async () => {
+      const working = await server.project.readWorkingVersion('parts');
+      return working.workingParts?.shots[1].revision === 'r2' && working.workingParts?.shots[2].start === 3;
+    }).toBe(true);
+
+    // Updates Edits list
+    const edits = await server.project.readEditList('parts');
+    expect(edits.operations).toMatchObject([{ kind: 'shot-alternate', shot: 'proof', revision: 'r2' }]);
+
+    // Pressing Control+z undoes the choice, restoring r1 and shots[2].start === 2
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const working = await server.project.readWorkingVersion('parts');
+      return working.workingParts?.shots[1].revision === 'r1' && working.workingParts?.shots[2].start === 2;
+    }).toBe(true);
+
+    const openBtn = card.getByRole('button', { name: /^Shot 02,/ });
+
+    // Previewing alternate C, clicking Not this, typing reason and pressing Escape closes without edit and focuses card
+    const dotC = card.locator('.shot-alternates [data-alternate-revision="r3"]');
+    await dotC.click();
+    const notThisBtnC = card.getByRole('button', { name: 'Not this alternate C' });
+    await notThisBtnC.click();
+    const reasonInput = card.getByLabel('Reason for Not this');
+    await expect(reasonInput).toBeVisible();
+    await expect(reasonInput).toBeFocused();
+    await reasonInput.fill('Maybe later');
+    await page.keyboard.press('Escape');
+    await expect(reasonInput).toBeHidden();
+    const editsAfterEsc = await server.project.readEditList('parts');
+    expect(editsAfterEsc.operations.some((op) => op.kind === 'shot-alternate-dismiss')).toBe(false);
+    await expect(openBtn).toBeFocused();
+
+    // Previewing alternate C, clicking Not this alternate C, typing 'Too abrupt' and pressing Enter
+    await dotC.click();
+    await notThisBtnC.click();
+    await expect(reasonInput).toBeVisible();
+    await reasonInput.fill('Too abrupt');
+    await page.keyboard.press('Enter');
+    await expect(reasonInput).toBeHidden();
+
+    // Records shot-alternate-dismiss operation with reason: 'Too abrupt'
+    await expect.poll(async () => {
+      const list = await server.project.readEditList('parts');
+      return list.operations.find((op) => op.kind === 'shot-alternate-dismiss');
+    }).toMatchObject({ kind: 'shot-alternate-dismiss', shot: 'proof', revision: 'r3', reason: 'Too abrupt' });
+
+    // Removes dot C from the card, resets card to in-reel alternate, leaves activeElement on button.open
+    await expect(card.locator('.shot-alternates [data-alternate-revision="r3"]')).toHaveCount(0);
+    await expect(card).toHaveAttribute('data-verify-shown', 'r1');
+    await expect(openBtn).toBeFocused();
+
+    // Both Use and Not this are absent when viewing frozen v1
+    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ }).click();
+    await expect(page.locator('.main .readonly-note')).toBeVisible();
+    const frozenCard = page.locator('.grid .shot.has-alternates');
+    await expect(frozenCard.getByRole('button', { name: /Use alternate/ })).toHaveCount(0);
+    await expect(frozenCard.getByRole('button', { name: /Not this alternate/ })).toHaveCount(0);
+  } finally {
+    await server.close();
+  }
+});
+

@@ -26,37 +26,37 @@ Files you may edit: `web/src/Storyboard.tsx`, `web/src/Storyboard.verify.ts`, `w
 
 Plan goals G2 and G5.
 
-- [ ] Write failing e2e cases in `tests/e2e/alternates.spec.ts` (using `alternatesFixture`, as the existing cases do) for each acceptance box, then implement.
-- [ ] `ShotCard` keeps a `shownRevision`, which starts at the alternate with `inReel` and resets when the shot's undismissed alternates change. The still's `pageUrl` uses `alternatePageUrl(slug, version.number, shot.name, shownRevision, version.workingParts?.key)` when it differs from the reel's. The frame-pin filter uses the shown revision, by the same rule as `ShotSheet.tsx:227`.
-- [ ] The dots (`.shot-alternates i`) become `<button type="button">` with `aria-label="Show alternate <label>"` and `aria-pressed`. They keep `data-alternate-revision` and the `on` class for the in-reel dot, and add a `shown` class for the shown one. A click stops propagation and must not open the sheet. Give them a stacking order above `button.open`.
-- [ ] Up and Down on the focused `button.open` step through undismissed alternates, with `preventDefault`, and only when the card has two or more alternates. Enter and click still open the sheet.
-- [ ] The line reads `N alternates · X in the reel`, plus ` · previewing Y` when the shown alternate is not the one in the reel. Keep the `aria-label` in step with it.
-- [ ] `ShotSheet` takes an optional `initialRevision?: string`, used as the initial `viewedRevision`. `Storyboard` passes the opening card's shown revision.
-- [ ] `Storyboard.verify.ts`: add `data-verify-shown` to `shotVerifyAttrs`, plus invariants that the `.shown` marker's revision equals `data-verify-shown` and that the shown revision is among the undismissed markers. Update `cardFixtures` if needed. Run `cardInvariants` in the e2e case the way the existing spec does.
-- [ ] Assert that the Working version (`server.project.readWorkingVersion`) and the Edits list do not change after previewing.
+- [x] Write failing e2e cases in `tests/e2e/alternates.spec.ts` (using `alternatesFixture`, as the existing cases do) for each acceptance box, then implement.
+- [x] `ShotCard` keeps a `shownRevision`, which starts at the alternate with `inReel` and resets when the shot's undismissed alternates change. The still's `pageUrl` uses `alternatePageUrl(slug, version.number, shot.name, shownRevision, version.workingParts?.key)` when it differs from the reel's. The frame-pin filter uses the shown revision, by the same rule as `ShotSheet.tsx:227`.
+- [x] The dots (`.shot-alternates i`) become `<button type="button">` with `aria-label="Show alternate <label>"` and `aria-pressed`. They keep `data-alternate-revision` and the `on` class for the in-reel dot, and add a `shown` class for the shown one. A click stops propagation and must not open the sheet. Give them a stacking order above `button.open`.
+- [x] Up and Down on the focused `button.open` step through undismissed alternates, with `preventDefault`, and only when the card has two or more alternates. Enter and click still open the sheet.
+- [x] The line reads `N alternates · X in the reel`, plus ` · previewing Y` when the shown alternate is not the one in the reel. Keep the `aria-label` in step with it.
+- [x] `ShotSheet` takes an optional `initialRevision?: string`, used as the initial `viewedRevision`. `Storyboard` passes the opening card's shown revision.
+- [x] `Storyboard.verify.ts`: add `data-verify-shown` to `shotVerifyAttrs`, plus invariants that the `.shown` marker's revision equals `data-verify-shown` and that the shown revision is among the undismissed markers. Update `cardFixtures` if needed. Run `cardInvariants` in the e2e case the way the existing spec does.
+- [x] Assert that the Working version (`server.project.readWorkingVersion`) and the Edits list do not change after previewing.
 
 ### T2: Play on hover or focus
 
 Plan goals G1 and G6.
 
-- [ ] Write failing e2e cases first.
-- [ ] `Storyboard` holds one `playingKey`. A card's `mouseenter` and `focusin` set it, and `mouseleave` and `focusout` (when focus leaves the card) clear it. Only cards with alternates take part.
-- [ ] The playing card renders `PagePlayer` (from `./stage/index.ts`) in place of `PageStill`, on the shown alternate's page, sized like the still. A `requestAnimationFrame` clock loops `time` over `[shot.start, shot.start + shownAlternate.duration)`. Cancel the frame on unmount and on change. Every other card keeps `PageStill`.
-- [ ] Switching the shown alternate while playing restarts at `shot.start`.
-- [ ] Under `prefers-reduced-motion: reduce`, render the still and do not loop. Check it with `matchMedia`, and test it with Playwright's `reducedMotion` option.
-- [ ] Assert that at most one `PagePlayer` iframe exists in the grid at any time, and none before the first hover.
+- [x] Write failing e2e cases first.
+- [x] `Storyboard` holds one `playingKey`. A card's `mouseenter` and `focusin` set it, and `mouseleave` and `focusout` (when focus leaves the card) clear it. Only cards with alternates take part.
+- [x] The playing card renders `PagePlayer` (from `./stage/index.ts`) in place of `PageStill`, on the shown alternate's page, sized like the still. A `requestAnimationFrame` clock loops `time` over `[shot.start, shot.start + shownAlternate.duration)`. Cancel the frame on unmount and on change. Every other card keeps `PageStill`.
+- [x] Switching the shown alternate while playing restarts at `shot.start`.
+- [x] Under `prefers-reduced-motion: reduce`, render the still and do not loop. Check it with `matchMedia`, and test it with Playwright's `reducedMotion` option.
+- [x] Assert that at most one `PagePlayer` iframe exists in the grid at any time, and none before the first hover.
 
 ### T3: Use and Not this on the card
 
 Plan goals G3 and G4.
 
-- [ ] Write failing e2e cases first.
-- [ ] Pass `edits` from `Storyboard` into `ShotCard`. It is undefined on frozen versions, so render no actions there.
-- [ ] The "Use" button (`aria-label="Use alternate <label>"`, scoped to the card) calls `edits.add({ kind: 'shot-alternate', shot: shot.name, revision })`, exactly as `ShotSheet.tsx:302` does. It is disabled when the shown alternate is in the reel or `edits.busy`.
-- [ ] "Not this" (`aria-label="Not this alternate <label>"`) opens an inline reason input (`aria-label="Reason for Not this"`) plus a confirm button on the card. Confirming, or pressing Enter, calls `edits.add({ kind: 'shot-alternate-dismiss', shot: shot.name, revision, reason })` as in `ShotSheet.tsx:304`. Escape closes it with no edit and returns focus to the card's `button.open`. After a dismissal, set the shown revision to the one in the reel and focus `button.open`. Disable it for the in-reel alternate and while busy.
-- [ ] Action clicks stop propagation and never open the sheet. Actions are visible on `:hover` and `:focus-within`, and stay visible while the reason field is open.
-- [ ] Test Use, then Ctrl+Z, restoring the previous revision and the later shot's `data-start`. Test that a dismiss's reason reaches the operation (read the Working edit list via `server.project`).
-- [ ] The existing alternates, parts and working e2e configs still pass.
+- [x] Write failing e2e cases first.
+- [x] Pass `edits` from `Storyboard` into `ShotCard`. It is undefined on frozen versions, so render no actions there.
+- [x] The "Use" button (`aria-label="Use alternate <label>"`, scoped to the card) calls `edits.add({ kind: 'shot-alternate', shot: shot.name, revision })`, exactly as `ShotSheet.tsx:302` does. It is disabled when the shown alternate is in the reel or `edits.busy`.
+- [x] "Not this" (`aria-label="Not this alternate <label>"`) opens an inline reason input (`aria-label="Reason for Not this"`) plus a confirm button on the card. Confirming, or pressing Enter, calls `edits.add({ kind: 'shot-alternate-dismiss', shot: shot.name, revision, reason })` as in `ShotSheet.tsx:304`. Escape closes it with no edit and returns focus to the card's `button.open`. After a dismissal, set the shown revision to the one in the reel and focus `button.open`. Disable it for the in-reel alternate and while busy.
+- [x] Action clicks stop propagation and never open the sheet. Actions are visible on `:hover` and `:focus-within`, and stay visible while the reason field is open.
+- [x] Test Use, then Ctrl+Z, restoring the previous revision and the later shot's `data-start`. Test that a dismiss's reason reaches the operation (read the Working edit list via `server.project`).
+- [x] The existing alternates, parts and working e2e configs still pass.
 
 ## Context
 
@@ -92,8 +92,99 @@ npx vitest run tests/web
 
 ## Test evidence
 
-(The executor fills this in.)
+### 1. `npm run typecheck`
+```
+> kinotta@0.1.0 typecheck
+> tsc --noEmit
+```
+Result: 0 errors (clean exit).
+
+### 2. `npm run build`
+```
+> kinotta@0.1.0 build
+> vite build --config vite.config.ts
+
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 105 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/web/index.html                                           0.37 kB │ gzip:   0.26 kB
+dist/web/assets/index-Ecf2sGeq.css                          107.85 kB │ gzip:  36.57 kB
+dist/web/assets/index-BL_y8wfY.js                           548.92 kB │ gzip: 164.80 kB
+✓ built in 615ms
+```
+Result: 0 errors (clean exit).
+
+### 3. `npx playwright test -c tests/e2e/alternates.config.ts --workers=1`
+```
+Running 9 tests using 1 worker
+
+  ok 1 tests\e2e\alternates.spec.ts:14:1 › Use updates the alternate played in Review while frozen history retains its original revision (3.3s)
+  ok 2 tests\e2e\alternates.spec.ts:53:1 › Storyboard offers alternates, previews with keyboard, chooses and dismisses through Undo (2.2s)
+  ok 3 tests\e2e\alternates.spec.ts:87:1 › pins are visible only on their alternate and new pins keep the viewed identity (1.7s)
+  ok 4 tests\e2e\alternates.spec.ts:113:1 › alternate Storyboard and enlarged shot fit dark and light shells at the required widths (12.8s)
+  ok 5 tests\e2e\alternates.spec.ts:145:1 › a frame pin asks for options with three by default and other shots name the one already asking (1.5s)
+  ok 6 tests\e2e\alternates.spec.ts:169:1 › card previews an alternate, switches pins, steps with keyboard, and opens sheet on previewed alternate without server edits (1.8s)
+  ok 7 tests\e2e\alternates.spec.ts:244:1 › pointing or focusing a card with alternates plays the shown alternate in a loop, stops on leave or blur, and obeys reduced motion (1.7s)
+  ok 8 tests\e2e\alternates.spec.ts:310:1 › with prefers-reduced-motion reduce, card with alternates shows still on hover or focus and does not play (687ms)
+  ok 9 tests\e2e\alternates.spec.ts:330:1 › card Use chooses alternate in the reel with undo, and Not this dismisses with reason (2.6s)
+
+  9 passed (30.0s)
+```
+Result: 9 passed, 0 failed.
+
+### 4. `npx playwright test -c tests/e2e/parts.config.ts --workers=1`
+```
+Running 6 tests using 1 worker
+
+  ok 1 tests\e2e\parts-gate.spec.ts:10:1 › stop gate: the three-shot assembled page seeks from file, plays in Review and accepts a named element pin (3.1s)
+  ok 2 tests\e2e\parts-gate.spec.ts:61:1 › assembled seek waits for an asynchronous shot before a render captures it (238ms)
+  ok 3 tests\e2e\parts-gate.spec.ts:79:1 › frozen owner offsets compose with a parts animation (472ms)
+  ok 4 tests\e2e\parts-gate.spec.ts:95:1 › Storyboard stills and pins follow the Working parts sequence after a trim (912ms)
+  ok 5 tests\e2e\parts-gate.spec.ts:117:1 › a removed named shot keeps flagged feedback without drawing it on its replacement (1.5s)
+  ok 6 tests\e2e\parts-gate.spec.ts:138:1 › seek at the reel end retains the last shot within the manifest duration tolerance (184ms)
+
+  6 passed (8.1s)
+```
+Result: 6 passed, 0 failed.
+
+### 5. `npx playwright test -c tests/e2e/working.config.ts --workers=1`
+```
+Running 2 tests using 1 worker
+
+  ok 1 tests\e2e\working.spec.ts:12:1 › Working is distinct from frozen history, survives reopen, and shows author names and working render choices (2.7s)
+  ok 2 tests\e2e\working.spec.ts:81:1 › a frozen native mix opens with exact captured inputs and no working operations applied again (1.5s)
+
+  2 passed (5.9s)
+```
+Result: 2 passed, 0 failed.
+
+### 6. `npx vitest run tests/web`
+```
+ ✓  unit  tests/web/agent-neutral.test.ts (1 test) 64ms
+ ✓  unit  tests/web/timeline.test.ts (16 tests) 14ms
+ ❯  unit  tests/web/editor-settings.test.ts (4 tests | 1 failed) 26ms
+   ❯ viewer editor settings (4)
+     × keeps Snip, Split, Media and trim keys distinct and identifies equivalent rebindings 16ms
+     ✓ captures actual event modifiers without swallowing unknown keys 1ms
+     ✓ restores persisted viewer choices and rejects malformed defaults field by field 3ms
+     ✓ works when browser storage is blocked, full or corrupted and returns independent defaults 2ms
+ ✓  unit  tests/web/transcribing.test.ts (4 tests) 9ms
+ ✓  unit  tests/web/edited.test.ts (26 tests) 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL   unit  tests/web/editor-settings.test.ts > viewer editor settings > keeps Snip, Split, Media and trim keys distinct and identifies equivalent rebindings
+AssertionError: expected 'marker' to be 'rail' // Object.is equality
+
+Expected: "rail"
+Received: "marker"
+```
+Result: 4 files passed (50 tests passed). 1 pre-existing failure in `tests/web/editor-settings.test.ts`.
 
 ## Deviations
 
-(The executor fills this in.)
+- `tests/web/editor-settings.test.ts`: Fails on line 11 (`expect(actionForKey(DEFAULT_SETTINGS.keys, 'M')).toBe('rail')`) due to a pre-existing change in commit `877982aafea2` where `marker` was assigned `'M'` and `rail` was assigned `'R'`. Because `tests/web/editor-settings.test.ts` is outside the allowed file list for this lane (`web/src/Storyboard.tsx`, `web/src/Storyboard.verify.ts`, `web/src/ShotSheet.tsx`, `web/src/styles.css`, `tests/e2e/alternates.spec.ts`, `tests/helpers/parts.ts`, new files under `tests/web/`, and this brief), this file was not modified per executor contract rules.
+- Card actions visibility: In `styles.css`, `.shot-alternate-actions` is styled with `opacity: 0; pointer-events: none` at rest and `opacity: 1; pointer-events: auto` on `:hover`, `:focus-within`, and `.dismissing` (with transition). This keeps the actions accessible to assistive technology while hiding them visually at rest and preventing accidental pointer interactions.
+

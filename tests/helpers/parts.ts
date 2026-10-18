@@ -41,7 +41,7 @@ export function partsInputs(reelDir: string, manifest: ReturnType<typeof partsFi
 }
 
 /** One shot offers three revisions with different durations and visible answers. */
-export function alternatesFixture(initialVersion = false) {
+export function alternatesFixture(initialVersion = false, multiAlternateShots = false) {
   const fixture = partsFixture(3, initialVersion);
   const alternates = ['r1', 'r2', 'r3'].map((revision, index) => ({ revision, label: String.fromCharCode(65 + index), title: `Proof ${index + 1}`, note: `Approach ${index + 1}`, duration: index + 1 }));
   for (const alternate of alternates.slice(1)) {
@@ -49,7 +49,15 @@ export function alternatesFixture(initialVersion = false) {
     cpSync(join(fixture.reelDir, 'shots/proof/r1'), folder, { recursive: true });
     writeFileSync(join(folder, 'shot.html'), `<section data-scene="proof"><div data-el="label">${alternate.title}</div></section>`);
   }
-  const manifest: PartsManifest = { ...fixture.manifest, shots: fixture.manifest.shots.map((shot) => shot.name === 'proof' ? { ...shot, alternates } : shot) };
+  let manifestShots = fixture.manifest.shots.map((shot) => shot.name === 'proof' ? { ...shot, alternates } : shot);
+  if (multiAlternateShots) {
+    const hookAlternates = ['r1', 'r2'].map((revision, index) => ({ revision, label: String.fromCharCode(65 + index), title: `Hook ${index + 1}`, note: `Hook approach ${index + 1}`, duration: 1 }));
+    const hookFolder = join(fixture.reelDir, 'shots/hook', 'r2');
+    cpSync(join(fixture.reelDir, 'shots/hook/r1'), hookFolder, { recursive: true });
+    writeFileSync(join(hookFolder, 'shot.html'), `<section data-scene="hook"><div data-el="label">Hook 2</div></section>`);
+    manifestShots = manifestShots.map((shot) => shot.name === 'hook' ? { ...shot, alternates: hookAlternates } : shot);
+  }
+  const manifest: PartsManifest = { ...fixture.manifest, shots: manifestShots };
   writeFileSync(join(fixture.reelDir, 'shots.json'), JSON.stringify(manifest));
   if (initialVersion) writeFileSync(join(fixture.reelDir, 'v1/shots.json'), JSON.stringify(manifest));
   return { ...fixture, manifest, alternates };
