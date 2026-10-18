@@ -331,7 +331,9 @@ it('attaches added media to footage, follows reorder and repairs a removed momen
     const placements = await inspectPlacement(page, /^take.mp4, insert/);
     const product = page.getByRole('region', { name: 'Media timeline' }).locator('[data-role="insert"] [data-placement="product"]');
     await page.getByLabel('Playhead', { exact: true }).fill('2.5');
+    const attached = page.waitForResponse((response) => response.url().endsWith('/edits') && response.request().method() === 'POST');
     await placements.getByRole('button', { name: 'Follow footage at playhead' }).click();
+    expect((await attached).status()).toBe(201);
     await expect.poll(() => product.getAttribute('aria-label')).toMatch(/2\.50 to 3\.50/);
     await inspectPlacement(page, /^take.mp4, main, 4\.00/);
     await placements.getByRole('button', { name: 'Earlier' }).click();
@@ -348,7 +350,10 @@ it('attaches added media to footage, follows reorder and repairs a removed momen
     await placements.getByText(/Footage moment removed/).waitFor();
     await expect(server.project.freezeEdits('founder-talk')).rejects.toThrow('attachment');
     await page.getByRole('tab', { name: /^Edits/ }).click();
+    const restored = page.waitForResponse((response) => response.url().endsWith('/edits/undo') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /^Undo/ }).click();
+    expect((await restored).status()).toBe(200);
+    await expect.poll(() => page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).isEnabled()).toBe(true);
     await inspectPlacement(page, /^take.mp4, insert/);
     await expect.poll(() => placements.getByText(/Footage moment removed/).count()).toBe(0);
     await placements.getByRole('button', { name: 'Stay at time', exact: true }).click();
