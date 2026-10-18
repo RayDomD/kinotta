@@ -166,6 +166,7 @@ Zero radius everywhere (`rounded.none`). Borders are 1.4 to 1.6px hairlines. The
 
 ### Cards / Containers
 - **Shot card:** transparent at rest; on hover or focus it takes paper, an ink border and the lifted sheet. The still is a live page; one real button stretches over the card.
+- **Alternates shot card (`.shot.has-alternates`):** the only stacked paper at rest on the grid (`sheet-rest`). Its `.shot-alternates` row holds circular dot buttons (`13px`, `border: 1.5px solid ink-2`) above the card's stretched open button: the alternate in the reel is filled (`ink-2`), and the alternate shown on the card carries a 2px Tally (`light`) outline ring. The label reads `"N alternates · X in the reel"` and appends `" · previewing Y"` while showing another option. Hovering or focusing the card plays the shown alternate in a loop (`PagePlayer`) and returns to a still on leave or blur (staying a still under `prefers-reduced-motion: reduce`). On Working versions, `"Use"` (Tally border and text) and `"Not this"` appear on hover, `:focus-within`, or while the inline `"Why not? (optional)"` reason form (`.shot-alternate-reason`) is open; both actions are disabled when the shown alternate is already in the reel.
 - **Comment card:** paper, ink border, sheet at rest, 10px 12px. Number in Doto ice, "Shot 03 · 03.60s", then the element in ice or "position", then the text.
 - **Empty state:** dashed hairline box with dot terrain along its bottom edge.
 
