@@ -1,0 +1,79 @@
+{
+  "reviewedCommit": "78db54a",
+  "method": "Parent Playwright completion after independent A/B source assessments",
+  "console": [
+    "%c[impeccable] 1 anti-pattern found color: oklch(84% 0.19 80.46); font-weight: bold",
+    "%c[impeccable] 3 anti-patterns found color: oklch(84% 0.19 80.46); font-weight: bold"
+  ],
+  "checks": [
+    {
+      "surface": "Storyboard",
+      "overlayPreflight": {
+        "title": "[Human] Kinotta review",
+        "injected": true
+      },
+      "overlayScriptLoaded": true,
+      "headless": true
+    },
+    {
+      "surface": "ShotSheet",
+      "overlayPreflight": {
+        "title": "[Human] Kinotta review",
+        "injected": true
+      },
+      "overlayScriptLoaded": true,
+      "headless": true
+    }
+  ],
+  "storyboardText": [
+    "Storyboard, v1",
+    "Comments",
+    "Settings",
+    "Keyboard shortcuts"
+  ],
+  "sheetGeometry": {
+    "x": 351.91168212890625,
+    "y": 39.1220703125,
+    "width": 896.1766967773438,
+    "height": 994.802734375,
+    "viewportHeight": 1000,
+    "bottom": 1033.9248046875,
+    "scrimClientHeight": 948,
+    "scrimScrollHeight": 1031
+  },
+  "viewOnlyRevision": "r1",
+  "draft": {
+    "text": "02proof01.00\nClose Esc\nCancel\nAsk for options\nA Proof 1\n\nApproach 1\n\nIn the reel\nB Proof 2\n\nApproach 2\n\nC Proof 3\n\nApproach 3\n\nUse\nReason, optional \nNot this\nPin an element\nlabel\nFrame centre (position only)\n\nThe proof.\n← → shots · ↑ ↓ alternates\nShot 2 of 3",
+    "buttons": [
+      "Close Esc",
+      "Cancel",
+      "A Proof 1",
+      "B Proof 2",
+      "C Proof 3",
+      "Use",
+      "Not this",
+      "label",
+      "Frame centre (position only)"
+    ]
+  },
+  "savedPin": {
+    "kind": "frame",
+    "version": 1,
+    "section": null,
+    "shot": "02",
+    "shotName": "proof",
+    "time": 1,
+    "x": 0.5,
+    "y": 0.5,
+    "element": null,
+    "alternate": "r2"
+  },
+  "chooseStatus": 201,
+  "chosenRevision": "r2",
+  "sheetUndoButtons": 0,
+  "afterSheetCtrlZ": "r2",
+  "commentsText": [
+    "Commentsv1 · 11Shot 02 · 01.00spositionFresh B identity checkEditDeleteNote on the whole reel"
+  ],
+  "error": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\">Review</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <span>✦ flat type hierarchy: Sizes: 12px, 13px, 14px, 1…</span> from <div class=\"impeccable-overlay impeccable-banner\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <span>✦ flat type hierarchy: Sizes: 12px, 13px, 14px, 1…</span> from <div class=\"impeccable-overlay impeccable-banner\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    28 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <span>✦ flat type hierarchy: Sizes: 12px, 13px, 14px, 1…</span> from <div class=\"impeccable-overlay impeccable-banner\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+}

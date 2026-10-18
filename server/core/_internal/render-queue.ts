@@ -1,4 +1,4 @@
-import { readdirSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { CLEANUP_RETRIES, CLEANUP_RETRY_MS } from './render.ts';
 import { randomUUID } from 'node:crypto';
@@ -9,6 +9,20 @@ import type { ProjectEvent, RenderJob, RenderRequest } from './types.ts';
 /** Progress is reported in whole percents, so a long render doesn't raise an event per frame. */
 const PROGRESS_STEPS = 100;
 const JOB_ID_LENGTH = 8;
+export const DRAFT_OWNER_FILE = '.owner-pid';
+
+/** A permission error still means the owner may be alive; only ESRCH establishes that it is gone. */
+function hasLiveOwner(dir: string): boolean {
+  let pid: number;
+  try { pid = Number(readFileSync(join(dir, DRAFT_OWNER_FILE), 'utf8')); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
+}
 
 /**
  * Renders one job: reports frames done and the total as it goes, and resolves with the finished file. When `signal` aborts
@@ -117,7 +131,7 @@ export function removeStaleDrafts(projectDir: string): void {
   for (const reel of entries.filter((entry) => entry.isDirectory())) {
     const dir = join(reels, reel.name);
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory() && entry.name.startsWith('.draft-')) rmSync(join(dir, entry.name), { recursive: true, force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS });
+      if (entry.isDirectory() && entry.name.startsWith('.draft-') && !hasLiveOwner(join(dir, entry.name))) rmSync(join(dir, entry.name), { recursive: true, force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS });
     }
   }
   startedProjects.add(projectDir);

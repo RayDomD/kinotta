@@ -1,0 +1,32 @@
+[
+  {
+    "surface": "Storyboard",
+    "width": 1600,
+    "overflow": false
+  },
+  {
+    "surface": "Sheet",
+    "width": 1600,
+    "geometry": {
+      "x": 350,
+      "y": 37,
+      "width": 900,
+      "height": 999.046875
+    }
+  },
+  {
+    "surface": "Storyboard",
+    "width": 390,
+    "overflow": false
+  },
+  {
+    "surface": "Sheet",
+    "width": 390,
+    "geometry": {
+      "x": 16,
+      "y": 128.84375,
+      "width": 358,
+      "height": 794.3125
+    }
+  }
+]
