@@ -52,6 +52,25 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
 }
 
+/** Loops a page from `start` for `duration` seconds. It keeps its own clock, so the card around it does not re-render each frame. */
+function CardPlayer({ pageUrl, start, duration, title }: { pageUrl: string; start: number; duration: number; title: string }) {
+  const [time, setTime] = useState(start);
+
+  useEffect(() => {
+    let animId: number;
+    const startAt = performance.now();
+    setTime(start);
+    const loop = (now: number) => {
+      setTime(start + (((now - startAt) / 1000) % duration));
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [start, duration]);
+
+  return <PagePlayer className="still-player" pageUrl={pageUrl} time={time} title={title} />;
+}
+
 interface ShotCardProps {
   shot: Shot;
   pageUrl: string;
@@ -101,27 +120,10 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
   const inReelLabel = inReelAlternate?.label ?? shot.revision;
 
   const reducedMotion = usePrefersReducedMotion();
-  const isPlaying = playing && alternates.length > 1 && !reducedMotion;
+  // The player draws the page alone, so a shot over footage or one that cannot render keeps its still.
+  const playable = unavailable === undefined && !(shot.type === 'panel' && footage !== undefined);
+  const isPlaying = playing && alternates.length > 1 && !reducedMotion && playable;
   const duration = Math.max(0.01, shown?.duration ?? shot.duration);
-  const [playTime, setPlayTime] = useState(shot.start);
-
-  useEffect(() => {
-    if (!isPlaying) return;
-    let animId: number;
-    const startAt = performance.now();
-    setPlayTime(shot.start);
-
-    const loop = (now: number) => {
-      const elapsed = ((now - startAt) / 1000) % duration;
-      setPlayTime(shot.start + elapsed);
-      animId = requestAnimationFrame(loop);
-    };
-
-    animId = requestAnimationFrame(loop);
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [isPlaying, shown?.revision, shot.start, duration]);
 
   function stepAlternate(delta: number): void {
     const current = alternates.findIndex((a) => a.revision === shown?.revision);
@@ -152,7 +154,7 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
     >
       {isPlaying ? (
         <div className="still playing" data-card-player="true">
-          <PagePlayer key={stillPageUrl} className="still-player" pageUrl={stillPageUrl} time={playTime} title={`Shot ${shot.number} player`} />
+          <CardPlayer key={stillPageUrl} pageUrl={stillPageUrl} start={shot.start} duration={duration} title={`Shot ${shot.number} player`} />
           {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
         </div>
       ) : (
