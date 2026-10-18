@@ -1,7 +1,7 @@
 ---
 title: Merge queue
 date: 2026-10-19
-status: In Progress
+status: Done
 summary: Merge the hidden-stage fix, the playback performance work and the inline alternates card into main, one at a time, each checked against a known baseline.
 spec:
 ---
@@ -71,3 +71,4 @@ Every merge conflicts only in the generated `docs/plans/index.html`. Resolve it 
 
 ### 2026-10-19
 - Plan created.
+- Approved and executed in .worktrees/codex-run-cleanup: merged docs/merge-queue (dd8c133), ix/render-hidden-stage (2e6f60), ix/playback-copy-dedupe (cecd67a) with a ix: commit scoping eview.spec.ts to the visible picture layer (6400ef), and eat/inline-alternates-card (369e2e). Recorded in docs/session-summaries/2026-10-19-merge-queue-summary.md.
