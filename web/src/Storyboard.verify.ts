@@ -25,4 +25,3 @@ export const cardInvariants = [
   { description: 'The shown marker matches the revision shown on the card', check: (root: Element) => Number(root.getAttribute('data-verify-count')) === 0 || root.querySelector('.shot-alternates [data-alternate-revision].shown')?.getAttribute('data-alternate-revision') === root.getAttribute('data-verify-shown') },
   { description: 'The shown revision is among the card alternate markers', check: (root: Element) => Number(root.getAttribute('data-verify-count')) === 0 || [...root.querySelectorAll('.shot-alternates [data-alternate-revision]')].some((el) => el.getAttribute('data-alternate-revision') === root.getAttribute('data-verify-shown')) },
 ];
-

@@ -239,24 +239,21 @@ input { font: inherit; color: inherit; cursor: text; }
 .shot-alternates button.shown, .shot-alternates [data-alternate-revision].shown { outline: 2px solid var(--light); outline-offset: 2px; }
 .shot-alternates button:focus-visible, .shot-alternates [data-alternate-revision]:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
 .shot-alternates span { flex: 1 1 160px; min-width: 0; margin-left: 4px; overflow-wrap: break-word; }
-.shot-alternate-actions, .acts { position: relative; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; min-height: 28px; opacity: 0; pointer-events: none; transition: opacity var(--t-color) var(--ease); }
+.shot-alternate-actions { position: relative; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; min-height: 28px; opacity: 0; pointer-events: none; transition: opacity var(--t-color) var(--ease); }
 .shot:hover .shot-alternate-actions,
 .shot:focus-within .shot-alternate-actions,
-.shot.dismissing .shot-alternate-actions,
-.shot:hover .acts,
-.shot:focus-within .acts,
-.shot.dismissing .acts { opacity: 1; pointer-events: auto; }
+.shot.dismissing .shot-alternate-actions { opacity: 1; pointer-events: auto; }
 @media (pointer: coarse) {
-  .shot-alternate-actions, .acts { opacity: 1; pointer-events: auto; }
+  .shot-alternate-actions { opacity: 1; pointer-events: auto; }
 }
-.shot-alternate-actions button, .acts button { font: inherit; font-size: 13px; color: var(--ink); background: var(--card-raised); border: 1px solid var(--hairline); padding: 3px 12px; cursor: pointer; }
-.shot-alternate-actions button.use, .acts button.use { border-color: var(--light); color: var(--light); }
-.shot-alternate-actions button:disabled, .acts button:disabled { opacity: .4; cursor: default; }
-.shot-alternate-reason, .reason { position: relative; z-index: 3; display: flex; gap: 6px; margin-top: 6px; max-width: 100%; }
-.shot-alternate-reason input, .reason input { flex: 1 1 0; min-width: 0; font: inherit; font-size: 13px; background: var(--ground-deep); color: var(--ink); border: 1px solid var(--hairline); padding: 3px 8px; }
-.shot-alternate-reason input:focus-visible, .reason input:focus-visible { outline: 1px solid var(--light); outline-offset: 1px; }
-.shot-alternate-reason button, .reason button { font: inherit; font-size: 13px; background: var(--card-raised); color: var(--ink); border: 1px solid var(--hairline); padding: 3px 10px; cursor: pointer; flex: none; }
-.shot-alternate-reason button:disabled, .reason button:disabled { opacity: .4; cursor: default; }
+.shot-alternate-actions button { font: inherit; font-size: 13px; color: var(--ink); background: var(--card-raised); border: 1px solid var(--hairline); padding: 3px 12px; cursor: pointer; }
+.shot-alternate-actions button.use { border-color: var(--light); color: var(--light); }
+.shot-alternate-actions button:disabled { opacity: .4; cursor: default; }
+.shot-alternate-reason { position: relative; z-index: 3; display: flex; gap: 6px; margin-top: 6px; max-width: 100%; }
+.shot-alternate-reason input { flex: 1 1 0; min-width: 0; font: inherit; font-size: 13px; background: var(--ground-deep); color: var(--ink); border: 1px solid var(--hairline); padding: 3px 8px; }
+.shot-alternate-reason input:focus-visible { outline: 1px solid var(--light); outline-offset: 1px; }
+.shot-alternate-reason button { font: inherit; font-size: 13px; background: var(--card-raised); color: var(--ink); border: 1px solid var(--hairline); padding: 3px 10px; cursor: pointer; flex: none; }
+.shot-alternate-reason button:disabled { opacity: .4; cursor: default; }
 .alternate-choice-count { color: var(--light); font-size: 14px; }
 .alternate-choice-count .num { font-family: Doto, monospace; font-weight: 800; }
 .sheet.with-alternates { width: min(900px, calc(100vw - 32px), max(480px, calc((100vh - 360px) * 16 / 9))); }

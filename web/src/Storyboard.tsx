@@ -199,7 +199,7 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
         </div>
       )}
       {alternates.length > 1 && shown && edits && shot.name && (
-        <div className="shot-alternate-actions acts">
+        <div className="shot-alternate-actions">
           <button
             type="button"
             className="use"
@@ -228,7 +228,7 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
       )}
       {alternates.length > 1 && shown && edits && shot.name && dismissing && !shown.inReel && (
         <form
-          className="shot-alternate-reason reason"
+          className="shot-alternate-reason"
           onClick={(e) => e.stopPropagation()}
           onSubmit={(e) => {
             e.preventDefault();
