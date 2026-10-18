@@ -10,6 +10,8 @@ plan: ../../plans/2026-10-18-inline-alternates-card.md
 
 Follow this brief exactly. Standing rules are in AGENTS.md.
 
+Start by editing files: write the first failing T1 test in `tests/e2e/alternates.spec.ts` now. Do not write an execution plan or spawn research subagents. Work T1, then T2, then T3, and write your Test evidence and Deviations into this file, not only to stdout.
+
 ## Scope
 
 Build T1, T2 and T3 from `docs/tickets-inline-alternates.md`: preview, play, choose and dismiss a shot's alternates on its Storyboard card. The behaviour reference is `docs/mockups/2026-10-18-inline-alternates-card.html`. Open it and try it before you start. The goals G1 to G6 are in `docs/plans/2026-10-18-inline-alternates-card.md`.
