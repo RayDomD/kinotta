@@ -1,7 +1,7 @@
 ---
 title: Inline alternates card
 date: 2026-10-18
-status: Draft
+status: In Progress
 summary: Preview, switch and choose a shot's alternates inside its stacked Storyboard card, with animated playback, without opening the shot sheet.
 spec: AGENTS.md (Pending owner decision: inline alternatives)
 ---
