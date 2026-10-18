@@ -48,6 +48,10 @@ function usePrefersReducedMotion(): boolean {
   return reducedMotion;
 }
 
+function isTyping(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+}
+
 interface ShotCardProps {
   shot: Shot;
   pageUrl: string;
@@ -63,14 +67,18 @@ interface ShotCardProps {
   onPlayingChange(playing: boolean): void;
   open(revision?: string): void;
   buttonRef(button: HTMLButtonElement | null): void;
+  edits?: EditsState;
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, playing, onPlayingChange, open, buttonRef }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, playing, onPlayingChange, open, buttonRef, edits }: ShotCardProps) {
   const timecode = formatTimecode(shot.start);
   const alternates = shot.alternates?.filter((alternate) => !alternate.dismissed) ?? [];
   const inReelAlternate = alternates.find((a) => a.inReel);
   const [shownRevision, setShownRevision] = useState<string | null>(null);
+  const [dismissing, setDismissing] = useState(false);
+  const [dismissReason, setDismissReason] = useState('');
+  const cardButton = useRef<HTMLButtonElement | null>(null);
 
   const alternateRevisions = alternates.map((a) => a.revision).join(',');
   useEffect(() => {
@@ -78,6 +86,12 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
   }, [shot.revision, alternateRevisions]);
 
   const shown = alternates.find((a) => a.revision === shownRevision) ?? inReelAlternate ?? alternates[0];
+
+  useEffect(() => {
+    setDismissing(false);
+    setDismissReason('');
+  }, [shown?.revision]);
+
   const activeRevision = shown?.revision ?? shot.revision;
   const stillPageUrl = shown && shown.revision !== shot.revision && shot.name && alternatePage ? alternatePage(shot.name, shown.revision) : pageUrl;
   const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === activeRevision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
@@ -117,7 +131,7 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
 
   return (
     <div
-      className={alternates.length > 1 ? 'shot has-alternates' : 'shot'}
+      className={['shot', alternates.length > 1 ? 'has-alternates' : '', dismissing && !shown?.inReel ? 'dismissing' : ''].filter(Boolean).join(' ')}
       {...shotVerifyAttrs(shot, alternates.length, shown?.revision)}
       onMouseEnter={() => {
         if (alternates.length > 1) onPlayingChange(true);
@@ -182,8 +196,78 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
           <span>{`${alternates.length} alternates · ${inReelLabel} in the reel${shown && !shown.inReel ? ` · previewing ${shown.label}` : ''}`}</span>
         </div>
       )}
+      {alternates.length > 1 && shown && edits && shot.name && (
+        <div className="shot-alternate-actions acts">
+          <button
+            type="button"
+            className="use"
+            aria-label={`Use alternate ${shown.label}`}
+            disabled={edits.busy || shown.inReel}
+            onClick={(e) => {
+              e.stopPropagation();
+              void edits.add({ kind: 'shot-alternate', shot: shot.name!, revision: shown.revision });
+            }}
+          >
+            Use
+          </button>
+          <button
+            type="button"
+            className="not-this"
+            aria-label={`Not this alternate ${shown.label}`}
+            disabled={edits.busy || shown.inReel}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDismissing(true);
+            }}
+          >
+            Not this
+          </button>
+        </div>
+      )}
+      {alternates.length > 1 && shown && edits && shot.name && dismissing && !shown.inReel && (
+        <form
+          className="shot-alternate-reason reason"
+          onClick={(e) => e.stopPropagation()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (edits.busy) return;
+            const reason = dismissReason.trim();
+            const revision = shown.revision;
+            setDismissing(false);
+            setDismissReason('');
+            setShownRevision(inReelAlternate?.revision ?? shot.revision ?? null);
+            cardButton.current?.focus();
+            requestAnimationFrame(() => cardButton.current?.focus());
+            void edits.add({ kind: 'shot-alternate-dismiss', shot: shot.name!, revision, reason });
+          }}
+        >
+          <input
+            autoFocus
+            type="text"
+            aria-label="Reason for Not this"
+            placeholder="Why not? (optional)"
+            value={dismissReason}
+            disabled={edits.busy}
+            onChange={(e) => setDismissReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                setDismissing(false);
+                setDismissReason('');
+                cardButton.current?.focus();
+              }
+            }}
+          />
+          <button type="submit" disabled={edits.busy}>Reject</button>
+        </form>
+      )}
       <button
-        ref={buttonRef}
+        ref={(button) => {
+          cardButton.current = button;
+          buttonRef(button);
+        }}
         type="button"
         className="open"
         aria-label={`Shot ${shot.number}, ${shot.title}, ${partOf ? `state ${partOf} of clip ${shot.clip}, ` : ''}${timecode}`}
@@ -253,6 +337,19 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
     }
   }, [openIndex]);
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent): void {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        if (!readOnly && edits && openIndex === null && !isTyping(e.target)) {
+          e.preventDefault();
+          void edits.undo();
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [readOnly, edits, openIndex]);
+
   // A comment clicked in the panel opens its shot with its pin marked.
   useEffect(() => {
     if (!reveal || reveal.seq === handledReveal.current) return;
@@ -320,6 +417,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
               if (button) buttons.current.set(shot.number, button);
               else buttons.current.delete(shot.number);
             }}
+            edits={readOnly ? undefined : edits}
           />
         ))}
       </div>

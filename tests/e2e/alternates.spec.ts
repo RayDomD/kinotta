@@ -327,3 +327,92 @@ test('with prefers-reduced-motion reduce, card with alternates shows still on ho
   } finally { await server.close(); }
 });
 
+test('card Use chooses alternate in the reel with undo, and Not this dismisses with reason', async ({ page }) => {
+  const { dir } = alternatesFixture();
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+
+    const card = page.locator('.grid .shot.has-alternates');
+    await expect(card).toBeVisible();
+
+    // Use and Not this are disabled when in-reel alternate A is shown
+    const useBtnA = card.getByRole('button', { name: 'Use alternate A' });
+    const notThisBtnA = card.getByRole('button', { name: 'Not this alternate A' });
+    await expect(useBtnA).toBeDisabled();
+    await expect(notThisBtnA).toBeDisabled();
+
+    // Previewing alternate B on the card and clicking Use alternate B
+    const dotB = card.locator('.shot-alternates [data-alternate-revision="r2"]');
+    await dotB.click();
+    const useBtnB = card.getByRole('button', { name: 'Use alternate B' });
+    await expect(useBtnB).toBeEnabled();
+    await useBtnB.click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+
+    // Updates Working: shots[1].revision === 'r2' and shots[2].start === 3
+    await expect.poll(async () => {
+      const working = await server.project.readWorkingVersion('parts');
+      return working.workingParts?.shots[1].revision === 'r2' && working.workingParts?.shots[2].start === 3;
+    }).toBe(true);
+
+    // Updates Edits list
+    const edits = await server.project.readEditList('parts');
+    expect(edits.operations).toMatchObject([{ kind: 'shot-alternate', shot: 'proof', revision: 'r2' }]);
+
+    // Pressing Control+z undoes the choice, restoring r1 and shots[2].start === 2
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const working = await server.project.readWorkingVersion('parts');
+      return working.workingParts?.shots[1].revision === 'r1' && working.workingParts?.shots[2].start === 2;
+    }).toBe(true);
+
+    const openBtn = card.getByRole('button', { name: /^Shot 02,/ });
+
+    // Previewing alternate C, clicking Not this, typing reason and pressing Escape closes without edit and focuses card
+    const dotC = card.locator('.shot-alternates [data-alternate-revision="r3"]');
+    await dotC.click();
+    const notThisBtnC = card.getByRole('button', { name: 'Not this alternate C' });
+    await notThisBtnC.click();
+    const reasonInput = card.getByLabel('Reason for Not this');
+    await expect(reasonInput).toBeVisible();
+    await expect(reasonInput).toBeFocused();
+    await reasonInput.fill('Maybe later');
+    await page.keyboard.press('Escape');
+    await expect(reasonInput).toBeHidden();
+    const editsAfterEsc = await server.project.readEditList('parts');
+    expect(editsAfterEsc.operations.some((op) => op.kind === 'shot-alternate-dismiss')).toBe(false);
+    await expect(openBtn).toBeFocused();
+
+    // Previewing alternate C, clicking Not this alternate C, typing 'Too abrupt' and pressing Enter
+    await dotC.click();
+    await notThisBtnC.click();
+    await expect(reasonInput).toBeVisible();
+    await reasonInput.fill('Too abrupt');
+    await page.keyboard.press('Enter');
+    await expect(reasonInput).toBeHidden();
+
+    // Records shot-alternate-dismiss operation with reason: 'Too abrupt'
+    await expect.poll(async () => {
+      const list = await server.project.readEditList('parts');
+      return list.operations.find((op) => op.kind === 'shot-alternate-dismiss');
+    }).toMatchObject({ kind: 'shot-alternate-dismiss', shot: 'proof', revision: 'r3', reason: 'Too abrupt' });
+
+    // Removes dot C from the card, resets card to in-reel alternate, leaves activeElement on button.open
+    await expect(card.locator('.shot-alternates [data-alternate-revision="r3"]')).toHaveCount(0);
+    await expect(card).toHaveAttribute('data-verify-shown', 'r1');
+    await expect(openBtn).toBeFocused();
+
+    // Both Use and Not this are absent when viewing frozen v1
+    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ }).click();
+    await expect(page.locator('.main .readonly-note')).toBeVisible();
+    const frozenCard = page.locator('.grid .shot.has-alternates');
+    await expect(frozenCard.getByRole('button', { name: /Use alternate/ })).toHaveCount(0);
+    await expect(frozenCard.getByRole('button', { name: /Not this alternate/ })).toHaveCount(0);
+  } finally {
+    await server.close();
+  }
+});
+

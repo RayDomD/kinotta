@@ -44,11 +44,11 @@ Work the frontier top to bottom. This is a linear chain.
 
 **Model:** mid
 
-- [ ] Use adds the existing alternate-choice edit for the shown alternate. The Working version reports it in the reel, the Edits list shows it, and later shots move by the parts rule.
-- [ ] Undo restores the previous alternate and shot timing.
-- [ ] Not this with a reason adds the existing dismiss edit carrying that reason. The dot leaves the card, and the card shows the alternate in the reel.
-- [ ] Escape closes the reason field without an edit, and focus returns to the card.
-- [ ] After a dismissal, focus is on the card, not lost.
-- [ ] Both actions are disabled for the alternate in the reel and while edits are busy, and they are absent on frozen versions.
-- [ ] Clicking an action never opens the shot sheet.
-- [ ] The existing alternates browser tests, and the parts and working configs, still pass.
+- [x] Use adds the existing alternate-choice edit for the shown alternate. The Working version reports it in the reel, the Edits list shows it, and later shots move by the parts rule.
+- [x] Undo restores the previous alternate and shot timing.
+- [x] Not this with a reason adds the existing dismiss edit carrying that reason. The dot leaves the card, and the card shows the alternate in the reel.
+- [x] Escape closes the reason field without an edit, and focus returns to the card.
+- [x] After a dismissal, focus is on the card, not lost.
+- [x] Both actions are disabled for the alternate in the reel and while edits are busy, and they are absent on frozen versions.
+- [x] Clicking an action never opens the shot sheet.
+- [x] The existing alternates browser tests, and the parts and working configs, still pass.
