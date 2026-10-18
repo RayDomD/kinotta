@@ -82,7 +82,7 @@ it('holds the shared sound clock when a secondary picture stalls, then resumes a
     expect(Number(await editor.getAttribute('data-verify-clock'))).toBeLessThan(1.1);
     holding = false; for (const route of held.splice(0)) await route.continue();
     await expect.poll(async () => Number(await editor.getAttribute('data-verify-clock')), { timeout: 10_000 }).toBeGreaterThan(1.3);
-    const clocks = await page.evaluate(() => ({ time: Number(document.querySelector('[data-verify-unit="MediaEditor"]')!.getAttribute('data-verify-clock')), pictures: [...document.querySelectorAll<HTMLVideoElement>('.mv-picture')].map((v) => ({ id: v.parentElement!.getAttribute('data-verify-id'), time: v.currentTime })) }));
+    const clocks = await page.evaluate(() => ({ time: Number(document.querySelector('[data-verify-unit="MediaEditor"]')!.getAttribute('data-verify-clock')), pictures: [...document.querySelectorAll<HTMLVideoElement>('[data-verify-unit="PictureLayer"] > .mv-picture')].map((v) => ({ id: v.parentElement!.getAttribute('data-verify-id'), time: v.currentTime })) }));
     expect(clocks.pictures).toHaveLength(2);
     clocks.pictures.forEach((p) => expect(Math.abs(p.time - clocks.time - (p.id === 'side' ? 0.5 : 0))).toBeLessThan(0.1));
   } finally { await browser.close(); await server.close(); }
@@ -140,7 +140,7 @@ it('edits custom regions, drags/resizes, undoes, saves frozen history and plays 
     await page.getByLabel('Playhead', { exact: true }).fill('1');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect.poll(() => page.locator('[data-verify-unit="MediaEditor"]').getAttribute('data-verify-clock')).not.toBe('1');
-    const clocks = await page.evaluate(() => ({ time: Number(document.querySelector('[data-verify-unit="MediaEditor"]')!.getAttribute('data-verify-clock')), pictures: [...document.querySelectorAll<HTMLVideoElement>('.mv-picture')].map((v) => ({ id: v.parentElement!.getAttribute('data-verify-id'), time: v.currentTime })) }));
+    const clocks = await page.evaluate(() => ({ time: Number(document.querySelector('[data-verify-unit="MediaEditor"]')!.getAttribute('data-verify-clock')), pictures: [...document.querySelectorAll<HTMLVideoElement>('[data-verify-unit="PictureLayer"] > .mv-picture')].map((v) => ({ id: v.parentElement!.getAttribute('data-verify-id'), time: v.currentTime })) }));
     expect(clocks.pictures).toHaveLength(2);
     clocks.pictures.forEach((p) => expect(Math.abs(p.time - clocks.time - (p.id === 'side' ? 0.5 : 0))).toBeLessThan(0.1));
     await page.getByRole('button', { name: 'Pause', exact: true }).click();

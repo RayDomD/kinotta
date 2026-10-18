@@ -4,6 +4,7 @@
 // exclusive), --crf <n> (H.264, default 14), --no-blur (one sample per frame), --codec h264|prores|rgba (default: ProRes
 // for an alpha page; rgba is uncompressed frames in NUT, for a pipe; any but h264 keeps the background clear),
 // --prores-profile <n> (ProRes only: 4 is 4444, the default; 5 is 4444 XQ),
+// --threads <n> (ffmpeg's filter and encoder threads; unset, ffmpeg takes one per core),
 // --progress (JSON lines: {width,height,fps,frames} first, then {frame,frames} per frame), --info (print the page's
 // {width,height,duration,alpha} as JSON and exit). An output of - writes the video to stdout and the text to stderr.
 const {chromium}=require('playwright');const {spawn}=require('child_process');const path=require('path');
@@ -28,7 +29,7 @@ const {chromium}=require('playwright');const {spawn}=require('child_process');co
  const codec=opt.codec||(info.alpha?'prores':'h264'), clear=opt.codec?codec!=='h264':info.alpha;
  const enc=codec==='prores'?['-c:v','prores_ks','-profile:v',opt['prores-profile']||'4','-pix_fmt','yuva444p10le','-vendor','apl0']:codec==='rgba'?['-c:v','rawvideo','-pix_fmt','rgba','-f','nut']:['-c:v','libx264','-crf',opt.crf||'14','-preset','medium','-pix_fmt','yuv420p','-movflags','+faststart'];
  // Screenshots switch between RGB and RGBA PNGs as the page's coverage changes; rebuilding the filters drops frames.
- const ff=spawn('ffmpeg',['-loglevel','error','-y',...(opt.codec?['-reinit_filter','0']:[]),'-f','image2pipe','-framerate',fr[1],'-c:v','png','-i','-','-vf',vf,'-r',fr[0],...enc,pipe?'pipe:1':out],pipe?{stdio:['pipe','inherit','pipe']}:undefined);
+ const ff=spawn('ffmpeg',['-loglevel','error','-y',...(opt.codec?['-reinit_filter','0']:[]),'-f','image2pipe','-framerate',fr[1],'-c:v','png','-i','-','-vf',vf,'-r',fr[0],...enc,...(opt.threads?['-filter_threads',opt.threads,'-threads',opt.threads]:[]),pipe?'pipe:1':out],pipe?{stdio:['pipe','inherit','pipe']}:undefined);
  ff.stderr.on('data',d=>process.stderr.write(d));
  say({width:Math.round(info.W*scale),height:Math.round(info.H*scale),fps:FPS,frames:count});
  for(let f=f0;f<last;f++){for(let k=0;k<K;k++){const t=Math.max(0,f/FPS+(k-(K-1)/2)*sub);await p.evaluate(t=>seek(t),t);
