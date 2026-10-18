@@ -182,8 +182,11 @@ it('creates native frame and word pins on repeated placements and carries them t
     await placements.getByRole('button', { name: 'Remove', exact: true }).click();
     expect(await page.getByRole('button', { name: /First word.*Moment removed/ }).isDisabled()).toBe(true);
     await page.getByRole('tab', { name: /^Edits/ }).click();
+    const restored = page.waitForResponse((response) => response.url().endsWith('/edits/undo') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /^Undo/ }).click();
-    await page.getByRole('button', { name: /Later frame/ }).click();
+    expect((await restored).status()).toBe(200);
+    await expect.poll(() => page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).isEnabled()).toBe(true);
+    await page.getByLabel('Timeline ruler', { exact: true }).getByRole('button', { name: /Later frame/ }).click();
     await expect.poll(() => page.getByLabel('Playhead', { exact: true }).inputValue()).toBe('2.50');
     await expect.poll(() => page.getByRole('img', { name: /^Comment 3$/ }).count()).toBe(1);
     await page.getByRole('tab', { name: /^Edits/ }).click();
@@ -268,7 +271,9 @@ it('flags an interrupted graphic in the editor and repairs it with an explicit t
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.getByLabel('Playhead', { exact: true }).fill('2');
+    const split = page.waitForResponse((response) => response.url().endsWith('/edits') && response.request().method() === 'POST');
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Split at playhead', exact: true }).click();
+    expect((await split).status()).toBe(201);
     const lanes = page.getByRole('region', { name: 'Media timeline' });
     await expect.poll(() => lanes.locator('[data-role="main"] [data-placement]').count()).toBe(2);
     await page.getByRole('button', { name: 'Insert gap', exact: true }).click();

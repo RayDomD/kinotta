@@ -38,6 +38,7 @@ it('drags code shots with live preview, separates overlaps, trims, extends and s
     expect(await scene.evaluate((el) => el.classList.contains('active'))).toBe(false);
     await clock.fill('2.2');
     await expect.poll(() => scene.evaluate((el) => el.classList.contains('active'))).toBe(true);
+    await cube.locator('.native-trim-end').scrollIntoViewIfNeeded();
     const edge = (await cube.locator('.native-trim-end').boundingBox())!;
     await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
     await page.mouse.down();
