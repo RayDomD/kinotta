@@ -17,6 +17,8 @@ const PLAYBACK_EXT = '.mp4';
 const PLAYBACK_PATH_JOIN = '--';
 const PARTIAL_PREFIX = '.incoming-';
 const NEEDS_PLAYBACK_COPY = new Set(['hevc', 'prores']);
+/** Playback copies made at once; more would starve the rest of the machine (each ffmpeg uses every core). */
+const PLAYBACK_COPY_SLOTS = 2;
 const UNSAFE_NAME_CHARS = /[<>:"|?*\u0000-\u001f]/g;
 
 /** True for a codec browsers cannot play, whose video needs an H.264 copy. */
@@ -102,7 +104,8 @@ async function freeName(footageDir: string, name: string): Promise<string> {
 /**
  * Brings a dropped video into `<project>/footage/`. The body is streamed to a temp file while it is hashed; a file
  * already in footage/ with the same content is reused and the new copy discarded. HEVC and ProRes also get an H.264
- * copy for playback; the original is never altered. A file that cannot be probed is removed and rejected.
+ * copy for playback, finished in the background so the drop returns once the file is in place. The original is never
+ * altered. A file that cannot be probed is removed and rejected.
  */
 export async function importVideo(projectDir: string, name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedVideo> {
   const wanted = safeName(name);
@@ -137,7 +140,8 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
     throw new KinottaError('invalid', `${wanted} is not a video file Kinotta can read.`);
   }
   const needsCopy = needsPlaybackCopy(codec);
-  if (needsCopy) await ensurePlaybackCopy(projectDir, file);
+  // Finished in the background; starting a reel waits for it, and makes it again (showing the error) if it failed.
+  if (needsCopy) ensurePlaybackCopy(projectDir, file).catch(() => undefined);
   return { path: `${FOOTAGE_DIR}/${basename(file)}`, copied, playbackCopy: needsCopy };
 }
 
@@ -148,6 +152,21 @@ export function contentPlaybackPath(projectDir: string, hash: string): string {
 
 /** Copies being made, by destination. Concurrent callers wait on the one transcode instead of starting their own. */
 const copying = new Map<string, Promise<void>>();
+const slotWaiters: (() => void)[] = [];
+let slotsInUse = 0;
+
+/** Runs `work` once one of the PLAYBACK_COPY_SLOTS is free. */
+async function inCopySlot<T>(work: () => Promise<T>): Promise<T> {
+  if (slotsInUse >= PLAYBACK_COPY_SLOTS) await new Promise<void>((wake) => slotWaiters.push(wake));
+  else slotsInUse++;
+  try {
+    return await work();
+  } finally {
+    const next = slotWaiters.shift();
+    if (next) next();
+    else slotsInUse--;
+  }
+}
 
 /**
  * Makes the playback copy unless it is there, at `dest` (by default the path-named copy). Written to a temp name of its
@@ -167,7 +186,7 @@ async function makeCopy(file: string, dest: string): Promise<void> {
   await mkdir(dirname(dest), { recursive: true });
   const staged = join(dirname(dest), `${PARTIAL_PREFIX}${randomUUID()}-${basename(dest)}`);
   try {
-    await makePlaybackCopy(file, staged);
+    await inCopySlot(() => makePlaybackCopy(file, staged));
     await rename(staged, dest);
   } catch (err) {
     await rm(staged, { force: true });

@@ -8,17 +8,25 @@ import { copyFixture, emptyProject } from '../helpers/project.ts';
 
 const SLOW_MS = 90_000;
 const SAMPLE = 'media/talk.mp4';
+/** Long enough that its playback copy is still being made when the import returns. */
+const LONG_CLIP_SECONDS = 20;
 
 const sha = (file: string): string => createHash('sha1').update(readFileSync(file)).digest('hex');
 
 /** A one-second HEVC clip from ffmpeg, a codec browsers do not play. */
-function makeHevc(file: string): void {
+function makeHevc(file: string, seconds = 1): void {
   const run = spawnSync(
     'ffmpeg',
-    ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=10:duration=1', '-c:v', 'libx265', '-pix_fmt', 'yuv420p', file],
+    ['-v', 'error', '-y', '-f', 'lavfi', '-i', `testsrc=size=640x360:rate=30:duration=${seconds}`, '-c:v', 'libx265', '-pix_fmt', 'yuv420p', file],
     { encoding: 'utf8' },
   );
   if (run.status !== 0) throw new Error(`ffmpeg failed: ${run.stderr}`);
+}
+
+/** Resolves once `file` exists: the playback copy lands after `importVideo` returns. */
+async function whenExists(file: string): Promise<void> {
+  const POLL_MS = 50;
+  while (!existsSync(file)) await new Promise((wake) => setTimeout(wake, POLL_MS));
 }
 
 const codecOf = (file: string): string =>
@@ -74,6 +82,7 @@ describe('importVideo', () => {
     const result = await project.importVideo('clip.mp4', createReadStream(hevc));
 
     expect(result).toEqual({ path: 'footage/clip.mp4', copied: true, playbackCopy: true });
+    await whenExists(join(dir, 'footage/.playback/clip.mp4'));
     expect(sha(join(dir, 'footage/clip.mp4'))).toBe(sha(hevc));
     expect(codecOf(join(dir, 'footage/clip.mp4'))).toBe('hevc');
     expect(codecOf(join(dir, 'footage/.playback/clip.mp4'))).toBe('h264');
@@ -87,6 +96,7 @@ describe('importVideo', () => {
     makeHevc(hevc);
     const project = openProject(dir);
     await project.importVideo('clip.mp4', createReadStream(hevc));
+    await whenExists(join(dir, 'footage/.playback/clip.mp4'));
     mkdirSync(join(dir, 'reels', 'r'), { recursive: true });
     writeFileSync(join(dir, 'reels', 'r', 'reel.json'), JSON.stringify({ title: 'r', footage: 'footage/clip.mp4' }));
 
@@ -109,6 +119,22 @@ describe('importVideo', () => {
     expect(existsSync(join(dir, 'media', '.playback'))).toBe(false);
     expect(await project.footageFile(slug)).toBe(join(dir, 'footage', '.playback', 'media--clip.mp4'));
     expect((await project.listVideos()).map((v) => v.path)).toEqual(['media/clip.mp4']);
+  });
+
+  it('returns before the playback copy is made, and starting a reel waits for it', { timeout: SLOW_MS }, async () => {
+    const dir = emptyProject();
+    const hevc = join(dir, 'hevc-source.mp4');
+    makeHevc(hevc, LONG_CLIP_SECONDS);
+    const project = openProject(dir, { transcriber: async () => [] });
+
+    const result = await project.importVideo('clip.mp4', createReadStream(hevc));
+
+    expect(result.playbackCopy).toBe(true);
+    expect(existsSync(join(dir, 'footage/.playback/clip.mp4'))).toBe(false);
+    const { slug } = await project.startReel({ video: result.path });
+    expect(await project.footageFile(slug)).toBe(join(dir, 'footage', '.playback', 'clip.mp4'));
+    expect(codecOf(join(dir, 'footage/.playback/clip.mp4'))).toBe('h264');
+    await project.whenTranscribed(slug);
   });
 
   it('rejects a file that is not a video and leaves nothing behind',{ timeout: SLOW_MS }, async () => {
