@@ -30,7 +30,7 @@ test('a video dropped on New reel is copied to footage, named like a picked one,
   await page.getByRole('button', { name: 'Start reel' }).click();
   await expect(phases.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Launch clip' })).toBeVisible();
-  await expect(page.getByRole('main', { name: 'Review' }).locator('video')).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Review' }).locator('[data-verify-unit="PictureLayer"] video')).toBeVisible();
 
   await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();

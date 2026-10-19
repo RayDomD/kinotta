@@ -34,7 +34,7 @@ test('a video picked on New reel becomes a reel that opens in Review', async ({ 
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Picked talk' })).toBeVisible();
   await revealReelRail(page);
   await expect(page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Picked talk' })).toHaveAttribute('aria-current', 'true');
-  await expect(page.getByRole('main', { name: 'Review' }).locator('video')).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Review' }).locator('[data-verify-unit="PictureLayer"] video')).toBeVisible();
 
   // v1 follows the transcription in the background.
   await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });

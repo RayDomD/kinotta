@@ -233,7 +233,7 @@ it('retries a failed still on its clip with a fresh request, and keeps its note 
     await note.waitFor();
     failing = false;
     await retry.click();
-    await expect.poll(() => page.locator('img.mv-picture').evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(160);
+    await expect.poll(() => page.locator('[data-verify-unit="PictureLayer"] img.mv-picture').evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(160);
     expect(await note.count()).toBe(0);
     expect(await retry.count()).toBe(0);
     expect(requests.some((url) => url.endsWith('?retry=1'))).toBe(true);
