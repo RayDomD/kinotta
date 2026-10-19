@@ -18,7 +18,7 @@ Branch `feat/simple-mode`, worktree `C:\FIles\Projects\Apps\Kinotta\.worktrees\s
 
 ## Next: dispatch (not done yet)
 1. Rerun `npx vitest run` in the worktree; dispatch only if green.
-2. Commit the briefs in this folder (`docs: brief simple mode phases 2-4`).
+2. Briefs are committed (8f3b94c).
 3. Create worktrees:
    ```
    git -C C:/FIles/Projects/Apps/Kinotta/.worktrees/simple-mode worktree add -b feat/simple-mode-codex ../sm-codex feat/simple-mode
