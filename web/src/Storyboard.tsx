@@ -453,6 +453,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
           pageUrl={pageUrl}
           initialRevision={openRevision ?? undefined}
           edits={readOnly ? undefined : edits}
+          canAskOptions={!!(version.parts || version.code)}
           alternatePage={(shot, revision) => alternatePageUrl(slug, version.number, shot, revision, version.workingParts?.key)}
           footage={footage}
           shots={shots}

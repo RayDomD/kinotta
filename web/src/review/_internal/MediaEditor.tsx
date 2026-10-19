@@ -30,6 +30,7 @@ import { useEditorWorkspace } from './EditorWorkspace.tsx';
 import { Transport, shotTarget } from './Transport.tsx';
 import { ViewerDivider } from './ViewerDivider.tsx';
 import { MarkerPanel, useMarkers } from './useMarkers.tsx';
+import { onReelAlternate } from '../../alternates.ts';
 import '../review.css';
 
 /** How often a running transcription is checked on. */
@@ -110,6 +111,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [pinText, setPinText] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinSaving, setPinSaving] = useState(false);
+  const [askOptions, setAskOptions] = useState(false);
+  const [optionsCount, setOptionsCount] = useState<2 | 3 | 4>(3);
   const [soloState, setSolo] = useState<string[]>([]);
   // A removed track must not keep soloing, or it silences everything left. Undo does not revive Solo.
   const solo = useMemo(() => soloState.filter((id) => media.tracks?.some((track) => track.id === id)), [soloState, media.tracks]);
@@ -163,11 +166,15 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     };
   }, [overloadKey, reel.slug]);
   const overload = measuredOverload?.key === overloadKey && measuredOverload.overload.spans.length > 0 ? measuredOverload.overload : null;
-  const shownPins = useMemo(() => comments.map((c) => ({ ...c, moment: remapMediaMoment(savedTimeline, timeline, c.pin.time, c.pin) })), [comments, savedTimeline, timeline]);
+  // Review plays the alternate in the reel; a pin placed on another alternate shows only on that one, in the enlarged shot.
+  const reelShots = version!.workingParts?.shots ?? version!.shots;
+  const shownPins = useMemo(() => comments.filter((c) => onReelAlternate(c, reelShots)).map((c) => ({ ...c, moment: remapMediaMoment(savedTimeline, timeline, c.pin.time, c.pin) })), [comments, reelShots, savedTimeline, timeline]);
   const draftMoment = pinDraft?.pin.kind === 'frame' && pinDraft.pin.time !== undefined ? remapMediaMoment(savedTimeline, timeline, pinDraft.pin.time, pinDraft.pin) : null;
   useEffect(() => {
-    const found = reveal && shownPins.find((c) => c.id === reveal.commentId);
-    if (found && !found.moment.removed) playback.seek(found.moment.time);
+    // A pin on another alternate still seeks to its moment, though it is not drawn over the reel's alternate.
+    const found = reveal && comments.find((c) => c.id === reveal.commentId);
+    const at = found && remapMediaMoment(savedTimeline, timeline, found.pin.time, found.pin);
+    if (at && !at.removed) playback.seek(at.time);
   }, [reveal]);
   const graphicTiming = useMemo(() => ({
     duration: timeline.duration,
@@ -232,10 +239,15 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       setPinText(''); setPinError(null); setPinning(false); playback.seek(word.start);
     } catch (failure) { setPinError(failure instanceof Error ? failure.message : 'The pin word could not be found.'); }
   };
+  // A frame pin on a code-built reel lands on the shot playing at its moment, which may ask for options (one shot per version).
+  const askingShot = (version!.parts || version!.code) && pinDraft?.pin.kind === 'frame' && pinDraft.pin.time !== undefined
+    ? version!.shots.find((shot) => shot.start <= pinDraft.pin.time! && shot.start + shot.duration > pinDraft.pin.time!) : undefined;
+  const askingOther = askingShot && comments.find((comment) => comment.options !== undefined && comment.pin.shot !== askingShot.number);
+  useEffect(() => { setAskOptions(false); }, [pinDraft]);
   const savePin = async () => {
     if (!pinDraft || !onSaveComment || !pinText.trim() || pinSaving) return;
     setPinSaving(true); setPinError(null);
-    try { await onSaveComment({ pin: pinDraft.pin, text: pinText.trim() }); setPinDraft(null); setPinText(''); }
+    try { await onSaveComment({ pin: pinDraft.pin, text: pinText.trim(), ...(askingShot && askOptions ? { options: optionsCount } : {}) }); setPinDraft(null); setPinText(''); }
     catch (failure) { setPinError(failure instanceof Error ? failure.message : 'The comment could not be saved.'); }
     finally { setPinSaving(false); }
   };
@@ -545,6 +557,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
 
     {pinDraft && workspace.pinHost && createPortal(<form aria-label="New review pin" className="mv-placement mv-pin-draft" onSubmit={(e) => { e.preventDefault(); void savePin(); }}>
       <p>{pinDraft.label}</p><label>Comment <textarea aria-label="Pin comment" value={pinText} disabled={pinSaving} onChange={(e) => setPinText(e.target.value)} autoFocus /></label>
+      {askingShot && <div className="draft-options">
+        <label><input type="checkbox" checked={askOptions} disabled={pinSaving || !!askingOther} onChange={(e) => setAskOptions(e.target.checked)} />Ask for options</label>
+        {askOptions && <label>Alternates <select aria-label="Number of alternates" value={optionsCount} disabled={pinSaving} onChange={(e) => { const count = Number(e.target.value); if (count === 2 || count === 3 || count === 4) setOptionsCount(count); }}><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>}
+        {askingOther && <span>{`Shot ${askingOther.pin.shot} already asks for options.`}</span>}
+      </div>}
       <div className="mv-controls"><button type="submit" className="rv-tool" disabled={pinSaving || !pinText.trim()}>{pinSaving ? 'Saving pin…' : 'Save pin'}</button><button type="button" className="rv-tool" disabled={pinSaving} onClick={() => { setPinDraft(null); setPinError(null); }}>Cancel pin</button></div>
     </form>, workspace.focus && main.current ? main.current : workspace.pinHost)}
 

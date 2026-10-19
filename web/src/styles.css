@@ -398,6 +398,7 @@ input { font: inherit; color: inherit; cursor: text; }
 .c:hover { background: var(--card-raised); }
 .c .where { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .c .where .dot { color: var(--light); font-size: 13px; }
+.c .where .options-chip { margin-left: auto; padding: 0 7px; border: 1px solid var(--light); color: var(--light); }
 .c .el { color: var(--light); }
 .c p { font-size: 14px; margin-top: 4px; color: var(--ink); overflow-wrap: anywhere; }
 /* one real button stretched over the card body; Edit and Delete sit above it */

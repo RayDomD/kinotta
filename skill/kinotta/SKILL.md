@@ -48,7 +48,7 @@ a sound ("add pulse sound") is answered the same way: see "Sound requests in com
 
 ## Parts workflow
 
-For new code-built reels, follow **Parts reels** in `reference/contract.md`. Write immutable shot revisions and the authored root manifest, then run `kinotta build <slug> --by <your name>`. Kinotta publishes the generated version. Existing single-page reels follow sections 3 and 4 unless the owner asks to convert them.
+For new code-built reels, follow **Parts reels** in `reference/contract.md`. Write immutable shot revisions and the authored root manifest, then run `kinotta build <slug> --by <your name>`. Kinotta publishes the generated version. Existing single-page reels follow sections 3 and 4 unless the owner asks to convert them. A request for alternates on a single-page reel is that ask: follow **Converting a single-page reel to parts** in `reference/contract.md`, building the conversion as the same reel's next version. Never start a new reel for it.
 
 For a parts batch, read the saved batch and its exact frozen manifest. The opening `Rebuild:` line names the shots to change. Write a new revision only for those shots, retain the other revision references, update the root manifest and build. Keep fixed shot names and element names. Kinotta carries frozen owner offsets, sound and later Working operations. Finish when build and check report no issues and each comment has an answer. A changed shared revision affects every shot, so change it only when the batch calls for that.
 

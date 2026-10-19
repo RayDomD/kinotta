@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import type { Comment } from './api/index.ts';
+import type { Comment, Shot } from './api/index.ts';
+import { alternateLabel } from './alternates.ts';
 import { NO_SHOT, sectionNumber } from './sections.ts';
 import { Empty } from './Empty.tsx';
 import { readOnlyNote } from './readOnly.ts';
@@ -16,6 +17,8 @@ const failure = (err: unknown, fallback: string): string => (err instanceof Erro
 
 interface CardProps {
   comment: Comment;
+  /** The letter of the alternate the pin is on, or null. */
+  alternate: string | null;
   /** False on a version that cannot take comments: no Edit and Delete. */
   editable: boolean;
   onOpen(opener: HTMLElement): void;
@@ -23,7 +26,7 @@ interface CardProps {
   onDelete(): void;
 }
 
-function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps) {
+function CommentCard({ comment, alternate, editable, onOpen, onEdit, onDelete }: CardProps) {
   const { pin } = comment;
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(comment.text);
@@ -83,8 +86,9 @@ function CommentCard({ comment, editable, onOpen, onEdit, onDelete }: CardProps)
     <li className="c">
       <div className="where">
         <span className="dot">{comment.number}</span>
-        <span className="num">{`${pin.shot === NO_SHOT ? '' : `Shot ${pin.shot} · `}${formatTimecode(pin.time)}s`}</span>
+        <span className="num">{`${pin.shot === NO_SHOT ? '' : `Shot ${pin.shot} · `}${alternate ? `${alternate} · ` : ''}${formatTimecode(pin.time)}s`}</span>
         <span className={target ? 'el' : undefined}>{where}</span>
+        {comment.options !== undefined && <span className="options-chip">{`${comment.options} options`}</span>}
       </div>
       {(comment.sent || comment.carried || comment.state) && (
         <div className="carry-state">
@@ -172,10 +176,12 @@ interface PanelProps {
   onOpenComment(comment: Comment, opener: HTMLElement): void;
   /** On a multi-section reel: the current section's number and the shots it holds; the column lists only its comments. */
   section?: { number: string; shots: ReadonlySet<string> } | null;
+  /** The open version's shots, to name the alternate a pin is on. */
+  shots?: readonly Shot[];
 }
 
 /** The comments column: a card per pin (open, edit, delete with undo), and the note on the whole reel. */
-export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false }: PanelProps) {
+export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false, shots = [] }: PanelProps) {
   const { error } = state;
   const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
   const readOnly = frozen || version !== undefined && newest !== undefined && version !== newest;
@@ -210,13 +216,14 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
 
   async function restore(): Promise<void> {
     if (!undo) return;
-    const { pin, text } = undo.comment;
+    const { pin, text, options } = undo.comment;
     window.clearTimeout(undoTimer.current);
     setUndo(null);
     try {
       await state.save({
-        pin: pin.kind === 'word' ? { kind: 'word', placement: pin.placement, shot: pin.shot, time: pin.time, word: pin.word } : { kind: 'frame', placement: pin.placement, time: pin.time, shot: pin.shot, x: pin.x, y: pin.y, element: pin.element },
+        pin: pin.kind === 'word' ? { kind: 'word', placement: pin.placement, shot: pin.shot, time: pin.time, word: pin.word } : { kind: 'frame', placement: pin.placement, time: pin.time, shot: pin.shot, x: pin.x, y: pin.y, element: pin.element, ...(pin.alternate ? { alternate: pin.alternate } : {}) },
         text,
+        ...(options !== undefined ? { options } : {}),
       });
     } catch (err) {
       setProblem(failure(err, 'Could not restore the comment.'));
@@ -250,6 +257,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
             <CommentCard
               key={comment.id}
               comment={comment}
+              alternate={alternateLabel(comment, shots)}
               editable={!readOnly}
               onOpen={(opener) => onOpenComment(comment, opener)}
               onEdit={(text) => state.edit(comment.id, text)}
