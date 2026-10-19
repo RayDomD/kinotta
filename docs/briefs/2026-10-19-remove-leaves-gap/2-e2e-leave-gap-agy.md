@@ -30,7 +30,7 @@ Files you may edit:
 
 ## Execution checklist
 
-- [ ] 1. In `tests/core/render-native-lanes.test.ts`, add a second test:
+- [x] 1. In `tests/core/render-native-lanes.test.ts`, add a second test:
   `it('leaves a gap on Delete and Apply snip so later clips keep their times, and closes the gap with Shift', { timeout: 90_000 }, async () => { ... })`
   - Set up a `copyFixture('footage-project')` with `take.mp4` (4s) and two main-sequence placements in `plan.json` and `v1/plan.json`:
     `{ id: 'first', role: 'main', source: 'take', track: 'speech', in: 0, out: 2, speech: false }` and `{ id: 'second', role: 'main', source: 'take', track: 'speech', in: 2, out: 4, speech: false }`, `sequence: ['first', 'second']`.
@@ -41,7 +41,7 @@ Files you may edit:
   - Activate `Snip`, drag a 1s range across `first` (`from: 0.5, to: 1.5`), assert `.editor-snip-confirm` text contains `'keep the gap'` and `'Shift'`, click `Apply snip`, and assert the last operation matches `{ kind: 'placement-snip', leaveGap: true }` and `[data-placement="second"]` still has `aria-label` containing `'2.00 to 4.00'`.
   - Undo (`Control+z`), select a snip range again, `Shift`+click `Apply snip` (`click({ modifiers: ['Shift'] })`), and assert the last operation is `placement-snip` without `leaveGap` and `[data-placement="second"]` moves earlier (`aria-label` containing `'1.00 to 3.00'`).
   - Undo (`Control+z`), select `[data-placement="first"]`, press `Shift+Delete`, and assert the last operation is `{ kind: 'placement-ripple-remove', placement: 'first' }` and `[data-placement="second"]` moves to `'0.00 to 2.00'`.
-- [ ] 2. Run `npm run typecheck` (must pass) and `npx vitest run tests/core/render-native-lanes.test.ts` (the first test must pass, and the new second test must fail at the first new-behavior assertion as expected).
+- [x] 2. Run `npm run typecheck` (must pass) and `npx vitest run tests/core/render-native-lanes.test.ts` (the first test must pass, and the new second test must fail at the first new-behavior assertion as expected).
 
 ## Context
 
@@ -59,8 +59,59 @@ In `MediaEditor.tsx`, `.editor-snip-confirm` renders the snip confirmation bar w
 
 ## Test evidence
 
-(The executor fills this in.)
+### `npm run typecheck`
+```
+> kinotta@0.1.0 typecheck
+> tsc --noEmit
+```
+Exit code: 0
+
+### `npx vitest run tests/core/render-native-lanes.test.ts`
+```
+ RUN  v5.0.2 C:/FIles/Projects/Apps/Kinotta/.worktrees/remove-leaves-gap-e2e
+
+ ❯  render  tests/core/render-native-lanes.test.ts (2 tests | 1 failed) 14025ms
+   ✓ drags native sound between owners, detaches insert sound, trims and changes a fade without moving footage 7499ms
+   × leaves a gap on Delete and Apply snip so later clips keep their times, and closes the gap with Shift 6525ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL   render  tests/core/render-native-lanes.test.ts > leaves a gap on Delete and Apply snip so later clips keep their times, and closes the gap with Shift
+AssertionError: expected { kind: 'placement-remove', …(3) } to match object { kind: 'placement-remove', …(2) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "kind": "placement-remove",
+-   "leaveGap": true,
+    "placement": "first",
+  }
+
+ ❯ tests/core/render-native-lanes.test.ts:204:48
+    202|     await expect.poll(() => firstClip.getAttribute('aria-pressed')).toBe('true');
+    203|     await page.keyboard.press('Delete');
+    204|     await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'first', leaveGap: true });
+       |                                                ^
+    205|     await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBeGreaterThan(0);
+    206|     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+Caused by: Error: Matcher did not succeed in time.
+ ❯ tests/core/render-native-lanes.test.ts:204:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  14:51:24
+   Duration  15.61s (tests 91%, transform 5%, import 4%)
+```
 
 ## Deviations
 
-(The executor fills this in.)
+- `npm run build` was run to compile the frontend assets to `dist/web` because the newly checked-out worktree did not yet contain built client artifacts expected by `server/main.ts`.
+- In test 1, added `{ timeout: 10_000 }` to `expect.poll` for `.native-stills img` naturalWidth evaluation to prevent test runner flakiness on Windows.
+- In test 2, scoped `firstClip` and `secondClip` to `lanes.locator('[data-role="main"]')` because placements with `track: 'speech'` are also rendered in the audio track lane as sound clips, causing a strict mode locator ambiguity if queried directly from `lanes`.
+
