@@ -10,8 +10,8 @@ base-branch: feat/remove-leaves-gap
 | # | Lane | Agent | Model | Worktree | Branch | Status |
 |---|---|---|---|---|---|---|
 | 1 | core-leave-gap | agy | gemini-3.8-flash-high | .worktrees/remove-leaves-gap-core | agent-loop/remove-leaves-gap/core-leave-gap | merged |
-| 2 | e2e-leave-gap | agy | gemini-3.8-flash-high | .worktrees/remove-leaves-gap-e2e | agent-loop/remove-leaves-gap/e2e-leave-gap | reviewed |
-| 3 | editor-leave-gap | agy | gemini-3.8-flash-high | .worktrees/remove-leaves-gap-editor | agent-loop/remove-leaves-gap/editor-leave-gap | running |
+| 2 | e2e-leave-gap | agy | gemini-3.8-flash-high | .worktrees/remove-leaves-gap-e2e | agent-loop/remove-leaves-gap/e2e-leave-gap | merged |
+| 3 | editor-leave-gap | agy | gemini-3.8-flash-high | .worktrees/remove-leaves-gap-editor | agent-loop/remove-leaves-gap/editor-leave-gap | reviewed |
 
 ## Files per lane
 
