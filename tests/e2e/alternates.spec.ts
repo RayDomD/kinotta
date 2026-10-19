@@ -12,6 +12,41 @@ import { revealReelRail } from '../helpers/review-rail.ts';
 
 const verify = (root: Locator, rules: Array<{ check(root: Element): boolean }>) => root.evaluate((element, checks) => checks.map((source) => new Function('return (' + source + ')')()(element)), rules.map((rule) => rule.check.toString()));
 
+test('a pin reveal selects its alternate in an open sheet, including repeated reveals and another shot', async ({ page }) => {
+  const { dir } = alternatesFixture(false, true);
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    for (const [shot, text] of [['02', 'Proof B'], ['01', 'Hook B']] as const) {
+      await server.project.addComment('parts', 1, { pin: { shot, alternate: 'r2', x: 0.5, y: 0.5, element: 'label' }, text });
+    }
+    const before = (await server.project.readWorkingVersion('parts')).workingParts;
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    await page.locator('.grid').getByRole('button', { name: /^Shot 02,/ }).click();
+    const dialog = page.getByRole('dialog');
+    const proofPin = page.getByRole('button', { name: /^Open comment \d+ on shot 02,/ });
+    // Deliver the comments panel's reveal while the existing sheet covers that panel.
+    await proofPin.dispatchEvent('click');
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Proof B']);
+    await dialog.getByRole('button', { name: 'View alternate A', exact: true }).click();
+    await proofPin.dispatchEvent('click');
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true').catch(async (error) => {
+      mkdirSync('tests/artifacts/review-f3-f6', { recursive: true });
+      await page.screenshot({ path: 'tests/artifacts/review-f3-f6/f6-before.png' });
+      throw error;
+    });
+    await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Proof B']);
+    await page.getByRole('button', { name: /^Open comment \d+ on shot 01,/ }).dispatchEvent('click');
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="hook"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Hook B']);
+    expect((await server.project.readWorkingVersion('parts')).workingParts).toEqual(before);
+  } finally { await server.close(); }
+});
+
 for (const opening of ['A', 'C']) {
   test(`the shot sheet keeps B visible after Use when opened on ${opening}`, async ({ page }) => {
     const { dir } = alternatesFixture();
