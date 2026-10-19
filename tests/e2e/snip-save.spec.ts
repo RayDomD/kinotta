@@ -61,15 +61,14 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await expect(review(page).getByRole('button', { name: 'Apply snip', exact: true })).toBeVisible();
   await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
 
-  // The operation is listed, the timeline closes over it and says how long it was, and the reel is shorter.
+  // The operation is listed and leaves a gap, keeping later footage at its time and the reel's length unchanged.
   const edits = page.getByRole('list', { name: 'Edits' });
   await expect(edits.getByRole('listitem')).toHaveCount(1);
   await expect(edits).toContainText(/Snipped 3\.\ds \(00:0[23]\.\d\d to 00:0[56]\.\d\d\)/);
-  await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
-  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
+  await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(3);
+  await expect(review(page).locator('[data-role="main"]').getByRole('button', { name: /^Gap, gap,/ })).toHaveCount(1);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
   await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
-  // The playhead sits where the snip was, and the footage is already past the snipped stretch.
-  await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(4.9);
 
   // The edit list is in the reel folder, outside every version, and no version exists yet.
   const project = readFileSync(PROJECT_FILE, 'utf8');
@@ -83,7 +82,8 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await expect(versions(page).getByRole('button', { name: /^v2/ })).toContainText('Final render');
   await expect(versions(page).getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('button', { name: /^Save as v3/ })).toHaveCount(0);
-  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
+  await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
+  await expect(review(page).locator('[data-role="main"]').getByRole('button', { name: /^Gap, gap,/ })).toHaveCount(1);
   await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '1');
   const shots = JSON.parse(readFileSync(join(reelDir, 'v2', 'shots.json'), 'utf8'));
   expect(shots.builtBy).toBe('you');
@@ -125,8 +125,11 @@ test('a selected stretch previews the snip: the picture is past it, and playing 
 test('Undo removes the live snip and the reel plays whole again', async ({ page }) => {
   await startReel(page, 'Discard talk');
   await selectStretch(page);
-  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
+  // Shift closes the gap, so Undo must restore the removed time as well as the edit list.
+  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click({ modifiers: ['Shift'] });
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
+  await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
+  await expect(review(page).locator('[data-role="main"]').getByRole('button', { name: /^Gap, gap,/ })).toHaveCount(0);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
 
   await page.getByRole('button', { name: /^Undo/ }).click();
@@ -157,7 +160,8 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
 
   await selectStretch(page);
-  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click();
+  // Close the gap to check comments following their moments across the join.
+  await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click({ modifiers: ['Shift'] });
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await freezeWorking(page);
   await expect(page.getByRole('alert').first()).toContainText('broken footage attachment');
@@ -503,7 +507,8 @@ test('keyboard only: pick a video, play, mark a stretch, snip it and Save', asyn
   await page.keyboard.press('[');
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press(']');
-  await expect(review(page).getByText('Remove 3.00s of footage', { exact: true })).toBeVisible();
+  await expect(review(page).getByText('Remove 3.00s, keep the gap', { exact: true })).toBeVisible();
+  await expect(review(page).getByText('Shift closes the gap', { exact: true })).toBeVisible();
   await expect(review(page).getByRole('button', { name: 'Apply snip', exact: true })).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
