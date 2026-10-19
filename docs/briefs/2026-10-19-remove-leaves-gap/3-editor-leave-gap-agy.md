@@ -47,13 +47,13 @@ Files you may edit:
   - Line 599: update `.editor-snip-confirm` to show ``Remove ${(snipRange.to - snipRange.from).toFixed(2)}s, keep the gap`` and a Shift hint (e.g. `Shift closes the gap`), and wire `Apply snip` button `onClick={(event) => runAction('apply', event.shiftKey)}`.
 - [ ] 2. Edit `web/src/review/_internal/ClipSettings.tsx`:
   - Line 108: update the `Remove` button to call `void edits!.add({ kind: 'placement-remove', placement: p.id, leaveGap: true })`.
-- [ ] 3. Run `npm run typecheck`, `npx vitest run tests/web/editor-settings.test.ts`, and `npx vitest run tests/core/render-native-lanes.test.ts` and confirm all pass (green).
+- [ ] 3. Run `npm run typecheck`, `npm run build` (required so `server/main.ts` serves the updated `dist/web` bundle in the e2e test), `npx vitest run tests/web/editor-settings.test.ts`, and `npx vitest run tests/core/render-native-lanes.test.ts` and confirm all pass (green).
 
 ## Contract
 
 - Work ONLY this brief. No scope creep, no drive-by refactors.
 - Edit ONLY the files listed in Scope.
-- Run `npm run typecheck`, `npx vitest run tests/web/editor-settings.test.ts`, and `npx vitest run tests/core/render-native-lanes.test.ts`. Paste commands and output under `## Test evidence` in this file.
+- Run `npm run typecheck`, `npm run build`, `npx vitest run tests/web/editor-settings.test.ts`, and `npx vitest run tests/core/render-native-lanes.test.ts`. Paste commands and output under `## Test evidence` in this file.
 - NEVER commit, push, branch, or run any git write. Leave the tree dirty.
 - Record any deviations under `## Deviations` in this file.
 
