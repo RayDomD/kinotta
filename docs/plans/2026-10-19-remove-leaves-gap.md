@@ -1,7 +1,7 @@
 ---
 title: Remove and snip leave a gap
 date: 2026-10-19
-status: Approved
+status: Done
 summary: Removing or snipping a clip on the main picture sequence leaves a gap so later clips keep their time; Shift closes the gap, as in Premiere and Resolve.
 spec:
 ---
@@ -72,3 +72,4 @@ Gate before anything returns to Claude: Gemini 4 Argon reviews each lane's diff 
 - Plan created. Owner chose Premiere-style behavior, with Snip also leaving a gap.
 - Approved. Added the ClipSettings Remove button (found by Argon's audit) and an Orchestration section: three Gemini 3.8 lanes in two waves, with Argon as a security and validation gate before results return to Claude.
 - Merged lanes A, B and C. Typecheck, the affected unit suites (204 tests) and both `render-native-lanes` browser tests pass; the full suite was stopped twice by low system memory and is still to run. Noted the change in `2026-10-05-snip-and-save.md`. The stall at cuts moved to `2026-10-19-cut-stutter.md`.
+- Full checks run. Core and e2e failures triaged against main: all load-only or pre-existing except four `snip-save.spec.ts` tests that still expected the old ripple default. Updated them (`61b9931`): Save and keyboard tests cover the keep-gap default, Undo and comment tests use Shift+Apply. Spec 10/10. Done.
