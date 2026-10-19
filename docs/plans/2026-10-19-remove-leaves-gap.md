@@ -71,3 +71,4 @@ Gate before anything returns to Claude: Gemini 4 Argon reviews each lane's diff 
 ### 2026-10-19
 - Plan created. Owner chose Premiere-style behavior, with Snip also leaving a gap.
 - Approved. Added the ClipSettings Remove button (found by Argon's audit) and an Orchestration section: three Gemini 3.8 lanes in two waves, with Argon as a security and validation gate before results return to Claude.
+- Merged lanes A, B and C. Typecheck, the affected unit suites (204 tests) and both `render-native-lanes` browser tests pass; the full suite was stopped twice by low system memory and is still to run. Noted the change in `2026-10-05-snip-and-save.md`. The stall at cuts moved to `2026-10-19-cut-stutter.md`.

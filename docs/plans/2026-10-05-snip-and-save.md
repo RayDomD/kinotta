@@ -61,3 +61,6 @@ reel's `transcript.json`.
 - Plan created.
 - Done. See the session summary.
 - Follow-up: agent-built footage reels (see the section above).
+
+### 2026-10-19
+- Superseded in part: on native-placement reels, Snip now leaves a gap and Shift with Apply snip closes it. See `2026-10-19-remove-leaves-gap.md`. The transcript `snip` on footage reels is unchanged.
