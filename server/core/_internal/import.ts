@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -58,18 +58,47 @@ export async function writeHashed(body: AsyncIterable<Uint8Array>, file: string)
   return { hash: hash.digest('hex'), size };
 }
 
-/** Hashes already computed, by path, kept while the file's size and modification time are unchanged. */
-const hashes = new Map<string, { size: number; mtimeMs: number; hash: string }>();
+/** Only hashes verified against this exact file identity may bypass reading the original again. */
+const hashes = new Map<string, { identity: string; hash: string }>();
 
-export async function hashOf(file: string): Promise<string> {
+async function fileIdentity(file: string): Promise<string> {
+  const info = await stat(file, { bigint: true });
+  return [await realpath(file), info.dev, info.ino, info.size, info.mtimeNs, info.ctimeNs].join(':');
+}
+
+export async function hashOf(file: string, projectDir?: string): Promise<string> {
   const key = resolve(file);
-  const { size, mtimeMs } = await stat(key);
-  const known = hashes.get(key);
-  if (known && known.size === size && known.mtimeMs === mtimeMs) return known.hash;
+  const identity = await fileIdentity(key);
+  const cache = projectDir && join(projectDir, FOOTAGE_DIR, PLAYBACK_DIR, '.hashes', `${createHash('sha256').update(key).digest('hex')}.json`);
+  let known = hashes.get(key);
+  if (!known && cache) {
+    try {
+      const stored: unknown = JSON.parse(await readFile(cache, 'utf8'));
+      if (stored && typeof stored === 'object' && 'identity' in stored && 'hash' in stored &&
+          typeof stored.identity === 'string' && typeof stored.hash === 'string' && /^[a-f0-9]{64}$/.test(stored.hash)) {
+        known = { identity: stored.identity, hash: stored.hash };
+      }
+    } catch { /* A missing or invalid cache always falls back to hashing the bytes. */ }
+  }
+  if (known?.identity === identity) {
+    hashes.set(key, known);
+    return known.hash;
+  }
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(key)) hash.update(chunk as Buffer);
+  if (await fileIdentity(key) !== identity) throw new KinottaError('invalid', 'The media changed while its content was being verified.');
   const digest = hash.digest('hex');
-  hashes.set(key, { size, mtimeMs, hash: digest });
+  const verified = { identity, hash: digest };
+  hashes.set(key, verified);
+  if (cache) {
+    const partial = `${cache}.${randomUUID()}.tmp`;
+    try {
+      await mkdir(dirname(cache), { recursive: true });
+      await writeFile(partial, JSON.stringify(verified));
+      await rename(partial, cache);
+    } catch { /* Verification remains valid when a read-only project cannot store its disposable cache. */ }
+    finally { await rm(partial, { force: true }).catch(() => undefined); }
+  }
   return digest;
 }
 
