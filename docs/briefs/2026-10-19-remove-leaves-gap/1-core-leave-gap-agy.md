@@ -31,18 +31,18 @@ Files you may edit:
 
 ## Execution checklist
 
-- [ ] 1. In `tests/core/operation-payloads.test.ts`, add malformed payload cases for non-boolean `leaveGap` on `placement-remove` (e.g. `{ kind: 'placement-remove', placement: 'take', leaveGap: 'yes' }`) and `placement-snip` (e.g. `{ kind: 'placement-snip', from: 0.5, to: 1.5, leaveGap: 1 }`).
-- [ ] 2. In `tests/core/media-model.test.ts`, add a test covering `placement-remove` with `leaveGap: true`:
+- [x] 1. In `tests/core/operation-payloads.test.ts`, add malformed payload cases for non-boolean `leaveGap` on `placement-remove` (e.g. `{ kind: 'placement-remove', placement: 'take', leaveGap: 'yes' }`) and `placement-snip` (e.g. `{ kind: 'placement-snip', from: 0.5, to: 1.5, leaveGap: 1 }`).
+- [x] 2. In `tests/core/media-model.test.ts`, add a test covering `placement-remove` with `leaveGap: true`:
   - Removing an earlier main-sequence clip with `leaveGap: true` replaces it with a `role: 'gap'` placement of the same duration so a later main clip keeps its `at` time and an attached audio clip on the later main clip keeps its `at` time, while an attachment on the removed clip is marked `attachmentBroken: true`.
   - Removing the adjacent clip with `leaveGap: true` merges the two adjacent gaps into one gap placement with the summed duration (and drops it if it is now at the end of `sequence`).
   - Removing the last clip in `sequence` with `leaveGap: true` drops the trailing gap so the reel does not end with black.
   - Legacy `placement-remove` without `leaveGap` still ripples later clips earlier.
-- [ ] 3. In `tests/core/media-tracks.test.ts`, add a test covering `placement-snip` with `leaveGap: true`:
+- [x] 3. In `tests/core/media-tracks.test.ts`, add a test covering `placement-snip` with `leaveGap: true`:
   - Snipping a stretch inside/across main-sequence clips with `leaveGap: true` leaves a single merged gap of the snipped length so surviving later clips keep their `at` times.
   - Snipping to the end of the sequence with `leaveGap: true` drops the trailing gap.
   - Legacy `placement-snip` without `leaveGap` still ripples as before.
-- [ ] 4. Run `npx vitest run tests/core/media-model.test.ts tests/core/media-tracks.test.ts tests/core/operation-payloads.test.ts` and confirm the new tests fail (red).
-- [ ] 5. In `server/core/_internal/edit-model.ts`:
+- [x] 4. Run `npx vitest run tests/core/media-model.test.ts tests/core/media-tracks.test.ts tests/core/operation-payloads.test.ts` and confirm the new tests fail (red).
+- [x] 5. In `server/core/_internal/edit-model.ts`:
   - Add `leaveGap?: boolean;` to `PlacementRemoveOperation` (around line 327) and `PlacementSnipOperation` (around line 359).
   - In `applyPlacementRemove`:
     - Validate `if (op.leaveGap !== undefined && typeof op.leaveGap !== 'boolean') throw new KinottaError('invalid', 'leaveGap must be a boolean.');`
@@ -54,7 +54,7 @@ Files you may edit:
   - In `applyPlacementSnip`:
     - Validate `if (op.leaveGap !== undefined && typeof op.leaveGap !== 'boolean') throw new KinottaError('invalid', 'leaveGap must be a boolean.');`
     - Pass `...(op.leaveGap ? { leaveGap: true } : {})` and a unique id (`id: `${op.id}:remove:${removed}``) to the `applyPlacementRemove` call inside the `affected.reverse()` loop so each removed piece leaves a gap when `op.leaveGap === true`, adjacent gaps merge, and any trailing gap at the end of `sequence` is dropped.
-- [ ] 6. Run `npm run typecheck` and `npx vitest run tests/core/media-model.test.ts tests/core/media-tracks.test.ts tests/core/operation-payloads.test.ts tests/core/working-reversals.test.ts tests/core/media-pins.test.ts` and confirm all pass (green).
+- [x] 6. Run `npm run typecheck` and `npx vitest run tests/core/media-model.test.ts tests/core/media-tracks.test.ts tests/core/operation-payloads.test.ts tests/core/working-reversals.test.ts tests/core/media-pins.test.ts` and confirm all pass (green).
 
 ## Context
 
@@ -87,8 +87,96 @@ Note that `applyPlacementRippleRemove` calls `applyPlacementRemove(sources, { ..
 
 ## Test evidence
 
-(The executor fills this in.)
+### Failing tests before implementation (red)
+Command:
+```bash
+npx vitest run tests/core/media-model.test.ts tests/core/media-tracks.test.ts tests/core/operation-payloads.test.ts
+```
+Output:
+```
+ FAIL   unit  tests/core/media-model.test.ts > media placement mapping > replaces a removed main clip with a gap when leaveGap is true, merges adjacent gaps, drops trailing gaps, and preserves rippling for legacy remove
+AssertionError: expected +0 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 0
+
+ ❯ tests/core/media-model.test.ts:319:69
+
+ FAIL   unit  tests/core/media-tracks.test.ts > owner audio tracks > leaves a merged gap when snipping with leaveGap: true, drops trailing gaps at sequence end, while legacy snip ripples
+AssertionError: expected [ [ 'main', +0, 2 ], [ 'main', 2, 2 ] ] to deeply equal [ [ 'main', +0, 2 ], …(2) ]
+
+- Expected
++ Received
+
+@@ -3,15 +3,10 @@
+      "main",
+      0,
+      2,
+    ],
+    [
+-     "gap",
+-     2,
+-     2,
+-   ],
+-   [
+      "main",
+-     4,
++     2,
+      2,
+    ],
+  ]
+
+ ❯ tests/core/media-tracks.test.ts:102:66
+
+ FAIL   unit  tests/core/operation-payloads.test.ts > operation payload boundaries (A1 audit) > refuses removal with non-boolean leaveGap with a readable reason
+ FAIL   unit  tests/core/operation-payloads.test.ts > operation payload boundaries (A1 audit) > refuses snip with non-boolean leaveGap with a readable reason
+AssertionError: applied without complaint: expected undefined to be defined
+ ❯ tests/core/operation-payloads.test.ts:73:49
+
+ Test Files  3 failed (3)
+      Tests  4 failed | 166 passed (170)
+```
+
+### Typecheck
+Command:
+```bash
+npm run typecheck
+```
+Output:
+```
+> kinotta@0.1.0 typecheck
+> tsc --noEmit
+```
+
+### Passing tests after implementation (green)
+Command:
+```bash
+npx vitest run tests/core/media-model.test.ts tests/core/media-tracks.test.ts tests/core/operation-payloads.test.ts tests/core/working-reversals.test.ts tests/core/media-pins.test.ts
+```
+Output:
+```
+ RUN  v5.0.2 C:/FIles/Projects/Apps/Kinotta/.worktrees/remove-leaves-gap-core
+
+ ✓  unit  tests/core/operation-payloads.test.ts (35 tests) 24ms
+ ✓  unit  tests/core/media-tracks.test.ts (7 tests) 25ms
+ ✓  unit  tests/core/media-model.test.ts (128 tests) 77ms
+ ✓  unit  tests/core/media-pins.test.ts (1 test) 1820ms
+   ✓ carries word pins with their particular reuse and flags removal instead of using the other reuse 1817ms
+ ✓  unit  tests/core/working-reversals.test.ts (34 tests) 3850ms
+   ✓ replays Undo of frozen shot-alternate through build and freeze 592ms
+   ✓ replays Undo of frozen shot-alternate-dismiss through build and freeze 468ms
+   ✓ preserves a later edit while reversing multiple edits consumed by a freeze 482ms
+   ✓ reverses a newly added source after a real freeze rebases and preserves its media path 1422ms
+
+ Test Files  5 passed (5)
+      Tests  205 passed (205)
+   Start at  15:19:44
+   Duration  5.12s (tests 66%, transform 26%, import 8%)
+```
 
 ## Deviations
 
-(The executor fills this in.)
+None.
