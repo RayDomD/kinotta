@@ -35,6 +35,22 @@ function project(versions: number): string {
 const playbackFiles = (dir: string): string[] => readdirSync(join(dir, 'footage/.playback'));
 
 describe('playback copies of saved-version video', () => {
+  it('reuses an existing path-named copy without making another, and still validates the original', async () => {
+    const dir = project(1);
+    const original = join(dir, 'reels/founder-talk/v1/media', `${hash}.mp4`);
+    const legacyName = `reels--founder-talk--v1--media--${hash}.mp4`;
+    const legacy = join(dir, 'footage/.playback', legacyName);
+    mkdirSync(join(dir, 'footage/.playback'), { recursive: true });
+    const run = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', original, '-c:v', 'libx264', legacy], { encoding: 'utf8' });
+    expect(run.status, run.stderr).toBe(0);
+    const kinotta = openProject(dir);
+
+    expect(await kinotta.mediaFile(SOURCE, { reel: 'founder-talk', version: 1 })).toBe(legacy);
+    expect(playbackFiles(dir)).toEqual([legacyName]);
+    appendFileSync(original, Buffer.from('changed'));
+    expect(await kinotta.mediaFile(SOURCE, { reel: 'founder-talk', version: 1 })).toBeNull();
+  }, 60_000);
+
   it('makes one copy when many requests arrive at once, with no partial left behind', async () => {
     const dir = project(1);
     const kinotta = openProject(dir);

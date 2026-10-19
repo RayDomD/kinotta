@@ -11,6 +11,34 @@ import { revealReelRail } from '../helpers/review-rail.ts';
 
 const verify = (root: Locator, rules: Array<{ check(root: Element): boolean }>) => root.evaluate((element, checks) => checks.map((source) => new Function('return (' + source + ')')()(element)), rules.map((rule) => rule.check.toString()));
 
+for (const opening of ['A', 'C']) {
+  test(`the shot sheet keeps B visible after Use when opened on ${opening}`, async ({ page }) => {
+    const { dir } = alternatesFixture();
+    const server = await startServer({ projectDir: dir, port: 0 });
+    try {
+      await server.project.buildParts('parts');
+      await page.goto(server.url);
+      await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+      const card = page.locator('.grid .shot.has-alternates');
+      if (opening === 'C') await card.getByRole('button', { name: 'Show alternate C', exact: true }).click();
+      await card.getByRole('button', { name: /^Shot 02,/ }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('button', { name: `View alternate ${opening}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await dialog.getByRole('button', { name: 'View alternate B', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Use alternate B', exact: true }).click();
+      await expect.poll(async () => (await server.project.readWorkingVersion('parts')).workingParts?.shots[1].revision).toBe('r2');
+      await expect(card).toHaveAttribute('data-verify-selected', 'r2');
+      await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(dialog.getByRole('button', { name: 'Use alternate B', exact: true })).toBeDisabled();
+      await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+      await dialog.getByRole('button', { name: /Close/ }).click();
+      await card.getByRole('button', { name: /^Shot 02,/ }).click();
+      await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(dialog.getByRole('button', { name: 'Use alternate B', exact: true })).toBeDisabled();
+    } finally { await server.close(); }
+  });
+}
+
 test('Use updates the alternate played in Review while frozen history retains its original revision', async ({ page }) => {
   const { dir } = alternatesFixture();
   const server = await startServer({ projectDir: dir, port: 0 });

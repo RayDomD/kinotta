@@ -329,6 +329,11 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
   /** The lane control that opened the sheet, if one did; null when the grid opened it. */
   const laneOpener = useRef<HTMLElement | null>(null);
 
+  // The sheet consumes this on mount. Later Working remounts should follow the reel's current choice.
+  useEffect(() => {
+    setOpenRevision(null);
+  }, [openRevision]);
+
   // When the sheet closes, focus goes back to the lane control that opened it, else to the button of the shot it was showing.
   useEffect(() => {
     if (openIndex === null && returnTo.current !== null) {
