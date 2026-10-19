@@ -6,7 +6,7 @@ Written October 18, 2026. The code fixes, full verification and documentation cl
 
 Continue on `fix/codex-run-cleanup`. The completed cleanup checkpoint is `a4c29ee`; a handoff-only commit follows it. Read the [cleanup plan](../plans/2026-10-18-codex-run-cleanup.md) for scope and the [session summary](../session-summaries/2026-10-18-codex-run-cleanup-summary.md) for detailed evidence and limitations. Check current Git state before editing; the references below describe this handoff's snapshot.
 
-The next action is resolving the pending reviewer-model choice. The owner has **not** approved delegation or merging. Their latest request was to write this handoff.
+The owner has now approved the two GPT-6.1-sol/high UI reviewers. The next action is completing their live visual pass: CUA reports no connected browsers, so explicit Playwright fallback authorization or a connected browser is pending. Merging remains unapproved.
 
 ## Completed
 
@@ -44,7 +44,7 @@ Two earlier full invocations failed and remain as diagnostic evidence: `tests/cl
 
 ## Remaining work, in order
 
-1. **Resolve review authorization.** The pending proposal is two GPT-6.1-sol reviewers at high reasoning effort. The owner's AGENTS.md requires model approval before delegation; the Impeccable critique requires independent assessments. No agents were spawned. The owner may instead authorize a disclosed single-context review. Check for a newer explicit answer before asking again.
+1. **Resolve live browser access.** The owner approved two GPT-6.1-sol reviewers at high reasoning effort, and independent assessments are running as `/root/ui_design_assessment` and `/root/ui_technical_assessment`. CUA inventory is empty and browser creation failed. Explicit Playwright fallback authorization was requested; check for the owner's answer before asking again. Source/detector review can continue while this is pending.
 2. **Complete and record the UI review.** Apply the installed Impeccable critique and audit workflows to Working, Storyboard and ShotSheet, using fresh running-browser evidence. Follow the current repo instructions and saved references. Record findings and adjudicate the 39 inherited font-size advisories against `DESIGN.md`; neither task has been completed. Findings are follow-ups in this cleanup, rather than authorization to change the UI. This step is complete when the critique, audit, evidence and typography decision are written into the cleanup record.
 3. **Obtain the owner's merge go-ahead.** `main` remains at `5f3a23d`; `codex/random-audio-seeds` remains at `367c95e`. The seeds branch changes its generation script, sound guidance and plan records. Neither branch was merged or pushed. Review authorization alone does not authorize merging.
 4. **After explicit merge approval, finish integration and closure.** Merge the seeds and cleanup branches into `main`, resolve any integration issues, and verify the resulting changes appropriately. Regenerate the dashboard with `powershell -NoProfile -File docs/plans/build-plans-index.ps1` after plan/summary updates. Mark the cleanup plan Done only when both remaining outcomes satisfy its original Intent, and update the summary with review, merge and verification evidence. Push only with explicit authorization.

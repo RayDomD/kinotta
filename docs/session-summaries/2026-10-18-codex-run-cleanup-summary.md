@@ -23,7 +23,7 @@ Continuation instructions are in the [cleanup handoff](../briefs/2026-10-18-code
 
 The authorized code, test and documentation work is verified. The plan remains In Progress because two outcomes remain:
 
-1. The Impeccable critique/audit of Working, Storyboard and ShotSheet, including the decision on the 39 inherited font-size advisories. The critique skill requires two isolated assessments; the owner's AGENTS.md requires model approval before delegation. Approval was requested for two GPT-6.1-sol reviewers at high reasoning effort and has not been received. No subagents were spawned and no completed UI review or font-size adjudication is claimed. The owner can instead choose a disclosed single-context review.
+1. The Impeccable critique/audit of Working, Storyboard and ShotSheet, including the decision on the 39 inherited font-size advisories. The owner has now approved two GPT-6.1-sol reviewers at high reasoning effort. Independent design and technical assessments are in progress with separate fixture projects. CUA discovery reports no connected browsers, and IAB creation failed. Explicit authorization for Playwright visual QA, or connection of a supported browser, is pending while source/detector work continues. No completed visual review or font-size adjudication is claimed yet.
 2. Owner approval to merge `codex/random-audio-seeds` and `fix/codex-run-cleanup` into `main`. `main` remains at `5f3a23d`; the seeds fix is `367c95e`. Nothing was pushed or merged.
 
 The original Intent still requires both outcomes before the cleanup plan can be marked Done.

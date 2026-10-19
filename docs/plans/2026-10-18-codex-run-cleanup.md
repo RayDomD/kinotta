@@ -67,5 +67,10 @@ spec: docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md
 ## Execution status
 
 - Goals 1–3 are complete: one green full core run, the proven Draft owner fix, corrected design wording, three closed original plans with summaries, and the regenerated dashboard.
-- Goal 4 is pending reviewer-model approval. The requested choice is two GPT-6.1-sol reviewers at high reasoning effort, or an explicitly disclosed single-context review. No agents have been spawned; the UI critique/audit and the 39 font-size advisories remain unreviewed.
+- Goal 4 is in progress. The owner approved the UI review with two GPT-6.1-sol reviewers at high reasoning effort. Independent design and technical assessments are running. CUA reports no connected browsers; explicit Playwright fallback authorization was requested while source/detector work continues. The completed critique/audit and font-size decision are still pending.
 - Goal 5 is pending the owner's final merge approval. Neither this branch nor the seeds branch has been merged or pushed. The plan remains In Progress until the remaining outcomes satisfy the original Intent.
+
+### UI review continuation
+
+- Owner approved the pending UI review. Agents: `/root/ui_design_assessment` and `/root/ui_technical_assessment`, both GPT-6.1-sol at high reasoning effort. Separate fixture servers keep their interactions independent.
+- Browser discovery returned no enabled apps or browsers; IAB creation failed in the parent and reviewers. The reviewers are continuing independent source work while the owner chooses Playwright fallback or a connected browser.
