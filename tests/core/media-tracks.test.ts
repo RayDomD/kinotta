@@ -80,4 +80,54 @@ describe('owner audio tracks', () => {
     const moved = applyOperation(after, { by: 'you', id: 'move-picture', kind: 'placement-change', placement: 'insert', changes: { at: 0 } });
     expect(mediaTimeline(moved.plan.media!).placements.find((p) => p.id === 'insert~detach')!.at).toBe(1);
   });
+
+  it('leaves a merged gap when snipping with leaveGap: true, drops trailing gaps at sequence end, while legacy snip ripples', () => {
+    const media: MediaPlan = {
+      schema: 1,
+      sources: [
+        { id: 'take1', kind: 'video', path: 'take1.mov', duration: 10, audio: true },
+        { id: 'take2', kind: 'video', path: 'take2.mov', duration: 10, audio: true },
+      ],
+      placements: [
+        { id: 'p1', role: 'main', source: 'take1', in: 0, out: 3 },
+        { id: 'p2', role: 'main', source: 'take2', in: 0, out: 3 },
+      ],
+      sequence: ['p1', 'p2'],
+    };
+    const sources: Sources = { plan: { media }, words: [] };
+
+    const snippedWithGap = applyOperation(sources, { by: 'you', id: 'snip-gap', kind: 'placement-snip', from: 2, to: 4, leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    const timelineWithGap = mediaTimeline(snippedWithGap.plan.media!);
+    const seqPlacements = timelineWithGap.placements.filter((p) => snippedWithGap.plan.media!.sequence.includes(p.id));
+    expect(seqPlacements.map((p) => [p.role, p.at, p.duration])).toEqual([
+      ['main', 0, 2],
+      ['gap', 2, 2],
+      ['main', 4, 2],
+    ]);
+    expect(snippedWithGap.plan.media!.sequence).toHaveLength(3);
+
+    const snippedEnd = applyOperation(snippedWithGap, { by: 'you', id: 'snip-end', kind: 'placement-snip', from: 4, to: 6, leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    const timelineEnd = mediaTimeline(snippedEnd.plan.media!);
+    const seqEnd = timelineEnd.placements.filter((p) => snippedEnd.plan.media!.sequence.includes(p.id));
+    expect(seqEnd.map((p) => [p.role, p.at, p.duration])).toEqual([
+      ['main', 0, 2],
+    ]);
+    expect(snippedEnd.plan.media!.sequence).toEqual(['p1']);
+
+    const snippedEndDirect = applyOperation(sources, { by: 'you', id: 'snip-end-dir', kind: 'placement-snip', from: 4, to: 6, leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    const timelineEndDirect = mediaTimeline(snippedEndDirect.plan.media!);
+    const seqEndDirect = timelineEndDirect.placements.filter((p) => snippedEndDirect.plan.media!.sequence.includes(p.id));
+    expect(seqEndDirect.map((p) => [p.role, p.at, p.duration])).toEqual([
+      ['main', 0, 3],
+      ['main', 3, 1],
+    ]);
+
+    const legacySnipped = applyOperation(sources, { by: 'you', id: 'snip-legacy', kind: 'placement-snip', from: 2, to: 4 });
+    const legacyTimeline = mediaTimeline(legacySnipped.plan.media!);
+    const legacySeq = legacyTimeline.placements.filter((p) => legacySnipped.plan.media!.sequence.includes(p.id));
+    expect(legacySeq.map((p) => [p.role, p.at, p.duration])).toEqual([
+      ['main', 0, 2],
+      ['main', 2, 2],
+    ]);
+  });
 });
