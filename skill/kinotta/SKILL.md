@@ -115,20 +115,23 @@ Done when `reels/brand.md` exists with `checked:` set to a date, or you have sto
    optional). Every rule applies to every shot. You may suggest a new rule in chat; only the owner
    adds one. If the global file is missing, say so and carry on.
 2. **Read the brand sources** the brand file points at. `DESIGN.md` decides colour and type.
-3. **Plan the shots** in chat only if the owner's request leaves the length, shot count or message
+3. **Check the effect templates.** `templates/effects/README.md` lists ready-made parts shots
+   (section tag, text behind you, floating cards, number cut, big word, checklist, before and
+   after, prompt box, title card). Start a shot from one when it fits, and restyle it from the brand.
+4. **Plan the shots** in chat only if the owner's request leaves the length, shot count or message
    open; otherwise plan silently. One idea per shot.
-4. **Pick a slug**: lowercase kebab-case from the reel's name (`brand-intro`). If `reels/<slug>/`
+5. **Pick a slug**: lowercase kebab-case from the reel's name (`brand-intro`). If `reels/<slug>/`
    exists, pick another or ask.
-5. **Write the reel** (layout and rules in `reference/contract.md`):
+6. **Write the reel** (layout and rules in `reference/contract.md`):
    - `reels/<slug>/reel.json`: `{ "title": "<Reel title>" }`
    - `reels/<slug>/v1/assets/`: copies of every logo, image and font file the page uses. The editor
      serves only files inside the version folder, and a frozen version must not change when a
      source does.
    - `reels/<slug>/v1/index.html`: the page.
    - `reels/<slug>/v1/shots.json`: **last**.
-6. **Check it**: run `kinotta check <slug>` from the project folder. Fix every issue in the files of
+7. **Check it**: run `kinotta check <slug>` from the project folder. Fix every issue in the files of
    the version you are building (it isn't frozen until you hand it over), then run it again.
-7. **Hand over**: tell the owner the reel and version, the shot list in one line per shot, and to
+8. **Hand over**: tell the owner the reel and version, the shot list in one line per shot, and to
    run `kinotta` in this project to review it.
 
 Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.

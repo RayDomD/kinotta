@@ -1,0 +1,3 @@
+[data-scene="section-tag"] .tag { position: absolute; left: 120px; top: 120px; display: flex; gap: 14px; align-items: center; font-family: var(--fx-font); }
+[data-scene="section-tag"] .num { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 14px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); color: var(--fx-ink); font-size: 52px; font-weight: 600; font-variant-numeric: tabular-nums; transform-origin: left center; }
+[data-scene="section-tag"] .label { padding: 12px 20px; border-radius: 10px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); color: var(--fx-ink); font-size: 34px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
