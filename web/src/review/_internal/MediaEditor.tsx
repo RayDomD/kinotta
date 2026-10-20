@@ -495,7 +495,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     else if (action === 'duplicate' && selectedPlacement) duplicate(selectedPlacement);
     else if (action === 'gap') void edits!.add({ kind: 'placement-add', placement: { id: crypto.randomUUID(), role: 'gap', duration: workspace.settings.gap }, index: selectedPlacement && media.sequence.includes(selectedPlacement.id) ? media.sequence.indexOf(selectedPlacement.id) + 1 : media.sequence.length });
     else if (action === 'pin') { setPinning(!pinning); setPinDraft(null); setPinError(null); }
-    else if (action === 'remove' && selected) void edits!.add({ kind: 'placement-remove', placement: selected });
+    else if (action === 'remove' && selected) void edits!.add({ kind: 'placement-remove', placement: selected, leaveGap: true });
     else if (action === 'closeGap' && selected) void edits!.add({ kind: 'placement-ripple-remove', placement: selected });
     else if (action === 'undo') void edits!.undo();
     else if (action === 'redo') void edits!.redo();
@@ -504,7 +504,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       const target = tracks[tracks.findIndex((track) => track.id === selectedPlacement.track) + (action === 'up' ? -1 : 1)];
       if (target) change(selectedPlacement.id, { track: target.id });
     }
-    else if (action === 'apply' && snipRange && !version!.code) void edits!.add({ kind: 'placement-snip', ...snipRange }).then((ok) => { if (ok) { playback.seek(snipRange.from); setSnipRange(null); setTool('select'); } });
+    else if (action === 'apply' && snipRange && !version!.code) void edits!.add({ kind: 'placement-snip', ...snipRange, ...(fast ? {} : { leaveGap: true }) }).then((ok) => { if (ok) { playback.seek(snipRange.from); setSnipRange(null); setTool('select'); } });
   };
   // Shortcuts are heard on the window: the page opens with focus on the body, and a click on empty timeline leaves it there.
   const main = useRef<HTMLElement>(null);
@@ -517,7 +517,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (!event.ctrlKey && !event.metaKey && !event.altKey && !main.current?.contains(target) && target.closest('button, a, summary, [role="tab"], [role="menuitem"]')) return;
     const chord = keyChord(event);
     const shiftedAction = event.shiftKey ? actionForKey(workspace.settings.keys, chord.replace('Shift+', '')) : null;
-    const action = actionForKey(workspace.settings.keys, chord) ?? (shiftedAction && ['left', 'right', 'up', 'down'].includes(shiftedAction) ? shiftedAction : null);
+    const action = actionForKey(workspace.settings.keys, chord) ?? (shiftedAction && ['left', 'right', 'up', 'down', 'apply'].includes(shiftedAction) ? shiftedAction : null);
     if (!action || ['rail', 'settings', 'focus', 'shortcuts'].includes(action) || (action === 'apply' && !enabled(action))) return;
     event.preventDefault(); runAction(action, event.shiftKey);
   };
@@ -620,12 +620,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || !splittable(p)} onClick={() => act(() => split(p))}>Split{workspace.settings.keys.split && <kbd>{workspace.settings.keys.split}</kbd>}</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate<kbd>{workspace.settings.keys.duplicate}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || p.role === 'gap'} onClick={() => { inspect(); requestAnimationFrame(() => workspace.clipHost?.querySelector<HTMLSelectElement>('select[aria-label^="Replace "]')?.focus()); }}>Replace…</button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id }); })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id, leaveGap: true }); })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => { void edits!.add({ kind: 'placement-ripple-remove', placement: p.id }); })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
       </div>;
     })()}
 
-    {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s of footage`}</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={() => runAction('apply')}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
+    {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s, keep the gap`}</span><span className="meta">Shift closes the gap</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={(event) => runAction('apply', event.shiftKey)}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
     {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={edits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
     {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} onDetect={(id, fresh) => detectMediaBeats(id, savedFor(id), fresh)} generate={generateAudio} generatedTrackName={musicTrack?.name ?? 'Music'} onAddGenerated={addGenerated} />, workspace.soundHost)}
     {workspace.sectionHost && (authored.sections ?? []).some((s) => s.partOf) && createPortal(<section aria-label="Continuous sections"><div className="label">Surviving section spans</div><nav className="secs">{authored.sections!.map((s) => <button type="button" key={s.id} onClick={() => playback.seek(s.start)}><span className="nm">{s.name}</span><span className="sub">{s.start.toFixed(2)}–{s.end.toFixed(2)}s</span></button>)}</nav></section>, workspace.sectionHost)}

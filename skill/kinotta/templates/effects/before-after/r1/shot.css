@@ -1,0 +1,14 @@
+/* Two phones, the After time counting from data-from to data-to (seconds), then the feature list. */
+[data-scene="before-after"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+[data-scene="before-after"] .side { position: absolute; top: 120px; width: 330px; display: grid; justify-items: center; gap: 14px; font-family: var(--fx-font); color: var(--fx-ink); }
+[data-scene="before-after"] .before { left: 160px; }
+[data-scene="before-after"] .after { right: 160px; }
+[data-scene="before-after"] .label, [data-scene="before-after"] .time { margin: 0; padding: 8px 18px; border-radius: 10px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); }
+[data-scene="before-after"] .label { font-size: 26px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+[data-scene="before-after"] .time { font-size: 44px; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-scene="before-after"] .phone { margin: 0; width: 300px; height: 533px; border-radius: 30px; overflow: hidden; border: 6px solid var(--fx-ink); box-shadow: var(--fx-shadow); }
+[data-scene="before-after"] .phone > * { width: 100%; height: 100%; object-fit: cover; display: block; }
+[data-scene="before-after"] .features { position: absolute; left: 160px; right: 160px; bottom: 90px; margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; font-family: var(--fx-font); }
+[data-scene="before-after"] .features li { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 12px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); color: var(--fx-ink); font-size: 30px; font-weight: 500; }
+[data-scene="before-after"] .box { flex: none; width: 34px; height: 34px; border-radius: 8px; background: var(--fx-ink); display: grid; place-items: center; }
+[data-scene="before-after"] .tick { width: 26px; height: 26px; fill: none; stroke: var(--fx-panel); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }

@@ -1,0 +1,7 @@
+/* Items tick at their data-at (local seconds). */
+[data-scene="checklist"] .panel { position: absolute; right: 180px; top: 200px; width: 560px; padding: 30px 34px; border-radius: 22px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); font-family: var(--fx-font); color: var(--fx-ink); transform-origin: top right; }
+[data-scene="checklist"] .title { margin: 0 0 18px; font-size: 22px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--fx-ink-soft); }
+[data-scene="checklist"] .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+[data-scene="checklist"] li { display: flex; align-items: center; gap: 18px; font-size: 36px; font-weight: 500; }
+[data-scene="checklist"] .box { flex: none; width: 40px; height: 40px; border-radius: 9px; border: 2.5px solid var(--fx-ink-soft); display: grid; place-items: center; }
+[data-scene="checklist"] .tick { width: 30px; height: 30px; fill: none; stroke: var(--fx-ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }

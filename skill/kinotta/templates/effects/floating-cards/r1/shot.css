@@ -1,0 +1,4 @@
+/* Each card is a clip or still; set its resting place with --x, --y and --tilt. */
+[data-scene="floating-cards"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+[data-scene="floating-cards"] .card { position: absolute; left: var(--x); top: var(--y); margin: 0; width: 270px; height: 480px; border-radius: 22px; overflow: hidden; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); border: 6px solid var(--fx-ink); }
+[data-scene="floating-cards"] .card > * { width: 100%; height: 100%; object-fit: cover; display: block; }

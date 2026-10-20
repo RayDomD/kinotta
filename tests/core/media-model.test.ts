@@ -295,4 +295,58 @@ describe('media placement mapping', () => {
     expect(mediaWords(edited.plan.media!).map((word) => [word.text, word.start, word.end])).toEqual([['hello', 1, 1.5], ['bye', 4.1, 4.6]]);
     expect(() => applyOperation({ plan: { media }, words: [] }, { by: 'you', id: 'ambiguous', kind: 'word-timing', at: 1, start: 1.1, end: 1.6 })).toThrow('placement');
   });
+
+  it('replaces a removed main clip with a gap when leaveGap is true, merges adjacent gaps, drops trailing gaps, and preserves rippling for legacy remove', () => {
+    const media: MediaPlan = {
+      schema: 1,
+      sources: [
+        { id: 'video', kind: 'video', path: 'video.mp4', duration: 10 },
+        { id: 'audio', kind: 'audio', path: 'audio.wav', duration: 10 },
+      ],
+      placements: [
+        { id: 'first', role: 'main', source: 'video', in: 0, out: 3 },
+        { id: 'second', role: 'main', source: 'video', in: 0, out: 2 },
+        { id: 'third', role: 'main', source: 'video', in: 0, out: 4 },
+        { id: 'att-first', role: 'audio', source: 'audio', in: 0, out: 1, at: 1, attachment: { placement: 'first', time: 1 } },
+        { id: 'att-second', role: 'audio', source: 'audio', in: 0, out: 1, at: 4, attachment: { placement: 'second', time: 1 } },
+      ],
+      sequence: ['first', 'second', 'third'],
+    };
+    const sources = { plan: { media }, words: [] };
+
+    const removedFirst = applyOperation(sources, { by: 'you', id: 'rm-first', kind: 'placement-remove', placement: 'first', leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    const timeline1 = mediaTimeline(removedFirst.plan.media!);
+    expect(timeline1.placements.find((p) => p.id === 'second')?.at).toBe(3);
+    expect(timeline1.placements.find((p) => p.id === 'third')?.at).toBe(5);
+    const attSecond = timeline1.placements.find((p) => p.id === 'att-second')!;
+    expect(attSecond.at).toBe(4);
+    expect(attSecond.attachmentBroken).toBeFalsy();
+    const attFirst = timeline1.placements.find((p) => p.id === 'att-first')!;
+    expect(attFirst.attachmentBroken).toBe(true);
+    expect(removedFirst.plan.media!.sequence).toHaveLength(3);
+    const gap1 = removedFirst.plan.media!.placements.find((p) => p.id === removedFirst.plan.media!.sequence[0]);
+    expect(gap1).toMatchObject({ role: 'gap', duration: 3 });
+
+    const removedSecond = applyOperation(removedFirst, { by: 'you', id: 'rm-second', kind: 'placement-remove', placement: 'second', leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    expect(removedSecond.plan.media!.sequence).toHaveLength(2);
+    const mergedGap = removedSecond.plan.media!.placements.find((p) => p.id === removedSecond.plan.media!.sequence[0]);
+    expect(mergedGap).toMatchObject({ role: 'gap', duration: 5 });
+    const timeline2 = mediaTimeline(removedSecond.plan.media!);
+    expect(timeline2.placements.find((p) => p.id === 'third')?.at).toBe(5);
+
+    const removedThird = applyOperation(removedSecond, { by: 'you', id: 'rm-third', kind: 'placement-remove', placement: 'third', leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    expect(removedThird.plan.media!.sequence).toEqual([]);
+    expect(removedThird.plan.duration).toBe(0);
+
+    const removedLastDirect = applyOperation(sources, { by: 'you', id: 'rm-last', kind: 'placement-remove', placement: 'third', leaveGap: true } as unknown as Parameters<typeof applyOperation>[1]);
+    expect(removedLastDirect.plan.media!.sequence).toEqual(['first', 'second']);
+    expect(removedLastDirect.plan.media!.placements.some((p) => p.role === 'gap')).toBe(false);
+
+    const rippled = applyOperation(sources, { by: 'you', id: 'rm-legacy', kind: 'placement-remove', placement: 'first' });
+    const rippledTimeline = mediaTimeline(rippled.plan.media!);
+    expect(rippledTimeline.placements.find((p) => p.id === 'second')?.at).toBe(0);
+    expect(rippledTimeline.placements.find((p) => p.id === 'third')?.at).toBe(2);
+    expect(rippledTimeline.placements.find((p) => p.id === 'att-second')?.at).toBe(1);
+    expect(rippled.plan.media!.sequence).toEqual(['second', 'third']);
+  });
 });

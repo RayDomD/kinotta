@@ -1,0 +1,6 @@
+[data-scene="chip-tally"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* One chip per spoken item, each at its data-at. Place the row with --y; it stays centred as it grows. */
+[data-scene="chip-tally"] .chips { position: absolute; left: 0; right: 0; top: var(--y, 760px); margin: 0; padding: 0; list-style: none; display: flex; justify-content: center; gap: 16px; font-family: var(--fx-font); }
+[data-scene="chip-tally"] .chip { display: none; align-items: center; gap: 10px; padding: 12px 22px 12px 16px; border-radius: 999px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); color: var(--fx-ink); font-size: 30px; font-weight: 600; }
+[data-scene="chip-tally"] .tick { width: 26px; height: 26px; fill: none; stroke: var(--fx-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }

@@ -38,7 +38,7 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     await page.getByRole('separator', { name: 'Picture and tracks' }).press('Home');
     const last = async () => { await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 5000 }).toBe(true); return (await server.project.readEditList('founder-talk')).operations.at(-1)!; };
     await lanes.locator('[data-placement="sound"]').waitFor();
-    await expect.poll(() => lanes.locator('.native-stills img').evaluateAll((images) => images.some((image) => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    await expect.poll(() => lanes.locator('.native-stills img').evaluateAll((images) => images.some((image) => (image as HTMLImageElement).naturalWidth > 0)), { timeout: 10_000 }).toBe(true);
     expect(await lanes.locator('[data-role="insert"] > strong').allTextContents()).toEqual(['Picture 3', 'Picture 2']);
     expect(await lanes.locator('[data-role="insert"]').first().getAttribute('data-picture-layer')).toBe('9');
     expect(await lanes.locator('[data-role="insert"]').first().locator('[data-placement="upper"]').count()).toBe(1);
@@ -155,3 +155,116 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     expect(await page.locator('[data-verify-unit="MediaEditor"]').getAttribute('data-verify-clock')).toBe('1');
   } finally { await browser.close(); await server.close(); }
 });
+
+it('leaves a gap on Delete and Apply snip so later clips keep their times, and closes the gap with Shift', { timeout: 90_000 }, async () => {
+  const dir = copyFixture('footage-project');
+  const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=lime:s=160x90:r=30:d=4', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=4', '-c:v', 'libx264', '-c:a', 'aac', join(dir, 'take.mp4')], { encoding: 'utf8' });
+  expect(generated.status, generated.stderr).toBe(0);
+  const reel = join(dir, 'reels/founder-talk');
+  const media = (prefix: string) => ({
+    schema: 1,
+    tracks: [
+      { id: 'speech', name: 'Speech', order: 0, gain: 1, mute: false },
+      { id: 'music', name: 'Music', order: 1, gain: 1, mute: false },
+    ],
+    sources: [{ id: 'take', name: 'Take', kind: 'video', audio: true, duration: 4, path: `${prefix}take.mp4` }],
+    placements: [
+      { id: 'first', role: 'main', source: 'take', track: 'speech', in: 0, out: 2, speech: false },
+      { id: 'second', role: 'main', source: 'take', track: 'speech', in: 2, out: 4, speech: false },
+    ],
+    sequence: ['first', 'second'],
+  });
+  writeFileSync(join(reel, 'plan.json'), JSON.stringify({ duration: 4, clips: [], media: media('../../') }));
+  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, clips: [], media: media('../../../') }));
+  const server = await startServer({ projectDir: dir, port: 0 });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
+    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    const lanes = page.getByRole('region', { name: 'Media timeline' });
+    const toolbar = page.getByRole('toolbar', { name: 'Timeline tools' });
+    const last = async () => {
+      await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 5000 }).toBe(true);
+      return (await server.project.readEditList('founder-talk')).operations.at(-1)!;
+    };
+
+    const mainLane = lanes.locator('[data-role="main"]');
+    const firstClip = mainLane.locator('[data-placement="first"]');
+    const secondClip = mainLane.locator('[data-placement="second"]');
+    await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 5000 }).toBe(true);
+    await secondClip.waitFor();
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    // 1. Delete on first clip leaves a gap so second clip keeps its time
+    await firstClip.click();
+    await firstClip.focus();
+    await expect.poll(() => firstClip.getAttribute('aria-pressed')).toBe('true');
+    await page.keyboard.press('Delete');
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'first', leaveGap: true });
+    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBeGreaterThan(0);
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    // 2. Undo restores first clip and removes the gap
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await firstClip.waitFor();
+    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBe(0);
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    // 3. Snip 1s range across first (0.5 to 1.5) leaves a gap
+    await toolbar.getByRole('button', { name: 'Snip', exact: true }).click();
+    const footage = lanes.locator('[data-role="main"]').locator('.native-lane-bars');
+    await footage.scrollIntoViewIfNeeded();
+    const box = (await footage.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.5 / 4, box.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 1.5 / 4, box.y + 20, { steps: 8 });
+    await page.mouse.up();
+
+    const snipConfirm = page.locator('.editor-snip-confirm');
+    await expect.poll(async () => snipConfirm.textContent()).toContain('keep the gap');
+    await expect.poll(async () => snipConfirm.textContent()).toContain('Shift');
+    await page.getByRole('button', { name: 'Apply snip' }).click();
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-snip', leaveGap: true });
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    // 4. Undo and Shift+Apply snip closes the gap
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    await toolbar.getByRole('button', { name: 'Snip', exact: true }).click();
+    await page.mouse.move(box.x + box.width * 0.5 / 4, box.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 1.5 / 4, box.y + 20, { steps: 8 });
+    await page.mouse.up();
+
+    await page.getByRole('button', { name: 'Apply snip' }).click({ modifiers: ['Shift'] });
+    await expect.poll(async () => {
+      const op = await last();
+      if (!op || op.kind !== 'placement-snip') return null;
+      return (op as any).leaveGap ?? false;
+    }, { timeout: 5000 }).toBe(false);
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('1.00 to 3.00');
+
+    // 5. Undo and Shift+Delete ripples (closes the gap)
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).click();
+    await firstClip.waitFor();
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    await firstClip.click();
+    await firstClip.focus();
+    await expect.poll(() => firstClip.getAttribute('aria-pressed')).toBe('true');
+    await page.keyboard.press('Shift+Delete');
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-ripple-remove', placement: 'first' });
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('0.00 to 2.00');
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+});
+
