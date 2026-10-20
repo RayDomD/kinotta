@@ -5,7 +5,9 @@ import { withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { ensurePlaybackCopy, needsPlaybackCopy } from './import.ts';
-import { probeVideo, transcribeAudio } from './runner.ts';
+import { probeVideo, transcribeAudio, waveformPeaks } from './runner.ts';
+import { checkDeadAir, cutDeadAir } from './dead-air.ts';
+import type { Piece } from './pieces.ts';
 import { briefRequest } from './requests.ts';
 import { autoSections } from './transcription.ts';
 import type { Transcriptions } from './transcription.ts';
@@ -68,6 +70,7 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
   const file = await resolveVideo(projectDir, input.video);
+  checkDeadAir(input.deadAir);
   const probe = await probeVideo(file);
   // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
   if (needsPlaybackCopy(probe.codec)) await ensurePlaybackCopy(projectDir, file);
@@ -83,15 +86,21 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
     video: posix(relative(dirname(planFile), file)),
     captions: true,
     duration,
-    pieces: [{ in: 0, out: duration }],
+    pieces: [{ in: 0, out: duration }] as Piece[],
     clips: [],
     sections: [{ id: 'all', name: title, start: 0, end: duration }],
   };
   await writeJson(planFile, plan);
   jobs.start(slug, duration, async (report) => {
     const words = await transcriber(file, report);
+    // Peaks only find breaths, so a video without an audio track still gets its pauses cut.
+    let pieces = plan.pieces;
+    if (input.deadAir !== false) {
+      const peaks = await waveformPeaks(file, probe.duration).catch(() => undefined);
+      pieces = cutDeadAir(words, duration, { strength: input.deadAir, peaks });
+    }
     // The transcript and the sections go into the plan under the reel's lock, so an edit being checked never sees half of them.
-    const planned = { ...plan, transcript: 'transcript.json', sections: autoSections(words, duration, title) };
+    const planned = { ...plan, pieces, transcript: 'transcript.json', sections: autoSections(words, duration, title) };
     await withReelLock(reelDir, async () => {
       await writeJson(join(reelDir, 'transcript.json'), { words });
       await writeJsonAtomic(planFile, planned);

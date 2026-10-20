@@ -478,8 +478,16 @@ export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ vi
 export const startReelFromBrief = (input: { title: string; brief: string }): Promise<{ slug: string; request: string }> =>
   requestJson('/api/reels/brief', jsonBody('POST', input));
 
+export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
+
+export interface NewReelInput {
+  video: string;
+  title?: string;
+  deadAir?: DeadAirStrength | false;
+}
+
 /** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
-export const startReel = (input: { video: string; title?: string }): Promise<{ slug: string }> =>
+export const startReel = (input: NewReelInput): Promise<{ slug: string }> =>
   requestJson('/api/reels', jsonBody('POST', input));
 
 /** How the reel's transcription stands, or null when none has run since the server started. */

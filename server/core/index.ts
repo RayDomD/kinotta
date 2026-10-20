@@ -37,6 +37,18 @@ export { assembleParts } from './_internal/parts-assembler.ts';
 export type { PartsInputs, ShotRevision } from './_internal/parts-assembler.ts';
 export { scanPage, checkShotsAgainstPage } from './_internal/contract.ts';
 export { KinottaError } from './_internal/errors.ts';
+export {
+  BREATH_MAX_PEAK,
+  BREATH_MIN_PEAK,
+  DEAD_AIR_STRENGTHS,
+  GENTLE_GAP_SECONDS,
+  NORMAL_GAP_SECONDS,
+  TIGHT_GAP_SECONDS,
+  WORD_PAD_SECONDS,
+  cutDeadAir,
+  isDeadAirStrength,
+} from './_internal/transcription.ts';
+export type { DeadAirOptions, DeadAirStrength } from './_internal/transcription.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';

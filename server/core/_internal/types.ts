@@ -2,6 +2,9 @@ import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanCl
 import type { PlacedPiece } from './pieces.ts';
 import type { BeatGrid, MediaPlan, MediaSource } from './media-model.ts';
 import type { AudioGenerationRequest, GeneratedAudio } from './audio-generation.ts';
+import type { DeadAirStrength } from './dead-air.ts';
+
+export type { DeadAirStrength } from './dead-air.ts';
 
 export interface ReelSummary {
   /** Folder name under reels/. */
@@ -730,6 +733,7 @@ export interface NewReel {
   video: string;
   /** The reel's name; the video's file name when absent or blank. */
   title?: string;
+  deadAir?: DeadAirStrength | false;
 }
 
 export interface StartedReel {
