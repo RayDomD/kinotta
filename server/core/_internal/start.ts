@@ -1,12 +1,12 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { addOperation, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { ensurePlaybackCopy, needsPlaybackCopy } from './import.ts';
 import { probeVideo, transcribeAudio, waveformPeaks } from './runner.ts';
-import { checkDeadAir, cutDeadAir } from './dead-air.ts';
+import { checkDeadAir, DEAD_AIR_BY, deadAirCuts } from './dead-air.ts';
 import type { Piece } from './pieces.ts';
 import { briefRequest } from './requests.ts';
 import { autoSections } from './transcription.ts';
@@ -65,8 +65,9 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
 /**
  * Starts a reel from a video that stays where it is: writes reel.json and a plan of one piece with captions on and
  * no clips, and returns. The transcription then runs in the background (the video plays and edits collect meanwhile): its
- * words become the reel's transcript, the plan gets its transcript and automatic sections, and v1 is built from it (which
- * keeps its own copies of both, E14). A failure leaves the reel without a version and is reported through `jobs`.
+ * words become the reel's transcript, the plan gets its transcript and automatic sections, and v1 is built uncut from it
+ * (which keeps its own copies of both, E14). When dead-air trimming is requested, each cut is added to the edit list
+ * as a tagged snip after v1 is published. A failure leaves the reel without a version and is reported through `jobs`.
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
   const file = await resolveVideo(projectDir, input.video);
@@ -93,20 +94,22 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   await writeJson(planFile, plan);
   jobs.start(slug, duration, async (report) => {
     const words = await transcriber(file, report);
-    // Peaks only find breaths, so a video without an audio track still gets its pauses cut.
-    let pieces = plan.pieces;
-    if (input.deadAir) {
-      const peaks = await waveformPeaks(file, probe.duration).catch(() => undefined);
-      pieces = cutDeadAir(words, duration, { strength: input.deadAir, peaks });
-    }
     // The transcript and the sections go into the plan under the reel's lock, so an edit being checked never sees half of them.
-    const planned = { ...plan, pieces, transcript: 'transcript.json', sections: autoSections(words, duration, title) };
+    const planned = { ...plan, transcript: 'transcript.json', sections: autoSections(words, duration, title) };
     await withReelLock(reelDir, async () => {
       await writeJson(join(reelDir, 'transcript.json'), { words });
       await writeJsonAtomic(planFile, planned);
     });
     const staged = await stageVersion(reelDir, { plan: planned, planDir: reelDir, words, builtBy: BUILT_BY_YOU });
     await withReelLock(reelDir, () => publishVersion(reelDir, staged, 1));
+    if (input.deadAir) {
+      // Peaks only find breaths, so a video without an audio track still gets its pauses cut.
+      const peaks = await waveformPeaks(file, probe.duration).catch(() => undefined);
+      const cuts = deadAirCuts(words, duration, { strength: input.deadAir, peaks });
+      for (const cut of cuts) {
+        await addOperation(projectDir, slug, { kind: 'snip', from: cut.from, to: cut.to, by: DEAD_AIR_BY });
+      }
+    }
   });
   return { slug };
 }

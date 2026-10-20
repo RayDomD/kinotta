@@ -27,6 +27,9 @@ export const BREATH_MIN_PEAK = 0.02;
 /** Ceiling below full speech or music so loud non-speech sounds are not mistaken for a breath. */
 export const BREATH_MAX_PEAK = 0.25;
 
+/** The by author name tagging snips that Make's dead-air pass added. */
+export const DEAD_AIR_BY = 'dead-air';
+
 export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
 
 export const DEAD_AIR_STRENGTHS: readonly DeadAirStrength[] = ['gentle', 'normal', 'tight'];
@@ -34,6 +37,11 @@ export const DEAD_AIR_STRENGTHS: readonly DeadAirStrength[] = ['gentle', 'normal
 export interface DeadAirOptions {
   strength?: DeadAirStrength;
   peaks?: readonly number[];
+}
+
+export interface DeadAirCut {
+  from: number;
+  to: number;
 }
 
 const GAP_SECONDS: Record<DeadAirStrength, number> = { gentle: GENTLE_GAP_SECONDS, normal: NORMAL_GAP_SECONDS, tight: TIGHT_GAP_SECONDS };
@@ -69,19 +77,21 @@ function hasBreathPeak(peaks: readonly number[] | undefined, total: number, cutF
 const round3 = (seconds: number): number => Math.round(seconds * 1000) / 1000;
 
 /**
- * Cut dead air automatically from the transcript's word timings.
+ * Finds stretches of dead air to cut based on transcript word timings and waveform peaks.
  *
- * Removes gaps between consecutive words longer than the threshold for the chosen strength,
- * keeping WORD_PAD_SECONDS after each word so trailing speech sounds are preserved.
- * Normal and tight also trim shorter wordless gaps whose audio peaks show a breath.
+ * Returns the removed stretches in ascending source order.
  */
-export function cutDeadAir(words: readonly TranscriptWord[], duration: number, options: DeadAirStrength | DeadAirOptions = {}): Piece[] {
+export function deadAirCuts(
+  words: readonly TranscriptWord[],
+  duration: number,
+  options: DeadAirStrength | DeadAirOptions = {},
+): DeadAirCut[] {
   const { strength = 'normal', peaks } = typeof options === 'string' ? { strength: options } : options;
   checkDeadAir(strength);
   const total = round3(duration);
   if (!(total > 0)) return [];
 
-  let pieces: Piece[] = [{ in: 0, out: total }];
+  const cuts: DeadAirCut[] = [];
   const sorted = words
     .filter((w) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end >= w.start)
     .sort((a, b) => a.start - b.start || a.end - b.end);
@@ -97,7 +107,25 @@ export function cutDeadAir(words: readonly TranscriptWord[], duration: number, o
 
     const isPause = gap > GAP_SECONDS[strength];
     const isBreath = breathGap !== null && gap >= breathGap && hasBreathPeak(peaks, total, cutFrom, cutTo);
-    if (isPause || isBreath) pieces = snipPieces(pieces, cutFrom, cutTo);
+    if (isPause || isBreath) cuts.push({ from: cutFrom, to: cutTo });
+  }
+  return cuts;
+}
+
+/**
+ * Cut dead air automatically from the transcript's word timings.
+ *
+ * Removes gaps between consecutive words longer than the threshold for the chosen strength,
+ * keeping WORD_PAD_SECONDS after each word so trailing speech sounds are preserved.
+ * Normal and tight also trim shorter wordless gaps whose audio peaks show a breath.
+ */
+export function cutDeadAir(words: readonly TranscriptWord[], duration: number, options: DeadAirStrength | DeadAirOptions = {}): Piece[] {
+  const total = round3(duration);
+  if (!(total > 0)) return [];
+  const cuts = deadAirCuts(words, duration, options);
+  let pieces: Piece[] = [{ in: 0, out: total }];
+  for (const cut of cuts) {
+    pieces = snipPieces(pieces, cut.from, cut.to);
   }
   return pieces;
 }

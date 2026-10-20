@@ -14,7 +14,13 @@ import {
   type Piece,
   type TranscriptWord,
 } from '../../server/core/index.ts';
-import { NORMAL_BREATH_GAP_SECONDS, TIGHT_BREATH_GAP_SECONDS } from '../../server/core/_internal/dead-air.ts';
+import {
+  DEAD_AIR_BY,
+  NORMAL_BREATH_GAP_SECONDS,
+  TIGHT_BREATH_GAP_SECONDS,
+  deadAirCuts,
+} from '../../server/core/_internal/dead-air.ts';
+import { applyOperations, planPieces, snipPieces } from '../../server/core/model.ts';
 import { copyFixture } from '../helpers/project.ts';
 
 const SLOW_MS = 120_000;
@@ -83,6 +89,7 @@ describe('dead air constants', () => {
     expect(NORMAL_BREATH_GAP_SECONDS).toBeGreaterThan(TIGHT_BREATH_GAP_SECONDS);
     expect(BREATH_MIN_PEAK).toBe(0.02);
     expect(BREATH_MAX_PEAK).toBe(0.25);
+    expect(DEAD_AIR_BY).toBe('dead-air');
   });
 });
 
@@ -235,6 +242,66 @@ describe('audible breath trimming in wordless gaps', () => {
   });
 });
 
+describe('deadAirCuts', () => {
+  const WORDS_10S: TranscriptWord[] = [
+    { text: 'one', start: 1.0, end: 1.4 },
+    { text: 'two', start: 1.6, end: 2.5 },
+    { text: 'three', start: 3.0, end: 4.0 },
+    { text: 'four', start: 4.9, end: 6.0 },
+    { text: 'five', start: 7.5, end: 8.0 },
+  ];
+  const DURATION_10S = 10;
+  const NATURAL_WORDS: TranscriptWord[] = [
+    { text: 'hello', start: 1.0, end: 2.5 },
+    { text: 'world', start: 2.6, end: 4.0 },
+    { text: 'this', start: 4.2, end: 6.0 },
+    { text: 'is', start: 6.1, end: 8.0 },
+    { text: 'clean', start: 8.2, end: 10.5 },
+  ];
+  const DURATION_12S = 12;
+  const BREATH_WORDS: TranscriptWord[] = [
+    { text: 'speaking', start: 1.0, end: 2.0 },
+    { text: 'again', start: 2.45, end: 4.0 },
+  ];
+  const DURATION_5S = 5;
+
+  it('returns cuts in ascending source order matching cutDeadAir complement across strengths', () => {
+    for (const strength of ['gentle', 'normal', 'tight'] as const) {
+      const cuts = deadAirCuts(WORDS_10S, DURATION_10S, strength);
+      for (let i = 0; i + 1 < cuts.length; i++) {
+        expect(cuts[i]!.from).toBeLessThan(cuts[i]!.to);
+        expect(cuts[i]!.to).toBeLessThan(cuts[i + 1]!.from);
+      }
+      let snipped: Piece[] = [{ in: 0, out: DURATION_10S }];
+      for (const cut of cuts) {
+        snipped = snipPieces(snipped, cut.from, cut.to);
+      }
+      expect(snipped).toEqual(cutDeadAir(WORDS_10S, DURATION_10S, strength));
+    }
+  });
+
+  it('matches cutDeadAir with breath peaks', () => {
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.08 }]);
+    for (const strength of ['gentle', 'normal', 'tight'] as const) {
+      const cuts = deadAirCuts(BREATH_WORDS, DURATION_5S, { strength, peaks: breathPeaks });
+      for (let i = 0; i + 1 < cuts.length; i++) {
+        expect(cuts[i]!.from).toBeLessThan(cuts[i]!.to);
+        expect(cuts[i]!.to).toBeLessThan(cuts[i + 1]!.from);
+      }
+      let snipped: Piece[] = [{ in: 0, out: DURATION_5S }];
+      for (const cut of cuts) {
+        snipped = snipPieces(snipped, cut.from, cut.to);
+      }
+      expect(snipped).toEqual(cutDeadAir(BREATH_WORDS, DURATION_5S, { strength, peaks: breathPeaks }));
+    }
+  });
+
+  it('returns empty list when no gaps qualify', () => {
+    expect(deadAirCuts(NATURAL_WORDS, DURATION_12S, 'tight')).toEqual([]);
+    expect(deadAirCuts([], DURATION_12S, 'tight')).toEqual([]);
+  });
+});
+
 describe('startReel integration', { timeout: SLOW_MS }, () => {
   // Fake words with a 1.0s pause (1.0..2.0) and a 0.5s pause (3.0..3.5)
   const FAKE_WORDS: TranscriptWord[] = [
@@ -252,71 +319,132 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
     });
   });
 
-  it('leaves v1 uncut when deadAir is not asked for', async () => {
+  it('leaves v1 uncut and edit list empty when deadAir is not asked for', async () => {
     const projectDir = copyProjectFixture('footage-project');
     const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
     const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Whole' });
     await project.whenTranscribed(slug);
 
-    expect(readJson(join(projectDir, 'reels', slug, 'plan.json')).pieces).toEqual([{ in: 0, out: 12 }]);
-  });
-
-  it('cuts the 1.0s gap under normal strength and builds v1 with duration matching pieces', async () => {
-    const projectDir = copyProjectFixture('footage-project');
-    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
-    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Auto Cut', deadAir: 'normal' });
-    await project.whenTranscribed(slug);
-
-    const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
-    expect(plan.pieces).toEqual([
-      { in: 0, out: 1.08 },
-      { in: 2, out: 12 },
-    ]);
-    const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
-    expect(shots.duration).toBeCloseTo(11.08, 2);
-  });
-
-  it('cuts both the 1.0s and 0.5s gaps under tight strength', async () => {
-    const projectDir = copyProjectFixture('footage-project');
-    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
-    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Tight Cut', deadAir: 'tight' });
-    await project.whenTranscribed(slug);
-
-    const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
-    expect(plan.pieces).toEqual([
-      { in: 0, out: 1.08 },
-      { in: 2, out: 3.08 },
-      { in: 3.5, out: 12 },
-    ]);
-    const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
-    expect(shots.duration).toBeCloseTo(10.66, 2);
-  });
-
-  it('keeps both gaps under gentle strength', async () => {
-    const projectDir = copyProjectFixture('footage-project');
-    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
-    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Gentle Cut', deadAir: 'gentle' });
-    await project.whenTranscribed(slug);
-
-    const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
-    expect(plan.pieces).toEqual([{ in: 0, out: 12 }]);
+    const v1Plan = readJson(join(projectDir, 'reels', slug, 'v1', 'plan.json'));
+    expect(v1Plan.pieces).toEqual([{ in: 0, out: 12 }]);
     const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
     expect(shots.duration).toBeCloseTo(12, 2);
+    const editList = await project.readEditList(slug);
+    expect(editList.operations).toEqual([]);
+    const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
+    expect(workingPieces).toEqual([{ in: 0, out: 12 }]);
   });
 
-  it('keeps one piece when deadAir is false', async () => {
+  it('leaves v1 uncut and edit list empty when deadAir is false', async () => {
     const projectDir = copyProjectFixture('footage-project');
     const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
     const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'No Cut', deadAir: false });
     await project.whenTranscribed(slug);
 
-    const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
-    expect(plan.pieces).toEqual([{ in: 0, out: 12 }]);
+    const v1Plan = readJson(join(projectDir, 'reels', slug, 'v1', 'plan.json'));
+    expect(v1Plan.pieces).toEqual([{ in: 0, out: 12 }]);
     const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
     expect(shots.duration).toBeCloseTo(12, 2);
+    const editList = await project.readEditList(slug);
+    expect(editList.operations).toEqual([]);
+    const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
+    expect(workingPieces).toEqual([{ in: 0, out: 12 }]);
   });
 
-  it('trims an audible breath gap end-to-end when waveformPeaks inspects real audio', async () => {
+  it('builds v1 uncut and adds tagged snip under normal strength', async () => {
+    const projectDir = copyProjectFixture('footage-project');
+    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
+    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Auto Cut', deadAir: 'normal' });
+    await project.whenTranscribed(slug);
+
+    // v1 is uncut
+    const v1Plan = readJson(join(projectDir, 'reels', slug, 'v1', 'plan.json'));
+    expect(v1Plan.pieces).toEqual([{ in: 0, out: 12 }]);
+    const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
+    expect(shots.duration).toBeCloseTo(12, 2);
+
+    // Working edit list has one snip matching deadAirCuts
+    const expectedCuts = deadAirCuts(FAKE_WORDS, 12, 'normal');
+    expect(expectedCuts).toEqual([{ from: 1.08, to: 2 }]);
+    const editList = await project.readEditList(slug);
+    expect(editList.operations).toMatchObject([
+      { kind: 'snip', from: 1.08, to: 2, by: DEAD_AIR_BY },
+    ]);
+
+    // Working pieces show the cut stretch is absent
+    const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
+    expect(workingPieces).toEqual([
+      { in: 0, out: 1.08 },
+      { in: 2, out: 12 },
+    ]);
+  });
+
+  it('builds v1 uncut, adds tagged snips under tight strength, and restores cut on removeOperation', async () => {
+    const projectDir = copyProjectFixture('footage-project');
+    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
+    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Tight Cut', deadAir: 'tight' });
+    await project.whenTranscribed(slug);
+
+    // v1 is uncut
+    const v1Plan = readJson(join(projectDir, 'reels', slug, 'v1', 'plan.json'));
+    expect(v1Plan.pieces).toEqual([{ in: 0, out: 12 }]);
+    const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
+    expect(shots.duration).toBeCloseTo(12, 2);
+
+    // Edit list has two snips matching deadAirCuts, each tagged with DEAD_AIR_BY
+    const expectedCuts = deadAirCuts(FAKE_WORDS, 12, 'tight');
+    expect(expectedCuts).toEqual([
+      { from: 1.08, to: 2 },
+      { from: 3.08, to: 3.5 },
+    ]);
+    const editList = await project.readEditList(slug);
+    expect(editList.operations).toMatchObject([
+      { kind: 'snip', from: 1.08, to: 2, by: DEAD_AIR_BY },
+      { kind: 'snip', from: 3.08, to: 3.5, by: DEAD_AIR_BY },
+    ]);
+
+    // Working pieces have both cuts absent
+    const initialPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
+    expect(initialPieces).toEqual([
+      { in: 0, out: 1.08 },
+      { in: 2, out: 3.08 },
+      { in: 3.5, out: 12 },
+    ]);
+
+    // Removing the first cut restores that stretch while the other snip remains
+    const firstCut = editList.operations[0]!;
+    expect(firstCut.kind).toBe('snip');
+    await project.removeOperation(slug, firstCut.id);
+
+    const updatedList = await project.readEditList(slug);
+    expect(updatedList.operations).toHaveLength(1);
+    expect(updatedList.operations[0]!.id).toBe(editList.operations[1]!.id);
+
+    // First cut stretch (1.08..2) is present again, second cut (3.08..3.5) is still applied
+    const restoredPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, updatedList.operations).plan);
+    expect(restoredPieces).toEqual([
+      { in: 0, out: 3.08 },
+      { in: 3.5, out: 12 },
+    ]);
+  });
+
+  it('keeps both gaps and empty edit list under gentle strength', async () => {
+    const projectDir = copyProjectFixture('footage-project');
+    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
+    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Gentle Cut', deadAir: 'gentle' });
+    await project.whenTranscribed(slug);
+
+    const v1Plan = readJson(join(projectDir, 'reels', slug, 'v1', 'plan.json'));
+    expect(v1Plan.pieces).toEqual([{ in: 0, out: 12 }]);
+    const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
+    expect(shots.duration).toBeCloseTo(12, 2);
+    const editList = await project.readEditList(slug);
+    expect(editList.operations).toEqual([]);
+    const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
+    expect(workingPieces).toEqual([{ in: 0, out: 12 }]);
+  });
+
+  it('trims an audible breath gap as a tagged snip on Working when waveformPeaks inspects real audio', async () => {
     const projectDir = copyProjectFixture('footage-project');
     const breathFile = join(projectDir, 'media', 'breath.mp4');
     makeBreathVideo(breathFile);
@@ -329,8 +457,17 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
     const { slug } = await project.startReel({ video: 'media/breath.mp4', title: 'Breath Reel', deadAir: 'normal' });
     await project.whenTranscribed(slug);
 
-    const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
-    expect(plan.pieces).toEqual([
+    const v1Plan = readJson(join(projectDir, 'reels', slug, 'v1', 'plan.json'));
+    expect(v1Plan.pieces).toEqual([{ in: 0, out: 5 }]);
+    const shots = readJson(join(projectDir, 'reels', slug, 'v1', 'shots.json'));
+    expect(shots.duration).toBeCloseTo(5, 2);
+
+    const editList = await project.readEditList(slug);
+    expect(editList.operations).toMatchObject([
+      { kind: 'snip', from: 2.08, to: 2.45, by: DEAD_AIR_BY },
+    ]);
+    const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: breathWords }, editList.operations).plan);
+    expect(workingPieces).toEqual([
       { in: 0, out: 2.08 },
       { in: 2.45, out: 5 },
     ]);
