@@ -16,8 +16,14 @@ Branch `feat/simple-mode`, worktree `C:\FIles\Projects\Apps\Kinotta\.worktrees\s
 - Verified: typecheck clean; `tests/core/import-video.test.ts` 9/9 (new non-blocking test red on old code); `tests/e2e/drop-video.spec.ts` 3/3.
 - Not verified: dragging a folder onto the zone (Playwright can't simulate it; try by hand). Full `npx vitest run` was started but its result was not captured; rerun it before dispatch.
 
+## Test status (2026-10-20, second session)
+- Full `npx vitest run` at 9118d90: 18 failed / 918 passed across 13 files, 1050 s. Only 9 failing files were named in the captured output; the other 4 are unidentified.
+- Rerun alone (`--no-file-parallelism`): 8 of 9 pass (alternates-build, alternates-edits, alternates-pins, code-media-save, editing, handoff, legacy-media-editing, parts-batch). Those failures were caused by parallel load.
+- `tests/core/render-media-elements.test.ts` > "reattaches a graphic to the pass of a looping voice under the playhead (A2)" is flaky: fail, pass, fail in three solo runs on this branch; passes in the main checkout. Phase 1 didn't touch rendering, so it's likely timing-sensitive, not a regression (unconfirmed).
+- Open question for the owner: dispatch now and log A2 as known-flaky, or first rerun the suite with fewer workers (e.g. `npx vitest run --maxWorkers=2`) to name and clear the remaining 4 files.
+
 ## Next: dispatch (not done yet)
-1. Rerun `npx vitest run` in the worktree; dispatch only if green.
+1. Resolve the open question above; dispatch only once the owner says go.
 2. Briefs are committed (8f3b94c).
 3. Create worktrees:
    ```
