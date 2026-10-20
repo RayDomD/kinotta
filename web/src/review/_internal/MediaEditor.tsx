@@ -71,6 +71,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     return legacySources ? mediaEditingPlan(sources) : sources.plan;
   }, [base, version, ops, legacySources]);
   const media = useMemo(() => mediaWithTracks(edited.media!), [edited.media]);
+  const [trimDraft, setTrimDraft] = useState<{ id: string; changes: Partial<SourcePlacement>; leaveGap: boolean } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedGraphic, setSelectedGraphic] = useState<string | null>(null);
   const [graphicDraft, setGraphicDraft] = useState<{ id: string; edge: 'start' | 'end' | 'move'; delta: number } | null>(null);
@@ -230,7 +231,15 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     .filter((id) => { const s = media.sources.find((source) => source.id === id)!; return !s.words && !id.startsWith('legacy:') && hasSound(id); });
   const [speech, setSpeech] = useState<Record<string, MediaSpeech>>({});
   const spoken = useMemo(() => ({ ...media, sources: media.sources.map((s) => { const state = speech[s.id]; return !s.words && state?.state === 'ready' ? { ...s, words: state.words } : s; }) }), [media, speech]);
+  const laneWords = useMemo(() => {
+    if (!trimDraft) return mediaWords(spoken, timeline.duration);
+    try {
+      const preview = applyOperations({ plan: { ...edited, media: spoken }, words: [] }, [{ by: 'you', id: 'trim-preview', kind: 'placement-change', placement: trimDraft.id, changes: trimDraft.changes, ...(trimDraft.leaveGap ? { leaveGap: true } : {}) }]);
+      return mediaWords(preview.plan.media!, preview.plan.duration);
+    } catch { return mediaWords(spoken, timeline.duration); }
+  }, [spoken, timeline.duration, edited, trimDraft]);
   const words = useMemo(() => mediaWords(spoken, timeline.duration), [spoken, timeline.duration]);
+  const lanePhrases = useMemo(() => edited.captions ? captionPhrases(laneWords) : [], [edited.captions, laneWords]);
   const pinWord = (word: typeof words[number]) => {
     try {
       const saved = workingPinMoment(word.start, word.placement, word.sourceStart);
@@ -335,7 +344,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     setPictureAttempts((before) => ({ ...before, [id]: (before[id] ?? 0) + 1 }));
     setPictureRunning((before) => Object.fromEntries(Object.entries(before).filter(([key]) => !active.some((p) => p.id === key && p.role !== 'gap' && p.source === id))));
   };
-  const change = (id: string, changes: Partial<SourcePlacement>) => { if (editable) void edits!.add({ kind: 'placement-change', placement: id, changes }); };
+  const change = (id: string, changes: Partial<SourcePlacement>, leaveGap?: boolean) => { if (editable) void edits!.add({ kind: 'placement-change', placement: id, changes, ...(leaveGap ? { leaveGap: true } : {}) }).finally(() => setTrimDraft(null)); };
   const isImage = (p: Placed) => p.role !== 'gap' && media.sources.find((s) => s.id === p.source)?.kind === 'image';
   const splittable = (p: Placed) => time - p.at > SPLIT_MARGIN && p.at + p.duration - time > SPLIT_MARGIN && (p.role === 'gap' || !p.loop);
   const split = (p: Placed) => { if (editable && splittable(p)) void edits!.add({ kind: 'placement-split', placement: p.id, at: Math.round((time - p.at) * 100) / 100 }); };
@@ -373,7 +382,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     } else if (action === 'trimStart' || action === 'trimEnd') {
       event.preventDefault();
       const trimmed = trimToPlayhead(p, isImage(p), time, action === 'trimStart' ? 'start' : 'end');
-      if (trimmed) change(p.id, trimmed);
+      if (trimmed) change(p.id, trimmed, p.role === 'main' && !event.shiftKey);
     }
   };
   const add = async (entry: MediaEntry, role: SourcePlacement['role'], at = time, track?: string, index?: number, effect = false, layer?: number) => {
@@ -574,7 +583,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <TimelineOverview markers={markerState.markers} onMarker={(id) => { const marker = markerState.markers.find((item) => item.id === id); if (marker) playback.seek(marker.time); markerState.setSelected(id); }} timeline={timeline} win={win} time={time} keys={workspace.settings.keys} nudge={workspace.settings.nudge} onWindow={setRawWindow} />
       </>}
       tool={tool} range={snipRange} onRange={selectSnip} onBlade={(p, at) => { if (at - p.at > SPLIT_MARGIN && p.at + p.duration - at > SPLIT_MARGIN) void edits!.add({ kind: 'placement-split', placement: p.id, at: at - p.at }); }}
-      onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
+      onMediaDrop={dropMedia} waveforms={waveforms} soundErrors={playback.failures} pictureErrors={pictureErrors} speech={speech} onRetry={(id, kind) => kind === 'sound' ? playback.retry(id) : kind === 'speech' ? void askSpeech(id) : retryPicture(id)} snap={snap} nudge={workspace.settings.nudge} keys={workspace.settings.keys} overload={overload?.spans ?? []} onChange={change} onTrimPreview={setTrimDraft} onMove={(id, index) => void edits!.add({ kind: 'placement-move', placement: id, index })}
       onDetach={(id, track) => void edits!.add({ kind: 'placement-detach', placement: id, track })}
       onReorderTrack={(id, index) => void edits!.add({ kind: 'track-move', track: id, index })}
       onSelect={(id, inspect) => { setSelectedGraphic(null); setSelected(id); if (inspect || (media.placements.find((p) => p.id === id)?.role === 'audio' && workspace.panelTab !== 'sound')) workspace.setPanelTab('clip'); }} onSeek={playback.seek} onKey={onPlacementKey}
@@ -582,7 +591,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={laneWords} phrases={lanePhrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
       onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}

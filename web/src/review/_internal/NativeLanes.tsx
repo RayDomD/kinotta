@@ -22,6 +22,9 @@ const BROKEN_CLIP_SPAN = 0.5;
 const MIN_DRAG_WIDTH = 2;
 /** A press that moves less than this many pixels is a click: it moves nothing and snaps to nothing. */
 const DRAG_THRESHOLD = 4;
+/** Keep a positive source span at either trim edge. */
+const MIN_TRIM_DURATION = 0.01;
+const SOURCE_TIME_PRECISION = 1_000_000;
 
 type Placed = MediaTimeline['placements'][number];
 interface Props {
@@ -46,7 +49,8 @@ interface Props {
   onSolo: (id: string) => void;
   onAddTrack: () => void;
   onRemoveTrack: (id: string) => void;
-  onChange: (id: string, changes: Partial<SourcePlacement>) => void;
+  onChange: (id: string, changes: Partial<SourcePlacement>, leaveGap?: boolean) => void;
+  onTrimPreview: (draft: { id: string; changes: Partial<SourcePlacement>; leaveGap: boolean } | null) => void;
   onMove: (id: string, index: number) => void;
   onDetach: (id: string, track: string) => void;
   onReorderTrack: (id: string, index: number) => void;
@@ -105,12 +109,31 @@ export function NativeLanes(props: Props) {
   };
   // A dropped clip stays where it was let go until its edit has landed (or was refused), so it never jumps back first.
   useEffect(() => { if (editable && !gesture.current) clearShown(); }, [timeline, editable]);
-  const dragSeconds = (drag: NonNullable<typeof gesture.current>, clientX: number) => {
+  const dragSeconds = (drag: NonNullable<typeof gesture.current>, clientX: number, ripple = false) => {
     const p = drag.placement;
     if (Math.abs(clientX - drag.x) < DRAG_THRESHOLD) return 0;
     const raw = (clientX - drag.x) / drag.width * duration;
     const edges = drag.kind === 'start' ? [p.at] : drag.kind === 'end' ? [p.at + p.duration] : [p.at, p.at + p.duration];
-    return snap && ['move', 'sound', 'start', 'end'].includes(drag.kind) ? magnetDelta(edges, raw, drag.points, SNAP_REACH) : raw;
+    let delta = snap && ['move', 'sound', 'start', 'end'].includes(drag.kind) ? magnetDelta(edges, raw, drag.points, SNAP_REACH) : raw;
+    if (p.role === 'main' && media.sources.find((s) => s.id === p.source)?.kind === 'video') {
+      const index = media.sequence.indexOf(p.id);
+      const before = main.find((item) => item.id === media.sequence[index - 1]);
+      const after = main.find((item) => item.id === media.sequence[index + 1]);
+      const source = media.sources.find((s) => s.id === p.source)!;
+      if (drag.kind === 'start') delta = Math.max(-p.in, ripple ? -Infinity : -(before?.role === 'gap' ? before.duration : 0), Math.min(p.duration - MIN_TRIM_DURATION, delta));
+      if (drag.kind === 'end') delta = Math.min((source.duration ?? Infinity) - p.out, ripple ? Infinity : after?.role === 'gap' ? after.duration : 0, Math.max(MIN_TRIM_DURATION - p.duration, delta));
+    }
+    return delta;
+  };
+  const trimChanges = (drag: NonNullable<typeof gesture.current>, delta: number) => {
+    const p = drag.placement;
+    if (drag.kind !== 'start' && drag.kind !== 'end') return null;
+    if (p.role === 'main' && media.sources.find((s) => s.id === p.source)?.kind === 'video') {
+      const round = (value: number) => Math.round(value * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION;
+      return drag.kind === 'start' ? { in: round(p.in + delta) } : { out: round(p.out + delta) };
+    }
+    const edge = drag.kind === 'start' ? p.at : p.at + p.duration;
+    return trimToPlayhead(p, p.role !== 'gap' && media.sources.find((s) => s.id === p.source)?.kind === 'image', edge + delta, drag.kind);
   };
   /** Whether the whole clip travels with the pointer: a move, or a sound clip carried along or onto another track. */
   const carried = (drag: NonNullable<typeof gesture.current>) => drag.kind === 'move' || drag.kind === 'sound' && drag.placement.role === 'audio';
@@ -119,8 +142,8 @@ export function NativeLanes(props: Props) {
     if (!shown.current && Math.abs(event.clientX - drag.x) < DRAG_THRESHOLD && Math.abs(event.clientY - drag.y) < DRAG_THRESHOLD) return;
     const style = drag.el.style;
     const base = shown.current ??= { el: drag.el, left: style.left, width: style.width, box: drag.el.offsetWidth, offset: drag.el.offsetLeft };
-    const px = dragSeconds(drag, event.clientX) / duration * drag.width;
-    const delta = dragSeconds(drag, event.clientX);
+    const px = dragSeconds(drag, event.clientX, event.shiftKey) / duration * drag.width;
+    const delta = dragSeconds(drag, event.clientX, event.shiftKey);
     const edges = drag.kind === 'start' ? [drag.placement.at] : drag.kind === 'end' ? [drag.placement.at + drag.placement.duration] : [drag.placement.at, drag.placement.at + drag.placement.duration];
     const landed = snap ? drag.points.find((point) => edges.some((edge) => Math.abs(edge + delta - point) <= 0.005001)) : undefined;
     setSnappedTime(landed ?? null);
@@ -171,6 +194,10 @@ export function NativeLanes(props: Props) {
       return;
     }
     showDrag(drag, event);
+    if (drag.kind === 'start' || drag.kind === 'end') {
+      const changes = trimChanges(drag, dragSeconds(drag, event.clientX, event.shiftKey));
+      props.onTrimPreview(changes ? { id: drag.placement.id, changes, leaveGap: !event.shiftKey } : null);
+    }
   };
   const end = (event: PointerEvent<HTMLElement>) => {
     if (selection.current) { move(event); selection.current = null; return; }
@@ -180,10 +207,10 @@ export function NativeLanes(props: Props) {
     setSnappedTime(null);
     // The edit is sent through the callbacks; when none is, the clip goes back to where it was.
     let sent = false;
-    const onChange: Props['onChange'] = (id, changes) => { sent = true; props.onChange(id, changes); };
+    const onChange: Props['onChange'] = (id, changes, leaveGap) => { sent = true; props.onChange(id, changes, leaveGap); };
     const onMove: Props['onMove'] = (id, index) => { sent = true; props.onMove(id, index); };
     const onDetach: Props['onDetach'] = (id, track) => { sent = true; props.onDetach(id, track); };
-    try { drop(drag, event, onChange, onMove, onDetach); } finally { if (!sent) clearShown(); }
+    try { drop(drag, event, onChange, onMove, onDetach); } finally { if (!sent) { clearShown(); props.onTrimPreview(null); } }
   };
   const drop = (drag: NonNullable<typeof gesture.current>, event: PointerEvent<HTMLElement>, onChange: Props['onChange'], onMove: Props['onMove'], onDetach: Props['onDetach']) => {
     const p = drag.placement;
@@ -195,7 +222,7 @@ export function NativeLanes(props: Props) {
       if (Math.abs(at - point.at) > POINT_SEPARATION || Math.abs(gain - point.gain) > POINT_SEPARATION) onChange(p.id, { volume: p.volume!.map((was, index) => index === drag.point ? { at, gain } : was) });
       return;
     }
-    const delta = dragSeconds(drag, event.clientX);
+    const delta = dragSeconds(drag, event.clientX, event.shiftKey);
     // A carried bar and its raised parent can cover the destination. Use the stationary row bounds.
     const target = [...(drag.el.closest('.native-lanes')?.querySelectorAll<HTMLElement>('.native-lane[data-track]') ?? [])].find((row) => {
       const box = row.getBoundingClientRect();
@@ -207,9 +234,8 @@ export function NativeLanes(props: Props) {
     }
     if (Math.abs(delta) < 0.01) return;
     if (drag.kind === 'start' || drag.kind === 'end') {
-      const edge = drag.kind === 'start' ? p.at : p.at + p.duration;
-      const trimmed = trimToPlayhead(p, p.role !== 'gap' && media.sources.find((source) => source.id === p.source)?.kind === 'image', edge + delta, drag.kind);
-      if (trimmed) onChange(p.id, trimmed);
+      const trimmed = trimChanges(drag, delta);
+      if (trimmed) onChange(p.id, trimmed, p.role === 'main' && !event.shiftKey);
     } else if (drag.kind === 'fadeIn' || drag.kind === 'fadeOut') {
       if (p.role !== 'gap') onChange(p.id, { [drag.kind]: Math.max(0, Math.min(p.duration, (p[drag.kind] ?? 0) + (drag.kind === 'fadeIn' ? delta : -delta))) });
     } else if (drag.kind === 'move' && media.sequence.includes(p.id)) {
@@ -244,7 +270,7 @@ export function NativeLanes(props: Props) {
       const displayedDuration = placement.attachmentBroken ? Math.min(BROKEN_CLIP_SPAN, win.length) : placement.duration;
       const speechState = placement.role !== 'gap' && (placement.speech ?? placement.role === 'main') ? speech[placement.source] : undefined;
       const failedKind = placement.role === 'gap' ? null : sound && soundErrors[placement.source] ? 'sound' : sound && speechState?.state === 'failed' ? 'speech' : !sound && pictureErrors[placement.source] ? 'picture' : null;
-      return <Fragment key={placement.id}><button type="button" className={`native-clip${sound ? ' native-sound' : ''}${placement.attachmentBroken ? ' editorial-broken' : ''}`} data-placement={placement.id} data-verify-stack-row={layout.rows.get(placement)} data-verify-broken-placement={String(!!placement.attachmentBroken)} aria-pressed={selected === placement.id} aria-label={`${label}, ${placement.role}, ${placement.at.toFixed(2)} to ${(placement.at + placement.duration).toFixed(2)} seconds`} style={{ top: (layout.rows.get(placement) ?? 0) * rowHeight + 5, bottom: 'auto', height: rowHeight - 10, left: `${(displayedAt - win.start) / duration * 100}%`, width: `${displayedDuration / duration * 100}%` }} onClick={() => onSelect(placement.id, false)} onDoubleClick={() => onSelect(placement.id, true)} onContextMenu={(event) => { event.preventDefault(); onMenu(placement.id, event.clientX, event.clientY); }} onKeyDown={(event) => onKey(event, placement)} onPointerDown={(event) => begin(event, placement, sound ? 'sound' : 'move')} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { gesture.current = null; clearShown(); setVolumeDraft(null); }}>
+      return <Fragment key={placement.id}><button type="button" className={`native-clip${sound ? ' native-sound' : ''}${placement.attachmentBroken ? ' editorial-broken' : ''}`} data-placement={placement.id} data-verify-stack-row={layout.rows.get(placement)} data-verify-broken-placement={String(!!placement.attachmentBroken)} aria-pressed={selected === placement.id} aria-label={`${label}, ${placement.role}, ${placement.at.toFixed(2)} to ${(placement.at + placement.duration).toFixed(2)} seconds`} style={{ top: (layout.rows.get(placement) ?? 0) * rowHeight + 5, bottom: 'auto', height: rowHeight - 10, left: `${(displayedAt - win.start) / duration * 100}%`, width: `${displayedDuration / duration * 100}%` }} onClick={() => onSelect(placement.id, false)} onDoubleClick={() => onSelect(placement.id, true)} onContextMenu={(event) => { event.preventDefault(); onMenu(placement.id, event.clientX, event.clientY); }} onKeyDown={(event) => onKey(event, placement)} onPointerDown={(event) => begin(event, placement, sound ? 'sound' : 'move')} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { gesture.current = null; clearShown(); props.onTrimPreview(null); setVolumeDraft(null); }}>
         {!sound && !placement.attachmentBroken && placement.role !== 'gap' && source?.kind === 'video' && props.stillUrl && <ClipStills source={placement.source} start={placement.in} end={placement.out} duration={placement.duration} loop={placement.loop} url={props.stillUrl}/>}
         {!placement.attachmentBroken && sound && wave?.state === 'ready' && placement.role !== 'gap' && <svg className="native-waveform" viewBox="0 0 1000 32" preserveAspectRatio="none" aria-label={`Source waveform for ${placement.id}`} role="img"><polyline points={Array.from({ length: 128 }, (_, index) => {
           const local = placement.duration * index / 128;
@@ -254,7 +280,7 @@ export function NativeLanes(props: Props) {
         }).join(' ')} /></svg>}
         <span className="native-clip-name">{label}{placement.attachmentBroken ? ' · Reattach' : ''}</span>{placement.role === 'insert' && source?.audio !== false && source?.kind === 'video' && <span className="native-insert-sound" aria-label={placement.mute ?? true ? 'Insert sound muted' : 'Insert sound on'} onPointerDown={(event) => begin(event, placement, 'sound')}>{placement.mute ?? true ? 'Muted' : 'Sound'}</span>}
         {sound && beatSettings.showBeats && placementBeats(media, placement.id, timeline.duration).map((beat) => <span key={beat.at} className={`native-beat${beat.downbeat && beatSettings.emphasizeDownbeats ? ' downbeat' : ''}`} data-at={beat.at} data-downbeat={String(beat.downbeat)} aria-hidden="true" style={{ left: `${(beat.at - placement.at) / placement.duration * 100}%` }} />)}
-        {editable && !placement.attachmentBroken && (['start', 'end'] as const).map((edge) => <span key={edge} className={`native-trim native-trim-${edge}`} aria-label={`Trim ${edge} ${placement.id}`} onPointerDown={(event) => begin(event, placement, edge)} />)}
+        {editable && !placement.attachmentBroken && (['start', 'end'] as const).map((edge) => <span key={edge} className={`native-trim native-trim-${edge}`} aria-label={`Trim ${edge} ${placement.id}`} title={placement.role === 'main' ? 'Trim; Shift ripples' : 'Trim'} onPointerDown={(event) => begin(event, placement, edge)} />)}
         {sound && !placement.attachmentBroken && placement.role !== 'gap' && <svg className="native-volume" viewBox="0 0 100 100" preserveAspectRatio="none" onPointerDown={(event) => begin(event, placement, 'sound')} onDoubleClick={(event) => {
           event.stopPropagation();
           if (!editable || tool !== 'select') return;
