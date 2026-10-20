@@ -74,3 +74,6 @@ A plan clip `{ "id": "02", "template": "chip-tally", "fill": {...}, "in", "out" 
 - Research done (Sonnet agent, 26 sources); owner accepted the seven video types and their treatments, written into Approach step 7.
 - Owner decisions B1 to B3 recorded: engine defaults from DESIGN.md and craft.md, treatment by video type after research (with a "What kind of video" question in simple mode, a separate change), and v6 itself as the check.
 - Approved; dispatched to Codex. Claude runs step 4 (the FInalVid rebuild) after Codex finishes.
+
+### 2026-10-21
+- Codex finished steps 0–3 (`14b1451`, `3d23a34`). Owner approved the B1 defaults in `docs/research/2026-10-20-engine-defaults.md` as proposed: slow motion and the signature entrance capped at .5 s (not RayDom's .6 s/.75 s), Geist as the fallback face, and RayDom's width-based video type sizes (12.6vw / 5.2vw / 4.8vw).
