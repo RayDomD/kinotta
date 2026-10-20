@@ -13,7 +13,7 @@ spec: docs/mockups/2026-10-21-simple-video-type-picker.html, docs/mockups/2026-1
 - Outcome: A selected/imported video opens an optional treatment picker. Make applies supported settings, with an explicit route for agent-authored additions. Review shows added visuals, captions and footage on one time axis.
 - Constraints: Nothing in the picker is required. Preserve the owner's freedom to override defaults. Follow DESIGN.md tokens; preserve detailed Review behavior and the chosen Working page/shot selection (`web/src/review/_internal/MediaEditor.tsx:172`, `web/src/review/_internal/MediaEditor.tsx:529`). No second caption model or operation system.
 - Affected implementation, proposed: `web/src/SimpleMode.tsx`, `web/src/SimpleTimeline.tsx`, `web/src/simple.css`; API request types and server start path; caption extraction from `web/src/review/_internal/EditorialLanes.tsx`; wiring in both Review hosts. Exact current entry points are recorded below. New files in Steps are proposals, not existing components.
-- Out of scope: New templates, general editor redesign, caption styling controls, automatic-agent infrastructure without a separate owner decision, new thumbnail generation, and changes to alternate selection. This review edits only this plan and the brief's requested completion note; no code, tests, dashboard regeneration, commits, merges or pushes.
+- Out of scope: Music and beat-synced cuts in simple mode (owner 2026-10-21: separate follow-up; existing beat detection and snapping live in the detailed editor and `skill/kinotta/reference/sound.md`). New templates, general editor redesign, caption styling controls, automatic-agent infrastructure without a separate owner decision, new thumbnail generation, and changes to alternate selection. This review edits only this plan and the brief's requested completion note; no code, tests, dashboard regeneration, commits, merges or pushes.
 
 ### Owner questions
 
@@ -134,3 +134,4 @@ Review validation on 2026-10-21: inspected the cited code and both branch identi
 - Owner decided question 5: Pace is visual pacing of b-roll, not dead-air strength. Merged feat/templates-in-footage into feat/simple-mode (owner approved).
 - Owner required the live b-roll plan preview under the dials; added to Goal 2 with its mockup.
 - Owner decided question 6: free drag default, snap toggle, resize never moves neighbouring words or clips.
+- Owner deferred music and beat-synced cuts in simple mode to a separate follow-up.
