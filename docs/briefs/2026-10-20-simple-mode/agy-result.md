@@ -44,3 +44,36 @@
 - **Phase 4 core scope is complete.**
 - **UI strength picker exposure**: `startReel` and `NewReelInput` accept `deadAir?: 'gentle' | 'normal' | 'tight' | false` (defaulting to `'normal'` automatically on Make). If a UI control in `NewReel.tsx` is desired later, it can pass `deadAir` directly to `startReel`.
 - **Cross-lane note for full-suite runs**: Any untouched test outside our scope that calls `startReel` with synthetic word timings containing >0.7s inter-word gaps and asserts unedited timeline timestamps on `v1` can either pass `deadAir: false` or assert against the cut timeline.
+
+## Phase 4 review fixes (`agy-phase-4-fixes.md`)
+
+### Changes
+- **Breath trimming depends on strength.** `gentle` never trims breaths. `normal` trims breaths in wordless gaps of at least `NORMAL_BREATH_GAP_SECONDS = 0.4`. `tight` trims them in gaps of at least `TIGHT_BREATH_GAP_SECONDS = 0.25`. These replace `BREATH_MIN_GAP_SECONDS`.
+- **Peak band set from measurement:** `BREATH_MIN_PEAK` went from 0.015 to **0.02**. `BREATH_MAX_PEAK` stays at 0.25.
+- **Less code.** The `InputError` class is gone. `checkDeadAir` in `dead-air.ts` is now the only place `deadAir` is validated, and it throws `KinottaError('invalid', ...)`. `startReel` calls it, and so does `cutDeadAir` on the strength. Also removed: the `options === false` cast path, the `rawWords.words` fallback in `startReel`, and the unused outer `pieces` variable. The option is typed `DeadAirStrength | DeadAirOptions`. `hasBreathPeak` is no longer exported.
+
+### Measured peak values
+- **No real clip was available.** `footage/` holds only the `.waveforms/` cache. The fixture `tests/fixtures/projects/footage-project/media/talk.mp4` has no audio stream (checked with ffprobe). So I measured `waveformPeaks` on a 6 s clip generated with ffmpeg:
+
+| Segment | Source | Peak min | Peak max | Peak avg |
+|---|---|---|---|---|
+| Room tone | pink noise, amplitude 0.012 | 0.0037 | 0.0089 | 0.0057 |
+| Breath | pink noise, amplitude 0.09 | 0.0273 | 0.0775 | 0.0434 |
+| Tone at speech level | 220 Hz sine, volume 0.35 | 0.0422 | 0.0456 | 0.0438 |
+
+- `BREATH_MIN_PEAK = 0.02` sits above the loudest measured room-tone bucket (0.009) and loud phone hiss (about 0.015, the value the room-tone test uses). It sits below the quietest breath bucket (0.027).
+- **Caveats:**
+  - These numbers come from synthetic noise, not phone footage, so check the band against a real talking-head clip before relying on it.
+  - The "speech level" tone measured only 0.044, inside the breath band. Peak level alone does not separate soft speech from a breath. The breath rule relies on the transcript to say the gap has no words. I have not investigated why that tone measured so low.
+
+### Scope deviation
+- Dropping `InputError` and `BREATH_MIN_GAP_SECONDS` broke the re-export lists in `server/core/index.ts` and `server/core/_internal/transcription.ts`, so `tsc` failed. I removed those two names from each list (4 lines deleted, nothing added). The new breath-gap constants are **not** re-exported from `server/core/index.ts`. The test imports them from `server/core/_internal/dead-air.ts`.
+
+### Checks
+- `npx tsc --noEmit`: 0 errors.
+- `npx vitest run tests/core/dead-air.test.ts tests/core/start-reel.test.ts tests/core/transcription.test.ts`: 3 files passed, 37 tests passed, 1 skipped (`KINOTTA_REAL_WHISPER`). `dead-air.test.ts` now has 19 tests. Its new breath tests check that:
+  - `gentle` keeps a breath gap.
+  - `normal` and `tight` cut it.
+  - `normal` needs a longer gap than `tight`.
+  - Room tone below the band and loud audio above it are kept at every strength.
+- I wrote the new breath tests first and saw 5 of them fail before implementing.

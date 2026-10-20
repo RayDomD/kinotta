@@ -15,13 +15,16 @@ export const TIGHT_GAP_SECONDS = 0.35;
 /** Buffer kept after word endings to avoid clipping trailing syllables and natural acoustic decay. */
 export const WORD_PAD_SECONDS = 0.08;
 
-/** Shortest wordless interval where an audible inhale or breath pause typically occurs. */
-export const BREATH_MIN_GAP_SECONDS = 0.25;
+/** Normal only trims a breath with room for a full inhale, so short natural catches between words stay. */
+export const NORMAL_BREATH_GAP_SECONDS = 0.4;
 
-/** Minimum audio amplitude distinguishing audible breath intake from ambient room noise. */
-export const BREATH_MIN_PEAK = 0.015;
+/** Tight also trims quick catch-breaths, the shortest wordless gap an audible inhale fits in. */
+export const TIGHT_BREATH_GAP_SECONDS = 0.25;
 
-/** Maximum audio amplitude distinguishing soft breath sounds from intentional speech or coughs. */
+/** Above measured room tone (peaks up to 0.009) and loud phone hiss (about 0.015), below a breath (from 0.027). */
+export const BREATH_MIN_PEAK = 0.02;
+
+/** Ceiling below full speech or music so loud non-speech sounds are not mistaken for a breath. */
 export const BREATH_MAX_PEAK = 0.25;
 
 export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
@@ -33,140 +36,68 @@ export interface DeadAirOptions {
   peaks?: readonly number[];
 }
 
-export class InputError extends KinottaError {
-  constructor(message: string) {
-    super('invalid', message);
-    this.name = 'InputError';
-  }
-}
+const GAP_SECONDS: Record<DeadAirStrength, number> = { gentle: GENTLE_GAP_SECONDS, normal: NORMAL_GAP_SECONDS, tight: TIGHT_GAP_SECONDS };
+
+/** Gentle keeps every breath; the others trim breaths in gaps at least this long. */
+const BREATH_GAP_SECONDS: Record<DeadAirStrength, number | null> = { gentle: null, normal: NORMAL_BREATH_GAP_SECONDS, tight: TIGHT_BREATH_GAP_SECONDS };
 
 /** Checks whether a value is one of the supported dead-air trimming strengths. */
 export function isDeadAirStrength(value: unknown): value is DeadAirStrength {
   return typeof value === 'string' && (DEAD_AIR_STRENGTHS as readonly string[]).includes(value);
 }
 
-/** Map strength setting to inter-word gap threshold in seconds. */
-function gapThreshold(strength: DeadAirStrength): number {
-  switch (strength) {
-    case 'gentle':
-      return GENTLE_GAP_SECONDS;
-    case 'tight':
-      return TIGHT_GAP_SECONDS;
-    case 'normal':
-    default:
-      return NORMAL_GAP_SECONDS;
+/** Throws unless `value` is a strength, `false` (no cutting) or absent. The one place `deadAir` is checked. */
+export function checkDeadAir(value: unknown): asserts value is DeadAirStrength | false | undefined {
+  if (value !== undefined && value !== false && !isDeadAirStrength(value)) {
+    throw new KinottaError('invalid', "deadAir must be 'gentle', 'normal', 'tight', or false");
   }
 }
 
-/**
- * Checks whether the audio waveform peaks inside [cutFrom, cutTo] fall within the audible breath range.
- */
-export function hasBreathPeak(
-  peaks: readonly number[] | undefined,
-  total: number,
-  cutFrom: number,
-  cutTo: number,
-): boolean {
-  if (!peaks || !Array.isArray(peaks) || peaks.length === 0 || total <= 0 || cutTo <= cutFrom) {
-    return false;
-  }
-
-  const startIdx = Math.max(0, Math.min(peaks.length - 1, Math.floor((cutFrom / total) * peaks.length)));
+/** Whether the loudest waveform peak inside [cutFrom, cutTo] falls within the audible breath band. */
+function hasBreathPeak(peaks: readonly number[] | undefined, total: number, cutFrom: number, cutTo: number): boolean {
+  if (!peaks || peaks.length === 0) return false;
+  const startIdx = Math.min(peaks.length - 1, Math.floor((cutFrom / total) * peaks.length));
   const endIdx = Math.max(startIdx, Math.min(peaks.length - 1, Math.ceil((cutTo / total) * peaks.length) - 1));
-
   let maxPeak = -Infinity;
   for (let i = startIdx; i <= endIdx; i++) {
-    const p = peaks[i];
-    if (typeof p === 'number' && Number.isFinite(p) && p > maxPeak) {
-      maxPeak = p;
-    }
+    const p = peaks[i]!;
+    if (Number.isFinite(p) && p > maxPeak) maxPeak = p;
   }
-
-  if (!Number.isFinite(maxPeak)) {
-    return false;
-  }
-
   return maxPeak >= BREATH_MIN_PEAK && maxPeak <= BREATH_MAX_PEAK;
 }
+
+const round3 = (seconds: number): number => Math.round(seconds * 1000) / 1000;
 
 /**
  * Cut dead air automatically from the transcript's word timings.
  *
  * Removes gaps between consecutive words longer than the threshold for the chosen strength,
- * keeping WORD_PAD_SECONDS padding after each word so trailing speech sounds are preserved.
- * Also trims wordless gaps with audible breath peaks when peak levels indicate an inhale.
+ * keeping WORD_PAD_SECONDS after each word so trailing speech sounds are preserved.
+ * Normal and tight also trim shorter wordless gaps whose audio peaks show a breath.
  */
-export function cutDeadAir(
-  words: readonly TranscriptWord[],
-  duration: number,
-  options?: DeadAirStrength | DeadAirOptions,
-): Piece[] {
-  if ((options as unknown) === false) {
-    const total = Math.round(duration * 1000) / 1000;
-    return total > 0 ? [{ in: 0, out: total }] : [];
-  }
-
-  let strength: unknown;
-  let peaks: readonly number[] | undefined;
-
-  if (typeof options === 'string') {
-    strength = options;
-    peaks = undefined;
-  } else if (typeof options === 'object' && options !== null) {
-    if ((options as { strength?: unknown }).strength === false) {
-      const total = Math.round(duration * 1000) / 1000;
-      return total > 0 ? [{ in: 0, out: total }] : [];
-    }
-    strength = options.strength ?? 'normal';
-    peaks = options.peaks;
-  } else if (options === undefined) {
-    strength = 'normal';
-    peaks = undefined;
-  } else {
-    strength = options;
-  }
-
-  if (!isDeadAirStrength(strength)) {
-    throw new InputError("deadAir must be 'gentle', 'normal', 'tight', or false");
-  }
-
-  const total = Math.round(duration * 1000) / 1000;
-  if (!(total > 0)) {
-    return [];
-  }
+export function cutDeadAir(words: readonly TranscriptWord[], duration: number, options: DeadAirStrength | DeadAirOptions = {}): Piece[] {
+  const { strength = 'normal', peaks } = typeof options === 'string' ? { strength: options } : options;
+  checkDeadAir(strength);
+  const total = round3(duration);
+  if (!(total > 0)) return [];
 
   let pieces: Piece[] = [{ in: 0, out: total }];
-
-  const sorted = (words ?? [])
+  const sorted = words
     .filter((w) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end >= w.start)
     .sort((a, b) => a.start - b.start || a.end - b.end);
+  const breathGap = BREATH_GAP_SECONDS[strength];
 
-  if (sorted.length < 2) {
-    return pieces;
-  }
-
-  const threshold = gapThreshold(strength);
-
-  for (let i = 0; i < sorted.length - 1; i++) {
+  for (let i = 0; i + 1 < sorted.length; i++) {
     const prev = sorted[i]!;
     const next = sorted[i + 1]!;
     const gap = next.start - prev.end;
-    const cutFrom = Math.max(0, Math.round((prev.end + WORD_PAD_SECONDS) * 1000) / 1000);
-    const cutTo = Math.min(total, Math.round(next.start * 1000) / 1000);
+    const cutFrom = Math.max(0, round3(prev.end + WORD_PAD_SECONDS));
+    const cutTo = Math.min(total, round3(next.start));
+    if (cutTo - cutFrom <= 0.005) continue;
 
-    if (cutTo <= cutFrom || cutTo - cutFrom <= 0.005) {
-      continue;
-    }
-
-    const isLongGap = gap > threshold;
-    const isBreathGap = !isLongGap && gap >= BREATH_MIN_GAP_SECONDS && hasBreathPeak(peaks, total, cutFrom, cutTo);
-
-    if (isLongGap || isBreathGap) {
-      pieces = snipPieces(pieces, cutFrom, cutTo);
-    }
+    const isPause = gap > GAP_SECONDS[strength];
+    const isBreath = breathGap !== null && gap >= breathGap && hasBreathPeak(peaks, total, cutFrom, cutTo);
+    if (isPause || isBreath) pieces = snipPieces(pieces, cutFrom, cutTo);
   }
-
   return pieces;
 }
-
-export type { Piece, TranscriptWord };

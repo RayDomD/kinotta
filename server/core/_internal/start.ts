@@ -6,7 +6,7 @@ import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { ensurePlaybackCopy, needsPlaybackCopy } from './import.ts';
 import { probeVideo, transcribeAudio, waveformPeaks } from './runner.ts';
-import { cutDeadAir, InputError, isDeadAirStrength } from './dead-air.ts';
+import { checkDeadAir, cutDeadAir } from './dead-air.ts';
 import type { Piece } from './pieces.ts';
 import { briefRequest } from './requests.ts';
 import { autoSections } from './transcription.ts';
@@ -70,13 +70,7 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
   const file = await resolveVideo(projectDir, input.video);
-  if (
-    input.deadAir !== undefined &&
-    input.deadAir !== false &&
-    !isDeadAirStrength(input.deadAir)
-  ) {
-    throw new InputError("deadAir must be 'gentle', 'normal', 'tight', or false");
-  }
+  checkDeadAir(input.deadAir);
   const probe = await probeVideo(file);
   // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
   if (needsPlaybackCopy(probe.codec)) await ensurePlaybackCopy(projectDir, file);
@@ -87,29 +81,23 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   const planFile = join(reelDir, 'plan.json');
 
   await writeJson(join(reelDir, 'reel.json'), { title, footage });
-  let pieces: Piece[] = [{ in: 0, out: duration }];
   const plan = {
     title,
     video: posix(relative(dirname(planFile), file)),
     captions: true,
     duration,
-    pieces,
+    pieces: [{ in: 0, out: duration }] as Piece[],
     clips: [],
     sections: [{ id: 'all', name: title, start: 0, end: duration }],
   };
   await writeJson(planFile, plan);
   jobs.start(slug, duration, async (report) => {
-    const rawWords = await transcriber(file, report);
-    const words = Array.isArray(rawWords) ? rawWords : ((rawWords as unknown as { words?: typeof rawWords })?.words ?? []);
-    let pieces: Piece[] = [{ in: 0, out: duration }];
-    if (input.deadAir !== false && words && words.length > 1) {
-      const peaks = await waveformPeaks(file, probe.duration).catch(
-        () => undefined,
-      );
-      pieces = cutDeadAir(words, duration, {
-        strength: input.deadAir ?? 'normal',
-        peaks,
-      });
+    const words = await transcriber(file, report);
+    // Peaks only find breaths, so a video without an audio track still gets its pauses cut.
+    let pieces = plan.pieces;
+    if (input.deadAir !== false) {
+      const peaks = await waveformPeaks(file, probe.duration).catch(() => undefined);
+      pieces = cutDeadAir(words, duration, { strength: input.deadAir, peaks });
     }
     // The transcript and the sections go into the plan under the reel's lock, so an edit being checked never sees half of them.
     const planned = { ...plan, pieces, transcript: 'transcript.json', sections: autoSections(words, duration, title) };

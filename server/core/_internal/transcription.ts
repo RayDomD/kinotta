@@ -86,7 +86,6 @@ export function createTranscriptions(emit: (event: ProjectEvent) => void, now: (
 
 export {
   BREATH_MAX_PEAK,
-  BREATH_MIN_GAP_SECONDS,
   BREATH_MIN_PEAK,
   DEAD_AIR_STRENGTHS,
   GENTLE_GAP_SECONDS,
@@ -94,7 +93,6 @@ export {
   TIGHT_GAP_SECONDS,
   WORD_PAD_SECONDS,
   cutDeadAir,
-  InputError,
   isDeadAirStrength,
 } from './dead-air.ts';
 export type { DeadAirOptions, DeadAirStrength } from './dead-air.ts';

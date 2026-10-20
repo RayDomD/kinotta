@@ -9,12 +9,12 @@ import {
   NORMAL_GAP_SECONDS,
   TIGHT_GAP_SECONDS,
   WORD_PAD_SECONDS,
-  BREATH_MIN_GAP_SECONDS,
   BREATH_MIN_PEAK,
   BREATH_MAX_PEAK,
   type Piece,
   type TranscriptWord,
 } from '../../server/core/index.ts';
+import { NORMAL_BREATH_GAP_SECONDS, TIGHT_BREATH_GAP_SECONDS } from '../../server/core/_internal/dead-air.ts';
 import { copyFixture } from '../helpers/project.ts';
 
 const SLOW_MS = 120_000;
@@ -78,8 +78,10 @@ describe('dead air constants', () => {
     expect(NORMAL_GAP_SECONDS).toBe(0.7);
     expect(TIGHT_GAP_SECONDS).toBe(0.35);
     expect(WORD_PAD_SECONDS).toBe(0.08);
-    expect(BREATH_MIN_GAP_SECONDS).toBe(0.25);
-    expect(BREATH_MIN_PEAK).toBe(0.015);
+    expect(NORMAL_BREATH_GAP_SECONDS).toBe(0.4);
+    expect(TIGHT_BREATH_GAP_SECONDS).toBe(0.25);
+    expect(NORMAL_BREATH_GAP_SECONDS).toBeGreaterThan(TIGHT_BREATH_GAP_SECONDS);
+    expect(BREATH_MIN_PEAK).toBe(0.02);
     expect(BREATH_MAX_PEAK).toBe(0.25);
   });
 });
@@ -174,33 +176,62 @@ describe('a talk with no long gaps stays one piece', () => {
 });
 
 describe('audible breath trimming in wordless gaps', () => {
-  // Gap of 0.45s from 2.0 to 2.45 (< NORMAL_GAP_SECONDS 0.7, >= BREATH_MIN_GAP_SECONDS 0.25).
+  // Gap of 0.45s from 2.0 to 2.45 (< NORMAL_GAP_SECONDS 0.7, >= NORMAL_BREATH_GAP_SECONDS 0.4).
   // With WORD_PAD_SECONDS 0.08, candidate breath region is [2.08, 2.45].
   const BREATH_WORDS: TranscriptWord[] = [
     { text: 'speaking', start: 1.0, end: 2.0 },
     { text: 'again', start: 2.45, end: 4.0 },
   ];
+  // Shorter breath gap of 0.3s from 2.0 to 2.3 (>= TIGHT_BREATH_GAP_SECONDS 0.25, < NORMAL_BREATH_GAP_SECONDS 0.4).
+  const SHORT_BREATH_WORDS: TranscriptWord[] = [
+    { text: 'speaking', start: 1.0, end: 2.0 },
+    { text: 'again', start: 2.3, end: 4.0 },
+  ];
   const DURATION_5S = 5;
 
-  it('does not cut when peaks indicate room silence below BREATH_MIN_PEAK', () => {
-    const silencePeaks = makePeaks(DURATION_5S, 500, 0.002);
-    const pieces = cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: silencePeaks });
+  it('keeps a breath gap under gentle strength', () => {
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.08 }]);
+    const pieces = cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'gentle', peaks: breathPeaks });
     expect(pieces).toEqual([{ in: 0, out: 5 }]);
   });
 
-  it('trims the breath gap when peaks have low-level breath audio between BREATH_MIN_PEAK and BREATH_MAX_PEAK', () => {
-    const breathPeaks = makePeaks(DURATION_5S, 500, 0.002, [{ start: 2.08, end: 2.45, level: 0.08 }]);
-    const pieces = cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: breathPeaks });
-    expect(pieces).toEqual([
+  it('trims a breath gap under normal and tight strengths', () => {
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.08 }]);
+    const expected: Piece[] = [
       { in: 0, out: 2.08 },
       { in: 2.45, out: 5 },
+    ];
+    expect(cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: breathPeaks })).toEqual(expected);
+    expect(cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'tight', peaks: breathPeaks })).toEqual(expected);
+  });
+
+  it('requires a longer minimum breath gap for normal than tight', () => {
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.3, level: 0.08 }]);
+    expect(cutDeadAir(SHORT_BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: breathPeaks })).toEqual([
+      { in: 0, out: 5 },
+    ]);
+    expect(cutDeadAir(SHORT_BREATH_WORDS, DURATION_5S, { strength: 'tight', peaks: breathPeaks })).toEqual([
+      { in: 0, out: 2.08 },
+      { in: 2.3, out: 5 },
     ]);
   });
 
+  // Each strength gets a gap under its own pause threshold, so only the breath rule can cut it.
+  const UNDER_PAUSE = { gentle: BREATH_WORDS, normal: BREATH_WORDS, tight: SHORT_BREATH_WORDS } as const;
+
+  it('keeps room tone below the breath band at every strength', () => {
+    // 0.015 is loud phone room tone (about -36 dBFS), still below BREATH_MIN_PEAK.
+    const roomTonePeaks = makePeaks(DURATION_5S, 500, 0.015);
+    for (const strength of ['gentle', 'normal', 'tight'] as const) {
+      expect(cutDeadAir(UNDER_PAUSE[strength], DURATION_5S, { strength, peaks: roomTonePeaks })).toEqual([{ in: 0, out: 5 }]);
+    }
+  });
+
   it('does not trim when peaks have loud audio above BREATH_MAX_PEAK', () => {
-    const loudPeaks = makePeaks(DURATION_5S, 500, 0.002, [{ start: 2.08, end: 2.45, level: 0.6 }]);
-    const pieces = cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: loudPeaks });
-    expect(pieces).toEqual([{ in: 0, out: 5 }]);
+    const loudPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.6 }]);
+    for (const strength of ['gentle', 'normal', 'tight'] as const) {
+      expect(cutDeadAir(UNDER_PAUSE[strength], DURATION_5S, { strength, peaks: loudPeaks })).toEqual([{ in: 0, out: 5 }]);
+    }
   });
 });
 

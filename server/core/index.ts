@@ -40,7 +40,6 @@ export { scanPage, checkShotsAgainstPage } from './_internal/contract.ts';
 export { KinottaError } from './_internal/errors.ts';
 export {
   BREATH_MAX_PEAK,
-  BREATH_MIN_GAP_SECONDS,
   BREATH_MIN_PEAK,
   DEAD_AIR_STRENGTHS,
   GENTLE_GAP_SECONDS,
@@ -48,7 +47,6 @@ export {
   TIGHT_GAP_SECONDS,
   WORD_PAD_SECONDS,
   cutDeadAir,
-  InputError,
   isDeadAirStrength,
 } from './_internal/transcription.ts';
 export type { DeadAirOptions, DeadAirStrength } from './_internal/transcription.ts';
