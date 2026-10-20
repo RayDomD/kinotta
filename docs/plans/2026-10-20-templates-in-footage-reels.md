@@ -1,7 +1,7 @@
 ---
 title: Effect templates in footage reels
 date: 2026-10-20
-status: Draft
+status: Approved
 summary: Footage-reel plans can start a clip from an effect template and load the brand's fonts and curves natively, so every reel draws its motion from one shared library, varies it shot to shot and defaults to keynote cutaways.
 spec: docs/plans/2026-10-20-talking-head-effects.md
 ---
@@ -73,3 +73,4 @@ A plan clip `{ "id": "02", "template": "chip-tally", "fill": {...}, "in", "out" 
 - Added after reviewing `socsci-6-final` v6 (the owner's preferred reel of the same speech): a native brand prelude for fonts and curves (step 5), the cutaway default and variation rules (step 6), and a side-by-side comparison with v6 as the check. Five matching rules were added to `~/.kinotta/taste.md` (backup `taste.md.bak-2026-10-20b`); alternating light and dark grounds was dropped because not every DESIGN.md has a dark theme.
 - Research done (Sonnet agent, 26 sources); owner accepted the seven video types and their treatments, written into Approach step 7.
 - Owner decisions B1 to B3 recorded: engine defaults from DESIGN.md and craft.md, treatment by video type after research (with a "What kind of video" question in simple mode, a separate change), and v6 itself as the check.
+- Approved; dispatched to Codex. Claude runs step 4 (the FInalVid rebuild) after Codex finishes.
