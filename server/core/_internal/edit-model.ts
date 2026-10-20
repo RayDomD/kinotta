@@ -3,7 +3,7 @@ import { KinottaError } from './errors.ts';
 import { pieceMap } from './pieces.ts';
 import type { Piece } from './pieces.ts';
 import type { PartsManifest, TranscriptWord } from './types.ts';
-import type { MediaPlacement, MediaPlan, MediaSource, MediaTrack, SourcePlacement } from './media-model.ts';
+import type { GapPlacement, MediaPlacement, MediaPlan, MediaSource, MediaTrack, SourcePlacement } from './media-model.ts';
 import { legacyMedia, mediaSpans, mediaTimeline, mediaWithTracks, mediaWords, pictureOrder, validateBeats } from './media-model.ts';
 import type { BeatGrid } from './media-model.ts';
 import { duckVolume } from './media-duck.ts';
@@ -328,6 +328,7 @@ export interface PlacementRemoveOperation extends AuthoredOperation {
   id: string;
   kind: 'placement-remove';
   placement: string;
+  leaveGap?: boolean;
 }
 export interface PlacementRippleRemoveOperation extends AuthoredOperation { id: string; kind: 'placement-ripple-remove'; placement: string }
 
@@ -356,7 +357,7 @@ export interface PlacementSplitOperation extends AuthoredOperation {
 }
 
 /** Removes a timeline range from the main sequence. Footage sound stays with the surviving pieces. */
-export interface PlacementSnipOperation extends AuthoredOperation { id: string; kind: 'placement-snip'; from: number; to: number }
+export interface PlacementSnipOperation extends AuthoredOperation { id: string; kind: 'placement-snip'; from: number; to: number; leaveGap?: boolean }
 
 export interface PlacementReplaceOperation extends AuthoredOperation {
   id: string;
@@ -826,8 +827,45 @@ function applyPlacementChange(sources: Sources, op: PlacementChangeOperation): S
 }
 
 function applyPlacementRemove(sources: Sources, op: PlacementRemoveOperation): Sources {
+  if (op.leaveGap !== undefined && typeof op.leaveGap !== 'boolean') throw new KinottaError('invalid', 'leaveGap must be a boolean.');
   const media = editableMedia(sources);
-  if (!media.placements.some((p) => p.id === op.placement)) throw new KinottaError('invalid', `Placement ${op.placement} is missing.`);
+  const target = media.placements.find((p) => p.id === op.placement);
+  if (!target) throw new KinottaError('invalid', `Placement ${op.placement} is missing.`);
+  if (op.leaveGap === true && media.sequence.includes(op.placement) && target.role !== 'gap') {
+    const duration = mediaTimeline(media, sources.plan.duration ?? 0).placements.find((p) => p.id === op.placement)!.duration;
+    const gapId = `${op.placement}~gap~${op.id}`;
+    const gapPlacement: GapPlacement = { id: gapId, role: 'gap', duration };
+    const seqIndex = media.sequence.indexOf(op.placement);
+    const initialSequence = [...media.sequence];
+    initialSequence[seqIndex] = gapId;
+    const initialPlacements = media.placements.map((p) => (p.id === op.placement ? gapPlacement : p));
+    const placementMap = new Map<string, MediaPlacement>(initialPlacements.map((p) => [p.id, p]));
+    const normalizedSequence: string[] = [];
+    for (const id of initialSequence) {
+      const current = placementMap.get(id);
+      const prevId = normalizedSequence[normalizedSequence.length - 1];
+      const prev = prevId ? placementMap.get(prevId) : undefined;
+      if (current?.role === 'gap' && prev?.role === 'gap') {
+        placementMap.set(prevId, { ...prev, duration: (prev.duration ?? 0) + (current.duration ?? 0) });
+        placementMap.delete(id);
+      } else {
+        normalizedSequence.push(id);
+      }
+    }
+    while (normalizedSequence.length > 0) {
+      const lastId = normalizedSequence[normalizedSequence.length - 1]!;
+      const last = placementMap.get(lastId);
+      if (last?.role === 'gap') {
+        normalizedSequence.pop();
+        placementMap.delete(lastId);
+      } else {
+        break;
+      }
+    }
+    const nextPlacements = initialPlacements.filter((p) => placementMap.has(p.id)).map((p) => placementMap.get(p.id)!);
+    const base = media.sequence.length > 0 && normalizedSequence.length === 0 ? { ...sources, plan: { ...sources.plan, duration: 0 } } : sources;
+    return withMedia(base, { ...media, placements: nextPlacements, sequence: normalizedSequence });
+  }
   const sequence = media.sequence.filter((id) => id !== op.placement);
   const base = media.sequence.length > 0 && sequence.length === 0 ? { ...sources, plan: { ...sources.plan, duration: 0 } } : sources;
   return withMedia(base, { ...media, placements: media.placements.filter((p) => p.id !== op.placement), sequence });
@@ -949,6 +987,7 @@ function applyPlacementSplit(sources: Sources, op: PlacementSplitOperation): Sou
 }
 
 function applyPlacementSnip(sources: Sources, op: PlacementSnipOperation): Sources {
+  if (op.leaveGap !== undefined && typeof op.leaveGap !== 'boolean') throw new KinottaError('invalid', 'leaveGap must be a boolean.');
   const media = editableMedia(sources);
   const timeline = mediaTimeline(media, sources.plan.duration ?? 0);
   if (!Number.isFinite(op.from) || !Number.isFinite(op.to) || op.from < 0 || op.to > timeline.duration || op.to - op.from <= MIN_SNIP) throw new KinottaError('invalid', 'Choose a stretch inside the footage timeline to snip.');
@@ -965,7 +1004,7 @@ function applyPlacementSnip(sources: Sources, op: PlacementSnipOperation): Sourc
       result = applyPlacementSplit(result, { by: op.by, id, kind: 'placement-split', placement: p.id, at: start });
       removed = `${p.id}~${id}`;
     }
-    result = applyPlacementRemove(result, { by: op.by, id: op.id, kind: 'placement-remove', placement: removed });
+    result = applyPlacementRemove(result, { by: op.by, id: `${op.id}:remove:${removed}`, kind: 'placement-remove', placement: removed, ...(op.leaveGap ? { leaveGap: true } : {}) });
   }
   return result;
 }
