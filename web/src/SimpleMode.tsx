@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { copyBatch, fetchWorkingVersion, listVideos, startReel } from './api/index.ts';
 import type { NewComment, ReelListing, ReelSummary, Version, VideoEntry } from './api/_internal/client.ts';
 import { DropZone } from './DropZone.tsx';
@@ -6,6 +6,10 @@ import { Review } from './review/index.ts';
 import type { EditsState } from './review/index.ts';
 import type { CommentsState } from './useComments.ts';
 import { formatClock } from './timecode.ts';
+import { SimpleCutsContext } from './SimpleTimeline.tsx';
+import type { CutBlock, SimpleCutsValue } from './SimpleTimeline.tsx';
+import { pieceMap, snipPieces, MIN_SNIP } from '../../server/core/model.ts';
+import type { Piece, SnipOperation } from '../../server/core/model.ts';
 import './simple.css';
 
 const PROFILE_KEY = 'kinotta-simple-profile-v1';
@@ -57,7 +61,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
     <form className="sm-make-actions" onSubmit={(event) => {
       event.preventDefault(); if (!picked || busy || !title.trim()) return;
       setBusy(true); setError('');
-      void startReel({ video: picked, title: title.trim(), deadAir: 'normal' }).then(({ slug }) => onStarted(slug), (error: unknown) => { setError(error instanceof Error ? error.message : 'Could not make the reel. Try again.'); setBusy(false); });
+      void startReel({ video: picked, title: title.trim(), deadAir: 'gentle' }).then(({ slug }) => onStarted(slug), (error: unknown) => { setError(error instanceof Error ? error.message : 'Could not make the reel. Try again.'); setBusy(false); });
     }}><label>Reel name<input required disabled={busy} value={title} onChange={(event) => setTitle(event.target.value)} /></label><button className="btn" type="submit" disabled={busy || !picked || !title.trim()}>{busy ? 'Making…' : 'Make'}</button></form>
     {busy && <p role="status">Starting your reel. The preview opens while the words are prepared.</p>}
     {error && <p role="alert">{error}</p>}
@@ -83,6 +87,74 @@ export function SimpleMode({ listing, reel, version, state, message, creating, c
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   useEffect(() => { setDraft(null); setSelected(null); setJump(null); setStatus(''); setError(''); setRequest(''); setEditing(null); }, [reel?.slug, creating]);
+  const cutsValue = useMemo<SimpleCutsValue | null>(() => {
+    if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
+      return null;
+    }
+    const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
+    const liveSnips = edits.list.operations.filter(
+      (op): op is SnipOperation =>
+        op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
+    );
+    const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
+    const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
+    const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
+    if (sourceDuration <= 0) return null;
+
+    let keptPieces: Piece[] = basePieces;
+    for (const snip of liveSnips) {
+      try {
+        keptPieces = snipPieces(keptPieces, snip.from, snip.to);
+      } catch {
+        // Ignored if snip cannot be applied to current pieces
+      }
+    }
+
+    const keptMap = pieceMap(keptPieces, sourceDuration);
+
+    const cuts: CutBlock[] = [];
+    let prevEnd = 0;
+    for (const piece of keptPieces) {
+      if (piece.in - prevEnd > MIN_SNIP) {
+        const from = prevEnd;
+        const to = piece.in;
+        const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+        const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+        cuts.push({ from, to, ops, isDeadAir });
+      }
+      prevEnd = piece.out;
+    }
+    if (sourceDuration - prevEnd > MIN_SNIP) {
+      const from = prevEnd;
+      const to = sourceDuration;
+      const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+      const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+      cuts.push({ from, to, ops, isDeadAir });
+    }
+
+    return {
+      sourceDuration,
+      basePieces,
+      keptPieces,
+      keptMap,
+      cuts,
+      busy: edits.busy,
+      restoreCut: async (cut: CutBlock) => {
+        for (const op of cut.ops) {
+          await edits.remove(op.id);
+        }
+      },
+      replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
+        await edits.remove(oldOp.id);
+        const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+        if (!ok) {
+          await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+          return false;
+        }
+        return true;
+      },
+    };
+  }, [version, edits]);
   const pins = comments.comments;
   const jumpTo = (index: number) => {
     if (!pins.length) return;
@@ -135,7 +207,7 @@ export function SimpleMode({ listing, reel, version, state, message, creating, c
         <div className="sm-heading-actions"><label>Reel<select aria-label="Choose reel" value={creating ? '' : reel?.slug ?? ''} disabled={busy} onChange={(event) => event.target.value ? onOpen(event.target.value) : onNew()}><option value="">New reel</option>{listing.reels.map((reel) => <option key={reel.slug} value={reel.slug}>{reel.title}</option>)}</select></label><button type="button" className="btn quiet" disabled={busy} onClick={onNew}>New reel</button></div>
       </div>
       {creating || !reel ? <SimpleMake onStarted={onStarted} /> : <div className="sm-studio">
-        <div className="sm-preview"><Review reel={reel} state={state} version={version} message={message} comments={pins} edits={edits} simple={{ onPin: (pin) => { setDraft(pin); setText(''); setError(''); }, jump }} />
+        <div className="sm-preview"><SimpleCutsContext.Provider value={cutsValue}><Review reel={reel} state={state} version={version} message={message} comments={pins} edits={edits} simple={{ onPin: (pin) => { setDraft(pin); setText(''); setError(''); }, jump }} /></SimpleCutsContext.Provider>
           {draft && <form className="sm-composer" aria-label="New timeline pin" onSubmit={(event) => {
             event.preventDefault(); if (!text.trim() || busy) return;
             setBusy(true); setError('');
