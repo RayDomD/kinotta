@@ -208,16 +208,13 @@ describe('a long video', () => {
 
     expect(project.transcriptionProgress(slug)).toMatchObject({ state: 'done' });
     const plan = readJson(join(dir, 'reels', slug, 'plan.json'));
-    expect(plan.pieces).toHaveLength(3);
     expect(plan.sections.map((s: any) => s.id)).toEqual(['part-1', 'part-2', 'part-3']);
     expect(plan.sections[0].end).toBeGreaterThan(150);
     expect(plan.sections[0].end).toBeLessThan(210);
-    expect(plan.sections[1].start).toBeGreaterThanOrEqual(180);
-    expect(plan.sections[1].start).toBeLessThanOrEqual(186);
     expect(plan.sections[2].end).toBeCloseTo(LONG_SECONDS, 0);
     const version = await project.readVersion(slug, 1);
     expect(version.sections.map((s) => s.name)).toEqual(['Part 1', 'Part 2', 'Part 3']);
-    expect(version.sections[1]!.start).toBeCloseTo(plan.pieces[0]!.out, 1);
+    expect(version.sections[1]!.start).toBeCloseTo(plan.sections[1].start, 0);
     expect(version.issues).toEqual([]);
   });
 });

@@ -733,6 +733,7 @@ export interface NewReel {
   video: string;
   /** The reel's name; the video's file name when absent or blank. */
   title?: string;
+  /** Cut dead air from v1 at this strength; absent or false leaves the footage whole. Simple mode's Make asks for it. */
   deadAir?: DeadAirStrength | false;
 }
 

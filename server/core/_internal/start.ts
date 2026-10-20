@@ -95,7 +95,7 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
     const words = await transcriber(file, report);
     // Peaks only find breaths, so a video without an audio track still gets its pauses cut.
     let pieces = plan.pieces;
-    if (input.deadAir !== false) {
+    if (input.deadAir) {
       const peaks = await waveformPeaks(file, probe.duration).catch(() => undefined);
       pieces = cutDeadAir(words, duration, { strength: input.deadAir, peaks });
     }

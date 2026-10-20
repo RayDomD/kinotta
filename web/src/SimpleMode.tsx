@@ -57,7 +57,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
     <form className="sm-make-actions" onSubmit={(event) => {
       event.preventDefault(); if (!picked || busy || !title.trim()) return;
       setBusy(true); setError('');
-      void startReel({ video: picked, title: title.trim() }).then(({ slug }) => onStarted(slug), (error: unknown) => { setError(error instanceof Error ? error.message : 'Could not make the reel. Try again.'); setBusy(false); });
+      void startReel({ video: picked, title: title.trim(), deadAir: 'normal' }).then(({ slug }) => onStarted(slug), (error: unknown) => { setError(error instanceof Error ? error.message : 'Could not make the reel. Try again.'); setBusy(false); });
     }}><label>Reel name<input required disabled={busy} value={title} onChange={(event) => setTitle(event.target.value)} /></label><button className="btn" type="submit" disabled={busy || !picked || !title.trim()}>{busy ? 'Making…' : 'Make'}</button></form>
     {busy && <p role="status">Starting your reel. The preview opens while the words are prepared.</p>}
     {error && <p role="alert">{error}</p>}

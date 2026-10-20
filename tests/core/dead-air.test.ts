@@ -252,10 +252,19 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
     });
   });
 
-  it('cuts the 1.0s gap by default and builds v1 with duration matching pieces', async () => {
+  it('leaves v1 uncut when deadAir is not asked for', async () => {
     const projectDir = copyProjectFixture('footage-project');
     const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
-    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Auto Cut' });
+    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Whole' });
+    await project.whenTranscribed(slug);
+
+    expect(readJson(join(projectDir, 'reels', slug, 'plan.json')).pieces).toEqual([{ in: 0, out: 12 }]);
+  });
+
+  it('cuts the 1.0s gap under normal strength and builds v1 with duration matching pieces', async () => {
+    const projectDir = copyProjectFixture('footage-project');
+    const project = openProject(projectDir, { transcriber: async () => FAKE_WORDS });
+    const { slug } = await project.startReel({ video: 'media/talk.mp4', title: 'Auto Cut', deadAir: 'normal' });
     await project.whenTranscribed(slug);
 
     const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
@@ -317,7 +326,7 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
       { text: 'again', start: 2.45, end: 4.0 },
     ];
     const project = openProject(projectDir, { transcriber: async () => breathWords });
-    const { slug } = await project.startReel({ video: 'media/breath.mp4', title: 'Breath Reel' });
+    const { slug } = await project.startReel({ video: 'media/breath.mp4', title: 'Breath Reel', deadAir: 'normal' });
     await project.whenTranscribed(slug);
 
     const plan = readJson(join(projectDir, 'reels', slug, 'plan.json'));
