@@ -1,6 +1,5 @@
 import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import { approveVersion, withdrawApproval } from './_internal/approval.ts';
 import { buildParts } from './_internal/parts-build.ts';
 import { workingPartsPage, workingPartsSnapshot } from './_internal/parts-working.ts';
 import { alternatePage } from './_internal/parts-alternates.ts';
@@ -203,8 +202,6 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     freezeEdits: (slug) => freezeEdits(dir, slug),
     buildParts: (slug, by) => buildParts(dir, slug, by),
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
-    approveVersion: (slug, number) => approveVersion(dir, slug, number),
-    withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
     render,
     renderWorking: async (request) => {
       removeStaleDrafts(dir);

@@ -53,7 +53,7 @@ describe('the render gate', () => {
     expect(project.renderJobs()).toEqual([]);
   });
 
-  it('renders a Final of a version that is not approved: pressing Render is the decision', { timeout: RENDER_TIMEOUT_MS }, async () => {
+  it('renders a Final directly: pressing Render is the decision', { timeout: RENDER_TIMEOUT_MS }, async () => {
     const project = openProject(tinyProject());
 
     const job = await project.whenRendered((await project.render({ reel: 'tiny', version: 1, preset: 'final' })).id);
@@ -98,14 +98,6 @@ describe('the render gate', () => {
     await renders(project, FOOTAGE_REEL, 1);
   });
 
-  it('warns about footage issues when a footage version is approved', async () => {
-    const dir = copyFixture('footage-project');
-    rmSync(join(dir, 'reels', FOOTAGE_REEL, 'transcript.json'));
-
-    const approved = await openProject(dir).approveVersion(FOOTAGE_REEL, 1);
-
-    expect(approved.warning).toContain('has no transcript.json');
-  });
 });
 
 describe('kinotta render and the gate', () => {

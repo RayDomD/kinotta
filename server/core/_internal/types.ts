@@ -288,7 +288,6 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
-  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
   | { type: 'render-progress'; job: RenderJob };
 
@@ -441,14 +440,6 @@ export interface Project {
    * `KinottaError` `invalid` for an empty title or brief.
    */
   startReelFromBrief(input: NewBriefReel): Promise<StartedBriefReel>;
-  /**
-   * Marks a version final by writing `v<n>/approval.json` (`{ approvedBy: "you", at }`); nothing else in the version changes,
-   * and approving again keeps the first time. A version with contract issues is approved with a `warning` naming them.
-   * Only the editor's HTTP API calls this; `kinotta` has no approve command (R17). Throws `not-found` for an unknown reel or version.
-   */
-  approveVersion(slug: string, number: number): Promise<Approval>;
-  /** Deletes the version's `approval.json`; renders already made stay. Throws `not-found` for an unknown reel or version. */
-  withdrawApproval(slug: string, number: number): Promise<Withdrawal>;
   /**
    * Queues a render and returns the job as queued; it runs after the jobs before it, one at a time, and reports through
    * `render-progress` events. With `remember`, the settings it uses are saved as the reel's for its preset. Throws

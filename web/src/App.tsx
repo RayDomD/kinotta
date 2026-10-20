@@ -133,6 +133,7 @@ function RenderReadyNotice({ job, title, onPlay, onDismiss }: { job: RenderJob; 
 }
 
 interface VersionRailProps {
+  edits: EditsState;
   entries: VersionEntry[];
   selected: number | undefined;
   /** Versions an agent wrote since the reel was opened and the reviewer has not opened yet. */
@@ -146,52 +147,16 @@ interface VersionRailProps {
   onWorking(): void;
 }
 
-/** Who made a version, as the rail says it: "Saved by you" for one Kinotta built, else the agent's name. */
-function whoMade(builtBy: string | undefined): string | null {
-  if (builtBy === undefined) return null;
-  return `Built by ${builtBy}`;
-}
-
-/** `now · changed 01`, `changed 01, 02`, `storyboard`: what a version row says besides its number. */
-function versionTag(entry: VersionEntry, sectionIds: string[] | null): string {
-  const label = entry.isStoryboard ? 'storyboard' : '';
-  const numbers = (entry.changedSections ?? []).map((id) => sectionIds?.indexOf(id) ?? -1).filter((i) => i >= 0).sort((a, b) => a - b).map(sectionNumber);
-  return [label, numbers.length > 0 ? `changed ${numbers.join(', ')}` : ''].filter((part) => part !== '').join(' · ');
-}
-
-function railVerifyAttrs(working: boolean, count: number) {
-  return { 'data-verify-unit': 'VersionRail', 'data-verify-working': String(working), 'data-verify-count': count };
-}
-
-function VersionRail({ entries, selected, ready, sectionIds, onOpen, working, editsSinceFreeze, frozenVersion, onWorking }: VersionRailProps) {
-  return (
-    <div>
-      <div className="label">Versions</div>
-      <nav className="versions" aria-label="Versions" {...railVerifyAttrs(working, entries.length)}>
-        <button type="button" data-working-row aria-current={working ? 'true' : undefined} onClick={onWorking}>
-          <span>Working<span className="rv-who">{`${editsSinceFreeze} ${editsSinceFreeze === 1 ? 'edit' : 'edits'} since v${frozenVersion}`}</span></span>
-        </button>
-        {entries.map((entry) => (
-          <button
-            key={entry.number}
-            type="button"
-            aria-current={!working && entry.number === selected ? 'true' : undefined}
-            onClick={() => onOpen(entry.number)}
-          >
-            <span>
-              {`v${entry.number}`}
-              {(entry.frozenBy ?? whoMade(entry.builtBy)) !== null && <span className="rv-who">{entry.frozenBy ?? whoMade(entry.builtBy)}</span>}
-            </span>
-            <span className="tags">
-              {versionTag(entry, sectionIds) !== '' && <small className="num">{versionTag(entry, sectionIds)}</small>}
-              {entry.approved && <small className="num approved-mark">✓ approved</small>}
-              {ready.has(entry.number) && entry.number !== selected && <small className="num ready-mark">ready</small>}
-            </span>
-          </button>
-        ))}
-      </nav>
-    </div>
-  );
+/** The current Working reel; frozen folders remain available to the storage API. */
+function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edits }: VersionRailProps) {
+  return <div><div className="label">Reel</div><nav className="versions" aria-label="Current reel" data-verify-unit="VersionRail" data-verify-working={String(working)} data-verify-count="0">
+    <button type="button" data-working-row data-current-version={frozenVersion} aria-current={working ? 'true' : undefined} onClick={onWorking}>
+      <span>Current<span className="rv-who">{editsSinceFreeze} {editsSinceFreeze === 1 ? 'edit' : 'edits'}</span></span>
+    </button>
+  </nav><div className="rv-undo" role="group" aria-label="Current reel history">
+    <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canUndo} onClick={() => void edits.undo()}>Undo</button>
+    <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canRedo} onClick={() => void edits.redo()}>Redo</button>
+  </div></div>;
 }
 
 interface SectionRailProps {
@@ -263,6 +228,7 @@ function Rail(props: RailProps) {
       {sections !== null && !creating && <SectionRail {...sections} />}
       {current !== undefined && versions.entries.length > 0 && !creating && (
         <VersionRail
+          edits={versions.edits}
           working={versions.working}
           editsSinceFreeze={versions.editsSinceFreeze}
           frozenVersion={versions.frozenVersion}
@@ -283,8 +249,8 @@ function ReadyNotice({ version, onOpen }: { version: number | null; onOpen(numbe
     <div className="notice-slot" role="status">
       {version !== null && (
         <div className="notice">
-          <span>{`v${version} is ready.`}</span>
-          <button type="button" className="btn" onClick={() => onOpen(version)}>{`Open v${version}`}</button>
+          <span>An updated reel is ready.</span>
+          <button type="button" className="btn" onClick={() => onOpen(version)}>View current</button>
         </div>
       )}
     </div>
@@ -370,7 +336,7 @@ function Main(props: MainProps) {
   }
   return (
     <main className="main">
-      <ReadyNotice version={readyVersion} onOpen={onOpenVersion} />
+      <ReadyNotice version={readyVersion} onOpen={() => onWorking()} />
       {version.status === 'ready' ? (
         <Storyboard
           key={`${reel.slug}/${version.version.number}`}
@@ -603,12 +569,12 @@ function Studio() {
             rememberTab(event.reel, 'Storyboard');
           }
           setVersionsTick((n) => n + 1);
+          if (current.current.working) setVersionTick((n) => n + 1);
           setReady((prev) => new Set([...prev, event.version]));
         }
       } else if (event.type === 'transcription-progress') {
         setTranscribed({ slug: event.reel, progress: event.progress });
-      } else if (event.type === 'approval-changed') {
-        if (event.reel === current.current.slug) setVersionsTick((n) => n + 1);
+
       } else if (event.type === 'render-progress') {
         const { job } = event;
         const over = job.state === 'done' || job.state === 'failed' || job.state === 'cancelled';
@@ -707,6 +673,7 @@ function Studio() {
           current={reel?.slug}
           sections={multiSection ? { version: openVersion, comments: comments.comments, selected: sectionId, onSelect: pickSection } : null}
           versions={{
+            edits,
             working,
             editsSinceFreeze: edits.list?.editsSinceFreeze ?? edits.list?.operations.length ?? 0,
             frozenVersion: edits.list?.frozen ?? newest ?? 0,
