@@ -19,6 +19,24 @@ function compose(plan: object): string {
 }
 
 describe('effect templates on the footage timeline', () => {
+  it('keeps spaces between array-filled title words, including clones, and preserves chip icons', async () => {
+    const file = compose({ clips: [
+      { id: '01', template: 'title-card', in: 0, out: 4, fill: { title: [
+        { text: 'Andrej', at: 0.2 }, { text: 'Karpathy', at: 0.7 }, { text: 'speaks', at: 1.2 },
+      ] } },
+      { id: '02', template: 'title-card', in: 4, out: 8, fill: { title: ['One', 'more', 'cloned', 'word'] } },
+      { id: '03', template: 'chip-tally', in: 8, out: 12, fill: { chips: ['First', 'Second', 'Third', 'Fourth'] } },
+    ] });
+    const page = await browser.newPage();
+    try {
+      await page.goto(pathToFileURL(file).href);
+      expect(await page.locator('[data-scene="01"] .title').textContent()).toBe('Andrej Karpathy speaks');
+      expect(await page.locator('[data-scene="02"] .title').textContent()).toBe('One more cloned word');
+      expect(await page.locator('.chip').allTextContents()).toEqual(['First', 'Second', 'Third', 'Fourth']);
+      expect(await page.locator('.chip > svg.tick > path').count()).toBe(4);
+    } finally { await page.close(); }
+  });
+
   it('awaits embedded template video seeks before returning a first or backward still', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'kinotta-template-video-'));
     cpSync(resolve('skill/kinotta/templates/effects/floating-cards/r1'), join(dir, 'shot'), { recursive: true });

@@ -73,8 +73,15 @@ def template_parts(plan_dir, clip, local_time):
             value = [item for item in value if not isinstance(item, dict) or 'at' not in item or local_time(item['at']) is not None]
             children = [c for c in node.children if isinstance(c, Element)]
             if not children and value: sys.exit(f'template {name}: {key} has no item to fill')
-            node.children = [copy.deepcopy(children[min(i, len(children) - 1)]) for i in range(len(value))]
-            for child, item in zip(node.children, value): fill_element(child, item, local_time)
+            # Reuse the template's inter-item whitespace, including for cloned items.
+            separator = ''.join(c for c in node.children[node.children.index(children[0]) + 1:node.children.index(children[1])]
+                                if isinstance(c, str) and c.isspace()) if len(children) > 1 else ''
+            node.children = []
+            for i, item in enumerate(value):
+                child = copy.deepcopy(children[min(i, len(children) - 1)])
+                fill_element(child, item, local_time)
+                if i and separator: node.children.append(separator)
+                node.children.append(child)
         else: fill_element(node, value, local_time)
     keep = clip.get('keepLayers', [])
     if name == 'text-behind':
