@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -32,7 +33,7 @@ it.skipIf(!HAS_LIBROSA)('shows trimmed loop beats, toggles their display and sna
   const server = await startServer({ projectDir: dir, port: 0 }); const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const lane = page.getByRole('region', { name: 'Media timeline' });

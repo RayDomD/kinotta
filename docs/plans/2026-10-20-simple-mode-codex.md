@@ -1,7 +1,7 @@
 ---
 title: Simple mode phases 2 and 3 execution
 date: 2026-10-20
-status: In Progress
+status: Done
 summary: Remove approval and expose the current reel through Simple mode with timeline feedback
 spec: docs/briefs/2026-10-20-simple-mode/codex-phase-2-3.md
 ---
@@ -44,3 +44,4 @@ Full render tests depend on browser and FFmpeg process access and can fail under
 
 ### 2026-10-20
 - Saved execution plan before code edits, based on the explicitly assigned brief.
+- Completed phases 2 and 3. Phase 2 committed separately after targeted checks passed. Captured the unchanged full baseline, ran the post-change full suite, resolved the additional failures through targeted reruns, and recorded the two remaining baseline failures in codex-result.md. Verified 24 distinct focused browser scenarios and inspected desktop/mobile captures.

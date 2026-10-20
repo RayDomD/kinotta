@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { createReadStream, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -57,7 +58,7 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -97,12 +98,11 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
     expect((await server.project.readVersion('founder-talk', 2)).shots[0]?.line).toEqual({ start: 3, end: 4 });
     expect((await server.project.listComments('founder-talk', 2)).map((c) => [c.text, c.pin.time, c.pin.sourceTime])).toEqual([['Legacy word', 3, 9], ['Legacy frame', 3.5, 9.5], ['Pending legacy frame', 3.75, 9.75]]);
     await revealReelRail(page);
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).click();
-    const frozenPicture = page.locator('[data-verify-unit="PictureLayer"] > video.mv-picture');
-    await expect.poll(() => frozenPicture.getAttribute('src')).toContain('/media/founder-talk/2/');
+    await page.locator('[data-working-row][data-current-version="2"]').click();
+    const savedSource = (await server.project.readVersion('founder-talk', 2)).media!.sources.find((source) => source.kind === 'video')!;
     const original = readFileSync(join(dir, 'media/talk.mp4'));
     writeFileSync(join(dir, 'media/talk.mp4'), 'changed original');
-    const frozen = await page.request.get(new URL((await frozenPicture.getAttribute('src'))!, server.url).href);
+    const frozen = await page.request.get(new URL(`/media/founder-talk/2/${encodeURIComponent(savedSource.id)}`, server.url).href);
     expect(frozen.status()).toBe(200);
     expect(await frozen.body()).toEqual(original);
   } finally { await browser.close(); await server.close(); }
@@ -122,7 +122,7 @@ it('creates native frame and word pins on repeated placements and carries them t
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -211,7 +211,7 @@ it('previews independent native caption positions, timing and duplicated speech 
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -266,7 +266,7 @@ it('flags an interrupted graphic in the editor and repairs it with an explicit t
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -324,7 +324,7 @@ it('attaches added media to footage, follows reorder and repairs a removed momen
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -387,7 +387,7 @@ it('changes picture framing independently, previews it and retains it through Un
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const review = async () => {
-      await page.goto(server.url);
+      await openDetailedEditor(page, server.url);
       await revealReelRail(page);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
       await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -447,7 +447,7 @@ it('plays saved track gain and mute through the actual browser speaker mix', { t
       const media = { schema: 1, tracks: [{ id: 'music', name: 'Music', order: 0, gain, mute }], sources: [{ id: 'sound', kind: 'audio', path: '../../../tone.wav', duration: 4 }], placements: [{ id: 'sound-use', role: 'audio', source: 'sound', track: 'music', at: 0, in: 0, out: 4 }], sequence: [] };
       writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, media, clips: [] }));
       writeFileSync(join(reel, 'plan.json'), JSON.stringify({ duration: 4, media: { ...media, sources: [{ ...media.sources[0], path: '../../tone.wav' }] }, clips: [] }));
-      await page.goto(server.url);
+      await openDetailedEditor(page, server.url);
       await revealReelRail(page);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
       await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -478,7 +478,7 @@ it('auditions an unsaved volume change, restores playback after seeking and stop
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await installMeter(page);
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -506,7 +506,7 @@ it('auditions an unsaved volume change, restores playback after seeking and stop
     await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length).toBeGreaterThan(0);
     expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     await revealReelRail(page);
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).waitFor();
+    await page.locator('[data-working-row][data-current-version="2"]').waitFor();
     const saved = await server.project.readVersion('founder-talk', 2);
     expect(saved.media!.placements[0]).toMatchObject({ gain: 0.5 });
     await page.screenshot({ path: join(dir, 'media-review-desktop.png') });
@@ -522,7 +522,7 @@ it('imports reusable sound in a legacy reel and saves it using the agent plan fo
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -534,7 +534,7 @@ it('imports reusable sound in a legacy reel and saves it using the agent plan fo
     await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length).toBeGreaterThan(0);
     expect(await server.project.freezeEdits('founder-talk')).toEqual({ version: 2 });
     await revealReelRail(page);
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).waitFor();
+    await page.locator('[data-working-row][data-current-version="2"]').waitFor();
     const saved = await server.project.readVersion('founder-talk', 2);
     const sound = saved.media!.sources.find((source) => source.kind === 'audio')!;
     expect(readFileSync(resolve(dir, 'reels/founder-talk/v2', sound.path))).toEqual(readFileSync(file));
@@ -570,7 +570,7 @@ it('keeps preview controls truthful through Undo, Solo removal, silent pictures 
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await installMeter(page);
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -639,7 +639,7 @@ it('transcribes speech when a source is first used, shows a failure with retry, 
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -673,7 +673,7 @@ it('imports by drop, retries a failed import, previews, adds a project file in p
   const server = await startServer({ projectDir: dir, port: 0 });
   const browser = await chromium.launch();
   const openEditor = async (page: Page) => {
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -748,7 +748,7 @@ it('splits, moves with optional snapping, trims, reorders, duplicates and replac
   const count = async () => (await server.project.readEditList('founder-talk')).operations.length;
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();

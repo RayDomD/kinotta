@@ -1,6 +1,6 @@
 import { revealReelRail } from '../helpers/review-rail.ts';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 /** A Draft of the showreel's v2 runs in parallel segments, but still takes a while. */
 const RENDER_WAIT_MS = 120_000;
@@ -12,7 +12,7 @@ test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 const actions = (page: Page): Locator => review(page).getByRole('group', { name: 'Version actions' });
-const rail = (page: Page): Locator => page.getByRole('navigation', { name: 'Versions' });
+const rail = (page: Page): Locator => page.getByRole('navigation', { name: 'Current reel', exact: true });
 const renderMenu = (page: Page): Locator => page.getByRole('dialog', { name: 'Renders' });
 
 async function openReview(page: Page): Promise<void> {

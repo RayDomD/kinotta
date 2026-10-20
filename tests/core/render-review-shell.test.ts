@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -20,7 +21,7 @@ it('keeps Review inside the viewport with either rail state and theme, and persi
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1272, height: 950 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const workspace = page.locator('[data-verify-unit="EditorWorkspace"]');

@@ -24,6 +24,7 @@ import { useComments } from './useComments.ts';
 import type { CommentsState } from './useComments.ts';
 import { useNote } from './useNote.ts';
 import type { NoteState } from './useNote.ts';
+import { SimpleMode, startsInSimpleMode } from './SimpleMode.tsx';
 
 type Load =
   | { status: 'loading' }
@@ -53,6 +54,7 @@ function topBarVerifyAttrs(choices: number) {
 }
 
 function TopBar(props: {
+  onSimple?(): void;
   reel: ReelSummary | undefined;
   version: Version | undefined;
   commentCount: number;
@@ -90,6 +92,7 @@ function TopBar(props: {
         ))}
       </nav>
       {renders && <RenderMenu {...renders} />}
+      {props.onSimple && <button type="button" className="c-act" onClick={props.onSimple}>Simple mode</button>}
       {choices > 0 && !creating && <span className="alternate-choice-count" aria-label="Shots needing a choice" role="status"><span className="num">{choices}</span>{` ${choices === 1 ? 'shot needs' : 'shots need'} a choice`}</span>}
       {reel && version && !creating && (
         <CopyButton
@@ -414,6 +417,11 @@ export function App() {
 }
 
 function Studio() {
+  const [simple, setSimple] = useState(startsInSimpleMode);
+  const changeMode = (next: boolean) => {
+    try { sessionStorage.setItem('kinotta-mode', next ? 'simple' : 'editor'); } catch { /* The mode still works for this visit. */ }
+    setSimple(next);
+  };
   const workspace = useEditorWorkspace();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [selected, setSelected] = useState<string | undefined>();
@@ -612,6 +620,11 @@ function Studio() {
   const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
   const frozen = openVersion !== undefined && !working;
 
+  if (simple) return <SimpleMode listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
+    comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted}
+    onEditor={() => { setWorking(true); setChosen(newest); setPhase('Review'); changeMode(false); }}
+    onRefresh={() => { setVersionTick((tick) => tick + 1); setVersionsTick((tick) => tick + 1); setCommentsTick((tick) => tick + 1); }} />;
+
   const commentsPanel = (
     <CommentsPanel
       frozen={frozen}
@@ -637,6 +650,7 @@ function Studio() {
   return (
     <div className="app">
       <TopBar
+        onSimple={() => { setWorking(true); setChosen(newest); changeMode(true); }}
         reel={reel}
         version={openVersion}
         commentCount={multiSection ? (pinCounts(comments.comments, openVersion.shots).get(sectionId) ?? 0) : comments.comments.length}

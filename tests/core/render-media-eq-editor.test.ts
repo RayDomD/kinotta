@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,7 +40,7 @@ it('edits EQ on a shared track, bypasses it, undoes it, saves it and includes it
       const data = new Float32Array(meter.fftSize); meter.getFloatTimeDomainData(data);
       return Math.sqrt(data.reduce((sum, n) => sum + n * n, 0) / data.length);
     });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.getByRole('region', { name: 'Media timeline' }).getByRole('button', { name: /^Tone, audio, 0.00/ }).click();

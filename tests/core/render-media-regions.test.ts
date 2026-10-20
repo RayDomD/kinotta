@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -71,7 +72,7 @@ it('holds the shared sound clock when a secondary picture stalls, then resumes a
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const held: Route[] = []; let holding = true;
     await page.route('**/media/demo/1/blue', (route) => holding ? void held.push(route) : void route.continue());
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Regions', exact: true }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
@@ -93,7 +94,7 @@ it('edits custom regions, drags/resizes, undoes, saves frozen history and plays 
   const server = await startServer({ projectDir: dir, port: 0 }); const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Regions', exact: true }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();

@@ -74,6 +74,8 @@ export interface ClipTiming {
 }
 
 export interface PagePlayerProps {
+  /** Simple mode frames the page in a portrait viewport; detailed Review retains its original viewport. */
+  portrait?: boolean;
   /** Same-origin URL of the version page, without `?render` (the stage adds it). */
   pageUrl: string;
   /** Second of the reel to show. The page is seeked on every change, without waiting for the frame to draw. */
@@ -241,7 +243,9 @@ function readPhrases(doc: Document | null): CaptionPhrase[] {
  * The version page playing: a same-origin frame at 1920x1080 scaled to its box, seeked to `time` each time that
  * changes. Not interactive. The page's background is transparent, so footage stacked under the box shows through.
  */
-export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, captionPreview, onCaptionText, onFramePick, pins = [], draftPin }: PagePlayerProps) {
+export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, captionPreview, onCaptionText, onFramePick, pins = [], draftPin, portrait = false }: PagePlayerProps) {
+  const width = portrait ? PAGE_HEIGHT : PAGE_WIDTH;
+  const height = portrait ? PAGE_WIDTH : PAGE_HEIGHT;
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -265,10 +269,10 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const sized = new ResizeObserver(([entry]) => setScale((entry?.contentRect.width ?? 0) / PAGE_WIDTH));
+    const sized = new ResizeObserver(([entry]) => setScale((entry?.contentRect.width ?? 0) / width));
     sized.observe(el);
     return () => sized.disconnect();
-  }, []);
+  }, [width]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -346,7 +350,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
         src={renderUrl(pageUrl)}
         title={title}
         tabIndex={-1}
-        style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}
+        style={{ width, height, transform: `scale(${scale})` }}
         onLoad={() => {
           setLoaded(true);
           previewed.current = undefined;
@@ -360,7 +364,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
         const x = event.detail === 0 ? 0.5 : Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
         const y = event.detail === 0 ? 0.5 : Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
         const doc = frame.current?.contentDocument;
-        onFramePick({ x, y, element: doc ? hitTest(doc, x * PAGE_WIDTH, y * PAGE_HEIGHT)?.name ?? null : null });
+        onFramePick({ x, y, element: doc ? hitTest(doc, x * width, y * height)?.name ?? null : null });
       }} />}
       {elements && <ElementLayer frame={frame} loaded={loaded} scale={scale} time={time} editing={elements} />}
       {handle && scale > 0 && retyping === null && (

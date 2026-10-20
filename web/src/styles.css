@@ -90,6 +90,7 @@
 .body[data-review-shell="true"] .mv-controls { flex-wrap: wrap; min-width: 0; }
 .body[data-review-shell="true"] .rv-side { min-width: 0; }
 .body[data-review-shell="true"] .rv-main { min-width: 0; }
+.body[data-review-shell="true"] .rail .rv-undo { display: none; }
 .body[data-review-shell="true"] .mv-placement-head { flex-wrap: wrap; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .app:has([data-review-shell="true"]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }

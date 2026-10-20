@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 
 test('editor shell lists reels newest change first and opens the newest', async ({ page }) => {
   await page.goto('/');
