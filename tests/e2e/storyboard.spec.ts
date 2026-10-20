@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 
 const SHOT_TITLES = ['Cube lands', 'Logo lockup', 'Word slams', 'All-in-one dashboard', 'Icons and flows', 'Call to action'];
 const SHOT_TIMECODES = ['00.00', '01.80', '03.60', '05.90', '08.40', '12.20'];

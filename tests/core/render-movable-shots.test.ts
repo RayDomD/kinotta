@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { chromium } from 'playwright';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -12,7 +13,7 @@ it('drags code shots with live preview, separates overlaps, trims, extends and s
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const lanes = page.locator('[data-verify-unit="EditorialLanes"]');

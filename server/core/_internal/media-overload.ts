@@ -8,7 +8,7 @@ import { mixPeaks } from './runner.ts';
 export { describeOverload } from './media-audio.ts';
 import type { MixOverload, OverloadSpan } from './types.ts';
 import { readVersion } from './carry.ts';
-import { requireVersionDir } from './approval.ts';
+import { requireVersionDir } from './version.ts';
 
 const exists = (path: string): Promise<boolean> => access(path).then(() => true, () => false);
 

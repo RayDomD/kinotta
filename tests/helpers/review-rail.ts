@@ -1,5 +1,11 @@
 import type { Page } from 'playwright';
 
+/** Render-unit checks open the same detailed surface they exercised before Simple became the default. */
+export async function openDetailedEditor(page: Page, url: string): Promise<void> {
+  await page.addInitScript(() => { try { sessionStorage.setItem('kinotta-mode', 'editor'); } catch { /* Non-origin fixture page. */ } });
+  await page.goto(url);
+}
+
 /** Keyboard inspection reaches covered bars without adding a point on their volume line. */
 export async function inspectPlacement(page: Page, name: string | RegExp) {
   const toolbar = page.getByRole('toolbar', { name: 'Timeline tools' });

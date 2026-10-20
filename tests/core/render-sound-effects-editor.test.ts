@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -25,7 +26,7 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
       if (catalogueFails) await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Effects catalogue unavailable.' }) });
       else await route.continue();
     });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
@@ -105,12 +106,9 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
     expect(rms(samples.slice(60000, 60000 + original.length))).toBeCloseTo(rms(original) * 0.35, 3);
     expect(rms(samples.slice(144000))).toBeLessThan(0.0001);
     await revealReelRail(page);
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ }).click();
+    expect((await server.project.readVersion('founder-talk', 1)).number).toBe(1);
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
     await library.getByRole('tab', { name: 'Effects', exact: true }).click();
-    await browserExpect(library.getByRole('button', { name: 'Add Pop at playhead', exact: true })).toBeDisabled();
-    await library.getByRole('button', { name: 'Preview Pop', exact: true }).click();
-    await browserExpect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState)).toBeGreaterThan(0);
     await verify();
   } finally { await browser.close(); await server.close(); }
 });

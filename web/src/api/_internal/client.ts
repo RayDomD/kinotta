@@ -201,7 +201,6 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
-  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
   | { type: 'render-progress'; job: RenderJob };
 
@@ -297,12 +296,6 @@ export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
 export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
   (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;
 export const fetchVersion = (slug: string, number: number): Promise<Version> => getJson(versionPath(slug, number));
-
-/** Marks a version final. The rail hears it as an `approval-changed` event. */
-export const approveVersion = (slug: string, number: number): Promise<Approval> => requestJson(`${versionPath(slug, number)}/approval`, { method: 'PUT' });
-/** Takes a version's approval back; its renders stay. */
-export const withdrawApproval = (slug: string, number: number): Promise<{ approved: false }> =>
-  requestJson(`${versionPath(slug, number)}/approval`, { method: 'DELETE' });
 
 /** Each preset's settings for a reel: the ones the last Render from Picker saved, else the preset's defaults. */
 export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPreset, RenderSettings>> =>

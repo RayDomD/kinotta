@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -34,7 +35,7 @@ it('generates in the Sound tab with nothing selected, can cancel, and adds the r
       // The cancelled first request is already gone by the time the gate opens.
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...entry, prompt: 'Warm synth bed', seconds: 3, seed: 42 }) }).catch(() => {});
     });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.getByRole('tab', { name: 'Sound', exact: true }).click();

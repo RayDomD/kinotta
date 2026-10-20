@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 
 // Building v1 runs the real build, so the first wait after a drop is longer than the default.

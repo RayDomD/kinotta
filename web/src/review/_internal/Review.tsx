@@ -4,6 +4,7 @@ import type { Operation } from '../../../../server/core/model.ts';
 import { fetchMediaModel, footageUrl, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
 import type { Comment, MediaEditingModel, NewComment, ReelSummary, Section, TranscriptionProgress, Version } from '../../api/index.ts';
 import { Empty } from '../../Empty.tsx';
+import { SimpleTimeline } from '../../SimpleTimeline.tsx';
 import type { CaptionMove, CaptionPhrase, CaptionText, ClipTiming, ElementChange, ElementEditing } from '../../stage/index.ts';
 import { formatDuration } from '../../timecode.ts';
 import { Lanes } from './Lanes.tsx';
@@ -48,6 +49,10 @@ const SNIP_LEAD_IN = 2;
 const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
+  simple?: {
+    onPin(pin: NewComment['pin']): void;
+    jump: { time: number; seq: number } | null;
+  };
   frozen?: boolean;
   onWorking?(): void;
   reel: ReelSummary;
@@ -85,7 +90,7 @@ function remapped<T extends Span>(items: readonly T[], map: Remap): T[] {
   });
 }
 
-function Playing({ reel, state, version, comments, section = null, edits, transcription, actions }: ReviewProps) {
+function Playing({ reel, state, version, comments, section = null, edits, transcription, actions, simple }: ReviewProps) {
   const workspace = useEditorWorkspace();
   const markerState = useMarkers(reel.slug);
   const video = useRef<HTMLVideoElement>(null);
@@ -117,6 +122,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const previewSnip = editable && toolName === 'snip' ? selection : null;
   const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo, previewSnip);
   const { time } = playback;
+  useEffect(() => { if (simple?.jump) playback.seek(simple.jump.time); }, [simple?.jump]);
   const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
   // Clips: the plan's, in source time, with the unsaved trims and slides applied, placed on the edited timeline. A version without a plan shows its shots' clips.
@@ -381,6 +387,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (simple) return;
       if (viewerKey.current(e)) return;
       // Ctrl or Cmd with Z (Shift for redo) or Y steps the edit list, unless a field has its own undo.
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
@@ -440,6 +447,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         {actions}
       </div>
       <Player
+        portrait={!!simple}
         transport={{ markers: markerState.markers, onMarker: (id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }, onSeek: playback.seek, shots: clips.map((clip) => clip.start), pins: shownComments.filter((c) => !c.state).map((c) => ({ id: c.id, time: c.pin.time, number: c.number, text: c.text })), keys: workspace.settings.keys, timecode: workspace.settings.timecode, focus: workspace.focus, onFocus: () => workspace.setFocus(!workspace.focus) }}
         title={reel.title}
         footageSrc={withFootage ? footageUrl(reel.slug) : undefined}
@@ -480,6 +488,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
+      {simple && <SimpleTimeline canPin={!!version} time={time} total={total} shots={version?.workingParts?.shots ?? version?.shots ?? []} comments={comments} onSeek={playback.seek} onPin={(at) => simple.onPin({ kind: 'frame', shot: version?.shots.find((shot) => shot.start <= at && shot.start + shot.duration > at)?.number ?? '', time: at, x: 0.5, y: 0.5, element: null })} />}
       <MarkerPanel state={markerState}/>
       <ViewerDivider />
       <div className="rv-tracks-pane">

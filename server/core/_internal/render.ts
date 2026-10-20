@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { availableParallelism, freemem } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
-import { requireVersionDir } from './approval.ts';
+import { requireVersionDir } from './version.ts';
 import { KinottaError } from './errors.ts';
 import { readReelFootage } from './footage.ts';
 import { versionIssues } from './footage-issues.ts';

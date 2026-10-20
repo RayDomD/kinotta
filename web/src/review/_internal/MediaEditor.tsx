@@ -31,6 +31,7 @@ import { Transport, shotTarget } from './Transport.tsx';
 import { ViewerDivider } from './ViewerDivider.tsx';
 import { MarkerPanel, useMarkers } from './useMarkers.tsx';
 import { onReelAlternate } from '../../alternates.ts';
+import { SimpleTimeline } from '../../SimpleTimeline.tsx';
 import '../review.css';
 
 /** How often a running transcription is checked on. */
@@ -61,7 +62,7 @@ function verifyAttrs(count: number, playing: boolean, ready: boolean, error: str
 }
 
 /** Native placements share the saved edit list and the same envelope used by rendering. */
-export function MediaEditor({ reel, version, section, edits, actions, comments, onSaveComment, reveal, sourceRoot: initialRoot, legacySources }: ReviewProps & { sourceRoot?: string; legacySources?: Sources }) {
+export function MediaEditor({ reel, version, section, edits, actions, comments, onSaveComment, reveal, simple, sourceRoot: initialRoot, legacySources }: ReviewProps & { sourceRoot?: string; legacySources?: Sources }) {
   const workspace = useEditorWorkspace();
   const markerState = useMarkers(reel.slug);
   const base = version!.media!;
@@ -132,10 +133,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [replacing, setReplacing] = useState<Record<string, string>>({});
   const [waveforms, setWaveforms] = useState<Record<string, MediaWaveform>>({});
   const [sourceRoot, setSourceRoot] = useState(initialRoot ?? null);
-  const editable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
+  const editable = !simple && version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
   const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined), [base, reel.slug, version!.number]);
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
   const { time, playing, ready } = playback;
+  useEffect(() => { if (simple?.jump) playback.seek(simple.jump.time); }, [simple?.jump]);
   const selectSnip = (range: { from: number; to: number } | null) => {
     setSnipRange(range);
     if (range) playback.seek(range.to);
@@ -508,6 +510,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const main = useRef<HTMLElement>(null);
   const onWindowKey = useRef<(event: globalThis.KeyboardEvent) => void>(() => undefined);
   onWindowKey.current = (event) => {
+    if (simple) return;
     const target = event.target as HTMLElement;
     if (event.defaultPrevented || workspace.settingsOpen || workspace.shortcutsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"]')) return;
     // A control outside the editor keeps its own plain keys (Space presses a focused button); a chord with a modifier still reaches the editor.
@@ -534,7 +537,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
         <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
-        <PagePlayer className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
+        <PagePlayer portrait={!!simple} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}
@@ -550,6 +553,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
       </Transport>
     </div>
+    {simple && <SimpleTimeline time={time} total={timeline.duration} shots={reelShots} comments={shownPins.filter((pin) => !pin.moment.removed).map((pin) => ({ ...pin, pin: { ...pin.pin, time: pin.moment.time } }))} onSeek={playback.seek} onPin={(at) => {
+      const target = pictureAt(timeline, at, 0.5, 0.5);
+      const shot = reelShots.find((shot) => shot.start <= at && shot.start + shot.duration > at);
+      simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(at, target?.id), x: 0.5, y: 0.5, element: null });
+    }} />}
     <MarkerPanel state={markerState} /><ViewerDivider />
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
     <div className="rv-tracks-pane">
