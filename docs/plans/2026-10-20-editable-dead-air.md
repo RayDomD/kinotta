@@ -52,3 +52,6 @@ Make cuts dead air gently. The simple-mode timeline spans the whole recording, s
 ### 2026-10-20
 - Plan created after the owner tested Make on a finished 102 s video; timeline shape chosen: whole recording with shaded cuts.
 - Approved; dispatched to agy. The three simple-mode bugs follow after it, on the same branch.
+
+### 2026-10-21
+- Owner preferred the earlier cut strength: Make's default is back to `normal` (17 cuts, 14.4 s on the owner's video). The editable cuts are unchanged.
