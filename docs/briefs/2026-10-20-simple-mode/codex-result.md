@@ -63,3 +63,72 @@ Browser validation after Phase 3:
 - The two pre-existing baseline failures remain outside this brief.
 - No independent delegated design review was run. [Impeccable](C:/Users/ryand/.codex/skills/impeccable/SKILL.md), through its [new-work instructions](C:/Users/ryand/.codex/skills/impeccable/reference/new-work.md), says "Then spawn the shipped finish reviewer". AGENTS.md requires approval of the model and effort before delegation; that approval was requested and has not been granted. Direct screenshot inspection and interaction checks were completed.
 - No push or merge.
+
+## Combined branch full run
+
+Checked on 2026-10-20 in `C:\FIles\Projects\Apps\Kinotta\.worktrees\simple-mode`, branch `feat/simple-mode`, HEAD `0fa531b` (combined Codex + agy work).
+
+Command: `npx vitest run --maxWorkers=2 --no-isolate --reporter=verbose`.
+
+The sandboxed attempt stopped before discovery with `spawn EPERM`. The same command completed outside the sandbox with exit code 1 in **1034.32 seconds**: **6 files failed, 125 passed (131); 18 tests failed, 916 passed, 10 skipped (944)**. There was also one failed suite setup, accounting for nine of the skipped tests. This full run is not green.
+
+### Baseline matches
+
+- `tests/web/editor-settings.test.ts` — `viewer editor settings > keeps Snip, Split, Media and trim keys distinct and identifies equivalent rebindings`: **matches baseline M-key failure**; expected `rail`, received `marker` at line 11.
+- `tests/core/render-media-elements.test.ts` — `reattaches a graphic to the pass of a looping voice under the playhead (A2)`: **matches baseline A2 failure**; expected a `clip-attachment` operation, received `[]` at line 75.
+
+### New failures relative to the recorded baseline
+
+`tests/core/snip-save.test.ts`: **12 failed, 15 passed**. All 12 failures reproduced when the entire file was rerun alone.
+
+- `the edit list > keeps each operation in the reel folder, outside every version, as it is added`
+- `the edit list > refuses a snip that does not apply, and keeps what is there`
+- `the edit list > is dropped by Discard`
+- `Save > builds the next version from the sources with its own transcript and plan, then clears the list`
+- `Save > leaves no new version, the sources as they were and the list in place when the build fails`
+- `Save > keeps an older version's spoken lines when a later version corrects a word`
+- `undo, redo and removing one edit > steps the list back and forward, and a new edit ends the redo history`
+- `undo, redo and removing one edit > keeps the redo history on disk, so a reopened project still has it`
+- `undo, redo and removing one edit > removes one edit and leaves the later ones applied`
+- `undo, redo and removing one edit > can undo a removal, and refuses an unknown edit`
+- `undo, redo and removing one edit > drops history with the legacy discard API and retains it across a freeze`
+- `word-text and word-timing on Save > writes a fixed word and a re-timed word into v<n+1> and leaves v<n> with its own transcript (E14)`
+
+The first 11 throw `KinottaError: That stretch is already cut out of the reel.` from `snipPieces` (`server/core/_internal/edit-model.ts:453`). E14 receives `folks.` ending at 2.08 instead of 2.1, and `later` at 2.08–2.48 instead of 8.2–8.6.
+
+`tests/core/viewer-state.test.ts`: **1 failed, 2 passed** in the full run.
+
+- `persists markers independently of versions and serializes simultaneous additions`: expected the first listed marker to match `{ name: 'Reveal', time: 3 }`, received `{ name: '', time: 4 }` at line 16. **Passed alone: 3/3 tests.** The cause of the full-run failure was not established.
+
+`tests/core/render-media-preview.test.ts`: **3 failed, 10 passed**. All three failures reproduced when the entire file was rerun alone; each times out after 30 seconds waiting for `[data-working-row][data-current-version="2"]`.
+
+- `previews legacy graphics in source time and saves a deliberate repair after native reordering` — `locator.click` at line 101.
+- `auditions an unsaved volume change, restores playback after seeking and stops sound on pause` — `locator.waitFor` at line 509.
+- `imports reusable sound in a legacy reel and saves it using the agent plan folder` — `locator.waitFor` at line 537.
+
+`tests/core/render-footage.test.ts`: **new suite setup failure**, `Final and Overlay of a footage reel`. Its `beforeAll` throws `KinottaError: That stretch is already cut out of the reel.` from `snipPieces` (`server/core/_internal/edit-model.ts:453`). **Failed alone with the same setup error: 2 passed, 9 skipped.** The two code-only reel tests pass. These nine footage-reel tests were skipped because setup failed, rather than reported as individually failing assertions:
+
+- `renders a Final as long as the version's pieces, at the footage's size and rate, with sound and no intermediate file`
+- `draws the frame at a time after the snip as the page over the footage at the mapped source time`
+- `draws a frame inside the clip as the page at that time, with no frames lost before it`
+- `fades the sound to silence at a cut with Smooth, and cuts it directly with Hard`
+- `scales a Draft to 1080p at the footage's aspect ratio, at the frame rate asked for`
+- `writes an Overlay as ProRes 4444 with alpha and no sound`
+- `renders an earlier version the same after a later edit and Save`
+- `renders a Final in segments to the same frames and sound as one page`
+- `cancels a Final mid-render, stopping the renderer and ffmpeg and leaving no temp file`
+
+### File-alone rerun evidence
+
+Each command ran sequentially, outside the sandbox, with no code changes.
+
+| Command | Result | Duration |
+| --- | --- | --- |
+| `npx vitest run tests/core/snip-save.test.ts --maxWorkers=2 --no-isolate --reporter=verbose` | FAIL: same 12 failed, 15 passed | 37.89s |
+| `npx vitest run tests/core/viewer-state.test.ts --maxWorkers=2 --no-isolate --reporter=verbose` | PASS: 3 passed | 1.57s |
+| `npx vitest run tests/core/render-media-preview.test.ts --maxWorkers=2 --no-isolate --reporter=verbose` | FAIL: same 3 failed, 10 passed | 149.42s |
+| `npx vitest run tests/core/render-footage.test.ts --maxWorkers=2 --no-isolate --reporter=verbose` | FAIL: same suite setup error; 2 passed, 9 skipped | 22.02s |
+
+Raw output is retained locally under `%TEMP%`: `kinotta-simple-mode-combined-full-run.log`, `kinotta-simple-mode-rerun-snip-save.log`, `kinotta-simple-mode-rerun-viewer-state.log`, `kinotta-simple-mode-rerun-render-media-preview.log`, and `kinotta-simple-mode-rerun-render-footage.log`.
+
+Only this results section was appended. No source/test edits or commits were made. The two pre-existing modified PNGs under `docs/session-summaries/2026-10-15-viewer-transport-clips/` were left untouched. “New” above means absent from the two recorded baseline failures; this check does not establish the cause of those failures.
