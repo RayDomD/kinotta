@@ -1,0 +1,15 @@
+[data-scene="arc-flow"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* A thumbnail rides the dotted arc from one device to the other (data-send-at to data-arrive-at); the receiving bar fills, then ticks. */
+[data-scene="arc-flow"] .end { position: absolute; top: 230px; display: grid; justify-items: center; gap: 10px; font-family: var(--fx-font); color: var(--fx-ink); }
+[data-scene="arc-flow"] .end b { font-size: 22px; font-weight: 600; }
+[data-scene="arc-flow"] .screen { display: block; position: relative; border: 4px solid var(--fx-ink); background: var(--fx-panel); box-shadow: var(--fx-shadow); }
+[data-scene="arc-flow"] .from { left: 330px; }
+[data-scene="arc-flow"] .from .screen { width: 90px; height: 160px; border-radius: 16px; }
+[data-scene="arc-flow"] .to { right: 300px; }
+[data-scene="arc-flow"] .to .screen { width: 220px; height: 140px; border-radius: 10px; }
+[data-scene="arc-flow"] .bar { position: absolute; left: 22px; right: 22px; top: 58px; height: 14px; border-radius: 7px; background: var(--fx-accent); transform-origin: left; }
+[data-scene="arc-flow"] .done { position: absolute; left: 78px; top: 38px; width: 64px; height: 64px; fill: none; stroke: var(--fx-ink); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+[data-scene="arc-flow"] .arc { position: absolute; left: 470px; top: 90px; width: 1000px; height: 300px; fill: none; stroke: var(--fx-ink); stroke-width: 3; stroke-dasharray: 2 12; stroke-linecap: round; overflow: visible; }
+[data-scene="arc-flow"] .thumb { position: absolute; left: 0; top: 0; width: 60px; height: 84px; margin: -42px 0 0 -30px; border-radius: 10px; overflow: hidden; border: 3px solid var(--fx-ink); box-shadow: var(--fx-shadow); }
+[data-scene="arc-flow"] .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }

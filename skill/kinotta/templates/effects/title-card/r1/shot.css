@@ -1,0 +1,4 @@
+[data-scene="title-card"] .card { position: absolute; left: 50%; top: 120px; width: 1200px; margin-left: -600px; padding: 34px 40px 30px; border-radius: 22px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); text-align: center; font-family: var(--fx-font); color: var(--fx-ink); }
+[data-scene="title-card"] .title { margin: 0; font-size: 92px; font-weight: 700; line-height: 1; letter-spacing: -.035em; text-transform: uppercase; text-wrap: balance; }
+[data-scene="title-card"] .word { display: inline-block; }
+[data-scene="title-card"] .subtitle { margin: 16px 0 0; font-size: 34px; font-weight: 500; color: var(--fx-ink-soft); }

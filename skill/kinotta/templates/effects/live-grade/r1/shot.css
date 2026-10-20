@@ -1,0 +1,3 @@
+[data-scene="live-grade"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Each list item switches the footage to a grade preset from presets.css at its data-at. "none" returns to the ungraded footage. */

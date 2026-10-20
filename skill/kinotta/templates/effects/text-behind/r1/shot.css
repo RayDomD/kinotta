@@ -1,0 +1,5 @@
+/* plate: the full frame. subject: the same frame with only the person kept (alpha). Either may be <img> or <video>. */
+[data-scene="text-behind"] .plate,
+[data-scene="text-behind"] .subject { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+[data-scene="text-behind"] .headline { position: absolute; left: 0; right: 0; top: 150px; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: var(--fx-font); font-size: 250px; font-weight: 700; line-height: .92; letter-spacing: -.04em; text-transform: uppercase; color: var(--fx-ink); text-wrap: balance; }
+[data-scene="text-behind"] .line { display: block; }

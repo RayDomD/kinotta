@@ -1,0 +1,10 @@
+/* Effect tokens. Set these from the brand file; every template reads them. */
+:root {
+  --fx-font: "Geist", "Segoe UI", sans-serif;
+  --fx-ink: oklch(.97 .005 90);
+  --fx-ink-soft: oklch(.80 .01 90);
+  --fx-panel: oklch(.20 .006 90 / .92);
+  --fx-panel-edge: oklch(1 0 0 / .10);
+  --fx-accent: oklch(.86 .12 225);
+  --fx-shadow: 0 2px 6px oklch(.1 0 0 / .25), 0 18px 40px oklch(.1 0 0 / .35);
+}
