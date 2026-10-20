@@ -3,6 +3,10 @@
 Repo worktree: `.worktrees/sm-codex` on branch `feat/simple-mode-codex` (from `feat/simple-mode`). Work only there.
 Plan: `docs/plans/2026-10-20-simple-mode-flow.md` (read Intent, Steps 5-9). Mockups: `docs/mockups/2026-10-20-simple-mode.html`, `docs/mockups/2026-10-20-simple-mode-single-pass.html`. Read `AGENTS.md`, `DESIGN.md`, `CONTEXT.md` first.
 
+## Phase 0: test baseline (long-running runs are yours)
+- Before editing, run `npx vitest run --maxWorkers=2` on the unchanged branch and record every failing file and test in `codex-result.md`. The last full run had 18 failures in 13 files, mostly from parallel load; `tests/core/render-media-elements.test.ts` "A2" is known-flaky. Your later full runs are judged against this baseline.
+- You own all full-suite runs (vitest, Playwright) for this run; agy runs only targeted tests.
+
 ## Phase 2: remove approval and version gating (commit when green, then start Phase 3)
 - Remove `server/core/_internal/approval.ts`, the `/versions/:n/approval` route in `server/http/_internal/handler.ts`, the "approved" badge and `approval-changed` handling in `web/src/App.tsx`, and related client calls. Move `requireVersionDir` (used by `render.ts`) somewhere it still makes sense.
 - Hide version history in the UI behind "current" plus undo. Version folders stay on disk; do not change storage.

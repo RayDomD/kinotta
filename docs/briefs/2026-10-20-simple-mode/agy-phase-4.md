@@ -4,7 +4,7 @@ Repo worktree: `.worktrees/sm-agy` on branch `feat/simple-mode-agy` (from `feat/
 Plan: `docs/plans/2026-10-20-simple-mode-flow.md` (Step 10). Read `AGENTS.md`, `CONTEXT.md` first.
 
 ## How to run it
-Use `/orchestrate` and spawn several Gemini 3.8 (high effort) sub-agents in parallel to go faster, for example: one for the gap/pad cutting and strengths, one for breath detection, one for wiring into `startReel`/Make, one for tests. You own the merge of their work into this worktree and the final checks.
+Use `/orchestrate` and spawn several Gemini 3.8 (medium effort) sub-agents in parallel to go faster, for example: one for the gap/pad cutting and strengths, one for breath detection, one for wiring into `startReel`/Make, one for tests. You own the merge of their work into this worktree. Save Argon for review: use it only for a final review pass over the merged diff, not for implementation.
 
 ## Task
 On Make (and available to the first version built from a transcript, see `server/core/_internal/start.ts` `startReel`), cut dead air automatically from the transcript's word timings:
@@ -16,5 +16,5 @@ On Make (and available to the first version built from a transcript, see `server
 ## Rules
 - Test first (`tests/core/`): word timings in, pieces out, for each strength; a talk with no long gaps stays one piece.
 - Conventional commits, no AI signature lines, do not push or merge, never commit to main.
-- Validate: `npx tsc --noEmit`, `npx vitest run` for touched areas.
+- Validate: `npx tsc --noEmit` and only the test files you touched or added (`npx vitest run <files>`). Do not run the full vitest or Playwright suites; Codex owns long-running runs.
 - When done, write `docs/briefs/2026-10-20-simple-mode/agy-result.md`: what shipped, checks with results, what is unfinished.
