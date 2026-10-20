@@ -18,7 +18,7 @@ Source paths below are read-only; only numeric values and curves enter the engin
 | Exit | .333 s, sink curve; blur 12 px and upward 14 px | RayDom `DESIGN.md:72`; prelude `:22`; hero `make_v2.py:29–30` |
 | Display / headline | 80 px / 36 px, weight 800, leading 1 / 1.1, tracking -.04em / -.034em | RayDom `DESIGN.md:26–35` (rem values at 16 px; display upper bound) |
 | Title / body / label / figure | 20 / 16 / 13 / 72 px; leading 1.25 / 1.55 / 1.3 / .9; weight 700 / 500 / 700 / 800 | RayDom `DESIGN.md:38–59`; craft `:67` body floor |
-| Video title / row / minimum | 12.6vw / 5.2vw / 4.8vw | RayDom `DESIGN.md:231–232`; use as explicit video tokens, not a web body size |
+| Video title / row / minimum | 12.6vw / 5.2vw / 4.8vw | RayDom `DESIGN.md:232–233`; use as explicit video tokens, not a web body size |
 | Default family | Bundled Geist; Geist Mono for code only | Existing `engine/fonts/OFL-Geist.txt`; no brand font bytes copied |
 
 Brand `curves`, embedded `fonts` and CSS `tokens` override page defaults. Templates use the shared rise/state/sink curves when available and retain their standalone fallbacks. Existing engine fragments keep their authored markup and explicit values; byte compatibility excludes only the named B1 engine/base stylesheet replacements. The compatibility test must compare every other byte.

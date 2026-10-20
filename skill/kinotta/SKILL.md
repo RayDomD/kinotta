@@ -238,7 +238,8 @@ Rules that differ from code-only reels:
 Below, `$SKILL` is this skill's folder. Sources live in a `motion/` folder in the project; only the
 built page and the shot list go in the version.
 
-1. **Ask only what the request leaves open**, in one round: which video and the density (light,
+1. **Ask only what the request leaves open**, in one round: which video, what kind of video they are
+   making (when `videoType` is not already given), and the density (light,
    medium or heavy, default medium; see `reference/motion-broll.md`). Don't ask for captions: the
    transcript comes from the audio (step 4).
 2. **Set up** (first footage reel in the project): `bash $SKILL/scripts/setup.sh ./motion`. Run the
@@ -262,12 +263,31 @@ built page and the shot list go in the version.
    `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
 6. **Sections.** Split the video by topic into sections of a few minutes each, contiguous from 0 to
    the video's length. A video under about three minutes is one section. Ids are short kebab-case.
-7. **Plan the clips** with `reference/motion-broll.md` section 4 (density, cutaway or panel or
-   nothing, one change per spoken beat, never invented numbers). Write `motion/plan.json` directly:
+   Read `templates/effects/README.md`, `~/.kinotta/taste.md` and `reels/taste.md` when present,
+   plus the checked brand sources. Use one signature entrance per reel from the brand curves,
+   otherwise the engine's sourced defaults. Apply the treatment for `videoType`:
+
+   | `videoType` | Treatment |
+   |---|---|
+   | `explainer` | Mostly full-frame cutaways and punch-ins; cover jump cuts. |
+   | `interview` | Cut between speakers; show visuals for visual topics; use split layouts. |
+   | `tutorial` | Keep the screen primary; emphasize within it using zoom, cursor and 5–8 word callouts. |
+   | `demo` | Screen or product first; show the proposition in the first 3 seconds. |
+   | `short` | Full frame; hook in the first 3 seconds; text outside the top 14%, bottom 35% and sides 6%. |
+   | `lecture` | Alternate talking head with slides or drawing; chunks under about 6 minutes. |
+   | `vlog` | Sparse graphics; favor authenticity over polish (opinion, weak evidence). |
+
+   These treatments come from `docs/research/2026-10-20-broll-by-video-type.md` in the repository.
+   Density remains the owner's light/medium/heavy choice; motion comes from the brand or B1 defaults.
+7. **Plan the clips** with the treatment above and `reference/motion-broll.md` section 4's content
+   rules (one change per spoken beat, never invented numbers). Give each clip its own device from
+   the templates; never repeat a template in adjacent clips. Show a real photo or logo on the word
+   that names it, with its credit. Write `motion/plan.json` directly:
 
    ```json
    {
      "title": "Founder talk",
+     "videoType": "explainer",
      "duration": 312.4,
      "transcript": "../reels/founder-talk/transcript.json",
      "captions": true,
@@ -301,7 +321,13 @@ built page and the shot list go in the version.
    it, give `{ "look": "highlight" | "phrase" | "words", "color": "<hex>" }`: `phrase` is the phrase
    alone, `words` shows each word as it is said; `color` is the lit word's colour (the brand file's
    accent when there is one). Phrases break at pauses and clause ends by themselves.
-8. **Build the clips** in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
+   Author phrase captions at at most 42 characters per line and about 20 characters per second;
+   inspect the generated phrases and revise breaks or placement when needed.
+   A template clip names `template` and supplies `fill` with copy and source-second `at` times.
+   Set `brand.fonts`, `brand.curves` and `brand.tokens` from the checked brand sources; fonts are
+   embedded once, before the first still. The engine maps fill times through `pieces`.
+8. **Build the clips** using `template` directly, a copied and edited shot folder via `clip`, or an
+   engine fragment in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
    1920x1080 whatever the video's size, since Kinotta draws every page in that frame; map a speaker box
    from `video.json` to that frame before keeping a panel clear of it. Check stills on the key words
    with `engine/beats.js`, including each clip's `still` time, and fix what is cramped or off-word.

@@ -54,16 +54,17 @@ Layer content is positioned relative to its anchor, e.g. `left:-330px; top:40px`
 
 | Call | What it does |
 |---|---|
-| `M.track(v0, [[t, value, spring?], …])` | A value that changes target many times: the sum of one closed-form spring per change. Returns `t => value`. |
+| `M.track(v0, [[t, value, preset?], …])` | A value that changes target many times: bounded state interpolation by default, or an explicit closed-form spring pair. Returns `t => value`. |
 | `M.ctrack('#hex', [[t,'#hex'], …])` | The same for colours. Returns `t => 'rgb(...)'`. |
-| `M.MORPH`, `M.FAST`, `M.SLOW`, `M.SOFT`, `M.CAM`, `M.INSTANT` | Spring presets `[stiffness ω, damping ζ]`. FAST/SLOW for leading/trailing edges; INSTANT for invisible resets. |
-| `M.vis(t, tin, tout, {din, lin, lout})` | Content swap: exit blurs out fast, enter waits `din` then blurs in over `lin`. Returns `{o, blur, s, a, b}`. |
+| `M.MORPH`, `M.FAST`, `M.SLOW`, `M.SOFT`, `M.CAM`, `M.INSTANT` | Bounded state-response functions: .267s MORPH, .233s FAST, .5s SLOW/SOFT/CAM. INSTANT remains `[Infinity,1]`. An explicit `[ω, ζ]` still selects a spring. |
+| `M.vis(t, tin, tout, {din, lin, lout, blur})` | Signature entrance: .5s rise from scale 1.07, y 26px and blur 20px; .333s sink exit. Returns `{o, blur, s, y, a, b}`. Explicit timings override defaults. |
 | `M.apply(el, v)` | Applies a `vis` result to an element (opacity, blur, scale). |
 | `M.path([[t,x,y], …])` | Cursor or any point path, eased between keys with a slight human arc. |
 | `M.crossTimes(f, t0, t1, thresholds)` | When a rising value first crosses each threshold. Use it to trigger springs from a dragged value. |
 | `M.icon(name, size, colour, strokeW?)` | Icon from the set in `M.IC`, with stroke normalised so all icons match. |
 | `M.setText(el, s)` | Set text only when it changed (cheap per frame). |
 | `M.eo`, `M.eio`, `M.clamp`, `M.lerp`, `M.S` | Easing and spring helpers. |
+| `M.curves.rise/state/sink`, `M.bezier(x1,y1,x2,y2)` | Sourced B1 curves, overridden by plan `brand.curves`; cubic-bezier solver returns a pure progress function. |
 
 Icons in `M.IC`: arrow, check, x, plus, folder, terminal, file, pencil, coin, clock, chip, sparkle, castle, search. Add more as 24-grid stroke paths (e.g. from Lucide, ISC licence).
 
@@ -126,3 +127,59 @@ Every clip becomes a scene on the video's timeline: `data-start` is its `in`, `d
 - Clips may reuse ids and class names. Each clip's CSS is nested under its scene, and its script gets a `document` whose lookups (`getElementById`, `querySelector…`) only see its own scene. Both sit inside the scene's element, so Kinotta, which compares scene markup between versions, sees a clip whose motion alone changed as changed. Don't reach the page another way (`window.document`, `document.body` lookups of other clips' elements). Because of the nesting, a clip's `<style>` holds plain element rules only: no `@keyframes`, `@font-face`, `:root` or `body` rules (animate with the engine, and the fonts come with `base.css`).
 - With `captions` and `transcript` in the plan, each caption phrase is a scene `cap-001`, … (`data-caption`) holding one element `caption`, a span per word with its times; `seek` shows the phrase under way and marks words `said` and the current one `now`. The look (`highlight`, `phrase`, `words`) and colour sit on each caption, and the caption CSS is on the page. Captions sit bottom centre over everything; keep a clip's key content above the bottom ~200 px.
 - The first moments of a clip are often an empty canvas while the shape pops in, so a shot's still belongs where its clip has settled, not on its in-point.
+
+## Effect templates in a footage plan
+
+```json
+{
+  "title": "Founder talk",
+  "videoType": "explainer",
+  "pieces": [{ "in": 10, "out": 12 }, { "in": 14, "out": 20 }],
+  "brand": {
+    "fonts": [{ "family": "Project Sans", "weight": "100 900", "file": "inputs/project-sans.woff2" }],
+    "curves": {
+      "rise": [0.16, 1, 0.3, 1],
+      "state": "cubic-bezier(0.65, 0, 0.35, 1)",
+      "sink": [0.5, 0, 0.75, 0]
+    },
+    "tokens": { "fx-font": "\"Project Sans\"", "fx-accent": "oklch(.8 .12 225)" }
+  },
+  "clips": [{
+    "id": "02", "template": "chip-tally", "in": 11, "out": 19,
+    "fill": { "chips": [{ "text": "First point", "at": 11.5 }, { "text": "After cut", "at": 15 }] }
+  }]
+}
+```
+
+`template` selects `templates/effects/<name>/r1/`. To edit a template, copy that revision and set
+`clip` to the copied folder, retaining `template`. The composer uses the shot's existing root
+selector, scopes CSS and private helpers to the clip, sets its duration from the mapped slot,
+and registers its `seek(local)` with `M.clips`. Two clips may use the same template independently.
+Style and script remain inside the scene so changes appear in Kinotta's scene comparison.
+
+`fill` keys are `data-el` names. A string replaces copy; `{ "text", "at", "src" }` changes copy,
+start time and/or media source. Text is escaped, retaining SVG decoration. An array fills a
+container's direct child items, cloning the last item if needed. Use arrays for title words too.
+`at` is always source seconds, mapped through `pieces` and then relative to the mapped clip start.
+In the example, 15 becomes clip-local 2 seconds, not 4. Items whose `at` lies in removed footage
+are omitted; a named scalar cue in a snip remains present for script lookups but stays hidden.
+Unfilled timings retain their template-local values. Attached native-media clips
+map through their named placement and cycle; unattached native-media clips use reel seconds.
+
+The footage is the plate: the composer omits plate and subject layers by default. Set
+`keepLayers: ["plate"]` to keep a supplied plate. Framing, grade and plate-punch effects need
+that picture to affect it; they cannot alter footage outside the composed page. `text-behind`
+requires `fill.subject.src` with the subject matte and keeps it. Media source paths resolve beside
+the shot, including filled `src` paths; brand font paths resolve beside the plan. Local asset
+bytes are embedded so the built page does not depend on the source folders.
+
+The composer includes `shared.css` and `presets.css` once. `brand.tokens` accepts CSS values for
+`fx-*`, `cap-*` and `grade-*` custom properties. `brand.fonts` embeds binary FontFaces once before
+scenes run, with the first family as `fx-font` unless that token is supplied. Await `window.seek(t)`
+before taking a still; it waits for brand fonts and template video seeks. Brand curves override
+the engine defaults for both fragments and templates. Without a brand, Geist (OFL) and the
+sourced B1 curves apply; `.type-*` classes and `--type-*` tokens expose the scale documented in
+`reference/motion-broll.md`.
+
+`videoType` is authoring guidance, one of `explainer`, `interview`, `tutorial`, `demo`, `short`,
+`lecture` or `vlog`. Apply SKILL.md section 5's treatment; it does not mechanically change layout.
