@@ -1,7 +1,11 @@
+import type { MakeOptions } from './make-options.ts';
 import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
 import type { BeatGrid, MediaPlan, MediaSource } from './media-model.ts';
 import type { AudioGenerationRequest, GeneratedAudio } from './audio-generation.ts';
+import type { DeadAirStrength } from './dead-air.ts';
+
+export type { DeadAirStrength } from './dead-air.ts';
 
 export interface ReelSummary {
   /** Folder name under reels/. */
@@ -288,9 +292,9 @@ export type ProjectEvent =
   | { type: 'version-added'; reel: string; version: number }
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
-  | { type: 'approval-changed'; reel: string; version: number; approved: boolean }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
-  | { type: 'render-progress'; job: RenderJob };
+  | { type: 'render-progress'; job: RenderJob }
+  | { type: 'agent-progress'; reel: string; job: import('./agent-jobs.ts').AgentJob };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {
@@ -314,6 +318,16 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  agentSettings(): Promise<import('./agent-settings.ts').AgentSettings>;
+  saveAgentSettings(input: unknown): Promise<import('./agent-settings.ts').AgentSettings>;
+  detectAgents(): ReturnType<typeof import('./agent-settings.ts').detectAgents>;
+  agentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
+  startAgentJob(slug: string, retry?: boolean): Promise<import('./agent-jobs.ts').AgentJob>;
+  cancelAgentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
+  copyAgentRequest(slug: string): Promise<{ request: string }>;
+  acceptAgentOutput(slug: string, id: string): Promise<import('./agent-jobs.ts').AgentJob>;
+  whenAgentDone(slug: string): Promise<void>;
+  close(): Promise<void>;
   mediaStill(source: string, time: number, width: number, saved?: { reel: string; version: number }, footageReel?: string): Promise<string>;
   listMarkers(slug: string): Promise<import('./markers.ts').TimelineMarker[]>;
   addMarker(slug: string, input: { time: number; name: string }): Promise<import('./markers.ts').TimelineMarker>;
@@ -430,8 +444,8 @@ export interface Project {
   buildParts(slug: string, by?: string): Promise<BuiltPartsVersion>;
   /**
    * Brings a dropped video into `<project>/footage/`, streaming `body` to disk. A file already there with the same
-   * content is reused (`copied: false`). An HEVC or ProRes video also gets an H.264 playback copy, which
-   * `footageFile` serves; the original is never altered. Throws `KinottaError` `invalid` for a name that is not a
+   * content is reused (`copied: false`). An HEVC or ProRes video also gets an H.264 playback copy, made in the
+   * background after this resolves (`startReel` waits for it), which `footageFile` serves; the original is never altered. Throws `KinottaError` `invalid` for a name that is not a
    * video extension or a file that is not a readable video.
    */
   importVideo(name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedVideo>;
@@ -441,14 +455,6 @@ export interface Project {
    * `KinottaError` `invalid` for an empty title or brief.
    */
   startReelFromBrief(input: NewBriefReel): Promise<StartedBriefReel>;
-  /**
-   * Marks a version final by writing `v<n>/approval.json` (`{ approvedBy: "you", at }`); nothing else in the version changes,
-   * and approving again keeps the first time. A version with contract issues is approved with a `warning` naming them.
-   * Only the editor's HTTP API calls this; `kinotta` has no approve command (R17). Throws `not-found` for an unknown reel or version.
-   */
-  approveVersion(slug: string, number: number): Promise<Approval>;
-  /** Deletes the version's `approval.json`; renders already made stay. Throws `not-found` for an unknown reel or version. */
-  withdrawApproval(slug: string, number: number): Promise<Withdrawal>;
   /**
    * Queues a render and returns the job as queued; it runs after the jobs before it, one at a time, and reports through
    * `render-progress` events. With `remember`, the settings it uses are saved as the reel's for its preset. Throws
@@ -734,11 +740,13 @@ export interface VideoEntry {
   size: number;
 }
 
-export interface NewReel {
+export interface NewReel extends MakeOptions {
   /** Project-relative path of the video. */
   video: string;
   /** The reel's name; the video's file name when absent or blank. */
   title?: string;
+  /** Cut dead air from v1 at this strength; absent or false leaves the footage whole. Simple mode's Make asks for it. */
+  deadAir?: DeadAirStrength | false;
 }
 
 export interface StartedReel {

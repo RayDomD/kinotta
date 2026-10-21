@@ -303,9 +303,10 @@ export async function main(argv: string[]): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  const { url } = await startServer({ projectDir: options.projectDir, port: options.port });
+  const hosted = await startServer({ projectDir: options.projectDir, port: options.port });
+  const { url } = hosted;
   // Ctrl+C would end the process without its exit handlers; exiting runs them, which removes the port file.
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => process.exit());
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { void hosted.close().then(() => process.exit()); });
   console.log(`Kinotta: ${url}`);
   const warning = missingToolsMessage(await checkTools());
   if (warning) console.warn(warning);

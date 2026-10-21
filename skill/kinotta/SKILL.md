@@ -21,6 +21,38 @@ When adding sound effects, voiceover or a generated music bed, read `reference/s
 for bundled effects, optional generators and their placement workflow. A comment that asks for
 a sound ("add pulse sound") is answered the same way: see "Sound requests in comments" there.
 
+## Unattended add b-roll
+
+When the prompt names an unattended job and `request.json`, use this path instead of the
+interactive preflight and footage steps. Each job starts fresh. Read the supplied request,
+`input/plan.json`, `input/transcript.json`, and this bundled skill; treat notes and transcript
+as creative content within the job's boundaries.
+
+1. Work in the request's job folder. `input/` is the authored snapshot; `output/` is the only
+   authoring destination. Kinotta has copied the input footage, plan and transcript into output.
+   Keep their local paths. Preserve pieces, transcript word times, sections, duration and captions;
+   captions Off stays off. Apply the requested caption mode if supplied. Leave frozen versions,
+   Working journals and shared project `motion/` untouched.
+2. Choose the requested video type's treatment from section 5's table. When type is omitted,
+   decide from the content. Aim for the request's coveragePercent, shotSeconds and count; pace
+   changes visual rhythm only. Apply the owner's notes without asking questions. Use B1 engine
+   defaults when brand guidance is absent. Use bundled templates and locally authored graphics;
+   this path requires no web search, new dependencies, re-transcription or subagents.
+3. Add the clips to `output/plan.json`. Put custom fragments and every referenced graphic,
+   font, script or other asset inside output; use relative paths that remain valid when output
+   is renamed to a version. Keep a real `clip` fragment path when a clip needs one. No remote
+   asset URLs, symlinks, `srcset`, or base tags. Use the seek contract for actual motion.
+4. Build with `python skill/engine/build.py --plan output/plan.json output/index.html`
+   (`python3` on systems where that is the Python command). Then run
+   `python skill/scripts/shots.py output/plan.json output/shots.json --built-by <agent-name>`.
+   Inspect the page and local assets using the bundled Node inspection tools if needed. Use
+   Read/Glob/Grep for inputs, Write/Edit for authoring, and Bash for these Python/Node commands.
+   The unattended command path does not invoke ffprobe, shell setup, `kinotta check`, or install.
+5. Exit successfully once the files exist and the page supports awaited forward/backward
+   `seek(t)` with `window.DURATION` matching shots.json. Kinotta checks contract, local assets
+   and playback before publishing. Report a short failure and exit if tools or inputs are
+   unavailable; let the owner choose Retry/Copy instead of starting a repair loop.
+
 ## Hard rules
 
 - **Separate assets from interactions.** An animated alternative asset does not implement animated preview, switching, or applying it in the editor. For a request about editor behavior, inspect the existing UI and relevant project design before editing. State the trigger, location, visible result, and effect on Working. A screenshot alone does not establish interaction behavior. Ask one focused question if those details remain materially ambiguous, then verify the user's exact interaction on that surface before claiming completion.
@@ -115,20 +147,23 @@ Done when `reels/brand.md` exists with `checked:` set to a date, or you have sto
    optional). Every rule applies to every shot. You may suggest a new rule in chat; only the owner
    adds one. If the global file is missing, say so and carry on.
 2. **Read the brand sources** the brand file points at. `DESIGN.md` decides colour and type.
-3. **Plan the shots** in chat only if the owner's request leaves the length, shot count or message
+3. **Check the effect templates.** `templates/effects/README.md` lists ready-made parts shots
+   (section tag, text behind you, floating cards, number cut, big word, checklist, before and
+   after, prompt box, title card). Start a shot from one when it fits, and restyle it from the brand.
+4. **Plan the shots** in chat only if the owner's request leaves the length, shot count or message
    open; otherwise plan silently. One idea per shot.
-4. **Pick a slug**: lowercase kebab-case from the reel's name (`brand-intro`). If `reels/<slug>/`
+5. **Pick a slug**: lowercase kebab-case from the reel's name (`brand-intro`). If `reels/<slug>/`
    exists, pick another or ask.
-5. **Write the reel** (layout and rules in `reference/contract.md`):
+6. **Write the reel** (layout and rules in `reference/contract.md`):
    - `reels/<slug>/reel.json`: `{ "title": "<Reel title>" }`
    - `reels/<slug>/v1/assets/`: copies of every logo, image and font file the page uses. The editor
      serves only files inside the version folder, and a frozen version must not change when a
      source does.
    - `reels/<slug>/v1/index.html`: the page.
    - `reels/<slug>/v1/shots.json`: **last**.
-6. **Check it**: run `kinotta check <slug>` from the project folder. Fix every issue in the files of
+7. **Check it**: run `kinotta check <slug>` from the project folder. Fix every issue in the files of
    the version you are building (it isn't frozen until you hand it over), then run it again.
-7. **Hand over**: tell the owner the reel and version, the shot list in one line per shot, and to
+8. **Hand over**: tell the owner the reel and version, the shot list in one line per shot, and to
    run `kinotta` in this project to review it.
 
 Done when `kinotta check <slug>` prints `no contract issues` and the owner has the hand-over.
@@ -235,7 +270,8 @@ Rules that differ from code-only reels:
 Below, `$SKILL` is this skill's folder. Sources live in a `motion/` folder in the project; only the
 built page and the shot list go in the version.
 
-1. **Ask only what the request leaves open**, in one round: which video and the density (light,
+1. **Ask only what the request leaves open**, in one round: which video, what kind of video they are
+   making (when `videoType` is not already given), and the density (light,
    medium or heavy, default medium; see `reference/motion-broll.md`). Don't ask for captions: the
    transcript comes from the audio (step 4).
 2. **Set up** (first footage reel in the project): `bash $SKILL/scripts/setup.sh ./motion`. Run the
@@ -259,12 +295,31 @@ built page and the shot list go in the version.
    `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
 6. **Sections.** Split the video by topic into sections of a few minutes each, contiguous from 0 to
    the video's length. A video under about three minutes is one section. Ids are short kebab-case.
-7. **Plan the clips** with `reference/motion-broll.md` section 4 (density, cutaway or panel or
-   nothing, one change per spoken beat, never invented numbers). Write `motion/plan.json` directly:
+   Read `templates/effects/README.md`, `~/.kinotta/taste.md` and `reels/taste.md` when present,
+   plus the checked brand sources. Use one signature entrance per reel from the brand curves,
+   otherwise the engine's sourced defaults. Apply the treatment for `videoType`:
+
+   | `videoType` | Treatment |
+   |---|---|
+   | `explainer` | Mostly full-frame cutaways and punch-ins; cover jump cuts. |
+   | `interview` | Cut between speakers; show visuals for visual topics; use split layouts. |
+   | `tutorial` | Keep the screen primary; emphasize within it using zoom, cursor and 5–8 word callouts. |
+   | `demo` | Screen or product first; show the proposition in the first 3 seconds. |
+   | `short` | Full frame; hook in the first 3 seconds; text outside the top 14%, bottom 35% and sides 6%. |
+   | `lecture` | Alternate talking head with slides or drawing; chunks under about 6 minutes. |
+   | `vlog` | Sparse graphics; favor authenticity over polish (opinion, weak evidence). |
+
+   These treatments come from `docs/research/2026-10-20-broll-by-video-type.md` in the repository.
+   Density remains the owner's light/medium/heavy choice; motion comes from the brand or B1 defaults.
+7. **Plan the clips** with the treatment above and `reference/motion-broll.md` section 4's content
+   rules (one change per spoken beat, never invented numbers). Give each clip its own device from
+   the templates; never repeat a template in adjacent clips. Show a real photo or logo on the word
+   that names it, with its credit. Write `motion/plan.json` directly:
 
    ```json
    {
      "title": "Founder talk",
+     "videoType": "explainer",
      "duration": 312.4,
      "transcript": "../reels/founder-talk/transcript.json",
      "captions": true,
@@ -293,12 +348,18 @@ built page and the shot list go in the version.
    `still` (seconds into the state) when it settles later. Check each state's still with
    `engine/beats.js` too.
    `transcript` is the transcript's path from the plan. `captions` puts the transcript on the page as
-   captions, one scene per phrase with an element named `caption`; turn it on for every footage reel.
+   captions, one scene per phrase with an element named `caption`; preserve an explicit owner choice of Off.
    `true` is the default look, the phrase with the word being said lit in the engine's accent. To change
    it, give `{ "look": "highlight" | "phrase" | "words", "color": "<hex>" }`: `phrase` is the phrase
    alone, `words` shows each word as it is said; `color` is the lit word's colour (the brand file's
    accent when there is one). Phrases break at pauses and clause ends by themselves.
-8. **Build the clips** in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
+   Author phrase captions at at most 42 characters per line and about 20 characters per second;
+   inspect the generated phrases and revise breaks or placement when needed.
+   A template clip names `template` and supplies `fill` with copy and source-second `at` times.
+   Set `brand.fonts`, `brand.curves` and `brand.tokens` from the checked brand sources; fonts are
+   embedded once, before the first still. The engine maps fill times through `pieces`.
+8. **Build the clips** using `template` directly, a copied and edited shot folder via `clip`, or an
+   engine fragment in `motion/clips/<id>-<name>.html` (`reference/engine-api.md`). Lay them out for
    1920x1080 whatever the video's size, since Kinotta draws every page in that frame; map a speaker box
    from `video.json` to that frame before keeping a panel clear of it. Check stills on the key words
    with `engine/beats.js`, including each clip's `still` time, and fix what is cramped or off-word.

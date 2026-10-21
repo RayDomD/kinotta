@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
-import type { Page } from '@playwright/test';
+import type { Page } from '../helpers/editor-test.ts';
 
 // Starts reels in the footage sample with a fake transcriber (playwright.config.ts), so this has its own server and runs in order.
 const BUILD_WAIT_MS = 30_000;

@@ -1,3 +1,4 @@
+import { AGENT_USAGE_NOTICE } from '../../core/_internal/agent-settings.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -5,12 +6,12 @@ import { dirname, extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts';
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
+const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
 const MARKERS_API = /^\/api\/reels\/([^/]+)\/markers(?:\/([^/]+))?$/;
-const APPROVAL_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/approval$/;
 const VERSIONS_API = /^\/api\/reels\/([^/]+)\/versions$/;
 const BATCH_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/batch$/;
 const EDITS_API = /^\/api\/reels\/([^/]+)\/edits(?:\/(undo|redo|[^/]+))?$/;
@@ -150,16 +151,6 @@ async function handleNote(req: IncomingMessage, res: ServerResponse, project: Pr
   if (slug === null) sendJson(res, 404, { error: 'Not found' });
   else if (req.method === 'PUT') sendJson(res, 200, await project.setNote(slug, version, await readTextField(req, 'note')));
   else if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { note: await project.readNote(slug, version) });
-  else res.writeHead(405).end();
-}
-
-/** A version's approval: PUT approves, DELETE withdraws (R17: the editor is the only way to approve). */
-async function handleApproval(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
-  const slug = safeDecode(route[1]!);
-  const version = Number(route[2]);
-  if (slug === null) sendJson(res, 404, { error: 'Not found' });
-  else if (req.method === 'PUT') sendJson(res, 200, await project.approveVersion(slug, version));
-  else if (req.method === 'DELETE') sendJson(res, 200, await project.withdrawApproval(slug, version));
   else res.writeHead(405).end();
 }
 
@@ -338,13 +329,23 @@ export function createHandler(project: Project, webRoot: string) {
   removeStaleDrafts(dirname(project.reelsDir));
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
+      const allowedHosts = [`localhost:${req.socket.localPort}`, `127.0.0.1:${req.socket.localPort}`];
+      if (!allowedHosts.includes(req.headers.host ?? '')) {
+        sendJson(res, 403, { error: 'Requests must use this editor\'s local address.' });
+        return;
+      }
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
+      const agentRoute = AGENT_API.exec(pathname);
+      const launchesAgent = pathname.startsWith('/api/agent/') || agentRoute || (pathname === '/api/reels' && req.method === 'POST');
+      if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`)))) {
+        sendJson(res, 403, { error: 'Agent requests must come from this editor.' });
+        return;
+      }
       const versionRoute = VERSION_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
       const noteRoute = NOTE_API.exec(pathname);
       const markersRoute = MARKERS_API.exec(pathname);
-      const approvalRoute = APPROVAL_API.exec(pathname);
       const versionsRoute = VERSIONS_API.exec(pathname);
       const batchRoute = BATCH_API.exec(pathname);
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
@@ -383,8 +384,6 @@ export function createHandler(project: Project, webRoot: string) {
         await handleComment(req, res, project, commentRoute);
       } else if (noteRoute) {
         await handleNote(req, res, project, noteRoute);
-      } else if (approvalRoute) {
-        await handleApproval(req, res, project, approvalRoute);
       } else if (batchRoute) {
         await handleBatch(req, res, project, batchRoute);
       } else if (buildRoute && req.method === 'POST') {
@@ -446,6 +445,26 @@ export function createHandler(project: Project, webRoot: string) {
           await project.revealRender(slug, file);
           res.writeHead(HTTP_NO_CONTENT).end();
         }
+      } else if (pathname === '/api/agent/settings' && req.method === 'GET') {
+        sendJson(res, 200, { ...await project.agentSettings(), usageNotice: AGENT_USAGE_NOTICE });
+      } else if (pathname === '/api/agent/settings' && req.method === 'PUT') {
+        sendJson(res, 200, { ...await project.saveAgentSettings(await readJsonBody(req)), usageNotice: AGENT_USAGE_NOTICE });
+      } else if (pathname === '/api/agent/check' && req.method === 'GET') {
+        sendJson(res, 200, { agents: await project.detectAgents() });
+      } else if (agentRoute) {
+        const slug = safeDecode(agentRoute[1]!);
+        if (slug === null) sendNotFound(res);
+        else if (agentRoute[2] === 'copy' && req.method === 'GET') sendJson(res, 200, await project.copyAgentRequest(slug));
+        else if (agentRoute[2] === 'publish' && req.method === 'POST') {
+          const body = await readJsonBody(req) as { id?: unknown };
+          if (typeof body.id !== 'string') throw new KinottaError('invalid', 'Supply the request id.');
+          sendJson(res, 200, await project.acceptAgentOutput(slug, body.id));
+        }
+        else if (agentRoute[2] === 'retry' && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug, true));
+        else if (!agentRoute[2] && req.method === 'GET') sendJson(res, 200, { job: await project.agentJob(slug) });
+        else if (!agentRoute[2] && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug));
+        else if (!agentRoute[2] && req.method === 'DELETE') sendJson(res, 200, { job: await project.cancelAgentJob(slug) });
+        else sendNotFound(res);
       } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
         sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {

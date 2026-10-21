@@ -90,6 +90,7 @@
 .body[data-review-shell="true"] .mv-controls { flex-wrap: wrap; min-width: 0; }
 .body[data-review-shell="true"] .rv-side { min-width: 0; }
 .body[data-review-shell="true"] .rv-main { min-width: 0; }
+.body[data-review-shell="true"] .rail .rv-undo { display: none; }
 .body[data-review-shell="true"] .mv-placement-head { flex-wrap: wrap; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .app:has([data-review-shell="true"]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
@@ -534,6 +535,13 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .rv-dropzone[data-busy="true"] { cursor: progress; border-color: var(--light); background: var(--light-wash); }
 .rv-dropzone[data-busy="true"] .rv-choose { visibility: hidden; }
 .rv-dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.rv-drop-rows { list-style: none; width: 100%; max-width: 52ch; display: flex; flex-direction: column; gap: 2px; font-size: 13px; text-align: left; }
+.rv-drop-rows li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); }
+.rv-drop-rows li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-drop-rows li[data-failed="true"] { color: var(--ink); }
+.rv-choose-folder { position: relative; align-self: flex-start; cursor: pointer; }
+.rv-choose-folder[data-busy="true"] { visibility: hidden; }
+.rv-choose-folder input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 .terrain { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; pointer-events: none; background: radial-gradient(circle, color-mix(in oklch, var(--ink) 22%, transparent) 1px, transparent 1.4px) 0 0 / 10px 10px; -webkit-mask: linear-gradient(transparent, #000); mask: linear-gradient(transparent, #000); }
 .rv-needs { margin-top: 22px; font-size: 13px; color: var(--muted); line-height: 1.6; }
 .rv-needs b { color: var(--ink-2); font-weight: 500; }

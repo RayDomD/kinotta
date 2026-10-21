@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Read-only, on the footage server (two sections) so it never disturbs footage.spec.ts, which saves comments there.
 // Pin counts are not asserted for that reason. The one-section reel is checked on the shared server, in the last test.

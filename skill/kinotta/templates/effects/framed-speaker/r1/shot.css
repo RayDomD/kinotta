@@ -1,0 +1,13 @@
+/* The footage shrinks into a card at data-frame-at, then simple shapes draw in around it. */
+[data-scene="framed-speaker"] .ground { position: absolute; inset: 0; background: var(--fx-ground, oklch(.17 .008 60)); }
+[data-scene="framed-speaker"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 55%; }
+[data-scene="framed-speaker"] .shape { position: absolute; opacity: 0; }
+[data-scene="framed-speaker"] .ring { left: 470px; top: 150px; width: 150px; height: 150px; fill: none; stroke: var(--fx-accent); stroke-width: 7; }
+[data-scene="framed-speaker"] .block { right: 520px; top: 170px; width: 70px; height: 70px; border-radius: 14px; background: var(--fx-ink); }
+[data-scene="framed-speaker"] .bars { left: 500px; bottom: 170px; display: flex; align-items: flex-end; gap: 10px; height: 130px; }
+[data-scene="framed-speaker"] .bars i { width: 22px; border-radius: 4px; background: var(--fx-ink); transform-origin: bottom; }
+[data-scene="framed-speaker"] .bars i:nth-child(1) { height: 30%; }
+[data-scene="framed-speaker"] .bars i:nth-child(2) { height: 55%; }
+[data-scene="framed-speaker"] .bars i:nth-child(3) { height: 78%; }
+[data-scene="framed-speaker"] .bars i:nth-child(4) { height: 100%; background: var(--fx-accent); }
+[data-scene="framed-speaker"] .squiggle { right: 440px; bottom: 210px; width: 220px; height: 66px; fill: none; stroke: var(--fx-ink); stroke-width: 5; stroke-linecap: round; }

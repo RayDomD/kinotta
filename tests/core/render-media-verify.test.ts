@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,7 +41,7 @@ function check(page: Page, tamper: Record<string, string> = {}): Promise<boolean
 /** Opens Review, routing the sound through `route` first when given. */
 async function open(page: Page, url: string, route?: (route: Route) => void): Promise<void> {
   if (route) await page.route(SOUND, route);
-  await page.goto(url);
+  await openDetailedEditor(page, url);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
   await page.getByRole('button', { name: 'Review', exact: true }).click();
   await page.locator(ROOT).waitFor();

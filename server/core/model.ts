@@ -18,3 +18,16 @@ export type { TrackFilter } from './_internal/media-model.ts';
 export { MEDIA_AUDIO_RATE, EQ_PRESETS, activeTrackEq, trackEqFilters, webAudioEqQ } from './_internal/media-eq.ts';
 export { BUILT_BY_YOU, CLIP_ROOT, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, mediaEditingPlan, mediaPlanTimeline, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';
 export type { CaptionOffset, CaptionPhrasePositionOperation, CaptionPositionOperation, CaptionsPlan, ClipAttachmentOperation, ClipSlideOperation, ClipSplitOperation, ClipState, ClipTrimOperation, CutOperation, ElementOffset, ElementOffsetOperation, MovePieceOperation, NewOperation, Operation, PhrasePosition, PhraseTextOperation, Plan, PlanClip, SnipOperation, Sources, WordTextOperation, WordTimingOperation } from './_internal/edit-model.ts';
+
+/** Product targets shared by the picker preview and the background authoring request. */
+export const BROLL_COVERAGE_PERCENT = { light: 20, medium: 40, heavy: 60 } as const;
+export const BROLL_SHOT_SECONDS = { calm: 5.5, normal: 3, fast: 1.4 } as const;
+export type BrollAmount = keyof typeof BROLL_COVERAGE_PERCENT;
+export type VisualPace = keyof typeof BROLL_SHOT_SECONDS;
+
+export function brollTargets(broll: BrollAmount, pace: VisualPace, durationSeconds: number): { coveragePercent: number; shotSeconds: number; count: number } {
+  const coveragePercent = BROLL_COVERAGE_PERCENT[broll];
+  const shotSeconds = BROLL_SHOT_SECONDS[pace];
+  const duration = Number.isFinite(durationSeconds) ? Math.max(0, durationSeconds) : 0;
+  return { coveragePercent, shotSeconds, count: Math.round(duration * coveragePercent / 100 / shotSeconds) };
+}

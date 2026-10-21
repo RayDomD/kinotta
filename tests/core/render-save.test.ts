@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -42,7 +43,7 @@ describe('working renders and explicit frozen renders', () => {
     try {
       await server.project.addOperation(REEL, move);
       const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-      await page.goto(server.url);
+      await openDetailedEditor(page, server.url);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
       await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
       await page.getByRole('button', { name: 'Render Working', exact: true }).click();

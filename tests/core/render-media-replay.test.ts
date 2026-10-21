@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -19,7 +20,7 @@ it('keeps replayed edits with a visible history reset notice after reopening (AM
   try {
     const page = await browser.newPage({ viewport: { width: 1272, height: 1000 } });
     const open = async () => {
-      await page.goto(server.url);
+      await openDetailedEditor(page, server.url);
       await revealReelRail(page);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
       await page.getByRole('button', { name: 'Review', exact: true }).click();

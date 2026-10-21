@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Saves comments and batches, so it has its own server and temp project (playwright.config.ts), and runs in order.
 const BATCH_SERVER = 'http://localhost:4397';

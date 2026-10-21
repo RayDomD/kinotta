@@ -32,6 +32,8 @@ const MALFORMED: Array<[string, Record<string, unknown>]> = [
   ['change with a reversed range', { kind: 'placement-change', placement: 'take', changes: { in: 2, out: 1 } }],
   ['change with a negative start', { kind: 'placement-change', placement: 'bed', changes: { at: -1 } }],
   ['removal of a numeric identity', { kind: 'placement-remove', placement: 5 }],
+  ['removal with non-boolean leaveGap', { kind: 'placement-remove', placement: 'take', leaveGap: 'yes' }],
+  ['snip with non-boolean leaveGap', { kind: 'placement-snip', from: 0.5, to: 1.5, leaveGap: 1 }],
   ['move to a negative index', { kind: 'placement-move', placement: 'take', index: -1 }],
   ['move to a fractional index', { kind: 'placement-move', placement: 'take', index: 0.5 }],
   ['split at NaN', { kind: 'placement-split', placement: 'bed', at: Number.NaN }],

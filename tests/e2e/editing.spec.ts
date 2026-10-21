@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Edits, deletes and notes change what the server holds, so this has its own server and temp project
 // (playwright.config.ts) and runs in order: each test builds on the comments the ones before it left.

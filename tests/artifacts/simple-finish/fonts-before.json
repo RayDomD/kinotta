@@ -1,0 +1,63 @@
+{
+  "fonts": [
+    {
+      "url": "http://localhost:5174/@fs/C:/FIles/Projects/Apps/Kinotta/node_modules/@fontsource/outfit/files/outfit-latin-400-normal.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/@fs/C:/FIles/Projects/Apps/Kinotta/node_modules/@fontsource/outfit/files/outfit-latin-600-normal.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/@fs/C:/FIles/Projects/Apps/Kinotta/node_modules/@fontsource/outfit/files/outfit-latin-500-normal.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/@fs/C:/FIles/Projects/Apps/Kinotta/node_modules/@fontsource/doto/files/doto-latin-800-normal.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/@fs/C:/FIles/Projects/Apps/Kinotta/node_modules/@fontsource/doto/files/doto-latin-700-normal.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/reels/kinotta-showcase-03-options/v1/assets/Doto.ttf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/reels/kinotta-showcase-03-options/v1/assets/Outfit.ttf",
+      "status": 200
+    }
+  ],
+  "loaded": {
+    "outfit": true,
+    "doto": true,
+    "faces": [
+      {
+        "family": "Outfit",
+        "weight": "400",
+        "status": "loaded"
+      },
+      {
+        "family": "Outfit",
+        "weight": "500",
+        "status": "loaded"
+      },
+      {
+        "family": "Outfit",
+        "weight": "600",
+        "status": "loaded"
+      },
+      {
+        "family": "Doto",
+        "weight": "700",
+        "status": "loaded"
+      },
+      {
+        "family": "Doto",
+        "weight": "800",
+        "status": "loaded"
+      }
+    ]
+  }
+}

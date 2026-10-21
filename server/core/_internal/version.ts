@@ -223,3 +223,11 @@ export async function readVersion(projectDir: string, slug: string, number: numb
 
 /** Reads a captured or staged page through the same contract and source resolvers as a version. */
 export const readCapturedVersion = (projectDir: string, slug: string, number: number, dir: string): Promise<Version> => readVersionFiles(projectDir, slug, number, dir);
+
+export async function requireVersionDir(projectDir: string, slug: string, number: number): Promise<{ reelDir: string; versionDir: string }> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const versionDir = join(reelDir, `v${number}`);
+  const found = Number.isInteger(number) && number >= 1 && (await stat(versionDir).then((s) => s.isDirectory(), () => false));
+  if (!found) throw new KinottaError('not-found', `Version ${number} of reel "${slug}" not found.`);
+  return { reelDir, versionDir };
+}

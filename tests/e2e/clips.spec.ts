@@ -3,8 +3,8 @@ import { freezeWorking, undoWorkingEdits, revealReelRail } from '../helpers/revi
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Save runs the real build.
 const BUILD_WAIT_MS = 30_000;
@@ -80,7 +80,7 @@ test('trim a clip by its edge, slide another by its body, see it flagged, and Sa
   await expect(edits.getByRole('listitem')).toHaveCount(2);
 
   await freezeWorking(page);
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(page.locator('[data-working-row][data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The saved version keeps the flag, and the plan says which clip was slid.
   await expect(clip(page, '03').locator('.rv-off')).toHaveText('off its words');
   await expect(edits.getByRole('listitem')).toHaveCount(2);
@@ -159,7 +159,7 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   await expect.poll(() => reviewClockText(page)).toMatch(clock!);
 
   await freezeWorking(page);
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(page.locator('[data-working-row][data-current-version="3"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const plan = JSON.parse(readFileSync(join(project, 'reels', 'founder-talk', 'v3', 'plan.json'), 'utf8')) as { clips: { id: string; offsets?: Record<string, { x: number; y: number; scale: number }> }[] };
   const offset = plan.clips.find((c) => c.id === '02')!.offsets!['conflict-panel']!;

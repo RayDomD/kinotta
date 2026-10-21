@@ -20,7 +20,9 @@ snipped stretch is dropped, one straddling a snip is trimmed to its edge, and wo
 import base64, html, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(E))
-from pieces import CAPTION_LOOKS, media_words, timeline_plan, timeline_words
+from pieces import CAPTION_LOOKS, layout, media_spans, media_words, timeline_plan, timeline_words
+from templates import template_parts
+from brand import brand_assets
 b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
 CURSOR = '<svg id="cursor" data-el="cursor" viewBox="0 0 40 56"><path d="M3 3 L3 41 L12.5 32 L19 47 L25.5 44.2 L19.2 29.8 L32 29.8 Z" fill="#0B0B0B" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>'
 # A composed page draws only the scenes running at t, over the footage: transparent wherever no clip paints.
@@ -133,8 +135,26 @@ def compose(plan_path, dst):
     # The engine loads before the scenes, so each clip's style and script can sit inside its own scene: Kinotta
     # compares scene markup between versions, and a clip whose motion alone changed must count as changed.
     body = []
+    tokens, prelude = brand_assets(plan_dir, source.get('brand', {}), any(c.get('template') for c in P['clips']))
+    if prelude: body.append(prelude)
     for c in P['clips']:
         if c.get('attachmentBroken'): sys.exit(f'graphic {c["id"]}: repair its broken footage attachment before building')
+        if c.get('template'):
+            def local_time(at):
+                if source.get('media') and c.get('placement'):
+                    spans = media_spans(source['media'], c['placement'], at, at + 0.000001, source.get('duration', 0), c.get('cycle'))
+                    moment = spans[0]['start'] if spans else None
+                elif source.get('pieces'):
+                    moment = next((start + at - a for a, b, start in layout(source['pieces']) if a <= at < b), None)
+                else: moment = at
+                return round(moment - c['in'], 6) if moment is not None and moment < c['out'] else None
+            root, css, js = template_parts(plan_dir, c, local_time)
+            sel = f'[data-scene="{c["id"]}"]'
+            markup = root.render()
+            style = f'<style>{sel}{{position:absolute;width:1920px;height:1080px;overflow:hidden;{css}}}</style>' + offsets_style(sel, c.get('offsets'))
+            script = f'<script>M.root=document.querySelector(\'{sel}\');(function(document){{{js}\nM.clips.push({{root:M.root,seek,T:{c["out"] - c["in"]}}});}})(M.scope(M.root));M.root=null;</script>'
+            body.append(markup.rsplit(f'</{root.tag}>', 1)[0] + style + script + f'</{root.tag}>')
+            continue
         p = parts(clip_source(plan_dir, c)); scene = c['id'] if c.get('splitFrom') else p['name']; sel = f'[data-scene="{scene}"]'
         style = f'<style>{sel}{{{p["css"]}}}</style>' if p['css'].strip() else ''
         style += offsets_style(sel, c.get('offsets'))
@@ -144,7 +164,7 @@ def compose(plan_path, dst):
     if captions: body += caption_scenes(plan_dir, P, source.get('pieces'))
     duration = P['duration'] if 'duration' in P else max(c['out'] for c in P['clips'])
     pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
-    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else ''),'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
+    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else '') + tokens,'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
 if __name__ == '__main__':
     if sys.argv[1] == '--plan':
         compose(sys.argv[2], sys.argv[3]); print('built', sys.argv[3])

@@ -7,6 +7,8 @@ import { formatTransport } from './clock.ts';
 export interface TransportPin { id: string; time: number; number: number; text: string }
 export interface TransportMarker { id: string; time: number; name: string }
 export interface TransportProps {
+  /** Simple mode keeps playback and timecode; its timeline owns seeking and pins. */
+  compact?: boolean;
   time: number; total: number; playing: boolean;
   frameRate?: number; timecode?: EditorSettings['timecode']; keys?: EditorSettings['keys'];
   shots?: readonly number[]; pins?: readonly TransportPin[]; markers?: readonly TransportMarker[];
@@ -19,7 +21,7 @@ export function shotTarget(shots: readonly number[], time: number, direction: -1
   return direction === 1 ? ordered.find((at) => at > time + 1e-6) ?? total : ordered.filter((at) => at < time - 1e-6).at(-1) ?? 0;
 }
 
-export function Transport({ time, total, playing, frameRate = 30, timecode = 'seconds', keys = DEFAULT_SETTINGS.keys, shots = [], pins = [], markers = [], disabled, children, focus, onToggle, onSeek, onFocus, onMarker }: TransportProps) {
+export function Transport({ compact = false, time, total, playing, frameRate = 30, timecode = 'seconds', keys = DEFAULT_SETTINGS.keys, shots = [], pins = [], markers = [], disabled, children, focus, onToggle, onSeek, onFocus, onMarker }: TransportProps) {
   const pending = useRef<number | null>(null);
   const frame = useRef<number | null>(null);
   const dragging = useRef(false);
@@ -35,15 +37,15 @@ export function Transport({ time, total, playing, frameRate = 30, timecode = 'se
     <button type="button" className="rv-play" aria-label={playing ? 'Pause' : 'Play'} title={tip('Play or pause', keys.play)} disabled={disabled || total <= 0} onClick={onToggle}>
       <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--ink)"/><path d={playing ? 'M11 9.5h2.2v9H11zM14.8 9.5H17v9h-2.2z' : 'M11.5 9.8l6 4.2-6 4.2z'} fill="var(--ground)"/></svg>
     </button>
-    <div className="rv-steps">{([
+    {!compact && <><div className="rv-steps">{([
       ['Previous shot', 'prevShot', '│‹', () => seek(shotTarget(shots, time, -1, total))],
       ['Previous frame', 'left', '‹', () => seek(time - 1 / frameRate)],
       ['Next frame', 'right', '›', () => seek(time + 1 / frameRate)],
       ['Next shot', 'nextShot', '›│', () => seek(shotTarget(shots, time, 1, total))],
     ] as const).map(([label, id, mark, action]) => <button type="button" className="rv-tool" key={id} aria-label={label} title={tip(label, keys[id])} disabled={total <= 0} onClick={action}>{mark}</button>)}</div>
-    <label className="mv-clock">Playhead <input aria-label="Playhead" type="number" min="0" max={timecode === 'frames' ? Math.round(total * frameRate) : total} step={timecode === 'frames' ? 1 : 0.01} value={timecode === 'frames' ? Math.round(time * frameRate) : time.toFixed(2)} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) seek(value / (timecode === 'frames' ? frameRate : 1)); }}/></label>
+    <label className="mv-clock">Playhead <input aria-label="Playhead" type="number" min="0" max={timecode === 'frames' ? Math.round(total * frameRate) : total} step={timecode === 'frames' ? 1 : 0.01} value={timecode === 'frames' ? Math.round(time * frameRate) : time.toFixed(2)} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) seek(value / (timecode === 'frames' ? frameRate : 1)); }}/></label></>}
     <span className="rv-tc" aria-label="Playback timecode">{timecode === 'frames' ? `${Math.round(time * frameRate)}f / ${Math.round(total * frameRate)}f` : `${formatTransport(time)} / ${formatTransport(total)}`}</span>
-    <div className="rv-scrubber">
+    {!compact && <><div className="rv-scrubber">
       <div className="rv-scrub" role="slider" tabIndex={0} aria-label="Scrub reel" aria-valuemin={0} aria-valuemax={total} aria-valuenow={time} aria-valuetext={`${time.toFixed(2)} seconds`} onPointerDown={(event) => { if (event.button !== 0 || total <= 0) return; event.preventDefault(); event.currentTarget.focus(); dragging.current = true; event.currentTarget.setPointerCapture(event.pointerId); const box = event.currentTarget.getBoundingClientRect(); queue((event.clientX - box.left) / box.width * total); }} onPointerMove={(event) => { if (!dragging.current) return; const box = event.currentTarget.getBoundingClientRect(); queue((event.clientX - box.left) / box.width * total); }} onPointerUp={flush} onPointerCancel={flush} onLostPointerCapture={flush} onKeyDown={(event) => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault(); event.stopPropagation(); seek(event.key === 'Home' ? 0 : event.key === 'End' ? total : time + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 1 / frameRate));
@@ -57,6 +59,7 @@ export function Transport({ time, total, playing, frameRate = 30, timecode = 'se
     </div>
     {onMarker && <button type="button" className="rv-tool" title={tip('Drop marker', keys.marker)} onClick={() => onMarker()}>Marker</button>}
     {onFocus && <button type="button" className="rv-tool" aria-label={focus ? 'Leave focus' : 'Focus picture'} title={tip('Focus picture', keys.focus)} onClick={onFocus}>{focus ? 'Leave focus' : 'Focus'}</button>}
+    </>}
     {children}
   </div>;
 }

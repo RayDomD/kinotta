@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // The engine-project sample, its clips built by the motion engine when the server starts (playwright.config.ts).
 const ENGINE_SERVER = 'http://localhost:4391';

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 
 // Read-only: runs against the shared server (comments are never saved here). Pins on the lanes are
 // covered in pins.spec.ts, which owns the server that saves comments.

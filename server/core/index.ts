@@ -1,6 +1,7 @@
+import { createAgentJobs, type AgentJobsOptions } from './_internal/agent-jobs.ts';
+import { readAgentSettings, saveAgentSettings, detectAgents } from './_internal/agent-settings.ts';
 import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import { approveVersion, withdrawApproval } from './_internal/approval.ts';
 import { buildParts } from './_internal/parts-build.ts';
 import { workingPartsPage, workingPartsSnapshot } from './_internal/parts-working.ts';
 import { alternatePage } from './_internal/parts-alternates.ts';
@@ -38,6 +39,18 @@ export { assembleParts } from './_internal/parts-assembler.ts';
 export type { PartsInputs, ShotRevision } from './_internal/parts-assembler.ts';
 export { scanPage, checkShotsAgainstPage } from './_internal/contract.ts';
 export { KinottaError } from './_internal/errors.ts';
+export {
+  BREATH_MAX_PEAK,
+  BREATH_MIN_PEAK,
+  DEAD_AIR_STRENGTHS,
+  GENTLE_GAP_SECONDS,
+  NORMAL_GAP_SECONDS,
+  TIGHT_GAP_SECONDS,
+  WORD_PAD_SECONDS,
+  cutDeadAir,
+  isDeadAirStrength,
+} from './_internal/transcription.ts';
+export type { DeadAirOptions, DeadAirStrength } from './_internal/transcription.ts';
 export { pieceMap, toSource, toSourceSpans, toTimeline, toTimelineSpan } from './_internal/pieces.ts';
 export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
@@ -106,6 +119,7 @@ export type {
 } from './_internal/types.ts';
 
 export interface ProjectOptions {
+  agent?: AgentJobsOptions;
   /** Turns a video into timed words when a reel starts. Defaults to the skill's audio transcription. */
   transcriber?: Transcriber;
   /** How many parallel segments every render runs in; tests pin it. Otherwise the CPU and the render's length decide. */
@@ -122,6 +136,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     emit({ type: 'edits-changed', reel: slug });
     return list;
   };
+  const agents = createAgentJobs(dir, emit, options.agent);
   const transcriptions = createTranscriptions(emit);
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
@@ -134,6 +149,16 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    agentSettings: () => readAgentSettings(dir),
+    saveAgentSettings: (input) => saveAgentSettings(dir, input),
+    detectAgents,
+    agentJob: agents.status,
+    startAgentJob: agents.start,
+    cancelAgentJob: agents.cancel,
+    copyAgentRequest: agents.copy,
+    whenAgentDone: agents.whenDone,
+    acceptAgentOutput: agents.acceptOutput,
+    close: agents.close,
     soundEffects,
     soundEffectFile,
     importSoundEffect: (id) => importSoundEffect(dir, id),
@@ -190,7 +215,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
     listVideos: () => listVideos(dir),
     importVideo: (name, body) => importVideo(dir, name, body),
-    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input),
+    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input, (slug) => agents.start(slug)),
     transcriptionProgress: (slug) => transcriptions.progress(slug),
     whenTranscribed: (slug) => transcriptions.whenDone(slug),
     readEditList: (slug) => readEditList(dir, slug),
@@ -203,8 +228,6 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     freezeEdits: (slug) => freezeEdits(dir, slug),
     buildParts: (slug, by) => buildParts(dir, slug, by),
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
-    approveVersion: (slug, number) => approveVersion(dir, slug, number),
-    withdrawApproval: (slug, number) => withdrawApproval(dir, slug, number),
     render,
     renderWorking: async (request) => {
       removeStaleDrafts(dir);
@@ -243,3 +266,8 @@ function settling(dir: string, listener: (event: ProjectEvent) => void): (event:
     else listener(event);
   };
 }
+
+export type { MakeOptions } from './_internal/make-options.ts';
+
+export type { AgentJob, AgentJobState } from './_internal/agent-jobs.ts';
+export type { AgentSettings, AgentProvider } from './_internal/agent-settings.ts';

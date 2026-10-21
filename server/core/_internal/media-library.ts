@@ -7,7 +7,7 @@ import { contentPlaybackPath, ensurePlaybackCopy, hashOf, needsPlaybackCopy, pla
 import { probeMedia, waveformPeaks } from './runner.ts';
 import type { ImportedMedia, MediaEntry, MediaFilter, MediaWaveform, ProjectMediaFile } from './types.ts';
 import type { MediaPlan } from './media-model.ts';
-import { requireVersionDir } from './approval.ts';
+import { requireVersionDir } from './version.ts';
 
 const LIBRARY_FILE = '.media-library.json';
 const MEDIA_DIR = 'footage';

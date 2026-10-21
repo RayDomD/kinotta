@@ -93,9 +93,7 @@ async function snippedReel(): Promise<Reel> {
   writeFileSync(join(reelDir, 'plan.json'), JSON.stringify(plan));
   await project.addOperation(slug, { kind: 'snip', ...SNIP });
   await project.freezeEdits(slug);
-  // Approved as the owner would; the render gate no longer asks for it (R19), and the warning shows the version is clean.
-  const { warning } = await project.approveVersion(slug, 2);
-  expect(warning).toBeUndefined();
+  expect((await project.readVersion(slug, 2)).issues).toEqual([]);
   return { dir, reelDir, slug, project };
 }
 

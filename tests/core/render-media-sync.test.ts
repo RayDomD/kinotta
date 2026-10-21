@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,7 +41,7 @@ function reelWithPicture(): string {
 }
 
 async function openEditor(page: Page, url: string): Promise<void> {
-  await page.goto(url);
+  await openDetailedEditor(page, url);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
   await page.getByRole('button', { name: 'Review', exact: true }).click();
   await page.locator('[data-verify-unit="MediaEditor"]').waitFor();

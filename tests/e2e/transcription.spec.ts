@@ -3,8 +3,8 @@ import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // The build after the words arrive runs the real engine.
 const BUILD_WAIT_MS = 30_000;
@@ -19,7 +19,7 @@ test.use({ baseURL: 'http://localhost:4381' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');
-const versions = (page: Page): Locator => page.getByRole('navigation', { name: 'Versions' });
+const versions = (page: Page): Locator => page.getByRole('navigation', { name: 'Current reel', exact: true });
 
 test('a reel plays and is snipped while it transcribes, shows progress, and keeps the snip when v1 arrives', async ({ page }) => {
   await page.goto('/');
@@ -57,7 +57,7 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   // The words arrive: v1 is built, the lane gives way to the words, and the snip is still in the list and on the timeline.
   writeFileSync(join(readFileSync(PROJECT_FILE, 'utf8'), '.release-transcript'), '');
   await revealReelRail(page);
-  await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect(versions(page)).toContainText('you');
   await expect(review(page).getByRole('progressbar', { name: 'Transcription' })).toHaveCount(0);
   await expect(review(page).locator('[data-row="captions"]').locator('.editorial-text-bar > button')).toHaveText('hello there');
@@ -70,6 +70,6 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
 
   // And it saves: v2 is v1 with the snip.
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
 });

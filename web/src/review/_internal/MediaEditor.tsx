@@ -31,6 +31,7 @@ import { Transport, shotTarget } from './Transport.tsx';
 import { ViewerDivider } from './ViewerDivider.tsx';
 import { MarkerPanel, useMarkers } from './useMarkers.tsx';
 import { onReelAlternate } from '../../alternates.ts';
+import { SimpleTimeline } from '../../SimpleTimeline.tsx';
 import '../review.css';
 
 /** How often a running transcription is checked on. */
@@ -61,7 +62,7 @@ function verifyAttrs(count: number, playing: boolean, ready: boolean, error: str
 }
 
 /** Native placements share the saved edit list and the same envelope used by rendering. */
-export function MediaEditor({ reel, version, section, edits, actions, comments, onSaveComment, reveal, sourceRoot: initialRoot, legacySources }: ReviewProps & { sourceRoot?: string; legacySources?: Sources }) {
+export function MediaEditor({ reel, version, section, edits, actions, comments, onSaveComment, reveal, simple, sourceRoot: initialRoot, legacySources }: ReviewProps & { sourceRoot?: string; legacySources?: Sources }) {
   const workspace = useEditorWorkspace();
   const markerState = useMarkers(reel.slug);
   const base = version!.media!;
@@ -132,10 +133,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [replacing, setReplacing] = useState<Record<string, string>>({});
   const [waveforms, setWaveforms] = useState<Record<string, MediaWaveform>>({});
   const [sourceRoot, setSourceRoot] = useState(initialRoot ?? null);
-  const editable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
+  const captionEditable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
+  const editable = !simple && captionEditable;
   const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined), [base, reel.slug, version!.number]);
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
   const { time, playing, ready } = playback;
+  useEffect(() => { if (simple?.jump) playback.seek(simple.jump.time); }, [simple?.jump]);
   const selectSnip = (range: { from: number; to: number } | null) => {
     setSnipRange(range);
     if (range) playback.seek(range.to);
@@ -214,6 +217,13 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       ...(sourceTime !== undefined ? { sourceTime } : target && target.role !== 'gap' ? { sourceTime: target.in + at - target.at } : {}) };
   };
   const pickFrame = (pick: FramePick) => {
+    if (simple) {
+      const target = pictureAt(timeline, time, pick.x, pick.y) ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
+      const shot = reelShots.find((shot) => shot.start <= time && shot.start + shot.duration > time);
+      playback.seek(time);
+      simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(time, target?.id), ...pick });
+      return;
+    }
     try {
       const target = pictureAt(timeline, time, pick.x, pick.y) ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
       const saved = workingPinMoment(time, target?.id);
@@ -231,6 +241,33 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [speech, setSpeech] = useState<Record<string, MediaSpeech>>({});
   const spoken = useMemo(() => ({ ...media, sources: media.sources.map((s) => { const state = speech[s.id]; return !s.words && state?.state === 'ready' ? { ...s, words: state.words } : s; }) }), [media, speech]);
   const words = useMemo(() => mediaWords(spoken, timeline.duration), [spoken, timeline.duration]);
+  type WordItem = typeof words[number];
+  const isWordChanged = useCallback((word: WordItem) => {
+    const opFound = ops.some((op) => {
+      if (op.kind === 'word-text' || op.kind === 'word-timing') {
+        return op.placement === word.placement && Math.abs(op.at - word.sourceStart!) < 0.01;
+      }
+      if (op.kind === 'phrase-text') {
+        return op.placement === word.placement && word.sourceStart! >= op.from - 0.01 && word.sourceStart! <= op.to + 0.01;
+      }
+      return false;
+    });
+    if (opFound) return true;
+    const placement = base.placements.find((p) => p.id === word.placement);
+    if (placement && placement.role !== 'gap') {
+      const origSource = base.sources.find((s) => s.id === placement.source);
+      const origWords = placement.words ?? origSource?.words ?? [];
+      const origWord = origWords.find((w) => Math.abs(w.start - word.sourceStart!) < 0.01);
+      if (origWord) {
+        const origDuration = origWord.end - origWord.start;
+        const currentDuration = word.end - word.start;
+        if (word.text !== origWord.text || Math.abs(currentDuration - origDuration) > 0.01) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [ops, base]);
   const pinWord = (word: typeof words[number]) => {
     try {
       const saved = workingPinMoment(word.start, word.placement, word.sourceStart);
@@ -493,7 +530,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     else if (action === 'duplicate' && selectedPlacement) duplicate(selectedPlacement);
     else if (action === 'gap') void edits!.add({ kind: 'placement-add', placement: { id: crypto.randomUUID(), role: 'gap', duration: workspace.settings.gap }, index: selectedPlacement && media.sequence.includes(selectedPlacement.id) ? media.sequence.indexOf(selectedPlacement.id) + 1 : media.sequence.length });
     else if (action === 'pin') { setPinning(!pinning); setPinDraft(null); setPinError(null); }
-    else if (action === 'remove' && selected) void edits!.add({ kind: 'placement-remove', placement: selected });
+    else if (action === 'remove' && selected) void edits!.add({ kind: 'placement-remove', placement: selected, leaveGap: true });
     else if (action === 'closeGap' && selected) void edits!.add({ kind: 'placement-ripple-remove', placement: selected });
     else if (action === 'undo') void edits!.undo();
     else if (action === 'redo') void edits!.redo();
@@ -502,19 +539,20 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       const target = tracks[tracks.findIndex((track) => track.id === selectedPlacement.track) + (action === 'up' ? -1 : 1)];
       if (target) change(selectedPlacement.id, { track: target.id });
     }
-    else if (action === 'apply' && snipRange && !version!.code) void edits!.add({ kind: 'placement-snip', ...snipRange }).then((ok) => { if (ok) { playback.seek(snipRange.from); setSnipRange(null); setTool('select'); } });
+    else if (action === 'apply' && snipRange && !version!.code) void edits!.add({ kind: 'placement-snip', ...snipRange, ...(fast ? {} : { leaveGap: true }) }).then((ok) => { if (ok) { playback.seek(snipRange.from); setSnipRange(null); setTool('select'); } });
   };
   // Shortcuts are heard on the window: the page opens with focus on the body, and a click on empty timeline leaves it there.
   const main = useRef<HTMLElement>(null);
   const onWindowKey = useRef<(event: globalThis.KeyboardEvent) => void>(() => undefined);
   onWindowKey.current = (event) => {
+    if (simple) return;
     const target = event.target as HTMLElement;
     if (event.defaultPrevented || workspace.settingsOpen || workspace.shortcutsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"]')) return;
     // A control outside the editor keeps its own plain keys (Space presses a focused button); a chord with a modifier still reaches the editor.
     if (!event.ctrlKey && !event.metaKey && !event.altKey && !main.current?.contains(target) && target.closest('button, a, summary, [role="tab"], [role="menuitem"]')) return;
     const chord = keyChord(event);
     const shiftedAction = event.shiftKey ? actionForKey(workspace.settings.keys, chord.replace('Shift+', '')) : null;
-    const action = actionForKey(workspace.settings.keys, chord) ?? (shiftedAction && ['left', 'right', 'up', 'down'].includes(shiftedAction) ? shiftedAction : null);
+    const action = actionForKey(workspace.settings.keys, chord) ?? (shiftedAction && ['left', 'right', 'up', 'down', 'apply'].includes(shiftedAction) ? shiftedAction : null);
     if (!action || ['rail', 'settings', 'focus', 'shortcuts'].includes(action) || (action === 'apply' && !enabled(action))) return;
     event.preventDefault(); runAction(action, event.shiftKey);
   };
@@ -525,7 +563,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   }, []);
   const pageUrl = version!.workingParts ? workingPartsPageUrl(reel.slug, version!.workingParts.key) : versionPageUrl(reel.slug, version!.workingBase ?? version!.number);
   return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '', editable)} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
-    <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>
+    {!simple && <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>}
     {error && <p role="alert">{error}</p>}
     {pinError && <p role="alert">{pinError}</p>}
     {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
@@ -534,7 +572,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
         <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
-        <PagePlayer className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
+        <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={simple ? simple.pinMode && !simple.draft ? pickFrame : undefined : pinning ? pickFrame : undefined} draftContent={simple?.draftContent} draftPin={simple ? simple.draft?.kind === 'frame' ? simple.draft : null : pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}
@@ -544,13 +582,40 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <p role="alert">{`Mix above full scale at ${describeOverload(overload)}. Lower a level or volume point.`}</p>
       <button type="button" className="rv-tool" onClick={() => playback.seek((overload.spans.find((span) => span.start > time + SPLIT_MARGIN) ?? overload.spans[0])!.start)}>Next overload</button>
     </section>}
-      <Transport markers={markerState.markers} onMarker={(id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }} time={time} total={timeline.duration} playing={playing} timecode={workspace.settings.timecode} keys={workspace.settings.keys} disabled={!ready || (pictureError !== null && !playing)} shots={version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)} pins={shownPins.filter((c) => !c.moment.removed && !c.state).map((c) => ({ id: c.id, time: c.moment.time, number: c.number, text: c.text }))} onToggle={togglePlayback} onSeek={playback.seek} focus={workspace.focus} onFocus={() => workspace.setFocus(!workspace.focus)}>
+      <Transport compact={!!simple} markers={markerState.markers} onMarker={(id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }} time={time} total={timeline.duration} playing={playing} timecode={workspace.settings.timecode} keys={workspace.settings.keys} disabled={!ready || (pictureError !== null && !playing)} shots={version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)} pins={shownPins.filter((c) => !c.moment.removed && !c.state).map((c) => ({ id: c.id, time: c.moment.time, number: c.number, text: c.text }))} onToggle={togglePlayback} onSeek={playback.seek} focus={workspace.focus} onFocus={() => workspace.setFocus(!workspace.focus)}>
+        {simple?.controls}
         {!ready && !playback.error && <span role="status">Preparing sound…</span>}
         {waitingForPicture && ready && <span role="status">Waiting for picture…</span>}
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
       </Transport>
     </div>
-    <MarkerPanel state={markerState} /><ViewerDivider />
+    {simple && <SimpleTimeline
+      pinMode={simple.pinMode}
+      canPin={!simple.draft}
+      time={time}
+      total={timeline.duration}
+      shots={reelShots}
+      comments={shownPins.filter((pin) => !pin.moment.removed).map((pin) => ({ ...pin, pin: { ...pin.pin, time: pin.moment.time } }))}
+      laneGraphics={laneGraphics}
+      media={media}
+      timeline={timeline}
+      words={words}
+      phrases={phrases}
+      captionsOption={edited.captions}
+      captionEditable={captionEditable && !edits!.busy}
+      isWordChanged={isWordChanged}
+      snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]}
+      onSeek={playback.seek}
+      onPin={(at) => {
+        const target = pictureAt(timeline, at, 0.5, 0.5);
+        const shot = reelShots.find((shot) => shot.start <= at && shot.start + shot.duration > at);
+        simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(at, target?.id), x: 0.5, y: 0.5, element: null });
+      }}
+      onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
+      onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
+      onPhrase={(index, text) => void retypeCaption({ index, text })}
+    />}
+    {!simple && <><MarkerPanel state={markerState} /><ViewerDivider />
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
     <div className="rv-tracks-pane">
     {version!.code && <p className="meta">Drag or trim shots in the Picture row. Sound stays in place.</p>}
@@ -582,7 +647,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+    {(pictures) => <EditorialLanes snap={snap} isWordChanged={isWordChanged} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
       onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
@@ -591,7 +656,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onGraphicKey={(event, id) => { if (actionForKey(workspace.settings.keys, keyChord(event.nativeEvent)) === 'apply' && !snipRange) { event.preventDefault(); event.stopPropagation(); setSelected(null); setSelectedGraphic(id); workspace.setPanelTab('clip'); } }}
       onGraphicDrag={(id, edge, delta) => { const c = edited.clips?.find((clip) => clip.id === id); if (!c) { setGraphicDraft(null); return; } void edits!.add(edge === 'move' ? { kind: 'clip-slide', clip: id, ...(c.placement ? { placement: c.placement } : {}), delta } : { kind: 'clip-trim', clip: id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }).then(() => setGraphicDraft(null)); }}>{pictures}</EditorialLanes>}
     </NativeLanes>
-    </div>
+    </div></>}
     {clipMenu && (() => {
       const p = timeline.placements.find((item) => item.id === clipMenu.id);
       if (!p) return null;
@@ -612,12 +677,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || !splittable(p)} onClick={() => act(() => split(p))}>Split{workspace.settings.keys.split && <kbd>{workspace.settings.keys.split}</kbd>}</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate<kbd>{workspace.settings.keys.duplicate}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || p.role === 'gap'} onClick={() => { inspect(); requestAnimationFrame(() => workspace.clipHost?.querySelector<HTMLSelectElement>('select[aria-label^="Replace "]')?.focus()); }}>Replace…</button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id }); })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id, leaveGap: true }); })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => { void edits!.add({ kind: 'placement-ripple-remove', placement: p.id }); })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
       </div>;
     })()}
 
-    {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s of footage`}</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={() => runAction('apply')}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
+    {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s, keep the gap`}</span><span className="meta">Shift closes the gap</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={(event) => runAction('apply', event.shiftKey)}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
     {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={edits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
     {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} onDetect={(id, fresh) => detectMediaBeats(id, savedFor(id), fresh)} generate={generateAudio} generatedTrackName={musicTrack?.name ?? 'Music'} onAddGenerated={addGenerated} />, workspace.soundHost)}
     {workspace.sectionHost && (authored.sections ?? []).some((s) => s.partOf) && createPortal(<section aria-label="Continuous sections"><div className="label">Surviving section spans</div><nav className="secs">{authored.sections!.map((s) => <button type="button" key={s.id} onClick={() => playback.seek(s.start)}><span className="nm">{s.name}</span><span className="sub">{s.start.toFixed(2)}–{s.end.toFixed(2)}s</span></button>)}</nav></section>, workspace.sectionHost)}

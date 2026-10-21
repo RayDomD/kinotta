@@ -1,8 +1,8 @@
 import { cpSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Copies section batches and adds a version folder to its temp project while the editor is open, so it has its own
 // server on the footage sample (playwright.config.ts) and runs in order.
@@ -17,7 +17,7 @@ test.describe.configure({ mode: 'serial' });
 const dialog = (page: Page): Locator => page.getByRole('dialog');
 const copyButton = (page: Page): Locator => page.locator('.copy .btn');
 const sectionButtons = (page: Page): Locator => page.getByRole('navigation', { name: 'Sections' }).getByRole('button');
-const versionButtons = (page: Page): Locator => page.getByRole('navigation', { name: 'Versions' }).getByRole('button');
+const versionButtons = (page: Page): Locator => page.getByRole('navigation', { name: 'Current reel', exact: true }).getByRole('button');
 const cards = (page: Page): Locator => page.locator('.clist .c');
 
 const projectDir = (): string => readFileSync(PROJECT_PATH_FILE, 'utf8');
@@ -89,15 +89,14 @@ test('a new version that changes section 01 takes the unsent comments of both se
   // A second comment in section 01 that is never copied, so it moves with its moment even though the section changed.
   await pin(page, '02', 1, { x: 0.5, y: 0.5 }, 'Unsent in section one.');
   await page.goto('/');
-  await expect(versionButtons(page)).toHaveText(['v1now']);
+  await expect(versionButtons(page)).toHaveText(['Current0 edits']);
 
   writeVersionTwo();
 
-  await expect(page.locator('.notice')).toContainText('v2 is ready.');
-  await page.getByRole('button', { name: 'Open v2' }).click();
+  await expect(page.locator('[data-current-version="2"]')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Cold open');
-  await expect(versionButtons(page)).toHaveText(['v1storyboard', 'v2now · changed 01']);
-  await expect(versionButtons(page).nth(1)).toHaveAttribute('aria-current', 'true');
+  await expect(versionButtons(page)).toHaveText(['Current0 edits']);
+  await expect(versionButtons(page).nth(0)).toHaveAttribute('aria-current', 'true');
   await expect(sectionButtons(page).nth(0).getByText('Waiting')).toHaveCount(0);
   await expect(page.locator('.comments header .meta')).toHaveText('v2 · section 01 · 1');
   await expect(cards(page).locator('p')).toHaveText(['Unsent in section one.']);
@@ -109,25 +108,12 @@ test('a new version that changes section 01 takes the unsent comments of both se
   await expect(copyButton(page)).toHaveAccessibleName('Copy section 02 comments, 2');
 });
 
-test('v1 stays as it was: sent and frozen, and the unsent ones say they moved', async ({ page }) => {
-  await page.goto('/');
-  await versionButtons(page).nth(0).click();
-
-  await expect(versionButtons(page).nth(0)).toHaveAttribute('aria-current', 'true');
-  await expect(copyButton(page)).toBeDisabled();
-  await expect(sectionButtons(page).nth(0).getByText('Waiting')).toBeVisible();
-
-  await expect(cards(page)).toHaveCount(2);
-  await expect(cards(page).nth(0)).toContainText('Slide the laptops in faster.');
-  await expect(cards(page).nth(0).locator('.carry-state')).toHaveText('Sent to your agent');
-  await expect(cards(page).nth(1)).toContainText('Unsent in section one.');
-  await expect(cards(page).nth(1).locator('.carry-state')).toHaveText('Moved to v2');
-  await expect(cards(page).nth(1).getByRole('button', { name: /^Edit/ })).toHaveCount(0);
-
-  await sectionButtons(page).nth(1).click();
-  await expect(cards(page).locator('.carry-state')).toHaveText(['Moved to v2', 'Moved to v2']);
-
-  // The batch file the copy wrote is untouched.
+test('the older snapshot and its section batch remain readable under Current', async ({ request }) => {
+  const response = await request.get('/api/reels/founder-talk/versions/1/comments');
+  expect(response.ok()).toBe(true);
+  const { comments } = await response.json();
+  expect(comments.some((comment: { sent?: boolean }) => comment.sent)).toBe(true);
+  expect(comments.some((comment: { carried?: { to: number } }) => comment.carried?.to === 2)).toBe(true);
   const saved = JSON.parse(readFileSync(join(projectDir(), SECTION_FILE), 'utf8')) as { comments: unknown[] };
   expect(saved.comments).toHaveLength(1);
 });

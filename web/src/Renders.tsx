@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { approveVersion, cancelRender, fetchOverload, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, renderWorking, withdrawApproval } from './api/index.ts';
+import { cancelRender, fetchOverload, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, renderWorking } from './api/index.ts';
 import type { MixOverload, RenderFile, RenderJob, RenderPreset, RenderSettings, VersionEntry } from './api/index.ts';
 import { describeOverload } from '../../server/core/model.ts';
 import { formatRemaining } from './timecode.ts';
@@ -114,38 +114,15 @@ export interface VersionActionsProps {
   onSaved?(version: number): void;
 }
 
-/** Approve or Withdraw and Render for the version on show, by the reel's title in Review (mockup option C). */
+/** Render the current reel, by the reel's title in Review (mockup option C). */
 function actionsVerifyAttrs(working: boolean, busy: boolean) {
   return { 'data-verify-unit': 'VersionActions', 'data-verify-working': String(working), 'data-verify-busy': String(busy) };
 }
 
 export function VersionActions({ slug, entry, footage, working = false, nextVersion, onSaved }: VersionActionsProps) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
   const number = entry?.number;
-  useEffect(() => setMessage(''), [slug, number]);
-
-  const change = (approve: boolean): void => {
-    if (number === undefined) return;
-    setBusy(true);
-    setMessage('');
-    // The rail and these actions hear the change as an approval-changed event and reload the versions.
-    (approve ? approveVersion(slug, number).then((a) => setMessage(a.warning ?? '')) : withdrawApproval(slug, number).then(() => undefined))
-      .catch((err: unknown) => setMessage(err instanceof Error ? err.message : 'Could not reach the server'))
-      .finally(() => setBusy(false));
-  };
-
   return (
-    <div className="rv-actions" role="group" aria-label="Version actions" {...actionsVerifyAttrs(working, busy)}>
-      {message !== '' && <span className="pk-message" role="status">{message}</span>}
-      {entry?.approved ? (
-        <>
-          <span className="rv-approved">✓ Approved</span>
-          <button type="button" className="c-act" aria-label={`Withdraw v${entry.number}`} disabled={busy} onClick={() => change(false)}>Withdraw</button>
-        </>
-      ) : (
-        <button type="button" className="btn quiet" aria-label={number === undefined ? 'Approve' : `Approve v${number}`} disabled={busy || number === undefined} onClick={() => change(true)}>Approve</button>
-      )}
+    <div className="rv-actions" role="group" aria-label="Version actions" {...actionsVerifyAttrs(working, false)}>
       <RenderPopover key={`${slug}/${number ?? 'loading'}`} slug={slug} version={number} footage={footage} working={working} nextVersion={nextVersion} onSaved={onSaved} />
     </div>
   );

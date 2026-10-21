@@ -3,8 +3,8 @@ import { revealReelRail } from '../helpers/review-rail.ts';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Starting a reel runs the real build, so the first wait after Start is longer than the default.
 const BUILD_WAIT_MS = 30_000;
@@ -37,7 +37,7 @@ async function startReel(page: Page, title: string): Promise<void> {
   await expect(review(page).getByRole('heading', { name: title })).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The reel opens at once; v1 follows when the (fake) transcription and the build are done.
   await revealReelRail(page);
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(page.locator('[data-working-row][data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 }
 
 /** The shared transport scrubs the whole reel, independently of the timeline window. */
@@ -151,10 +151,9 @@ test('playback follows the pieces and skips a snipped stretch', async ({ page })
   const shots = JSON.parse(readFileSync(join(v1, 'shots.json'), 'utf8')) as { duration: number; sections: { end: number }[] };
   writeFileSync(join(v2, 'shots.json'), JSON.stringify({ ...shots, duration: 10, sections: shots.sections.map((s) => ({ ...s, end: 10 })) }));
 
-  const v2Row = page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ });
+  const v2Row = page.locator('[data-working-row][data-current-version="2"]');
   await expect(v2Row).toBeVisible();
   await v2Row.click();
-  await page.getByRole('button', { name: 'Back to Working', exact: true }).click();
   await expect.poll(() => reviewClockText(page)).toMatch(/^00:00\.00 \/ 00:10\.00$/);
   await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
   await expect(review(page).locator('[data-role="main"] [data-placement]').nth(1)).toHaveAccessibleName(/3\.00 to 10\.00 seconds/);

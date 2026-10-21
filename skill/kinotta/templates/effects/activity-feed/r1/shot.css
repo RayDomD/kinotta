@@ -1,0 +1,11 @@
+[data-scene="activity-feed"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Notes stack into two columns beside the speaker, each at its data-at. Keep columns clear of the face. */
+[data-scene="activity-feed"] .col { position: absolute; top: 120px; width: 420px; margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; font-family: var(--fx-font); }
+[data-scene="activity-feed"] .left { left: 80px; }
+[data-scene="activity-feed"] .right { right: 80px; }
+[data-scene="activity-feed"] .note { display: flex; gap: 16px; align-items: center; padding: 16px 20px; border-radius: 16px; background: var(--fx-panel); box-shadow: var(--fx-shadow), inset 0 1px 0 var(--fx-panel-edge); color: var(--fx-ink); }
+[data-scene="activity-feed"] .dot { flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--fx-accent); }
+[data-scene="activity-feed"] .txt { display: grid; gap: 4px; }
+[data-scene="activity-feed"] b { font-size: 26px; font-weight: 600; }
+[data-scene="activity-feed"] small { font-size: 20px; color: var(--fx-ink-soft); }
