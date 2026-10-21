@@ -447,7 +447,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         {actions}
       </div>
       <Player
-        portrait={!!simple}
+        portrait={false}
         transport={{ markers: markerState.markers, onMarker: (id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }, onSeek: playback.seek, shots: clips.map((clip) => clip.start), pins: shownComments.filter((c) => !c.state).map((c) => ({ id: c.id, time: c.pin.time, number: c.number, text: c.text })), keys: workspace.settings.keys, timecode: workspace.settings.timecode, focus: workspace.focus, onFocus: () => workspace.setFocus(!workspace.focus) }}
         title={reel.title}
         footageSrc={withFootage ? footageUrl(reel.slug) : undefined}

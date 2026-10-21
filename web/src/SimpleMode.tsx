@@ -54,6 +54,28 @@ const KINDS = [
   [200, 'clip'],
 ] as const;
 
+function AgentRunTimer({ job, active }: { job: AgentJob; active: boolean }) {
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [job.id, active]);
+
+  const elapsed = active
+    ? Math.max(job.elapsedSeconds, Math.floor((now - Date.parse(job.createdAt)) / 1000))
+    : job.elapsedSeconds;
+  const clock = formatClock(elapsed).replace(/^0(?=\d:)/, '');
+
+  return (
+    <span className="sm-agent-timer" role="timer" aria-live="off" aria-label={active ? 'Agent run elapsed' : 'Agent run total'}>
+      {active ? 'Elapsed ' : 'Took '}<span className="num">{clock}</span>
+    </span>
+  );
+}
+
 function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [picked, setPicked] = useState('');
@@ -509,7 +531,7 @@ export function SimpleMode({
   const isJobActive = Boolean(agentJob && ['queued', 'running', 'validating', 'cancelling'].includes(agentJob.state));
   const isJobFailed = Boolean(agentJob && (agentJob.state === 'failed' || agentJob.state === 'interrupted'));
   const isJobCopyReady = Boolean(agentJob && agentJob.state === 'copy-ready');
-  const showAgentBanner = isJobActive || isJobFailed || isJobCopyReady;
+  const showAgentBanner = Boolean(agentJob);
 
   return (
     <div className="app sm-app">
@@ -572,11 +594,14 @@ export function SimpleMode({
                 <div className="sm-agent-status">
                   <span className="sm-agent-title">
                     {isJobActive
-                      ? `Adding b-roll… (${agentJob.elapsedSeconds}s)`
+                      ? 'Adding b-roll…'
                       : isJobCopyReady
-                      ? `B-roll request ready (${agentJob.elapsedSeconds}s)`
+                      ? 'B-roll request ready'
+                      : agentJob.state === 'succeeded'
+                      ? 'B-roll added'
                       : `Adding b-roll ${agentJob.state}`}
                   </span>
+                  <AgentRunTimer job={agentJob} active={isJobActive} />
                   {agentJob.quiet && isJobActive && (
                     <span className="sm-agent-quiet">Running, no recent output</span>
                   )}

@@ -3,6 +3,48 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
+import type { AgentJob } from '../../web/src/api/_internal/client.ts';
+
+for (const [active, finished] of [
+  ['queued', 'copy-ready'],
+  ['running', 'succeeded'],
+  ['validating', 'failed'],
+  ['cancelling', 'cancelled'],
+  ['running', 'interrupted'],
+] as const) {
+  test(`Agent timer ticks between polls while ${active} and retains the ${finished} total`, async ({ page }) => {
+    const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+    try {
+      const now = new Date('2026-10-21T10:00:00Z');
+      await page.clock.install({ time: now });
+      await page.clock.pauseAt(now);
+      let job: AgentJob = {
+        id: 'timer-test', reel: 'product-showreel', provider: 'copy', state: active,
+        createdAt: new Date(now.getTime() - 65_000).toISOString(), updatedAt: now.toISOString(),
+        elapsedSeconds: 65, quiet: false, canCopy: true, canRetry: false,
+      };
+      let polls = 0;
+      await page.route('**/api/reels/*/agent', (route) => {
+        polls++;
+        return route.fulfill({ json: { job } });
+      });
+      await page.goto(server.url);
+      const timer = page.getByRole('timer');
+      await expect(timer).toHaveText('Elapsed 1:05');
+      const initialPolls = polls;
+      await page.clock.fastForward(1000);
+      await expect(timer).toHaveText('Elapsed 1:06');
+      expect(polls).toBe(initialPolls);
+      job = { ...job, state: finished, elapsedSeconds: 67 };
+      await page.clock.fastForward(3000);
+      await expect(timer).toHaveText('Took 1:07');
+      await page.clock.fastForward(10_000);
+      await expect(timer).toHaveText('Took 1:07');
+      await page.reload();
+      await expect(timer).toHaveText('Took 1:07');
+    } finally { await server.close(); }
+  });
+}
 
 test('Simple is the default: required-note pins, navigation, persistence, copy request and same-reel editor', async ({ page, context }) => {
   const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
@@ -54,13 +96,19 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     const frame = (await page.locator('.sm-preview .rv-frame').boundingBox())!;
     const track = (await timeline.boundingBox())!;
     expect(frame.y + frame.height).toBeLessThan(track.y);
-    expect(frame.width / frame.height).toBeCloseTo(9 / 16, 2);
+    expect(frame.width / frame.height).toBeCloseTo(16 / 9, 2);
     await expect(page.locator('.sm-preview .rv-page')).toHaveAttribute('data-state', 'ready');
     mkdirSync(resolve('tests/artifacts/simple-mode'), { recursive: true });
     await page.screenshot({ path: resolve('tests/artifacts/simple-mode/desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: resolve('tests/artifacts/simple-mode/mobile.png'), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 500 });
+    const app = page.locator('.sm-app');
+    expect(await app.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    await app.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    expect(await app.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(page.getByRole('button', { name: /Regenerate \(2 pins\)/ })).toBeInViewport();
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Open in editor', exact: true }).click();
     await expect(page.getByRole('main', { name: 'Review', exact: true })).toBeVisible();
@@ -92,6 +140,8 @@ test('Regenerate combines section requests after freezing changed Working and of
     await expect(page.getByRole('status')).toContainText('Request saved.');
     await page.getByText('Request to copy', { exact: true }).click();
     await expect(page.getByRole('textbox', { name: 'Request to copy', exact: true })).toHaveValue(/Change section 1\.[\s\S]*Change section 2\./);
+    await expect(page.locator('.sm-preview .rv-page iframe')).toHaveCSS('width', '1920px');
+    await expect(page.locator('.sm-preview .rv-page iframe')).toHaveCSS('height', '1080px');
     expect((await server.project.listVersions('founder-talk')).map((version) => version.number)).toEqual([1, 2]);
   } finally { await server.close(); }
 });
@@ -127,6 +177,10 @@ test('Make starts a real reel from a project video in Simple mode with treatment
     await expect(stat).toContainText('cutaways');
     await expect(stat).toContainText('60% covered');
     await expect(page.getByText('Added by Kinotta', { exact: true })).toBeVisible();
+    for (const frame of await page.locator('.sm-preview-frame').all()) {
+      const box = (await frame.boundingBox())!;
+      expect(box.width / box.height).toBeCloseTo(16 / 9, 1);
+    }
 
     // Optional notes
     await page.getByPlaceholder(/keep the jokes/).fill('Keep the jokes, hold the lab shot longer');
