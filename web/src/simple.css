@@ -1,4 +1,4 @@
-.sm-app { min-height: 100dvh; height: auto; overflow: auto; }
+.sm-app { height: 100dvh; overflow-y: auto; }
 .sm-app h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
 .sm-app .num { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; }
 .sm-top { min-height: 62px; border-bottom: 1px solid var(--rule); padding: 16px 28px; display: flex; align-items: center; gap: 24px; }
