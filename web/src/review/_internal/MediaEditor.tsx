@@ -556,7 +556,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   }, []);
   const pageUrl = version!.workingParts ? workingPartsPageUrl(reel.slug, version!.workingParts.key) : versionPageUrl(reel.slug, version!.workingBase ?? version!.number);
   return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '', editable)} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
-    <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>
+    {!simple && <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>}
     {error && <p role="alert">{error}</p>}
     {pinError && <p role="alert">{pinError}</p>}
     {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
@@ -575,7 +575,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <p role="alert">{`Mix above full scale at ${describeOverload(overload)}. Lower a level or volume point.`}</p>
       <button type="button" className="rv-tool" onClick={() => playback.seek((overload.spans.find((span) => span.start > time + SPLIT_MARGIN) ?? overload.spans[0])!.start)}>Next overload</button>
     </section>}
-      <Transport markers={markerState.markers} onMarker={(id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }} time={time} total={timeline.duration} playing={playing} timecode={workspace.settings.timecode} keys={workspace.settings.keys} disabled={!ready || (pictureError !== null && !playing)} shots={version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)} pins={shownPins.filter((c) => !c.moment.removed && !c.state).map((c) => ({ id: c.id, time: c.moment.time, number: c.number, text: c.text }))} onToggle={togglePlayback} onSeek={playback.seek} focus={workspace.focus} onFocus={() => workspace.setFocus(!workspace.focus)}>
+      <Transport compact={!!simple} markers={markerState.markers} onMarker={(id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }} time={time} total={timeline.duration} playing={playing} timecode={workspace.settings.timecode} keys={workspace.settings.keys} disabled={!ready || (pictureError !== null && !playing)} shots={version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)} pins={shownPins.filter((c) => !c.moment.removed && !c.state).map((c) => ({ id: c.id, time: c.moment.time, number: c.number, text: c.text }))} onToggle={togglePlayback} onSeek={playback.seek} focus={workspace.focus} onFocus={() => workspace.setFocus(!workspace.focus)}>
         {!ready && !playback.error && <span role="status">Preparing sound…</span>}
         {waitingForPicture && ready && <span role="status">Waiting for picture…</span>}
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
@@ -605,7 +605,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
     />}
-    <MarkerPanel state={markerState} /><ViewerDivider />
+    {!simple && <><MarkerPanel state={markerState} /><ViewerDivider />
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
     <div className="rv-tracks-pane">
     {version!.code && <p className="meta">Drag or trim shots in the Picture row. Sound stays in place.</p>}
@@ -646,7 +646,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onGraphicKey={(event, id) => { if (actionForKey(workspace.settings.keys, keyChord(event.nativeEvent)) === 'apply' && !snipRange) { event.preventDefault(); event.stopPropagation(); setSelected(null); setSelectedGraphic(id); workspace.setPanelTab('clip'); } }}
       onGraphicDrag={(id, edge, delta) => { const c = edited.clips?.find((clip) => clip.id === id); if (!c) { setGraphicDraft(null); return; } void edits!.add(edge === 'move' ? { kind: 'clip-slide', clip: id, ...(c.placement ? { placement: c.placement } : {}), delta } : { kind: 'clip-trim', clip: id, ...(c.placement ? { placement: c.placement } : {}), in: c.in + (edge === 'start' ? delta : 0), out: c.out + (edge === 'end' ? delta : 0) }).then(() => setGraphicDraft(null)); }}>{pictures}</EditorialLanes>}
     </NativeLanes>
-    </div>
+    </div></>}
     {clipMenu && (() => {
       const p = timeline.placements.find((item) => item.id === clipMenu.id);
       if (!p) return null;

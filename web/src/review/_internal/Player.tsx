@@ -73,12 +73,14 @@ export function Player(props: PlayerProps) {
       </div>
       </div>
       <Transport {...props.transport} time={time} total={total} playing={playing} onToggle={onToggle}>
+        {!props.transport.compact && <>
         {tools}
         <div className="rv-zoom">
           Showing <b>{`${formatClock(win.start)} to ${formatClock(win.start + win.length)}`}</b>
           <button type="button" className="rv-tool" aria-label="Zoom out" disabled={win.length >= total} onClick={() => onZoom(ZOOM_OUT)}>−</button>
           <button type="button" className="rv-tool" aria-label="Zoom in" onClick={() => onZoom(ZOOM_IN)}>+</button>
         </div>
+        </>}
       </Transport>
     </div>
   );

@@ -16,7 +16,8 @@ for (const [active, finished] of [
     const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
     try {
       const now = new Date('2026-10-21T10:00:00Z');
-      await page.clock.install({ time: now });
+      // Leave room for clock setup under concurrent browser load before pausing at the test time.
+      await page.clock.install({ time: new Date(now.getTime() - 60_000) });
       await page.clock.pauseAt(now);
       let job: AgentJob = {
         id: 'timer-test', reel: 'product-showreel', provider: 'copy', state: active,
@@ -53,6 +54,8 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await page.goto(server.url);
     await expect(page.getByRole('heading', { name: 'Product showreel', exact: true })).toBeVisible();
     await expect(page.getByLabel('Agent provider')).toBeVisible();
+    await expect(page.locator('.sm-preview .rv-tracks-pane, .sm-preview .editor-toolbar, .sm-preview .rv-divider, .sm-preview .rv-scrubber')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'New reel', exact: true })).toHaveCount(0);
 
     const timeline = page.getByRole('button', { name: 'Add a timeline pin' });
     await expect(timeline).toBeVisible();
@@ -151,7 +154,7 @@ test('Make starts a real reel from a project video in Simple mode with treatment
   const server = await startServer({ projectDir, port: 0, transcriber: async () => [{ text: 'Hello', start: 0.5, end: 0.9 }] });
   try {
     await page.goto(server.url);
-    await page.getByRole('button', { name: 'New reel', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
 

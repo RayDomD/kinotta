@@ -49,6 +49,7 @@ const SNIP_LEAD_IN = 2;
 const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change timing, ask your agent for a new version.';
 
 export interface ReviewProps {
+  /** Render the picture, compact transport and Simple timeline without editor chrome. */
   simple?: {
     onPin(pin: NewComment['pin']): void;
     jump: { time: number; seq: number } | null;
@@ -439,16 +440,16 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
   return (
     <main className="main rv-main rv-resizable" aria-label="Review">
-      <div className="head">
+      {!simple && <div className="head">
         <h1>{reel.title}</h1>
         <span className="meta">
           {version ? `v${version.number} · ${formatDuration(total)}${operations.length > 0 ? ' · unsaved edits' : ''}` : transcription?.state === 'running' ? 'No version yet. v1 is built when the words are in.' : 'No version yet. The footage plays alone.'}
         </span>
         {actions}
-      </div>
+      </div>}
       <Player
         portrait={false}
-        transport={{ markers: markerState.markers, onMarker: (id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }, onSeek: playback.seek, shots: clips.map((clip) => clip.start), pins: shownComments.filter((c) => !c.state).map((c) => ({ id: c.id, time: c.pin.time, number: c.number, text: c.text })), keys: workspace.settings.keys, timecode: workspace.settings.timecode, focus: workspace.focus, onFocus: () => workspace.setFocus(!workspace.focus) }}
+        transport={{ compact: !!simple, markers: markerState.markers, onMarker: (id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }, onSeek: playback.seek, shots: clips.map((clip) => clip.start), pins: shownComments.filter((c) => !c.state).map((c) => ({ id: c.id, time: c.pin.time, number: c.number, text: c.text })), keys: workspace.settings.keys, timecode: workspace.settings.timecode, focus: workspace.focus, onFocus: () => workspace.setFocus(!workspace.focus) }}
         title={reel.title}
         footageSrc={withFootage ? footageUrl(reel.slug) : undefined}
         video={video}
@@ -489,7 +490,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         onVideoError={() => setVideoFailed(true)}
       />
       {simple && <SimpleTimeline canPin={!!version} time={time} total={total} shots={version?.workingParts?.shots ?? version?.shots ?? []} comments={comments} onSeek={playback.seek} onPin={(at) => simple.onPin({ kind: 'frame', shot: version?.shots.find((shot) => shot.start <= at && shot.start + shot.duration > at)?.number ?? '', time: at, x: 0.5, y: 0.5, element: null })} />}
-      <MarkerPanel state={markerState}/>
+      {!simple && <><MarkerPanel state={markerState}/>
       <ViewerDivider />
       <div className="rv-tracks-pane">
       {playable && (
@@ -522,6 +523,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         />
       )}
       </div>
+      </>}
     </main>
   );
 }

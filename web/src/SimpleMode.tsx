@@ -584,7 +584,6 @@ export function SimpleMode({
               ))}
             </select>
           </label>
-          <button type="button" className="btn quiet" disabled={busy} onClick={onNew}>New reel</button>
         </div>
       </div>
 
