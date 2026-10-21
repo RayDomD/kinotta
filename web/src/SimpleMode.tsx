@@ -196,6 +196,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
                   key={type.id}
                   type="button"
                   className={`sm-type-card ${isSelected ? 'on' : ''}`}
+                  aria-pressed={isSelected}
                   onClick={() => {
                     const next = setVideoType(options, type.id);
                     setOptions(next);
@@ -218,6 +219,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
                   key={level}
                   type="button"
                   className={`${options.broll === level ? 'on' : ''} ${options.overridden.broll && options.broll === level ? 'mine' : ''}`}
+                  aria-pressed={options.broll === level}
                   onClick={() => {
                     const next = setDial(options, 'broll', level);
                     setOptions(next);
@@ -241,6 +243,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
                   key={level}
                   type="button"
                   className={`${options.pace === level ? 'on' : ''} ${options.overridden.pace && options.pace === level ? 'mine' : ''}`}
+                  aria-pressed={options.pace === level}
                   onClick={() => {
                     const next = setDial(options, 'pace', level);
                     setOptions(next);
@@ -264,6 +267,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
                   key={mode}
                   type="button"
                   className={`${options.captions === mode ? 'on' : ''} ${options.overridden.captions && options.captions === mode ? 'mine' : ''}`}
+                  aria-pressed={options.captions === mode}
                   onClick={() => {
                     const next = setDial(options, 'captions', mode);
                     setOptions(next);
@@ -296,7 +300,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
                 ))}
               </div>
               <div className="sm-preview-ll">Added by Kinotta</div>
-              <div className="sm-preview-lane" aria-label="Added by Kinotta">
+              <div className="sm-preview-lane" role="region" aria-label="Added by Kinotta">
                 {cutaways.map((slot, i) => {
                   const [h, kind] = KINDS[i % KINDS.length]!;
                   const pctLeft = (slot.start / totalDuration) * 100;
@@ -318,7 +322,7 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
                 })}
               </div>
               <div className="sm-preview-ll">Your video</div>
-              <div className="sm-preview-lane" aria-label="Your video">
+              <div className="sm-preview-lane" role="region" aria-label="Your video">
                 <div className="sm-preview-clip sm-clip-talk" style={{ left: 0, width: '100%' }}>you talking</div>
               </div>
             </div>
@@ -702,6 +706,9 @@ export function SimpleMode({
               <form
                 className="sm-composer"
                 aria-label="New timeline pin"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setDraft(null);
+                }}
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!text.trim() || busy) return;
@@ -752,7 +759,7 @@ export function SimpleMode({
               </button>
             </div>
             <p className="meta">
-              Jump between pins with <span className="num">[</span> and <span className="num">]</span>
+              Jump between pins with <kbd className="sm-kbd">[</kbd> and <kbd className="sm-kbd">]</kbd>
             </p>
             {pins.length === 0 && (
               <div className="empty">
@@ -767,7 +774,7 @@ export function SimpleMode({
                   <button
                     type="button"
                     className="sm-pin-jump"
-                    aria-label={`Pin ${pin.number} at ${formatClock(pin.pin.time)}`}
+                    aria-label={`Pin ${pin.number} at ${formatClock(pin.pin.time)}: ${pin.text}`}
                     onClick={() => jumpTo(index)}
                   >
                     <span className="num">{pin.number} · {formatClock(pin.pin.time)}</span>
@@ -777,6 +784,9 @@ export function SimpleMode({
                   {pin.stateReason && <p className="meta">{pin.stateReason}</p>}
                   {editing === pin.id ? (
                     <form
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setEditing(null);
+                      }}
                       onSubmit={(event) => {
                         event.preventDefault();
                         if (!editText.trim() || busy) return;

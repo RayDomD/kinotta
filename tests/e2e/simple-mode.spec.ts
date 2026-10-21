@@ -85,7 +85,7 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await page.getByRole('button', { name: 'Previous pin', exact: true }).click();
     await expect.poll(async () => Number(await page.getByRole('slider', { name: 'Simple playhead' }).inputValue())).toBeCloseTo(pins[1].pin.time, 2);
     await page.getByRole('button', { name: /Regenerate \(2 pins\)/ }).click();
-    await expect(page.getByRole('status')).toContainText('Request copied.');
+    await expect(page.locator('.sm-message[role="status"]')).toContainText('Request copied.');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Tighten this pause.');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Add b-roll here.');
     const clock = page.locator('[data-verify-unit="MediaEditor"]');
@@ -137,7 +137,7 @@ test('Regenerate combines section requests after freezing changed Working and of
     await page.goto(server.url);
     await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('founder-talk');
     await page.getByRole('button', { name: /Regenerate \(2 pins\)/ }).click();
-    await expect(page.getByRole('status')).toContainText('Request saved.');
+    await expect(page.locator('.sm-message[role="status"]')).toContainText('Request saved.');
     await page.getByText('Request to copy', { exact: true }).click();
     await expect(page.getByRole('textbox', { name: 'Request to copy', exact: true })).toHaveValue(/Change section 1\.[\s\S]*Change section 2\./);
     await expect(page.locator('.sm-preview .rv-page iframe')).toHaveCSS('width', '1920px');
