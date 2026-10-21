@@ -329,10 +329,15 @@ export function createHandler(project: Project, webRoot: string) {
   removeStaleDrafts(dirname(project.reelsDir));
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
+      const allowedHosts = [`localhost:${req.socket.localPort}`, `127.0.0.1:${req.socket.localPort}`];
+      if (!allowedHosts.includes(req.headers.host ?? '')) {
+        sendJson(res, 403, { error: 'Requests must use this editor\'s local address.' });
+        return;
+      }
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
       const agentRoute = AGENT_API.exec(pathname);
       const launchesAgent = pathname.startsWith('/api/agent/') || agentRoute || (pathname === '/api/reels' && req.method === 'POST');
-      if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`))) {
+      if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`)))) {
         sendJson(res, 403, { error: 'Agent requests must come from this editor.' });
         return;
       }

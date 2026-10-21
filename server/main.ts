@@ -27,7 +27,7 @@ export interface RunningServer {
 function listen(server: ReturnType<typeof createServer>, port: number): Promise<void> {
   return new Promise((resolvePromise, reject) => {
     server.once('error', reject);
-    server.listen(port, () => {
+    server.listen(port, '127.0.0.1', () => {
       server.off('error', reject);
       resolvePromise();
     });
@@ -40,7 +40,8 @@ function listen(server: ReturnType<typeof createServer>, port: number): Promise<
  */
 export async function startServer({ projectDir, port = DEFAULT_PORT, transcriber, agent }: StartOptions): Promise<RunningServer> {
   const project = openProject(projectDir, { transcriber, agent });
-  const server = createServer(createHandler(project, WEB_ROOT));
+  // Let the handler return the same 403 for a missing Host as for any other disallowed Host.
+  const server = createServer({ requireHostHeader: false }, createHandler(project, WEB_ROOT));
   try {
     await listen(server, port);
   } catch (err) {
