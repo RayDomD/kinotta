@@ -33,3 +33,12 @@ When finished, append to the end of this brief: what changed, commits, checks wi
 
 ## Update 2026-10-21 (owner): build the designed hover
 Owner chose the full DESIGN.md "Pinning (signature)" behaviour. Scope now also includes `web/src/stage/_internal/PagePlayer.tsx` (and its CSS / small stage helpers it needs) to add: hex cursor with centre dot over a pinnable frame, ice outline with glow on the element under the cursor, ice name tag placed outside the element, all drawn in the editor over the reel, never inside the reel's page. The detailed editor gets this too (shared player); its existing pin tests must still pass and add one e2e for the hover in the editor. Then finish the original simple-mode goal. Also verify picking over footage-only moments and report. Plan is Approved again; move it to In Progress -> Done.
+
+## Completed execution — 2026-10-21
+
+- Simple picture clicks pause playback and open the required-note composer with the element name. Saved coordinates persist; pins show in the list and as picture hexes. Bracket stepping and timeline centre pins work. Shared PagePlayer provides the designed hex cursor, outline/glow and outside element tag in both modes. Simple pinning adds no Working operations.
+- Commits: `5f06048` (`feat: add simple picture pins and shared frame hover`); completion documentation in `docs: complete simple picture pins plan`.
+- Checks: typecheck and build passed; final simple-mode + review + pins + alternates e2e run: **39 passed** (1.5m). Existing tests passed, so no `5f10f91` baseline comparison needed. `git diff --check` passed. New tests cover named pins, pause, coordinates, required notes, hex overlays, persistence, brackets, timeline pins, editor hover/save and footage-only picks.
+- Before/after screenshots at 1280x800 in `tests/artifacts/simple-picture-pins/`, including fixture saved-pin evidence and matching live-app hover/composer checks. Live drafts cancelled; live app/API left running. No e2e start-server processes remained after the run.
+- Footage-only: verified clicked coordinates with element `null` and a saved picture hex. No centre fallback or PictureLayers change required.
+- Deviations: shared-player changes follow the owner's widened scope and reuse existing styles/helpers. Initial new-test precision/scroll assertions corrected; all final tests pass. Plan moved Approved -> In Progress -> Done; summary updated and dashboard regenerated. No push, server/skill changes, toolbar changes or protected PNG changes.

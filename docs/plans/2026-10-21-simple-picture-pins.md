@@ -1,7 +1,7 @@
 ---
 title: Simple mode picture pins
 date: 2026-10-21
-status: Approved
+status: Done
 summary: Let simple mode pin an exact spot or element on the picture, the way the editor does, alongside timeline pins.
 spec:
 ---
@@ -20,10 +20,10 @@ spec:
   cursor, outline, name tag and hex marker as the editor, then type the required note in simple mode's own
   composer. Timeline pins keep working. Both kinds appear in "Your pins" and on the picture.
 - Affected: `web/src/review/_internal/MediaEditor.tsx` (simple branch only), `web/src/SimpleMode.tsx`,
-  `web/src/simple.css`, `tests/e2e/simple-mode.spec.ts`.
-- Constraints: Pins don't change Working. The detailed editor's pinning is unchanged. DESIGN.md pinning
+  `web/src/simple.css`, `tests/e2e/simple-mode.spec.ts`, and shared `web/src/stage/_internal/PagePlayer.tsx` under the owner's scope update.
+- Constraints: Pins don't change Working. The detailed editor's existing pick/save flow is unchanged. DESIGN.md pinning
   rules apply (outline and tags drawn in the editor, never in the reel's page; ice light only for state).
-  Keep the required note, `[` `]` stepping and Regenerate as they are.
+  Keep the required note, `[` `]` stepping and Regenerate as they are. The owner's scope update permits shared `PagePlayer` hover feedback in both modes; retain the detailed editor's existing pick/save flow.
 - Out of scope: word pins under footage, the editor's Pin tool button and toolbar, caption editing in simple
   mode, changing what timeline pins save.
 - Open questions: none blocking.
@@ -57,6 +57,7 @@ that is existing behaviour and stays.
    its element, appears as a hex on the picture, `[`/`]` jump to it; timeline pinning still works; the
    editor's pin flow test still passes.
 5. Typecheck, build, simple-mode, review and the editor pin e2e; after screenshots.
+6. Under the owner's widened scope, add shared frame hover feedback using the existing hit-test, content-box placement and pin styles. Verify the detailed editor hover and footage-only picking with e2e coverage, then record results and commit locally.
 
 ## Risks
 
@@ -80,3 +81,8 @@ that is existing behaviour and stays.
 
 ### 2026-10-21 (scope change)
 - Owner chose the designed version after codex found the editor has only a crosshair: build the DESIGN.md "Pinning (signature)" hover in `web/src/stage/_internal/PagePlayer.tsx` (hex cursor with centre dot over a pinnable frame, ice outline + glow on the element under the cursor, ice name tag outside the element, all drawn in the editor not inside the reel page). The detailed editor gets the same hover since it shares the player. Plan unblocked.
+
+### 2026-10-21 (completed)
+- Saved the widened approach, moved to In Progress, and implemented picture picking in Simple mode plus shared hover feedback. Composer and list name picture-pin elements. Timeline pins and detailed-editor save behavior retained.
+- Verified named and footage-only pins, required notes, pause-on-pick, saved coordinates, hex overlays, persistence and bracket navigation. Simple mode pins add no Working operations. Footage-only picks retain their clicked position with element `null`; no fallback or `PictureLayers` change needed.
+- Typecheck and build passed; all 39 e2e tests in simple-mode, review, pins and alternates passed. Before/after screenshots at 1280x800 saved under `tests/artifacts/simple-picture-pins/`. Goal meets Intent; marked Done. Implementation commit: `5f06048`. See the session summary for evidence and deviations.
