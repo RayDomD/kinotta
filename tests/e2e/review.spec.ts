@@ -154,7 +154,6 @@ test('playback follows the pieces and skips a snipped stretch', async ({ page })
   const v2Row = page.locator('[data-working-row][data-current-version="2"]');
   await expect(v2Row).toBeVisible();
   await v2Row.click();
-  await page.getByRole('button', { name: 'Back to Working', exact: true }).click();
   await expect.poll(() => reviewClockText(page)).toMatch(/^00:00\.00 \/ 00:10\.00$/);
   await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
   await expect(review(page).locator('[data-role="main"] [data-placement]').nth(1)).toHaveAccessibleName(/3\.00 to 10\.00 seconds/);
