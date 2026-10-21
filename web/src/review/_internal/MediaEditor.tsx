@@ -133,7 +133,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [replacing, setReplacing] = useState<Record<string, string>>({});
   const [waveforms, setWaveforms] = useState<Record<string, MediaWaveform>>({});
   const [sourceRoot, setSourceRoot] = useState(initialRoot ?? null);
-  const editable = !simple && version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
+  const captionEditable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
+  const editable = !simple && captionEditable;
   const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined), [base, reel.slug, version!.number]);
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
   const { time, playing, ready } = playback;
@@ -233,6 +234,33 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [speech, setSpeech] = useState<Record<string, MediaSpeech>>({});
   const spoken = useMemo(() => ({ ...media, sources: media.sources.map((s) => { const state = speech[s.id]; return !s.words && state?.state === 'ready' ? { ...s, words: state.words } : s; }) }), [media, speech]);
   const words = useMemo(() => mediaWords(spoken, timeline.duration), [spoken, timeline.duration]);
+  type WordItem = typeof words[number];
+  const isWordChanged = useCallback((word: WordItem) => {
+    const opFound = ops.some((op) => {
+      if (op.kind === 'word-text' || op.kind === 'word-timing') {
+        return op.placement === word.placement && Math.abs(op.at - word.sourceStart!) < 0.01;
+      }
+      if (op.kind === 'phrase-text') {
+        return op.placement === word.placement && word.sourceStart! >= op.from - 0.01 && word.sourceStart! <= op.to + 0.01;
+      }
+      return false;
+    });
+    if (opFound) return true;
+    const placement = base.placements.find((p) => p.id === word.placement);
+    if (placement && placement.role !== 'gap') {
+      const origSource = base.sources.find((s) => s.id === placement.source);
+      const origWords = placement.words ?? origSource?.words ?? [];
+      const origWord = origWords.find((w) => Math.abs(w.start - word.sourceStart!) < 0.01);
+      if (origWord) {
+        const origDuration = origWord.end - origWord.start;
+        const currentDuration = word.end - word.start;
+        if (word.text !== origWord.text || Math.abs(currentDuration - origDuration) > 0.01) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [ops, base]);
   const pinWord = (word: typeof words[number]) => {
     try {
       const saved = workingPinMoment(word.start, word.placement, word.sourceStart);
@@ -553,11 +581,30 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
       </Transport>
     </div>
-    {simple && <SimpleTimeline time={time} total={timeline.duration} shots={reelShots} comments={shownPins.filter((pin) => !pin.moment.removed).map((pin) => ({ ...pin, pin: { ...pin.pin, time: pin.moment.time } }))} onSeek={playback.seek} onPin={(at) => {
-      const target = pictureAt(timeline, at, 0.5, 0.5);
-      const shot = reelShots.find((shot) => shot.start <= at && shot.start + shot.duration > at);
-      simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(at, target?.id), x: 0.5, y: 0.5, element: null });
-    }} />}
+    {simple && <SimpleTimeline
+      time={time}
+      total={timeline.duration}
+      shots={reelShots}
+      comments={shownPins.filter((pin) => !pin.moment.removed).map((pin) => ({ ...pin, pin: { ...pin.pin, time: pin.moment.time } }))}
+      laneGraphics={laneGraphics}
+      media={media}
+      timeline={timeline}
+      words={words}
+      phrases={phrases}
+      captionsOption={edited.captions}
+      captionEditable={captionEditable && !edits!.busy}
+      isWordChanged={isWordChanged}
+      snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]}
+      onSeek={playback.seek}
+      onPin={(at) => {
+        const target = pictureAt(timeline, at, 0.5, 0.5);
+        const shot = reelShots.find((shot) => shot.start <= at && shot.start + shot.duration > at);
+        simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(at, target?.id), x: 0.5, y: 0.5, element: null });
+      }}
+      onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
+      onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
+      onPhrase={(index, text) => void retypeCaption({ index, text })}
+    />}
     <MarkerPanel state={markerState} /><ViewerDivider />
     <EditorToolbar reason={disabledReason} tool={tool} pinning={pinning} settings={workspace.settings} enabled={enabled} onAction={runAction} />
     <div className="rv-tracks-pane">
@@ -590,7 +637,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onTrack={(id, changes) => void edits!.add({ kind: 'track-change', track: id, changes })}
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
-    {(pictures) => <EditorialLanes snap={snap} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
+    {(pictures) => <EditorialLanes snap={snap} isWordChanged={isWordChanged} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={words} phrases={phrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable && !edits!.busy} graphicEditable={editable && !edits!.busy} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
       onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
