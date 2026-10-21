@@ -145,3 +145,31 @@ describe('the runner', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// Pace is visual pacing, independent of pause removal (owner decision 5).
+describe('Make treatment options', () => {
+  it.each([
+    ['off', false], ['phrases', { look: 'phrase' }], ['word-by-word', { look: 'words' }],
+  ] as const)('persists %s captions and the authoring preferences through v1', { timeout: SLOW_MS }, async (captions, expected) => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir, { transcriber: fakeTranscriber });
+    const { slug } = await project.startReel({ video: VIDEO, videoType: 'demo', broll: 'heavy', captions, pace: 'fast', notes: '  Show the product  ' });
+    await project.whenTranscribed(slug);
+    for (const folder of ['', 'v1']) {
+      const plan = readJson(join(dir, 'reels', slug, folder, 'plan.json'));
+      expect(plan).toMatchObject({ videoType: 'demo', broll: 'heavy', pace: 'fast', notes: 'Show the product', captions: expected });
+      expect(plan.pieces).toEqual([{ in: 0, out: expect.closeTo(VIDEO_SECONDS, 0) }]);
+    }
+    const page = readFileSync(join(dir, 'reels', slug, 'v1/index.html'), 'utf8');
+    expect(page.includes('data-el="caption"')).toBe(captions !== 'off');
+  });
+  it.each([
+    { videoType: 'product-demo' }, { broll: 'huge' }, { pace: 'tight' }, { captions: true }, { notes: 3 }, { notes: 'x'.repeat(4001) },
+  ])('rejects invalid preferences before any reel or transcription exists: %j', async (options) => {
+    const dir = copyFixture('showreel-project');
+    const before = readdirSync(join(dir, 'reels'));
+    const project = openProject(dir, { transcriber: async () => { throw new Error('must not run'); } });
+    await expect(project.startReel({ video: VIDEO, ...options } as any)).rejects.toMatchObject({ code: 'invalid' });
+    expect(readdirSync(join(dir, 'reels'))).toEqual(before);
+  });
+});

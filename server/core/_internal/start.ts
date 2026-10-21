@@ -1,3 +1,4 @@
+import { engineCaptions, makeOptions } from './make-options.ts';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
@@ -69,8 +70,10 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
  * keeps its own copies of both, E14). A failure leaves the reel without a version and is reported through `jobs`.
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
-  const file = await resolveVideo(projectDir, input.video);
+  const options = makeOptions(input);
   checkDeadAir(input.deadAir);
+  if (typeof input.video !== 'string' || (input.title !== undefined && typeof input.title !== 'string')) throw new KinottaError('invalid', 'Choose a video and a text title.');
+  const file = await resolveVideo(projectDir, input.video);
   const probe = await probeVideo(file);
   // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
   if (needsPlaybackCopy(probe.codec)) await ensurePlaybackCopy(projectDir, file);
@@ -84,7 +87,8 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   const plan = {
     title,
     video: posix(relative(dirname(planFile), file)),
-    captions: true,
+    ...options,
+    captions: engineCaptions(options.captions),
     duration,
     pieces: [{ in: 0, out: duration }] as Piece[],
     clips: [],

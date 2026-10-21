@@ -252,3 +252,5 @@ function settling(dir: string, listener: (event: ProjectEvent) => void): (event:
     else listener(event);
   };
 }
+
+export type { MakeOptions } from './_internal/make-options.ts';

@@ -1,3 +1,4 @@
+import type { MakeOptions } from './make-options.ts';
 import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
 import type { BeatGrid, MediaPlan, MediaSource } from './media-model.ts';
@@ -728,7 +729,7 @@ export interface VideoEntry {
   size: number;
 }
 
-export interface NewReel {
+export interface NewReel extends MakeOptions {
   /** Project-relative path of the video. */
   video: string;
   /** The reel's name; the video's file name when absent or blank. */
