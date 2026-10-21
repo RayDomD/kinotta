@@ -57,6 +57,22 @@ Build simple mode on the existing project model: version folders stay underneath
 12. Regenerate launches one headless run through `runner.ts`, scoped to the reel folder, sending only new or changed pins; per-pin status streams into the list; the old cut keeps playing.
 13. Per pin: 2–3 alternates plus Original, pick to apply.
 
+#### Phase 5a: Make builds the b-roll in the background (added 2026-10-21; owner decision 4 in `2026-10-21-simple-type-and-lanes.md`; design reviewed by codex in `.herdr/briefs/2026-10-21-phase5a-agent-design-codex.md`)
+Verified 2026-10-21: `runner.ts` launches only Python, ffmpeg and Whisper; `brollRequest` (`requests.ts:21`) is copy text only. Installed CLIs: Claude Code 2.1.305, Codex 0.163.0; their help lists `-p`, `--permission-mode`, `--tools`, `--output-format stream-json` and `codex exec -`, `--sandbox workspace-write`, `--json`, `--skip-git-repo-check`. No real generation run yet.
+
+Owner choices: background launch first (no "watch Kinotta" mode, no chat surface). Each run is a fresh agent; context does not carry between runs. One server per project, so one run per reel is held in memory (no cross-process locks).
+
+Flow: Make → transcribe, cut dead air, captions → v1 published and playable (unchanged) → Kinotta launches the chosen agent once → agent writes into a private job folder → Kinotta validates and publishes v2 → v2 becomes Working. v1 plays throughout. Regenerate (step 12) reuses the same job runner with the changed pins plus an optional "Note to the agent".
+
+14a. **Agent setting** (shared with step 11): Claude Code, Codex or Copy request. The user picks explicitly; detection (`tryCommand(<cli>, ['--version'])`, `runner.ts:59`) only shows what is installed. The setting states runs use the user's own plan quota. No setting means Copy request.
+14b. **Request**: one function builds the request from the picker options (`videoType`, `broll`, `pace`, `captions`, notes) plus targets (coverage %, shot length s) from the same `simple-options.ts` function as the preview. Saved as `reels/<slug>/.agent/jobs/<id>/request.json` and the rendered prompt beside it (also what Copy request copies). Prompt goes on stdin, never into shell arguments.
+14c. **Launch** `launchAgent` in `runner.ts`: Claude `claude -p --output-format stream-json --permission-mode acceptEdits --tools <tested set>`; Codex `codex exec --json --sandbox workspace-write --skip-git-repo-check -`. The tool set is decided by testing what the add-b-roll skill path actually runs, not guessed. Resolve the Windows executable (`claude.exe`; Codex via its Node entry, not `codex.ps1`) without a shell.
+14d. **Private output, then publish**: the agent writes only to `.agent/jobs/<id>/output/`. On exit 0, Kinotta checks the output (page, shots, referenced assets inside the folder) and publishes it as the next version under the reel lock. `shots.json` appearing is not success on its own. If Working changed during the run, keep the owner's edits via the existing carry-forward path; never overwrite them.
+14e. **Status, cancel, cleanup**: one job per reel ("Adding b-roll…", elapsed, Cancel); Make/Regenerate while running is blocked. Show "Running, no recent output" after a quiet period; hard ceiling (default 45 min) kills the run. Cancel and server shutdown kill the whole process tree and wait for it. After a crash, an unfinished job is marked "interrupted" with Retry; Kinotta does not kill by stored PID. Failure (non-zero exit, provider/auth/quota error, invalid output, timeout): keep v1/Working, show a short error, offer Retry and Copy request. No automatic retries.
+14f. **Skill**: add an unattended "add b-roll" path to `skill/kinotta/SKILL.md` that reads `request.json`, uses the given type/targets/captions without asking, does not re-transcribe or rebuild v1, honours captions Off (currently always-on, `SKILL.md:318`), and writes motion assets inside the job output, not shared `motion/`.
+
+Checks for 5a: unit tests for the request builder (targets equal the preview's, each type and captions mode, notes). Runner tests with a fake agent: success → v2 published; exit 1, exit 0 with bad output, timeout → v1 kept, error + Retry/Copy; cancel kills the tree; double Make blocked; Working edited mid-run kept. Windows: path with spaces and Unicode, hidden window, tree kill. E2e: Make → v1 plays → fake agent → v2 becomes Working. Then one real Claude Code run and one real Codex run on a short clip, inspected by eye, before calling picker settings effective.
+
 ### Phase 6: Notes become rules
 14. "Always do this?" on a pin note appends it to `~/.kinotta/taste.md`.
 
@@ -85,3 +101,7 @@ Build simple mode on the existing project model: version folders stay underneath
 - Agent is a user setting. Folded in dead-air pass, b-roll over glances (later), notes-become-rules; style from DESIGN.md.
 - Merged fast-drop into this plan; Goal, Approach and seven phases written. Awaiting approval.
 - Approved; Phase 1 started.
+
+### 2026-10-21
+- Added Phase 5a: Make launches the chosen agent to build b-roll from the picker's options (owner decision).
+- Rewrote 5a after codex review: background launch first, explicit agent choice, private job output validated before publish, interrupted-not-killed after crash, unattended skill path. Owner chose no watch mode and no chat surface for now. Owner approved 5a.

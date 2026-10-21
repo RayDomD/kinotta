@@ -1,7 +1,7 @@
 ﻿---
 title: Simple mode video type picker and three-lane timeline
 date: 2026-10-21
-status: Draft
+status: Approved
 summary: Replace About you with optional video treatment settings; connect their consumers and reuse caption editing in three simple timeline lanes
 spec: docs/mockups/2026-10-21-simple-video-type-picker.html, docs/mockups/2026-10-21-simple-timeline-lanes.html, docs/mockups/2026-10-21-simple-pace-preview.html
 ---
@@ -17,12 +17,12 @@ spec: docs/mockups/2026-10-21-simple-video-type-picker.html, docs/mockups/2026-1
 
 ### Owner questions
 
-1. **Still open:** Merge `feat/templates-in-footage` first, or stage the picker before its treatment guidance is available? Merging guidance alone does not give Make a b-roll generator; do not ship an implication that it does. See question 4.
+1. **Resolved 2026-10-21: merged first** (`2e7372b`, owner approved). Original question: Merge `feat/templates-in-footage` first, or stage the picker before its treatment guidance is available? Merging guidance alone does not give Make a b-roll generator; do not ship an implication that it does. See question 4.
 2. **Answered from code:** Fields should enter as validated structured Make options, be persisted with the plan, and be translated into existing engine settings where supported. Type/density/notes also need an explicit agent handoff consumer. There is no Make prompt or automatic agent call today. Full trace and proposed mappings follow.
-3. **Still open:** Drop name/handle entirely, or keep optional Your details for title/end cards? Remove the mandatory gate either way; do not decide the optional details feature in this review.
+3. **Decided 2026-10-21 (owner): drop name/handle entirely.** No optional Your details; remove About you and its stored profile.
 4. **Decided 2026-10-21 (owner): Make builds the b-roll automatically.** "It should make the broll already." Make launches the user's chosen agent (Claude Code or Codex, per `docs/plans/2026-10-20-simple-mode-flow.md`) through `runner.ts` to author b-roll with the picked type, settings and notes. That agent execution path is planned separately and is a dependency of this plan. Original question: Should Make remain an immediate captioned/dead-air-cut preview followed by a clearly labelled copied request for an agent, or must it automatically produce b-roll? The latter needs a separately planned agent execution path. Do not silently expand this feature to build one.
 5. **Decided 2026-10-21 (owner): Pace sets visual pacing** (calm = fewer, longer b-roll shots; fast = quick, frequent cutaways), consumed by the b-roll agent. It does not change dead-air strength. Original question: Does Pace mean pause-removal strength, or creative pacing of authored visuals? Proposed narrow behavior is calm/gentle, normal/normal, fast/tight pause removal, with the meaning stated beside the control. Obtain the owner's decision before promising broader pacing.
-6. **Decided 2026-10-21 (owner):** caption word retiming is free drag by default, with a Snap toggle (0.25 s grid and cut points) beside the Captions lane. Resizing or moving one word never moves other words, captions or clips: an edge stops at its neighbour instead of pushing it. Changed words show the amber mark (assumed kept from the mockup; confirm on review). Mockup: `docs/mockups/2026-10-21-simple-caption-edit.html`. Original question: The timeline mockup promises word-edge snapping to seconds/cuts and amber corrected words. Existing caption controls do neither (`web/src/review/_internal/EditorialLanes.tsx:95`, `web/src/review/_internal/EditorialLanes.tsx:126`). Proposed first delivery preserves existing free retiming and keyboard nudges; decide whether snapping/correction indicators are required before implementation. Also approve neutral “Cut” markers unless provenance is added: the loaded data does not identify every cut's cause.
+6. **Decided 2026-10-21 (owner):** caption word retiming is free drag by default, with a Snap toggle (0.25 s grid and cut points) beside the Captions lane. Resizing or moving one word never moves other words, captions or clips: an edge stops at its neighbour instead of pushing it. Changed words show the amber mark (owner confirmed 2026-10-21). Mockup: `docs/mockups/2026-10-21-simple-caption-edit.html`. Original question: The timeline mockup promises word-edge snapping to seconds/cuts and amber corrected words. Existing caption controls do neither (`web/src/review/_internal/EditorialLanes.tsx:95`, `web/src/review/_internal/EditorialLanes.tsx:126`). Proposed first delivery preserves existing free retiming and keyboard nudges; decide whether snapping/correction indicators are required before implementation. Also approve neutral “Cut” markers unless provenance is added: the loaded data does not identify every cut's cause.
 
 ## Goal
 
@@ -31,7 +31,7 @@ spec: docs/mockups/2026-10-21-simple-video-type-picker.html, docs/mockups/2026-1
    Below the dials, show a live **b-roll plan preview** (owner requirement 2026-10-21, `docs/mockups/2026-10-21-simple-pace-preview.html`): a 0-to-end ruler with an "Added by Kinotta" lane drawing the target cutaways for the current B-roll (coverage ~20/40/60%) and Pace (shot length ~5.5/3/1.4 s), a count line ("25 cutaways · each about 1.4 s · 60% covered"), the first sample frames, and a note that the agent aims for this target and the real result will differ. It updates instantly on every type or dial change. The same coverage and shot-length targets are what Make passes to the agent, so the preview and the request come from one function.
 3. Make applies the captions choice to the initial build; Pace and B-roll go to the b-roll agent as coverage and shot-length targets (decision 5), not to dead-air cutting. Type/density/notes reach the chosen authoring workflow and demonstrably affect that workflow before claiming they affect generated output. Question 4 gates release of that promise.
 4. Below playback, show Added by Kinotta, Captions and Your video, with a shared ruler/playhead. A phrase click opens words; clicking a word edits text; Enter/blur commits, Escape cancels; word-edge drag or arrow nudges retime. Caption commits append existing operations and change Working. Opening a phrase, seeking and selecting a type do not change Working. Empty lane clicks seek and open the existing required-note pin composer; caption interactions must not create frame pins. Pins save comments, not caption operations (`web/src/SimpleMode.tsx:138`).
-5. Remove mandatory About you and its profile-dependent heading/navigation; optional details remain question 3. Preserve new-reel, editor switch, pin navigation, request copying and playback.
+5. Remove mandatory About you and its profile-dependent heading/navigation, and drop name/handle entirely (question 3). Preserve new-reel, editor switch, pin navigation, request copying and playback.
 
 ## Approach
 
@@ -135,3 +135,6 @@ Review validation on 2026-10-21: inspected the cited code and both branch identi
 - Owner required the live b-roll plan preview under the dials; added to Goal 2 with its mockup.
 - Owner decided question 6: free drag default, snap toggle, resize never moves neighbouring words or clips.
 - Owner deferred music and beat-synced cuts in simple mode to a separate follow-up.
+- Owner decided question 3: drop name/handle entirely, with no optional details.
+- Owner confirmed amber marks on changed caption words. Question 1 recorded as resolved by the approved merge.
+- Plan approved by owner together with Phase 5a of `2026-10-20-simple-mode-flow.md` (the b-roll agent run this plan depends on).
