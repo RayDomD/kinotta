@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+import { delimiter } from 'node:path';
 import { execFile, spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { constants, setPriority } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -16,6 +18,8 @@ const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
 const BEATS_SCRIPT = resolve(SKILL_DIR, 'scripts/beats.py');
 const GENERATE_AUDIO_SCRIPT = resolve(SKILL_DIR, 'scripts/generate_audio.py');
 const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
+const RUNTIME_MODULES = dirname(dirname(createRequire(import.meta.url).resolve('playwright/package.json')));
+const scriptEnvironment = (): NodeJS.ProcessEnv => ({ ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', NODE_PATH: [RUNTIME_MODULES, process.env.NODE_PATH].filter(Boolean).join(delimiter) });
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 /**
  * Threads each render process may use: an ffmpeg left to itself takes one per core, so a parallel render's segments
@@ -27,6 +31,7 @@ const BUILD_TIMEOUT_MS = 120_000;
 const GENERATE_AUDIO_TIMEOUT_MS = 600_000;
 const PROBE_TIMEOUT_MS = 20_000;
 const ERROR_TAIL_CHARS = 4000;
+const MAX_AGENT_EVENT_CHARS = 1024 * 1024;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const TRANSCODE_CRF = '20';
 /** The editor draws pictures in a 1920x1080 frame; a wider playback copy only costs decode time. */
@@ -69,7 +74,7 @@ export const tryCommand = (command: string, args: string[]): Promise<{ code: num
 /** Runs a command and returns its stdout. A failure throws an Error whose message names the tool and says why. */
 async function run(command: string, args: string[], timeout?: number, signal?: AbortSignal): Promise<string> {
   try {
-    return (await exec(command, args, { encoding: 'utf8', maxBuffer: MAX_OUTPUT_BYTES, timeout, signal, windowsHide: true })).stdout;
+    return (await exec(command, args, { encoding: 'utf8', maxBuffer: MAX_OUTPUT_BYTES, timeout, signal, windowsHide: true, env: scriptEnvironment() })).stdout;
   } catch (err) {
     const failure = err as NodeJS.ErrnoException & { stderr?: string };
     if (failure.code === 'ENOENT') throw new Error(`${command} is not installed or not on the PATH.`);
@@ -583,4 +588,148 @@ export async function probeMedia(file: string, kind: 'video' | 'audio' | 'image'
   const duration = kind === 'image' ? 0 : Number(parsed.format?.duration);
   if (!stream?.codec_name || !Number.isFinite(duration) || (kind !== 'image' && duration <= 0)) throw new Error(`ffprobe found no readable ${kind} in ${file}.`);
   return { duration, codec: stream.codec_name, audio: parsed.streams!.some((s) => s.codec_type === 'audio'), ...(stream.width && stream.height ? { width: stream.width, height: stream.height } : {}) };
+}
+
+/** Packaged authoring instructions, resolved from the installed server rather than the user's project. */
+export const agentSkillDirectory = (): string => SKILL_DIR;
+export interface AgentCommand { command: string; prefix: string[] }
+export const CLAUDE_BROLL_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash';
+export const CLAUDE_BROLL_ALLOWED_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash(python *),Bash(python3 *),Bash(node *)';
+
+/** npm's Windows shim is not an executable. Run its Node entry without a shell. */
+export async function agentCommand(provider: 'claude' | 'codex'): Promise<AgentCommand> {
+  if (process.platform !== 'win32') return { command: provider, prefix: [] };
+  const { access } = await import('node:fs/promises');
+  const { delimiter, join } = await import('node:path');
+  for (const folder of (process.env.PATH ?? '').split(delimiter)) {
+    const command = provider === 'claude' ? join(folder, 'claude.exe') : join(folder, 'node_modules/@openai/codex/bin/codex.js');
+    if (await access(command).then(() => true, () => false)) return provider === 'claude' ? { command, prefix: [] } : { command: process.execPath, prefix: [command] };
+  }
+  throw new Error(`${provider} is not installed or not on the PATH.`);
+}
+
+export interface AgentLaunch {
+  provider: 'claude' | 'codex';
+  cwd: string;
+  prompt: string;
+  signal: AbortSignal;
+  onOutput(): void;
+  /** Test seam for a local fake process. Never accepted from HTTP. */
+  executable?: AgentCommand;
+}
+
+export function agentArguments(provider: 'claude' | 'codex'): string[] {
+  return provider === 'claude'
+    ? ['-p', '--verbose', '--output-format', 'stream-json', '--permission-mode', 'acceptEdits', '--permission-prompts', 'none', '--tools', CLAUDE_BROLL_TOOLS, '--allowedTools', CLAUDE_BROLL_ALLOWED_TOOLS, '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence']
+    : ['exec', '--json', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--ephemeral', '-'];
+}
+
+/** Fresh headless process, prompt on stdin, bounded protocol parsing, and whole-tree cancellation. */
+export async function launchAgent(input: AgentLaunch): Promise<void> {
+  if (input.signal.aborted) throw new Error('Agent cancelled.');
+  const executable = input.executable ?? await agentCommand(input.provider);
+  if (input.signal.aborted) throw new Error('Agent cancelled.');
+  await new Promise<void>((done, reject) => {
+    const child = spawn(executable.command, [...executable.prefix, ...(input.executable ? [] : agentArguments(input.provider))], {
+      cwd: input.cwd, env: scriptEnvironment(), windowsHide: true, shell: false, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let pending = '';
+    let providerFailure = false;
+    let completed = false;
+    let stopping: Promise<void> | undefined;
+    const consume = (line: string): void => {
+      try {
+        const event = JSON.parse(line) as { type?: string; subtype?: string; is_error?: boolean; item?: { type?: string } };
+        if (event.type === 'result') {
+          completed = event.subtype === 'success' && !event.is_error;
+          if (!completed) providerFailure = true;
+        }
+        if (event.type === 'turn.completed') completed = true;
+        if (event.type === 'error' || event.type === 'turn.failed' || event.item?.type === 'error') providerFailure = true;
+      } catch { /* Non-JSON diagnostics are not evidence of success. */ }
+    };
+    const stop = (): void => {
+      stopping ??= process.platform === 'win32' ? killAgentTree(child) : Promise.resolve().then(() => {
+        if (child.pid !== undefined) { try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; } }
+      });
+      void stopping.catch(reject);
+    };
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      input.onOutput();
+      const lines = (pending + chunk).split('\n');
+      pending = (lines.pop() ?? '').slice(-MAX_AGENT_EVENT_CHARS);
+      for (const line of lines) consume(line);
+    });
+    child.stderr.on('data', () => input.onOutput());
+    child.stdin.on('error', () => { /* A process that exits before reading stdin is handled by close. */ });
+    child.on('error', () => reject(new Error('The agent could not start. Check its installation and authentication.')));
+    child.on('close', (code) => {
+      input.signal.removeEventListener('abort', stop);
+      consume(pending);
+      void (stopping ?? Promise.resolve()).then(() => {
+        if (input.signal.aborted) reject(new Error('Agent cancelled.'));
+        else if (code !== 0 || providerFailure || !completed) reject(new Error('The agent failed. Check its authentication, quota and tool permissions, then Retry or Copy request.'));
+        else done();
+      }, reject);
+    });
+    input.signal.addEventListener('abort', stop, { once: true });
+    if (input.signal.aborted) stop();
+    child.stdin.end(input.prompt, 'utf8');
+  });
+}
+
+export class AgentTreeStopError extends Error {}
+
+/** Unlike the legacy render helper, a failed tree termination must remain visible to the caller. */
+function killAgentTree(child: ChildProcess): Promise<void> {
+  if (child.pid === undefined || child.exitCode !== null) return Promise.resolve();
+  return new Promise((done, reject) => {
+    const killer = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+    killer.on('error', () => reject(new AgentTreeStopError('Could not stop the agent process tree. Stop it manually and restart Kinotta before Retry.')));
+    killer.on('close', (code) => {
+      if (code === 0 || child.exitCode !== null || child.signalCode !== null) done();
+      else reject(new AgentTreeStopError('Could not stop the agent process tree. Stop it manually and restart Kinotta before Retry.'));
+    });
+  });
+}
+
+/** Execute the page/seek contract before a private agent stage can become Working. */
+export async function validateAgentPage(file: string, duration: number, signal: AbortSignal): Promise<void> {
+  const { chromium } = await import('playwright');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const { relative, isAbsolute, sep } = await import('node:path');
+  const root = dirname(file);
+  const browser = await chromium.launch({ headless: true });
+  const stop = (): void => { void browser.close(); };
+  const ceiling = setTimeout(stop, PAGE_INFO_TIMEOUT_MS);
+  signal.addEventListener('abort', stop, { once: true });
+  try {
+    if (signal.aborted) throw new Error('Agent cancelled.');
+    const page = await browser.newPage();
+    const failures: string[] = [];
+    await page.route('**/*', async (route) => {
+      const url = route.request().url();
+      if (url.startsWith('data:')) { await route.continue(); return; }
+      if (url.startsWith('file:')) {
+        const path = relative(root, fileURLToPath(url));
+        if (!isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`)) { await route.continue(); return; }
+      }
+      failures.push('external resource');
+      await route.abort();
+    });
+    page.on('pageerror', () => failures.push('page script error'));
+    page.on('requestfailed', () => failures.push('missing resource'));
+    await page.goto(pathToFileURL(file).href, { waitUntil: 'load', timeout: PAGE_INFO_TIMEOUT_MS });
+    const result = await page.evaluate(async (expected) => {
+      const win = window as unknown as { DURATION?: number; seek?: (time: number) => unknown };
+      if (typeof win.seek !== 'function' || !Number.isFinite(win.DURATION) || Math.abs(win.DURATION! - expected) > 0.01) return false;
+      for (const time of [0, expected / 2, Math.max(0, expected - 0.01), 0]) await win.seek(time);
+      return true;
+    }, duration);
+    if (!result || failures.length) throw new Error('Agent output failed the page/seek or local asset check.');
+  } finally {
+    clearTimeout(ceiling);
+    signal.removeEventListener('abort', stop);
+    await browser.close();
+  }
 }

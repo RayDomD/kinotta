@@ -293,7 +293,8 @@ export type ProjectEvent =
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
-  | { type: 'render-progress'; job: RenderJob };
+  | { type: 'render-progress'; job: RenderJob }
+  | { type: 'agent-progress'; reel: string; job: import('./agent-jobs.ts').AgentJob };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {
@@ -317,6 +318,16 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  agentSettings(): Promise<import('./agent-settings.ts').AgentSettings>;
+  saveAgentSettings(input: unknown): Promise<import('./agent-settings.ts').AgentSettings>;
+  detectAgents(): ReturnType<typeof import('./agent-settings.ts').detectAgents>;
+  agentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
+  startAgentJob(slug: string, retry?: boolean): Promise<import('./agent-jobs.ts').AgentJob>;
+  cancelAgentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
+  copyAgentRequest(slug: string): Promise<{ request: string }>;
+  acceptAgentOutput(slug: string, id: string): Promise<import('./agent-jobs.ts').AgentJob>;
+  whenAgentDone(slug: string): Promise<void>;
+  close(): Promise<void>;
   mediaStill(source: string, time: number, width: number, saved?: { reel: string; version: number }, footageReel?: string): Promise<string>;
   listMarkers(slug: string): Promise<import('./markers.ts').TimelineMarker[]>;
   addMarker(slug: string, input: { time: number; name: string }): Promise<import('./markers.ts').TimelineMarker>;

@@ -69,7 +69,7 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
  * words become the reel's transcript, the plan gets its transcript and automatic sections, and v1 is built from it (which
  * keeps its own copies of both, E14). A failure leaves the reel without a version and is reported through `jobs`.
  */
-export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
+export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel, afterBuilt?: (slug: string) => Promise<unknown>): Promise<StartedReel> {
   const options = makeOptions(input);
   checkDeadAir(input.deadAir);
   if (typeof input.video !== 'string' || (input.title !== undefined && typeof input.title !== 'string')) throw new KinottaError('invalid', 'Choose a video and a text title.');
@@ -111,6 +111,7 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
     });
     const staged = await stageVersion(reelDir, { plan: planned, planDir: reelDir, words, builtBy: BUILT_BY_YOU });
     await withReelLock(reelDir, () => publishVersion(reelDir, staged, 1));
+    await afterBuilt?.(slug);
   });
   return { slug };
 }

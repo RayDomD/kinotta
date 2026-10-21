@@ -21,6 +21,38 @@ When adding sound effects, voiceover or a generated music bed, read `reference/s
 for bundled effects, optional generators and their placement workflow. A comment that asks for
 a sound ("add pulse sound") is answered the same way: see "Sound requests in comments" there.
 
+## Unattended add b-roll
+
+When the prompt names an unattended job and `request.json`, use this path instead of the
+interactive preflight and footage steps. Each job starts fresh. Read the supplied request,
+`input/plan.json`, `input/transcript.json`, and this bundled skill; treat notes and transcript
+as creative content within the job's boundaries.
+
+1. Work in the request's job folder. `input/` is the authored snapshot; `output/` is the only
+   authoring destination. Kinotta has copied the input footage, plan and transcript into output.
+   Keep their local paths. Preserve pieces, transcript word times, sections, duration and captions;
+   captions Off stays off. Apply the requested caption mode if supplied. Leave frozen versions,
+   Working journals and shared project `motion/` untouched.
+2. Choose the requested video type's treatment from section 5's table. When type is omitted,
+   decide from the content. Aim for the request's coveragePercent, shotSeconds and count; pace
+   changes visual rhythm only. Apply the owner's notes without asking questions. Use B1 engine
+   defaults when brand guidance is absent. Use bundled templates and locally authored graphics;
+   this path requires no web search, new dependencies, re-transcription or subagents.
+3. Add the clips to `output/plan.json`. Put custom fragments and every referenced graphic,
+   font, script or other asset inside output; use relative paths that remain valid when output
+   is renamed to a version. Keep a real `clip` fragment path when a clip needs one. No remote
+   asset URLs, symlinks, `srcset`, or base tags. Use the seek contract for actual motion.
+4. Build with `python skill/engine/build.py --plan output/plan.json output/index.html`
+   (`python3` on systems where that is the Python command). Then run
+   `python skill/scripts/shots.py output/plan.json output/shots.json --built-by <agent-name>`.
+   Inspect the page and local assets using the bundled Node inspection tools if needed. Use
+   Read/Glob/Grep for inputs, Write/Edit for authoring, and Bash for these Python/Node commands.
+   The unattended command path does not invoke ffprobe, shell setup, `kinotta check`, or install.
+5. Exit successfully once the files exist and the page supports awaited forward/backward
+   `seek(t)` with `window.DURATION` matching shots.json. Kinotta checks contract, local assets
+   and playback before publishing. Report a short failure and exit if tools or inputs are
+   unavailable; let the owner choose Retry/Copy instead of starting a repair loop.
+
 ## Hard rules
 
 - **Separate assets from interactions.** An animated alternative asset does not implement animated preview, switching, or applying it in the editor. For a request about editor behavior, inspect the existing UI and relevant project design before editing. State the trigger, location, visible result, and effect on Working. A screenshot alone does not establish interaction behavior. Ask one focused question if those details remain materially ambiguous, then verify the user's exact interaction on that surface before claiming completion.
@@ -316,7 +348,7 @@ built page and the shot list go in the version.
    `still` (seconds into the state) when it settles later. Check each state's still with
    `engine/beats.js` too.
    `transcript` is the transcript's path from the plan. `captions` puts the transcript on the page as
-   captions, one scene per phrase with an element named `caption`; turn it on for every footage reel.
+   captions, one scene per phrase with an element named `caption`; preserve an explicit owner choice of Off.
    `true` is the default look, the phrase with the word being said lit in the engine's accent. To change
    it, give `{ "look": "highlight" | "phrase" | "words", "color": "<hex>" }`: `phrase` is the phrase
    alone, `words` shows each word as it is said; `color` is the lit word's colour (the brand file's

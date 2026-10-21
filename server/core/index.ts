@@ -1,3 +1,5 @@
+import { createAgentJobs, type AgentJobsOptions } from './_internal/agent-jobs.ts';
+import { readAgentSettings, saveAgentSettings, detectAgents } from './_internal/agent-settings.ts';
 import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { buildParts } from './_internal/parts-build.ts';
@@ -117,6 +119,7 @@ export type {
 } from './_internal/types.ts';
 
 export interface ProjectOptions {
+  agent?: AgentJobsOptions;
   /** Turns a video into timed words when a reel starts. Defaults to the skill's audio transcription. */
   transcriber?: Transcriber;
   /** How many parallel segments every render runs in; tests pin it. Otherwise the CPU and the render's length decide. */
@@ -133,6 +136,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     emit({ type: 'edits-changed', reel: slug });
     return list;
   };
+  const agents = createAgentJobs(dir, emit, options.agent);
   const transcriptions = createTranscriptions(emit);
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
@@ -145,6 +149,16 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    agentSettings: () => readAgentSettings(dir),
+    saveAgentSettings: (input) => saveAgentSettings(dir, input),
+    detectAgents,
+    agentJob: agents.status,
+    startAgentJob: agents.start,
+    cancelAgentJob: agents.cancel,
+    copyAgentRequest: agents.copy,
+    whenAgentDone: agents.whenDone,
+    acceptAgentOutput: agents.acceptOutput,
+    close: agents.close,
     soundEffects,
     soundEffectFile,
     importSoundEffect: (id) => importSoundEffect(dir, id),
@@ -201,7 +215,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
     listVideos: () => listVideos(dir),
     importVideo: (name, body) => importVideo(dir, name, body),
-    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input),
+    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input, (slug) => agents.start(slug)),
     transcriptionProgress: (slug) => transcriptions.progress(slug),
     whenTranscribed: (slug) => transcriptions.whenDone(slug),
     readEditList: (slug) => readEditList(dir, slug),
@@ -254,3 +268,6 @@ function settling(dir: string, listener: (event: ProjectEvent) => void): (event:
 }
 
 export type { MakeOptions } from './_internal/make-options.ts';
+
+export type { AgentJob, AgentJobState } from './_internal/agent-jobs.ts';
+export type { AgentSettings, AgentProvider } from './_internal/agent-settings.ts';

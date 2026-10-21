@@ -1,3 +1,4 @@
+import { AGENT_USAGE_NOTICE } from '../../core/_internal/agent-settings.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -5,6 +6,7 @@ import { dirname, extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts';
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
+const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
@@ -328,6 +330,12 @@ export function createHandler(project: Project, webRoot: string) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
+      const agentRoute = AGENT_API.exec(pathname);
+      const launchesAgent = pathname.startsWith('/api/agent/') || agentRoute || (pathname === '/api/reels' && req.method === 'POST');
+      if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`))) {
+        sendJson(res, 403, { error: 'Agent requests must come from this editor.' });
+        return;
+      }
       const versionRoute = VERSION_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
@@ -432,6 +440,26 @@ export function createHandler(project: Project, webRoot: string) {
           await project.revealRender(slug, file);
           res.writeHead(HTTP_NO_CONTENT).end();
         }
+      } else if (pathname === '/api/agent/settings' && req.method === 'GET') {
+        sendJson(res, 200, { ...await project.agentSettings(), usageNotice: AGENT_USAGE_NOTICE });
+      } else if (pathname === '/api/agent/settings' && req.method === 'PUT') {
+        sendJson(res, 200, { ...await project.saveAgentSettings(await readJsonBody(req)), usageNotice: AGENT_USAGE_NOTICE });
+      } else if (pathname === '/api/agent/check' && req.method === 'GET') {
+        sendJson(res, 200, { agents: await project.detectAgents() });
+      } else if (agentRoute) {
+        const slug = safeDecode(agentRoute[1]!);
+        if (slug === null) sendNotFound(res);
+        else if (agentRoute[2] === 'copy' && req.method === 'GET') sendJson(res, 200, await project.copyAgentRequest(slug));
+        else if (agentRoute[2] === 'publish' && req.method === 'POST') {
+          const body = await readJsonBody(req) as { id?: unknown };
+          if (typeof body.id !== 'string') throw new KinottaError('invalid', 'Supply the request id.');
+          sendJson(res, 200, await project.acceptAgentOutput(slug, body.id));
+        }
+        else if (agentRoute[2] === 'retry' && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug, true));
+        else if (!agentRoute[2] && req.method === 'GET') sendJson(res, 200, { job: await project.agentJob(slug) });
+        else if (!agentRoute[2] && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug));
+        else if (!agentRoute[2] && req.method === 'DELETE') sendJson(res, 200, { job: await project.cancelAgentJob(slug) });
+        else sendNotFound(res);
       } else if (pathname === '/api/reels/brief' && req.method === 'POST') {
         sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
