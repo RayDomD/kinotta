@@ -32,7 +32,7 @@ function project(versions: number): string {
   return dir;
 }
 
-const playbackFiles = (dir: string): string[] => readdirSync(join(dir, 'footage/.playback'));
+const playbackFiles = (dir: string): string[] => readdirSync(join(dir, 'footage/.playback')).filter((name) => name.endsWith('.mp4'));
 
 describe('playback copies of saved-version video', () => {
   it('reuses an existing path-named copy without making another, and still validates the original', async () => {

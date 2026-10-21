@@ -29,7 +29,17 @@ it('brings an insert picture to front, sends it back, undoes it and saves the sa
       await route.continue();
     });
     const frame = page.locator('.rv-frame');
-    const front = () => frame.locator('.mv-picture-layer').last().getAttribute('data-verify-id');
+    await frame.locator('[data-verify-unit="PictureLayer"]').first().waitFor();
+    // Upcoming layers share this class but must not participate in visible drawing-order checks.
+    await frame.evaluate((root) => {
+      const upcoming = document.createElement('div');
+      upcoming.className = 'mv-picture-layer';
+      upcoming.dataset.verifyUnit = 'UpcomingPictureLayer';
+      upcoming.dataset.verifyId = 'upcoming';
+      upcoming.hidden = true;
+      root.append(upcoming);
+    });
+    const front = () => frame.locator('[data-verify-unit="PictureLayer"]').last().getAttribute('data-verify-id');
     await expect.poll(front).toBe('green');
     // The picture paints before the edit journal is ready to accept keyboard selection.
     await expect.poll(() => page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Select', exact: true }).isEnabled()).toBe(true);

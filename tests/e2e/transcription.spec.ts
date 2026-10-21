@@ -30,7 +30,8 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
 
   // The reel opens at once: the footage plays and the lanes say where the transcription is, with an estimate.
   await expect(review(page).getByRole('heading', { name: 'Gated talk' })).toBeVisible();
-  await expect(review(page).locator('video')).toBeVisible();
+  // Before v1 exists this is the legacy player, which has no upcoming picture layer.
+  await expect(review(page).locator('.rv-frame > video.rv-video')).toBeVisible();
   const progress = review(page).getByRole('progressbar', { name: 'Transcription' });
   await expect(progress).toHaveAttribute('aria-valuenow', '33', { timeout: BUILD_WAIT_MS });
   await expect(progress).toContainText(/Transcribing with faster-whisper · about \d+ s left · you can cut and snip now/);

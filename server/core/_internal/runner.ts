@@ -236,8 +236,9 @@ function renderArgs(job: Omit<PageRender, 'out' | 'codec'>, out: string, codec: 
 /** ffmpeg arguments held to `RENDER_THREADS`: each input's decoder, the filters and the encoder before the output. */
 function threaded(args: string[]): string[] {
   const limit = ['-threads', String(RENDER_THREADS)];
+  const complex = args.includes('-filter_complex') && !args.includes('-filter_complex_threads') ? ['-filter_complex_threads', String(RENDER_THREADS)] : [];
   const out = args.flatMap((arg) => (arg === '-i' ? [...limit, arg] : [arg]));
-  return [...out.slice(0, -1), '-filter_threads', String(RENDER_THREADS), ...limit, out[out.length - 1]!];
+  return [...out.slice(0, -1), ...complex, '-filter_threads', String(RENDER_THREADS), ...limit, out[out.length - 1]!];
 }
 
 /**
@@ -364,7 +365,7 @@ export function compositeArgs(job: FootageComposite): string[] {
   const audio = job.audio === null ? [] : ['-map', '[a]', '-c:a', 'aac', '-b:a', AUDIO_BITRATE];
   return [
     '-loglevel', 'error', '-y', '-i', job.footage, '-f', 'nut', '-i', 'pipe:0',
-    '-filter_complex', graph.join(';'), '-map', '[v]', ...audio,
+    '-filter_complex_threads', String(RENDER_THREADS), '-filter_complex', graph.join(';'), '-map', '[v]', ...audio,
     ...(job.frames === undefined ? [] : ['-frames:v', String(job.frames)]),
     '-c:v', 'libx264', '-crf', String(job.crf), '-preset', 'medium', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', job.out,
   ];
@@ -438,7 +439,7 @@ export function joinArgs(list: string, out: string, audio: JoinAudio | null): st
   const faststart = out.endsWith('.mp4') ? ['-movflags', '+faststart'] : [];
   if (audio === null) return [...inputs, '-c', 'copy', ...faststart, out];
   return [
-    ...inputs, '-i', audio.footage, '-filter_complex', audioGraph(audio.pieces, audio.audio, '1:a').join(';'),
+    ...inputs, '-i', audio.footage, '-filter_complex_threads', String(RENDER_THREADS), '-filter_complex', audioGraph(audio.pieces, audio.audio, '1:a').join(';'),
     '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', AUDIO_BITRATE, ...faststart, out,
   ];
 }

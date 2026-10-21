@@ -69,7 +69,7 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
   await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
   // The playhead sits where the snip was, and the footage is already past the snipped stretch.
-  await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(4.9);
+  await expect.poll(() => review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(4.9);
 
   // The edit list is in the reel folder, outside every version, and no version exists yet.
   const project = readFileSync(PROJECT_FILE, 'utf8');
@@ -93,7 +93,7 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
 
 test('a selected stretch previews the snip: the picture is past it, and playing skips it before Snip', async ({ page }) => {
   await startReel(page, 'Preview talk');
-  const footage = (): Promise<number> => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime);
+  const footage = (): Promise<number> => review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate((el: HTMLVideoElement) => el.currentTime);
 
   // The selection runs from a quarter to a half of 12 s: about 3 s to 6 s. The picture shows the frame after the join.
   await selectStretch(page);
@@ -102,7 +102,7 @@ test('a selected stretch previews the snip: the picture is past it, and playing 
 
   // Space plays a lead-in before the stretch and goes straight on to its end.
   await page.keyboard.press('Space');
-  const seen = await review(page).locator('video').evaluate(
+  const seen = await review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate(
     (el: HTMLVideoElement) =>
       new Promise<number[]>((done) => {
         const times: number[] = [];
@@ -291,7 +291,7 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await expect(cards.last()).toContainText('Reordered media');
   const reorderedId = await pieces.first().getAttribute('data-placement');
   await review(page).getByLabel('Playhead', { exact: true }).fill('0.1');
-  await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(6);
+  await expect.poll(() => review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(6);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
   // Undo takes the move back.

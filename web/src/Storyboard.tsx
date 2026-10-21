@@ -461,6 +461,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
           index={openIndex}
           comments={comments}
           markedId={markedId}
+          revealSequence={reveal?.seq}
           unavailable={issues.unavailable}
           readOnlyNote={readOnly ? FROZEN_NOTE : null}
           save={save}
