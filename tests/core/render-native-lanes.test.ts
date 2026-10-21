@@ -268,3 +268,85 @@ it('leaves a gap on Delete and Apply snip so later clips keep their times, and c
   }
 });
 
+
+
+it('previews captions with a main trim, keeps later clips fixed, extends into gaps, and Shift ripples', { timeout: 90_000 }, async () => {
+  const dir = copyFixture('footage-project');
+  const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=lime:s=160x90:r=30:d=4', '-c:v', 'libx264', join(dir, 'take.mp4')], { encoding: 'utf8' });
+  expect(generated.status, generated.stderr).toBe(0);
+  const reel = join(dir, 'reels/founder-talk');
+  const media = (prefix: string) => ({ schema: 1, sources: [{ id: 'take', kind: 'video', audio: false, duration: 4, path: `${prefix}take.mp4`, words: [{ text: 'early', start: 0.1, end: 0.4 }, { text: 'late', start: 1.6, end: 1.9 }, { text: 'next', start: 2.1, end: 2.4 }] }], placements: [{ id: 'first', role: 'main', source: 'take', in: 0, out: 2 }, { id: 'second', role: 'main', source: 'take', in: 2, out: 4 }], sequence: ['first', 'second'] });
+  for (const [file, prefix] of [['plan.json', '../../'], ['v1/plan.json', '../../../']]) writeFileSync(join(reel, file), JSON.stringify({ duration: 4, clips: [], captions: true, media: media(prefix) }));
+  const server = await startServer({ projectDir: dir, port: 0 });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
+    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
+    const lane = page.locator('[data-role="main"] .native-lane-bars');
+    const first = lane.locator('[data-placement="first"]');
+    const second = lane.locator('[data-placement="second"]');
+    const captions = page.locator('[data-row="captions"]');
+    await first.waitFor();
+    await expect.poll(() => captions.textContent()).toContain('late');
+    await first.scrollIntoViewIfNeeded();
+    const width = (await lane.boundingBox())!.width;
+    const trim = async (seconds: number, shift = false, preview = false) => {
+      const edge = first.locator('.native-trim-end');
+      const box = (await edge.boundingBox())!;
+      if (shift) await page.keyboard.down('Shift');
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + seconds / 4 * width, box.y + box.height / 2, { steps: 8 });
+      if (preview) {
+        await expect.poll(() => captions.textContent()).not.toContain('late');
+        expect((await server.project.readEditList('founder-talk')).operations).toHaveLength(0);
+        await page.screenshot({ path: join(dir, 'trim-during.png') });
+      }
+      if (seconds > 1) {
+        const clipBox = (await first.boundingBox())!;
+        const nextBox = (await second.boundingBox())!;
+        expect(Math.abs(clipBox.x + clipBox.width - nextBox.x)).toBeLessThan(2);
+      }
+      await page.mouse.up();
+      if (shift) await page.keyboard.up('Shift');
+      await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
+    };
+    await page.screenshot({ path: join(dir, 'trim-before.png') });
+    await trim(-1, false, true);
+    await page.screenshot({ path: join(dir, 'trim-after.png') });
+    await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 1.00');
+    expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
+    expect(await lane.locator('[aria-label*=", gap,"]').count()).toBe(1);
+    const undo = async () => { await page.getByRole('button', { name: 'Select', exact: true }).focus(); await page.keyboard.press('Control+z'); };
+    await trim(1.5);
+    await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 2.00');
+    expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
+    expect(await lane.locator('[aria-label*=", gap,"]').count()).toBe(0);
+    await undo();
+    await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 1.00');
+    await undo();
+    await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 2.00');
+    await trim(-1, true);
+    await expect.poll(() => second.getAttribute('aria-label')).toContain('1.00 to 3.00');
+    expect(await lane.locator('[aria-label*=", gap,"]').count()).toBe(0);
+    expect(await captions.locator('[data-caption]').last().getAttribute('data-start')).toBe('1.1');
+    await undo();
+    await expect.poll(() => second.getAttribute('aria-label')).toContain('2.00 to 4.00');
+    const start = first.locator('.native-trim-start');
+    const startBox = (await start.boundingBox())!;
+    await drag(page, start, { x: startBox.x + startBox.width / 2 + width / 4, y: startBox.y + startBox.height / 2 });
+    await expect.poll(() => first.getAttribute('aria-label'), { timeout: 10_000 }).toContain('1.00 to 2.00');
+    expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
+    expect(await captions.textContent()).not.toContain('early');
+    expect(await captions.locator('[data-caption]').first().getAttribute('data-start')).toBe('1.6');
+    await page.reload();
+    await expect.poll(() => first.getAttribute('aria-label'), { timeout: 10_000 }).toContain('1.00 to 2.00');
+    expect(await captions.textContent()).not.toContain('early');
+    await undo();
+    await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 2.00');
+    expect(await captions.textContent()).toContain('early');
+  } finally { await browser.close(); await server.close(); }
+});
