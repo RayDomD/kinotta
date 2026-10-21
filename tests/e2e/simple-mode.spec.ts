@@ -1,9 +1,107 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
 import type { AgentJob } from '../../web/src/api/_internal/client.ts';
+
+const simpleTime = async (page: Page) => Number(await page.locator('.sm-preview [data-verify-unit="Transport"]').getAttribute('data-verify-time'));
+
+/** Seek using the timeline's keyboard path while pin mode is off. */
+async function seekSimple(page: Page, at: number) {
+  const toggle = page.getByRole('button', { name: 'Pin mode', exact: true });
+  const wasOn = await toggle.getAttribute('aria-pressed') === 'true';
+  if (wasOn) await toggle.click();
+  const timeline = page.getByRole('button', { name: 'Seek timeline', exact: true });
+  await timeline.press('Home');
+  for (let i = 0; i < Math.floor(at); i++) await timeline.press('Shift+ArrowRight');
+  for (let i = 0; i < Math.round((at % 1) * 30); i++) await timeline.press('ArrowRight');
+  await timeline.blur();
+  if (wasOn) await toggle.click();
+  await page.locator('.sm-app').evaluate((element) => { element.scrollTop = 0; });
+}
+
+test('pin mode toggles, the anchored bubble saves with Enter and cancels with Escape or an empty click-away', async ({ page }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(server.url);
+    const player = page.locator('.sm-preview .rv-page');
+    await expect(player).toHaveAttribute('data-state', 'ready');
+    const toggle = page.getByRole('button', { name: 'Pin mode', exact: true });
+    const bubble = page.getByRole('form', { name: 'New pin', exact: true });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('.sm-preview input[type="range"], .sm-composer')).toHaveCount(0);
+    const frame = (await player.boundingBox())!;
+    await page.mouse.click(frame.x + frame.width / 2, frame.y + frame.height / 2);
+    await expect(bubble).toHaveCount(0);
+    const timeline = page.getByRole('button', { name: 'Seek timeline', exact: true });
+    const track = (await page.locator('.sm-lanes-stack').boundingBox())!;
+    await timeline.click({ position: { x: track.width / 3, y: 8 } });
+    await expect.poll(() => simpleTime(page)).toBeCloseTo(5, 1);
+    await expect(bubble).toHaveCount(0);
+    await seekSimple(page, 0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    const picker = page.getByRole('button', { name: 'Choose pin position' });
+    await picker.click({ position: { x: 80, y: 80 } });
+    await expect(bubble.getByRole('textbox')).toBeFocused();
+    await expect(player.getByRole('img', { name: 'Draft pin', exact: true })).toBeVisible();
+    await expect(player.locator('.page-pin-bubble')).toContainText('Enter saves');
+    await bubble.getByRole('textbox').fill(' ');
+    await bubble.getByRole('textbox').press('Enter');
+    await expect(bubble).toBeVisible();
+    await bubble.getByRole('textbox').fill('Keep this');
+    await bubble.getByRole('textbox').press('Shift+Enter');
+    await bubble.getByRole('textbox').press('p');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(bubble.getByRole('textbox')).toHaveValue('Keep this\np');
+    await bubble.getByRole('textbox').press('Enter');
+    await expect(bubble).toHaveCount(0);
+    await expect(page.getByRole('complementary', { name: 'Your pins' })).toContainText('Keep this');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    // Edge picks remain inside the picture, including on a narrow viewport.
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      const box = (await picker.boundingBox())!;
+      await picker.click({ position: { x: box.width - 3, y: box.height - 3 } });
+      await expect(bubble.getByRole('textbox')).toBeFocused();
+      const picture = (await player.boundingBox())!;
+      const placed = (await player.locator('.page-pin-bubble').boundingBox())!;
+      const anchor = (await player.getByRole('img', { name: 'Draft pin', exact: true }).boundingBox())!;
+      expect(placed.x).toBeGreaterThanOrEqual(picture.x - 1);
+      expect(placed.y).toBeGreaterThanOrEqual(picture.y - 1);
+      expect(placed.x + placed.width).toBeLessThanOrEqual(picture.x + picture.width + 1);
+      expect(placed.y + placed.height).toBeLessThanOrEqual(picture.y + picture.height + 1);
+      expect(placed.x + placed.width <= anchor.x || placed.x >= anchor.x + anchor.width || placed.y + placed.height <= anchor.y || placed.y >= anchor.y + anchor.height).toBe(true);
+      mkdirSync(resolve('tests/artifacts/simple-pin-mode'), { recursive: true });
+      await page.screenshot({ path: resolve(`tests/artifacts/simple-pin-mode/after-edge-${viewport.width}.png`) });
+      await bubble.getByRole('textbox').fill('Cancel this');
+      await bubble.getByRole('textbox').press('Escape');
+      await expect(bubble).toHaveCount(0);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await picker.press('Enter');
+    await page.getByRole('heading', { name: 'Product showreel', exact: true }).click();
+    await expect(bubble).toHaveCount(0);
+    await picker.press('Enter');
+    await bubble.getByRole('textbox').fill('Retain this draft');
+    await page.getByRole('heading', { name: 'Product showreel', exact: true }).click();
+    await expect(bubble.getByRole('textbox')).toHaveValue('Retain this draft');
+    await bubble.getByRole('textbox').press('Escape');
+    await toggle.focus(); await toggle.blur();
+    await page.keyboard.press('p');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(picker).toHaveCount(0);
+    await page.keyboard.press('p');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    expect(await server.project.listComments('product-showreel', 2)).toHaveLength(1);
+    expect((await server.project.readEditList('product-showreel')).operations).toHaveLength(0);
+  } finally { await server.close(); }
+});
 
 test('picture pins name the element, pause playback, persist coordinates and remain reachable alongside timeline pins', async ({ page }) => {
   const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
@@ -12,8 +110,8 @@ test('picture pins name the element, pause playback, persist coordinates and rem
     await page.goto(server.url);
     const player = page.locator('.sm-preview .rv-page');
     await expect(player).toHaveAttribute('data-state', 'ready');
-    const playhead = page.getByRole('slider', { name: 'Simple playhead' });
-    await playhead.fill('0.5');
+    await seekSimple(page, 0.5);
+    await page.getByRole('button', { name: 'Pin mode', exact: true }).click();
     await page.locator('.sm-app').evaluate((element) => { element.scrollTop = 0; });
     const cube = page.frameLocator('iframe[title="Authored graphics"]').locator('[data-el="cube"]');
     await expect(cube).toBeVisible();
@@ -25,20 +123,20 @@ test('picture pins name the element, pause playback, persist coordinates and rem
     await expect(page.getByRole('button', { name: 'Choose pin position' })).toHaveCSS('cursor', /data:image\/svg\+xml.*circle/);
     const tag = (await player.locator('.tag').boundingBox())!;
     expect(tag.y + tag.height <= bounds.y || tag.y >= bounds.y + bounds.height || tag.x + tag.width <= bounds.x || tag.x >= bounds.x + bounds.width).toBe(true);
-    mkdirSync(resolve('tests/artifacts/simple-picture-pins'), { recursive: true });
-    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-simple-hover.png') });
+    mkdirSync(resolve('tests/artifacts/simple-pin-mode'), { recursive: true });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-pin-mode/after-simple-hover.png') });
 
     await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect.poll(async () => Number(await playhead.inputValue())).toBeGreaterThan(0.5);
+    await expect.poll(async () => await simpleTime(page)).toBeGreaterThan(0.5);
     const frame = (await player.boundingBox())!;
     await page.mouse.click(point.x, point.y);
     const composer = page.getByRole('form', { name: 'New pin', exact: true });
-    await expect(composer.getByRole('heading')).toContainText('cube');
+    await expect(composer).toContainText('cube');
     await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
-    const pinnedTime = Number(await playhead.inputValue());
+    const pinnedTime = await simpleTime(page);
     await expect(composer.getByRole('button', { name: 'Add pin', exact: true })).toBeDisabled();
     await composer.getByRole('textbox').fill('Make the cube brighter.');
-    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-simple-composer.png') });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-pin-mode/after-simple-composer.png') });
     await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
     const list = page.getByRole('complementary', { name: 'Your pins' });
     await expect(list.getByRole('listitem')).toContainText('cube');
@@ -52,22 +150,22 @@ test('picture pins name the element, pause playback, persist coordinates and rem
     expect(Math.abs(saved.pin.y - (point.y - frame.y) / frame.height)).toBeLessThan(1 / frame.height + 0.001);
     expect(Math.abs(saved.pin.x - 0.5)).toBeGreaterThan(0.001);
     await page.locator('.sm-app').evaluate((element) => { element.scrollTop = 0; });
-    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-simple-saved.png') });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-pin-mode/after-simple-saved.png') });
 
-    await playhead.fill('4');
+    await seekSimple(page, 4);
     await page.getByRole('button', { name: 'Add a timeline pin' }).press('Enter');
     await composer.getByRole('textbox').fill('Shorten this moment.');
     await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
     await expect(list.getByRole('listitem')).toHaveCount(2);
     expect((await server.project.listComments('product-showreel', 2))[1].pin).toMatchObject({ kind: 'frame', time: 4, x: 0.5, y: 0.5, element: null });
     await expect(player.getByRole('img', { name: 'Comment 2', exact: true })).toBeVisible();
-    await playhead.focus(); await playhead.blur();
+    await page.getByRole('button', { name: 'Pin mode', exact: true }).focus(); await page.getByRole('button', { name: 'Pin mode', exact: true }).blur();
     await page.keyboard.press(']');
     await expect(list.getByRole('listitem').first()).toHaveAttribute('data-selected', 'true');
-    await expect.poll(async () => Number(await playhead.inputValue())).toBeCloseTo(pinnedTime, 2);
+    await expect.poll(async () => await simpleTime(page)).toBeCloseTo(pinnedTime, 2);
     await expect(player.getByRole('img', { name: 'Comment 1', exact: true })).toBeVisible();
     await page.keyboard.press('[');
-    await expect(playhead).toHaveValue('4');
+    await expect.poll(() => simpleTime(page)).toBeCloseTo(4, 2);
     await page.reload();
     await expect(list.getByRole('listitem').first()).toContainText('cube');
     expect((await server.project.readEditList('product-showreel')).operations).toHaveLength(0);
@@ -92,8 +190,8 @@ test('the editor shares element hover feedback and retains its frame pin save fl
     await expect(picker).toHaveCSS('cursor', /data:image\/svg\+xml.*circle/);
     const tag = (await page.locator('.rv-page .tag').boundingBox())!;
     expect(tag.y + tag.height <= cube.y || tag.y >= cube.y + cube.height || tag.x + tag.width <= cube.x || tag.x >= cube.x + cube.width).toBe(true);
-    mkdirSync(resolve('tests/artifacts/simple-picture-pins'), { recursive: true });
-    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-editor-hover.png') });
+    mkdirSync(resolve('tests/artifacts/simple-pin-mode'), { recursive: true });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-pin-mode/after-editor-hover.png') });
     // A stationary pointer follows a keyboard seek into the next scene, without leaving a stale cube box.
     await page.keyboard.press('Shift+ArrowRight');
     await page.keyboard.press('Shift+ArrowRight');
@@ -117,11 +215,12 @@ test('picture picking covers footage-only moments with exact coordinates and no 
     const player = page.locator('.sm-preview .rv-page');
     await expect(player).toHaveAttribute('data-state', 'ready');
     await expect(page.locator('[data-verify-unit="PictureLayer"] video')).toBeVisible();
+    await page.getByRole('button', { name: 'Pin mode', exact: true }).click();
     const picker = page.getByRole('button', { name: 'Choose pin position' });
     const frame = (await picker.boundingBox())!;
     await picker.click({ position: { x: frame.width * 0.25, y: frame.height * 0.3 } });
     const composer = page.getByRole('form', { name: 'New pin', exact: true });
-    await expect(composer.getByRole('heading')).toHaveText(/Pin at \d+:\d+/);
+    await expect(composer.locator('.sm-pin-context')).toHaveText(/\d+:\d+/);
     await composer.getByRole('textbox').fill('Brighten this footage.');
     await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
     await expect(player.getByRole('img', { name: 'Comment 1', exact: true })).toBeVisible();
@@ -186,9 +285,10 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await expect(page.locator('.sm-preview .rv-tracks-pane, .sm-preview .editor-toolbar, .sm-preview .rv-divider, .sm-preview .rv-scrubber')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'New reel', exact: true })).toHaveCount(0);
 
+    await seekSimple(page, 2.5);
+    await page.getByRole('button', { name: 'Pin mode', exact: true }).click();
     const timeline = page.getByRole('button', { name: 'Add a timeline pin' });
     await expect(timeline).toBeVisible();
-    await page.getByRole('slider', { name: 'Simple playhead' }).fill('2.5');
     await timeline.focus(); await page.keyboard.press('Enter');
     const composer = page.getByRole('form', { name: 'New pin' });
     await expect(composer.getByRole('button', { name: 'Add pin', exact: true })).toBeDisabled();
@@ -203,19 +303,19 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
     await expect(page.getByRole('button', { name: /Regenerate \(2 pins\)/ })).toBeEnabled();
     await page.getByRole('button', { name: /Pin 1 at/ }).click();
-    await expect(page.getByRole('slider', { name: 'Simple playhead' })).toHaveValue('2.5');
+    await expect.poll(() => simpleTime(page)).toBeCloseTo(2.5, 2);
     await page.getByRole('button', { name: 'Next pin', exact: true }).click();
     await page.getByRole('button', { name: 'Next pin', exact: true }).blur();
     await page.keyboard.press('[');
-    await expect(page.getByRole('slider', { name: 'Simple playhead' })).toHaveValue('2.5');
+    await expect.poll(() => simpleTime(page)).toBeCloseTo(2.5, 2);
     await page.keyboard.press(']');
     const pins = await server.project.listComments('product-showreel', 2);
-    await expect.poll(async () => Number(await page.getByRole('slider', { name: 'Simple playhead' }).inputValue())).toBeCloseTo(pins[1].pin.time, 2);
+    await expect.poll(async () => await simpleTime(page)).toBeCloseTo(pins[1].pin.time, 2);
     await page.reload();
     await expect(page.getByRole('heading', { name: 'About you', exact: true })).toHaveCount(0);
     await expect(page.getByRole('complementary', { name: 'Your pins' }).getByRole('listitem')).toHaveCount(2);
     await page.getByRole('button', { name: 'Previous pin', exact: true }).click();
-    await expect.poll(async () => Number(await page.getByRole('slider', { name: 'Simple playhead' }).inputValue())).toBeCloseTo(pins[1].pin.time, 2);
+    await expect.poll(async () => await simpleTime(page)).toBeCloseTo(pins[1].pin.time, 2);
     await page.getByRole('button', { name: /Regenerate \(2 pins\)/ }).click();
     await expect(page.locator('.sm-message[role="status"]')).toContainText('Request copied.');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Tighten this pause.');
@@ -226,7 +326,7 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await page.getByRole('button', { name: 'Pause', exact: true }).click();
     expect((await server.project.readEditList('product-showreel')).operations).toHaveLength(0);
     const frame = (await page.locator('.sm-preview .rv-frame').boundingBox())!;
-    const track = (await timeline.boundingBox())!;
+    const track = (await page.locator('.sm-lanes-stack').boundingBox())!;
     expect(frame.y + frame.height).toBeLessThan(track.y);
     expect(frame.width / frame.height).toBeCloseTo(16 / 9, 2);
     await expect(page.locator('.sm-preview .rv-page')).toHaveAttribute('data-state', 'ready');
@@ -322,7 +422,7 @@ test('Make starts a real reel from a project video in Simple mode with treatment
     await page.getByRole('button', { name: 'Make', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: 'Simple make', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add a timeline pin' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Seek timeline' })).toBeVisible();
     expect((await server.project.listReels()).reels.some((reel) => reel.title === 'Simple make')).toBe(true);
 
     // Verify treatment options persisted in plan.json

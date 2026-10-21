@@ -98,8 +98,18 @@
 .sm-timeline-shot:nth-child(even) { background: var(--card-raised); }
 .sm-pin-mark { position: absolute; top: -13px; min-width: 24px; height: 25px; padding: 2px 5px; border: 0; background: var(--light); color: var(--ground); transform: translateX(-50%); clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); }
 .sm-playhead { position: absolute; inset-block: -5px; width: 1px; background: var(--light); pointer-events: none; }
-.sm-scrub { margin-top: 16px; }
-.sm-scrub input { accent-color: var(--light); }
+.sm-lanes-stack { cursor: pointer; }
+.sm-lanes-stack[data-pin-mode="true"] { cursor: var(--cur-pin), crosshair; }
+.sm-pin-tool { display: inline-flex; align-items: center; justify-content: center; padding: 6px; border: 1px solid var(--hairline); }
+.sm-pin-tool[aria-pressed="true"] { color: var(--light); border-color: var(--light); }
+.sm-preview .page-pin-bubble { position: absolute; z-index: 6; width: min(280px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; pointer-events: auto; }
+.sm-pin-bubble { padding: 10px; border: 1px solid var(--light); background: var(--card); box-shadow: var(--sheet-press); display: grid; gap: 8px; }
+.sm-pin-bubble .sm-pin-context { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.sm-pin-bubble textarea { width: 100%; min-height: 64px; resize: none; padding: 8px; font: inherit; font-size: 13px; background: var(--ground-deep); color: var(--ink); border: 1px solid var(--hairline); }
+.sm-pin-bubble textarea:focus { outline: none; border-color: var(--light); }
+.sm-pin-bubble-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+.sm-pin-bubble-actions > span { flex-basis: 100%; color: var(--muted); }
+.sm-pin-bubble-actions .btn { margin-left: auto; padding: 5px 9px; font-size: 12px; }
 .sm-pins { border-left: 1px solid var(--rule); padding: 22px; display: flex; flex-direction: column; gap: 20px; }
 .sm-pins-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .sm-pins-heading h2 { margin-right: auto; }
@@ -117,7 +127,6 @@
 .sm-regenerate { margin-top: auto; padding-top: 24px; }
 .sm-regenerate .btn { width: 100%; }
 .sm-regenerate p { margin-top: 12px; }
-.sm-composer { padding: 20px; margin-top: 22px; border: 1px solid var(--light); background: var(--card); box-shadow: var(--sheet-rest); display: grid; gap: 18px; }
 .sm-message { padding: 0 28px; margin: 12px 0; overflow-wrap: anywhere; }
 .sm-message:empty { display: none; }
 .sm-request { margin: 20px 28px; }

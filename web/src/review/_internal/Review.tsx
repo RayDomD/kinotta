@@ -51,6 +51,10 @@ const CODE_ONLY_REASON = 'Built from code: only elements can be moved. To change
 export interface ReviewProps {
   /** Render the picture, compact transport and Simple timeline without editor chrome. */
   simple?: {
+    pinMode: boolean;
+    controls: ReactNode;
+    draft: NewComment['pin'] | null;
+    draftContent: ReactNode;
     onPin(pin: NewComment['pin']): void;
     jump: { time: number; seq: number } | null;
   };
@@ -489,7 +493,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
         onVideoMetadata={setVideoLength}
         onVideoError={() => setVideoFailed(true)}
       />
-      {simple && <SimpleTimeline canPin={!!version} time={time} total={total} shots={version?.workingParts?.shots ?? version?.shots ?? []} comments={comments} onSeek={playback.seek} onPin={(at) => simple.onPin({ kind: 'frame', shot: version?.shots.find((shot) => shot.start <= at && shot.start + shot.duration > at)?.number ?? '', time: at, x: 0.5, y: 0.5, element: null })} />}
+      {simple && <>{simple.controls}<SimpleTimeline pinMode={simple.pinMode} canPin={!!version} time={time} total={total} shots={version?.workingParts?.shots ?? version?.shots ?? []} comments={comments} onSeek={playback.seek} onPin={(at) => simple.onPin({ kind: 'frame', shot: version?.shots.find((shot) => shot.start <= at && shot.start + shot.duration > at)?.number ?? '', time: at, x: 0.5, y: 0.5, element: null })} /></>}
       {!simple && <><MarkerPanel state={markerState}/>
       <ViewerDivider />
       <div className="rv-tracks-pane">

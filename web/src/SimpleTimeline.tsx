@@ -179,6 +179,7 @@ export interface SimpleTimelineProps {
   shots?: readonly Shot[];
   comments?: readonly Comment[];
   canPin?: boolean;
+  pinMode?: boolean;
   laneGraphics?: readonly PlanClip[];
   media?: MediaPlan;
   timeline?: MediaTimeline;
@@ -202,6 +203,7 @@ export function SimpleTimeline({
   shots = [],
   comments = [],
   canPin = true,
+  pinMode = false,
   laneGraphics = [],
   media,
   timeline,
@@ -263,7 +265,7 @@ export function SimpleTimeline({
     if (!box || duration <= 0) return;
     const at = inside(((event.clientX - box.left) / box.width) * duration);
     onSeek(at);
-    if (canPin) onPin(at);
+    if (canPin && pinMode) onPin(at);
   };
 
   // Generate ruler ticks: every 1s minor, every 5s major
@@ -307,23 +309,30 @@ export function SimpleTimeline({
       `}</style>
 
       <div className="sm-timeline-label">
-        <span>Click the timeline to leave a note</span>
+        <span>{pinMode ? 'Click the picture or timeline to leave a note' : 'Click the timeline to seek'}</span>
         <span className="num">{formatClock(duration)}</span>
       </div>
 
       <div
         ref={trackRef}
         className="sm-lanes-stack"
+        data-pin-mode={pinMode && canPin}
         onClick={handleEmptyClick}
         onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            onSeek(inside(event.key === 'Home' ? 0 : event.key === 'End' ? duration : time + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 1 / 30)));
+            return;
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            if (canPin) onPin(inside(time));
+            if (canPin && pinMode) onPin(inside(time));
           }
         }}
         tabIndex={0}
         role="button"
-        aria-label="Add a timeline pin"
+        aria-label={pinMode && canPin ? 'Add a timeline pin' : 'Seek timeline'}
       >
         {/* Full ruler */}
         <div className="sm-ruler-wrap" aria-label="Simple timeline ruler">
@@ -449,19 +458,6 @@ export function SimpleTimeline({
         <div className="sm-playhead-v" style={{ left: pct(time) }} />
       </div>
 
-      {/* Scrubber */}
-      <label className="sm-scrub">
-        Playhead{' '}
-        <input
-          type="range"
-          aria-label="Simple playhead"
-          min="0"
-          max={duration}
-          step="0.01"
-          value={Math.min(time, duration)}
-          onChange={(event) => onSeek(Number(event.target.value))}
-        />
-      </label>
     </section>
   );
 }

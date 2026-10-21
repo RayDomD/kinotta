@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   cancelReelAgentJob,
   copyBatch,
@@ -37,6 +37,7 @@ import {
 } from './simple-options.ts';
 import { DropZone } from './DropZone.tsx';
 import { Review } from './review/index.ts';
+import { EditorIcon } from './review/_internal/EditorIcon.tsx';
 import type { EditsState } from './review/index.ts';
 import type { CommentsState } from './useComments.ts';
 import { formatClock } from './timecode.ts';
@@ -405,6 +406,8 @@ export function SimpleMode({
   const [agentProvider, setAgentProvider] = useState<AgentProvider>('copy');
   const [agentJob, setAgentJob] = useState<AgentJob | null>(null);
   const [draft, setDraft] = useState<NewComment['pin'] | null>(null);
+  const [pinMode, setPinMode] = useState(false);
+  const bubble = useRef<HTMLFormElement>(null);
   const [text, setText] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [jump, setJump] = useState<{ time: number; seq: number } | null>(null);
@@ -423,6 +426,7 @@ export function SimpleMode({
 
   useEffect(() => {
     setDraft(null);
+    setPinMode(false);
     setSelected(null);
     setJump(null);
     setStatus('');
@@ -474,6 +478,22 @@ export function SimpleMode({
     jumpTo(current < 0 ? (direction === 1 ? 0 : pins.length - 1) : current + direction);
   };
 
+  const togglePinMode = () => {
+    if (busy) return;
+    setPinMode((current) => !current);
+    setDraft(null);
+    setText('');
+  };
+
+  useEffect(() => {
+    if (!draft || text.trim() || busy) return;
+    const away = (event: PointerEvent) => {
+      if (!bubble.current?.contains(event.target as Node)) setDraft(null);
+    };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [draft, text, busy]);
+
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (
@@ -485,6 +505,11 @@ export function SimpleMode({
       ) {
         return;
       }
+      if (event.key.toLowerCase() === 'p' && reel && version && !creating) {
+        event.preventDefault();
+        togglePinMode();
+      }
+      if (event.key === 'Escape' && !busy) setDraft(null);
       if (event.key === '[' || event.key === ']') {
         event.preventDefault();
         stepPin(event.key === ']' ? 1 : -1);
@@ -492,7 +517,7 @@ export function SimpleMode({
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [pins, selected]);
+  }, [pins, selected, busy, reel, version, creating]);
 
   const problem = (err: unknown) => setError(err instanceof Error ? err.message : 'Could not complete that action. Try again.');
 
@@ -693,6 +718,41 @@ export function SimpleMode({
               comments={pins}
               edits={edits}
               simple={{
+                pinMode,
+                controls: <button type="button" className="rv-tool sm-pin-tool" aria-label="Pin mode" title="Pin mode (P)" aria-keyshortcuts="P" aria-pressed={pinMode} disabled={busy || !version} onClick={togglePinMode}><EditorIcon name="pin" /></button>,
+                draft,
+                draftContent: draft && (
+                  <form
+                    ref={bubble}
+                    className="sm-pin-bubble"
+                    aria-label="New pin"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault(); event.stopPropagation();
+                        if (!busy) setDraft(null);
+                      } else if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'TEXTAREA' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                        event.preventDefault(); event.stopPropagation();
+                        event.currentTarget.requestSubmit();
+                      }
+                    }}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (!text.trim() || busy) return;
+                      setBusy(true); setError('');
+                      void comments.save({ pin: draft, text: text.trim() }).then(() => {
+                        setDraft(null); setText(''); setStatus('Pin saved.');
+                      }, problem).finally(() => setBusy(false));
+                    }}
+                  >
+                    <p className="sm-pin-context"><span className="num">{formatClock(draft.time ?? 0)}</span>{draft.kind === 'frame' && draft.element && <> · <span className="sm-pin-element">{draft.element}</span></>}</p>
+                    <textarea aria-label="Pin note (required)" placeholder="What should change?" autoFocus required maxLength={4000} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
+                    <div className="sm-pin-bubble-actions">
+                      <span>Enter saves · Esc cancels</span>
+                      <button type="button" className="c-act" disabled={busy} onClick={() => setDraft(null)}>Cancel pin</button>
+                      <button type="submit" className="btn" disabled={busy || !text.trim()}>Add pin</button>
+                    </div>
+                  </form>
+                ),
                 onPin: (pin) => {
                   setDraft(pin);
                   setText('');
@@ -701,50 +761,6 @@ export function SimpleMode({
                 jump,
               }}
             />
-            {draft && (
-              <form
-                className="sm-composer"
-                aria-label="New pin"
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') setDraft(null);
-                }}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!text.trim() || busy) return;
-                  setBusy(true);
-                  setError('');
-                  void comments
-                    .save({ pin: draft, text: text.trim() })
-                    .then(() => {
-                      setDraft(null);
-                      setText('');
-                      setStatus('Pin saved.');
-                    }, problem)
-                    .finally(() => setBusy(false));
-                }}
-              >
-                <h2>Pin at <span className="num">{formatClock(draft.time ?? 0)}</span>{draft.kind === 'frame' && draft.element && <> · <span className="sm-pin-element">{draft.element}</span></>}</h2>
-                <label>
-                  What should change here? (required)
-                  <textarea
-                    autoFocus
-                    required
-                    maxLength={4000}
-                    value={text}
-                    disabled={busy}
-                    onChange={(event) => setText(event.target.value)}
-                  />
-                </label>
-                <div className="sm-form-actions">
-                  <button type="button" className="c-act" disabled={busy} onClick={() => setDraft(null)}>
-                    Cancel pin
-                  </button>
-                  <button type="submit" className="btn" disabled={busy || !text.trim()}>
-                    Add pin
-                  </button>
-                </div>
-              </form>
-            )}
           </div>
 
           <aside className="sm-pins" aria-label="Your pins">
@@ -763,7 +779,7 @@ export function SimpleMode({
             {pins.length === 0 && (
               <div className="empty">
                 <h3>What would you change?</h3>
-                <p>Click the picture or timeline, then describe it.</p>
+                <p>Turn on the pin, then click the picture.</p>
                 <span className="terrain" aria-hidden="true" />
               </div>
             )}

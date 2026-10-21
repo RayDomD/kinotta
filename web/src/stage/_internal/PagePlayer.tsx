@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, PointerEvent } from 'react';
+import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import { ElementLayer } from './ElementLayer.tsx';
 import type { ElementEditing } from './ElementLayer.tsx';
 import { useSeekReporter } from './issues.ts';
@@ -7,7 +7,7 @@ import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekNow } from './page.ts';
 import { contentBoxes, hitTest } from './dom.ts';
 import { placeBox } from './placeBox.ts';
 import type { Rect } from './placeBox.ts';
-import { PinMark } from './PinMark.tsx';
+import { ANCHOR_SIZE, PinMark } from './PinMark.tsx';
 import type { FramePick, FramePin } from './PinFrame.tsx';
 
 /** One caption phrase as the page draws it: a `[data-caption]` scene. Times are the reel's. */
@@ -102,6 +102,8 @@ export interface PagePlayerProps {
   onFramePick?(pick: FramePick): void;
   pins?: readonly FramePin[];
   draftPin?: FramePick | null;
+  /** Simple mode's note form, placed beside the draft anchor within the picture. */
+  draftContent?: ReactNode;
   /** A double-click (or Enter) on the caption handle opens its text to retype; this reports the new text. Absent: no text editing. */
   onCaptionText?(edit: CaptionText): void | Promise<unknown>;
 }
@@ -245,7 +247,7 @@ function readPhrases(doc: Document | null): CaptionPhrase[] {
  * The version page playing: a same-origin frame at 1920x1080 scaled to its box, seeked to `time` each time that
  * changes. Not interactive. The page's background is transparent, so footage stacked under the box shows through.
  */
-export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, captionPreview, onCaptionText, onFramePick, pins = [], draftPin, portrait = false }: PagePlayerProps) {
+export function PagePlayer({ pageUrl, time, title, className, onPhrases, captionShifts, onCaptionMove, elements, clipTiming, captionWords, captionPreview, onCaptionText, onFramePick, pins = [], draftPin, draftContent, portrait = false }: PagePlayerProps) {
   const width = portrait ? PAGE_HEIGHT : PAGE_WIDTH;
   const height = portrait ? PAGE_WIDTH : PAGE_HEIGHT;
   const box = useRef<HTMLDivElement>(null);
@@ -253,6 +255,19 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
   const [loaded, setLoaded] = useState(false);
   const previewed = useRef<PagePlayerProps['captionPreview']>(undefined);
   const [scale, setScale] = useState(0);
+  const bubble = useRef<HTMLDivElement>(null);
+  const [bubbleAt, setBubbleAt] = useState<Rect | null>(null);
+  useLayoutEffect(() => {
+    if (!draftPin || !draftContent || !bubble.current || !frame.current?.contentDocument) return;
+    const anchor = { left: draftPin.x * width * scale - ANCHOR_SIZE / 2, top: draftPin.y * height * scale - ANCHOR_SIZE / 2, width: ANCHOR_SIZE, height: ANCHOR_SIZE };
+    const obstacles = contentBoxes(frame.current.contentDocument, null).map((r) => ({ left: r.left * scale, top: r.top * scale, width: r.width * scale, height: r.height * scale }));
+    const size = { width: bubble.current.offsetWidth, height: bubble.current.offsetHeight };
+    const bounds = { width: width * scale, height: height * scale };
+    const placed = placeBox(anchor, size, obstacles, bounds);
+    // When content fills the frame, keep the draft anchor visible ahead of avoiding reel content.
+    const coversAnchor = placed.left < anchor.left + anchor.width && placed.left + placed.width > anchor.left && placed.top < anchor.top + anchor.height && placed.top + placed.height > anchor.top;
+    setBubbleAt(coversAnchor ? placeBox(anchor, size, [], bounds) : placed);
+  }, [draftPin, draftContent, width, height, scale, time]);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const hoverTag = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ name: string; rect: Rect; obstacles: Rect[] } | null>(null);
@@ -383,6 +398,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
       />
       {pins.map((pin, i) => <PinMark key={pin.id} {...pin} stack={i} />)}
       {draftPin && <span className="hexpin draft" role="img" aria-label="Draft pin" style={{ left: `${draftPin.x * 100}%`, top: `${draftPin.y * 100}%` }}><svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="3" /></svg></span>}
+      {draftPin && draftContent && <div ref={bubble} className="page-pin-bubble" style={{ left: bubbleAt?.left ?? 0, top: bubbleAt?.top ?? 0 }}>{draftContent}</div>}
       {onFramePick && loaded && hover && <>
         <div className="hot" aria-hidden="true" style={hover.rect} />
         <div ref={hoverTag} className="tag" style={{ left: tagAt?.left ?? 0, top: tagAt?.top ?? 0, visibility: tagAt ? undefined : 'hidden' }}>{hover.name}</div>
