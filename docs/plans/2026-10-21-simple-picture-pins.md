@@ -1,7 +1,7 @@
 ---
 title: Simple mode picture pins
 date: 2026-10-21
-status: Blocked
+status: Approved
 summary: Let simple mode pin an exact spot or element on the picture, the way the editor does, alongside timeline pins.
 spec:
 ---
@@ -77,3 +77,6 @@ that is existing behaviour and stays.
 ### 2026-10-21
 - Plan created from owner decision: add picture pins to simple mode, keep timeline pins.
 - Implementation investigation started, then blocked before code edits by the brief's scope limit: the current `PagePlayer` picker has a crosshair and click hit-testing, but no element hover outline/name tag. Meeting the approved feedback requires a change in that excluded file. See `docs/session-summaries/2026-10-21-simple-picture-pins-summary.md`.
+
+### 2026-10-21 (scope change)
+- Owner chose the designed version after codex found the editor has only a crosshair: build the DESIGN.md "Pinning (signature)" hover in `web/src/stage/_internal/PagePlayer.tsx` (hex cursor with centre dot over a pinnable frame, ice outline + glow on the element under the cursor, ice name tag outside the element, all drawn in the editor not inside the reel page). The detailed editor gets the same hover since it shares the player. Plan unblocked.
