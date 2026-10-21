@@ -704,7 +704,7 @@ export function SimpleMode({
             {draft && (
               <form
                 className="sm-composer"
-                aria-label="New timeline pin"
+                aria-label="New pin"
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') setDraft(null);
                 }}
@@ -723,7 +723,7 @@ export function SimpleMode({
                     .finally(() => setBusy(false));
                 }}
               >
-                <h2>Pin at <span className="num">{formatClock(draft.time ?? 0)}</span></h2>
+                <h2>Pin at <span className="num">{formatClock(draft.time ?? 0)}</span>{draft.kind === 'frame' && draft.element && <> · <span className="sm-pin-element">{draft.element}</span></>}</h2>
                 <label>
                   What should change here? (required)
                   <textarea
@@ -763,7 +763,7 @@ export function SimpleMode({
             {pins.length === 0 && (
               <div className="empty">
                 <h3>What would you change?</h3>
-                <p>Click the timeline, then describe it.</p>
+                <p>Click the picture or timeline, then describe it.</p>
                 <span className="terrain" aria-hidden="true" />
               </div>
             )}
@@ -773,11 +773,12 @@ export function SimpleMode({
                   <button
                     type="button"
                     className="sm-pin-jump"
-                    aria-label={`Pin ${pin.number} at ${formatClock(pin.pin.time)}: ${pin.text}`}
+                    aria-label={`Pin ${pin.number} at ${formatClock(pin.pin.time)}${pin.pin.kind === 'frame' && pin.pin.element ? ` · ${pin.pin.element}` : ''}: ${pin.text}`}
                     onClick={() => jumpTo(index)}
                   >
                     <span className="num">{pin.number} · {formatClock(pin.pin.time)}</span>
                     <span>{pin.state ? 'Needs attention' : pin.sent ? 'Copied' : 'New'}</span>
+                    {pin.pin.kind === 'frame' && pin.pin.element && <span className="sm-pin-element">{pin.pin.element}</span>}
                     <span>{pin.text}</span>
                   </button>
                   {pin.stateReason && <p className="meta">{pin.stateReason}</p>}

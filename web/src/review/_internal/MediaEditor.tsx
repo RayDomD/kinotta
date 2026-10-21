@@ -217,6 +217,13 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       ...(sourceTime !== undefined ? { sourceTime } : target && target.role !== 'gap' ? { sourceTime: target.in + at - target.at } : {}) };
   };
   const pickFrame = (pick: FramePick) => {
+    if (simple) {
+      const target = pictureAt(timeline, time, pick.x, pick.y) ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
+      const shot = reelShots.find((shot) => shot.start <= time && shot.start + shot.duration > time);
+      playback.seek(time);
+      simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(time, target?.id), ...pick });
+      return;
+    }
     try {
       const target = pictureAt(timeline, time, pick.x, pick.y) ?? timeline.placements.find((p) => p.role === 'gap' && p.at <= time && p.at + p.duration > time);
       const saved = workingPinMoment(time, target?.id);
@@ -565,7 +572,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
         <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
-        <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
+        <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={simple || pinning ? pickFrame : undefined} draftPin={pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}

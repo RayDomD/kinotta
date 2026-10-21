@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { ElementLayer } from './ElementLayer.tsx';
 import type { ElementEditing } from './ElementLayer.tsx';
 import { useSeekReporter } from './issues.ts';
 import { PAGE_HEIGHT, PAGE_WIDTH, renderUrl, seekNow } from './page.ts';
-import { hitTest } from './dom.ts';
+import { contentBoxes, hitTest } from './dom.ts';
+import { placeBox } from './placeBox.ts';
+import type { Rect } from './placeBox.ts';
 import { PinMark } from './PinMark.tsx';
 import type { FramePick, FramePin } from './PinFrame.tsx';
 
@@ -251,6 +253,26 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
   const [loaded, setLoaded] = useState(false);
   const previewed = useRef<PagePlayerProps['captionPreview']>(undefined);
   const [scale, setScale] = useState(0);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const hoverTag = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ name: string; rect: Rect; obstacles: Rect[] } | null>(null);
+  const [tagAt, setTagAt] = useState<Rect | null>(null);
+  const refreshHover = useRef(() => {});
+  refreshHover.current = () => {
+    const doc = frame.current?.contentDocument;
+    const hit = onFramePick && loaded && doc && pointer.current ? hitTest(doc, pointer.current.x * width, pointer.current.y * height) : null;
+    if (!hit || !doc) { setHover(null); return; }
+    const scaled = (r: Rect): Rect => ({ left: r.left * scale, top: r.top * scale, width: r.width * scale, height: r.height * scale });
+    setHover({ name: hit.name, rect: scaled(hit.rect), obstacles: contentBoxes(doc, hit.element).map(scaled) });
+  };
+  const clearHover = () => { pointer.current = null; setHover(null); };
+  useEffect(() => { clearHover(); }, [!!onFramePick, pageUrl]);
+  useEffect(() => { refreshHover.current(); }, [scale]);
+  useLayoutEffect(() => {
+    if (!hover || !hoverTag.current) return;
+    const placed = placeBox(hover.rect, { width: hoverTag.current.offsetWidth, height: hoverTag.current.offsetHeight }, hover.obstacles, { width: width * scale, height: height * scale });
+    setTagAt(placed);
+  }, [hover, scale, width, height]);
   const report = useSeekReporter(pageUrl);
   const [handle, setHandle] = useState<Handle | null>(null);
   const [drag, setDrag] = useState<(CaptionMove & { from: { x: number; y: number } }) | null>(null);
@@ -284,6 +306,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
         markCaptionWords(frame.current, time, captionPreview !== undefined);
         report(null);
         measure();
+        refreshHover.current();
       },
       (err: unknown) => report(err),
     );
@@ -343,7 +366,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
   };
 
   return (
-    <div ref={box} className={className} data-state={loaded ? 'ready' : 'loading'}>
+    <div ref={box} className={`${className ?? ''}${onFramePick ? ' pinnable' : ''}`} data-state={loaded ? 'ready' : 'loading'}>
       <iframe
         ref={frame}
         className="still-frame"
@@ -352,6 +375,7 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
         tabIndex={-1}
         style={{ width, height, transform: `scale(${scale})` }}
         onLoad={() => {
+          clearHover();
           setLoaded(true);
           previewed.current = undefined;
           onPhrases?.(readPhrases(frame.current?.contentDocument ?? null));
@@ -359,12 +383,21 @@ export function PagePlayer({ pageUrl, time, title, className, onPhrases, caption
       />
       {pins.map((pin, i) => <PinMark key={pin.id} {...pin} stack={i} />)}
       {draftPin && <span className="hexpin draft" role="img" aria-label="Draft pin" style={{ left: `${draftPin.x * 100}%`, top: `${draftPin.y * 100}%` }}><svg viewBox="0 0 28 28"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="var(--light)" stroke="var(--ground)" strokeWidth="3" /></svg></span>}
-      {onFramePick && loaded && <button type="button" aria-label="Choose pin position" style={{ position: 'absolute', inset: 0, zIndex: 4, background: 'transparent', border: 0, padding: 0, cursor: 'crosshair', pointerEvents: 'auto' }} onClick={(event) => {
+      {onFramePick && loaded && hover && <>
+        <div className="hot" aria-hidden="true" style={hover.rect} />
+        <div ref={hoverTag} className="tag" style={{ left: tagAt?.left ?? 0, top: tagAt?.top ?? 0, visibility: tagAt ? undefined : 'hidden' }}>{hover.name}</div>
+      </>}
+      {onFramePick && loaded && <button type="button" className="hit" aria-label="Choose pin position" style={{ zIndex: 4, background: 'transparent', border: 0, padding: 0, pointerEvents: 'auto' }} onPointerMove={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        pointer.current = { x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height };
+        refreshHover.current();
+      }} onPointerLeave={clearHover} onBlur={clearHover} onClick={(event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
         const x = event.detail === 0 ? 0.5 : Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
         const y = event.detail === 0 ? 0.5 : Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
         const doc = frame.current?.contentDocument;
         onFramePick({ x, y, element: doc ? hitTest(doc, x * width, y * height)?.name ?? null : null });
+        clearHover();
       }} />}
       {elements && <ElementLayer frame={frame} loaded={loaded} scale={scale} time={time} editing={elements} />}
       {handle && scale > 0 && retyping === null && (

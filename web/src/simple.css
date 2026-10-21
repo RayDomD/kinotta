@@ -111,6 +111,8 @@
 .sm-pin-jump:focus-visible { outline: 1.5px solid var(--light); outline-offset: 4px; }
 .sm-pin-jump > span:nth-child(2) { color: var(--muted); font-size: 12px; }
 .sm-pin-jump > span:last-child { grid-column: 1 / -1; overflow-wrap: anywhere; }
+.sm-pin-element { color: var(--light); overflow-wrap: anywhere; }
+.sm-pin-jump > .sm-pin-element { grid-column: 1 / -1; }
 .sm-pin-actions { display: flex; gap: 20px; margin-top: 12px; }
 .sm-regenerate { margin-top: auto; padding-top: 24px; }
 .sm-regenerate .btn { width: 100%; }

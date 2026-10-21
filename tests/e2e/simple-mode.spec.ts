@@ -5,6 +5,135 @@ import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
 import type { AgentJob } from '../../web/src/api/_internal/client.ts';
 
+test('picture pins name the element, pause playback, persist coordinates and remain reachable alongside timeline pins', async ({ page }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(server.url);
+    const player = page.locator('.sm-preview .rv-page');
+    await expect(player).toHaveAttribute('data-state', 'ready');
+    const playhead = page.getByRole('slider', { name: 'Simple playhead' });
+    await playhead.fill('0.5');
+    await page.locator('.sm-app').evaluate((element) => { element.scrollTop = 0; });
+    const cube = page.frameLocator('iframe[title="Authored graphics"]').locator('[data-el="cube"]');
+    await expect(cube).toBeVisible();
+    const bounds = (await cube.boundingBox())!;
+    const point = { x: bounds.x + bounds.width / 2 + 3, y: bounds.y + bounds.height / 2 };
+    await page.mouse.move(point.x, point.y);
+    await expect(player.locator('.tag')).toHaveText('cube');
+    await expect(player.locator('.hot')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Choose pin position' })).toHaveCSS('cursor', /data:image\/svg\+xml.*circle/);
+    const tag = (await player.locator('.tag').boundingBox())!;
+    expect(tag.y + tag.height <= bounds.y || tag.y >= bounds.y + bounds.height || tag.x + tag.width <= bounds.x || tag.x >= bounds.x + bounds.width).toBe(true);
+    mkdirSync(resolve('tests/artifacts/simple-picture-pins'), { recursive: true });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-simple-hover.png') });
+
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect.poll(async () => Number(await playhead.inputValue())).toBeGreaterThan(0.5);
+    const frame = (await player.boundingBox())!;
+    await page.mouse.click(point.x, point.y);
+    const composer = page.getByRole('form', { name: 'New pin', exact: true });
+    await expect(composer.getByRole('heading')).toContainText('cube');
+    await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+    const pinnedTime = Number(await playhead.inputValue());
+    await expect(composer.getByRole('button', { name: 'Add pin', exact: true })).toBeDisabled();
+    await composer.getByRole('textbox').fill('Make the cube brighter.');
+    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-simple-composer.png') });
+    await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
+    const list = page.getByRole('complementary', { name: 'Your pins' });
+    await expect(list.getByRole('listitem')).toContainText('cube');
+    await expect(player.getByRole('img', { name: 'Comment 1', exact: true })).toBeVisible();
+    const saved = (await server.project.listComments('product-showreel', 2))[0];
+    expect(saved.pin).toMatchObject({ kind: 'frame', element: 'cube' });
+    expect(saved.pin.time).toBeCloseTo(pinnedTime, 2);
+    if (saved.pin.kind !== 'frame') throw new Error('Expected a frame pin');
+    // Browser clicks land on device pixels; the stored normalized coordinates use three decimals.
+    expect(Math.abs(saved.pin.x - (point.x - frame.x) / frame.width)).toBeLessThan(1 / frame.width + 0.001);
+    expect(Math.abs(saved.pin.y - (point.y - frame.y) / frame.height)).toBeLessThan(1 / frame.height + 0.001);
+    expect(Math.abs(saved.pin.x - 0.5)).toBeGreaterThan(0.001);
+    await page.locator('.sm-app').evaluate((element) => { element.scrollTop = 0; });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-simple-saved.png') });
+
+    await playhead.fill('4');
+    await page.getByRole('button', { name: 'Add a timeline pin' }).press('Enter');
+    await composer.getByRole('textbox').fill('Shorten this moment.');
+    await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
+    await expect(list.getByRole('listitem')).toHaveCount(2);
+    expect((await server.project.listComments('product-showreel', 2))[1].pin).toMatchObject({ kind: 'frame', time: 4, x: 0.5, y: 0.5, element: null });
+    await expect(player.getByRole('img', { name: 'Comment 2', exact: true })).toBeVisible();
+    await playhead.focus(); await playhead.blur();
+    await page.keyboard.press(']');
+    await expect(list.getByRole('listitem').first()).toHaveAttribute('data-selected', 'true');
+    await expect.poll(async () => Number(await playhead.inputValue())).toBeCloseTo(pinnedTime, 2);
+    await expect(player.getByRole('img', { name: 'Comment 1', exact: true })).toBeVisible();
+    await page.keyboard.press('[');
+    await expect(playhead).toHaveValue('4');
+    await page.reload();
+    await expect(list.getByRole('listitem').first()).toContainText('cube');
+    expect((await server.project.readEditList('product-showreel')).operations).toHaveLength(0);
+  } finally { await server.close(); }
+});
+
+test('the editor shares element hover feedback and retains its frame pin save flow', async ({ page }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(server.url);
+    await page.getByRole('button', { name: 'Open in editor', exact: true }).click();
+    const tool = page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true });
+    await expect(tool).toBeEnabled();
+    await tool.click();
+    const picker = page.getByRole('button', { name: 'Choose pin position' });
+    await expect(picker).toBeVisible();
+    const cube = (await page.frameLocator('iframe[title="Authored graphics"]').locator('[data-el="cube"]').boundingBox())!;
+    await page.mouse.move(cube.x + cube.width / 2, cube.y + cube.height / 2);
+    await expect(page.locator('.rv-page .tag')).toHaveText('cube');
+    await expect(page.locator('.rv-page .hot')).toBeVisible();
+    await expect(picker).toHaveCSS('cursor', /data:image\/svg\+xml.*circle/);
+    const tag = (await page.locator('.rv-page .tag').boundingBox())!;
+    expect(tag.y + tag.height <= cube.y || tag.y >= cube.y + cube.height || tag.x + tag.width <= cube.x || tag.x >= cube.x + cube.width).toBe(true);
+    mkdirSync(resolve('tests/artifacts/simple-picture-pins'), { recursive: true });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-picture-pins/after-editor-hover.png') });
+    // A stationary pointer follows a keyboard seek into the next scene, without leaving a stale cube box.
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(page.locator('.rv-page .tag')).toHaveText('wordmark');
+    await picker.press('Enter');
+    await expect(page.locator('.rv-page .hot, .rv-page .tag')).toHaveCount(0);
+    const draft = page.getByRole('form', { name: 'New review pin' });
+    await draft.getByLabel('Pin comment', { exact: true }).fill('Keep the wordmark.');
+    await draft.getByRole('button', { name: 'Save pin', exact: true }).click();
+    await expect.poll(async () => (await server.project.listComments('product-showreel', 2))[0]?.pin).toMatchObject({ kind: 'frame', x: 0.5, y: 0.5, element: 'wordmark' });
+  } finally { await server.close(); }
+});
+
+test('picture picking covers footage-only moments with exact coordinates and no element', async ({ page }) => {
+  const server = await startServer({ projectDir: copyFixture('footage-project'), port: 0, transcriber: async () => [] });
+  try {
+    const { slug } = await server.project.startReel({ video: 'media/talk.mp4', title: 'Footage only', broll: 'light', captions: 'off' });
+    await expect.poll(async () => (await server.project.listVersions(slug)).length, { timeout: 30_000 }).toBe(1);
+    await page.goto(server.url);
+    await page.getByRole('combobox', { name: 'Choose reel' }).selectOption(slug);
+    const player = page.locator('.sm-preview .rv-page');
+    await expect(player).toHaveAttribute('data-state', 'ready');
+    await expect(page.locator('[data-verify-unit="PictureLayer"] video')).toBeVisible();
+    const picker = page.getByRole('button', { name: 'Choose pin position' });
+    const frame = (await picker.boundingBox())!;
+    await picker.click({ position: { x: frame.width * 0.25, y: frame.height * 0.3 } });
+    const composer = page.getByRole('form', { name: 'New pin', exact: true });
+    await expect(composer.getByRole('heading')).toHaveText(/Pin at \d+:\d+/);
+    await composer.getByRole('textbox').fill('Brighten this footage.');
+    await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
+    await expect(player.getByRole('img', { name: 'Comment 1', exact: true })).toBeVisible();
+    const pin = (await server.project.listComments(slug, 1))[0].pin;
+    expect(pin).toMatchObject({ kind: 'frame', element: null });
+    if (pin.kind !== 'frame') throw new Error('Expected a frame pin');
+    expect(Math.abs(pin.x - 0.25)).toBeLessThan(1 / frame.width + 0.001);
+    expect(Math.abs(pin.y - 0.3)).toBeLessThan(1 / frame.height + 0.001);
+    expect((await server.project.readEditList(slug)).operations).toHaveLength(0);
+  } finally { await server.close(); }
+});
+
 for (const [active, finished] of [
   ['queued', 'copy-ready'],
   ['running', 'succeeded'],
@@ -61,7 +190,7 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await expect(timeline).toBeVisible();
     await page.getByRole('slider', { name: 'Simple playhead' }).fill('2.5');
     await timeline.focus(); await page.keyboard.press('Enter');
-    const composer = page.getByRole('form', { name: 'New timeline pin' });
+    const composer = page.getByRole('form', { name: 'New pin' });
     await expect(composer.getByRole('button', { name: 'Add pin', exact: true })).toBeDisabled();
     await composer.getByRole('textbox').fill('   ');
     await expect(composer.getByRole('button', { name: 'Add pin', exact: true })).toBeDisabled();
