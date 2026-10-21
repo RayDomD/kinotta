@@ -195,6 +195,34 @@ export interface RenderJob {
   error?: string;
 }
 
+export type AgentProvider = 'copy' | 'claude' | 'codex';
+export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
+
+export interface AgentJob {
+  id: string;
+  reel: string;
+  provider: AgentProvider;
+  state: AgentJobState;
+  createdAt: string;
+  updatedAt: string;
+  elapsedSeconds: number;
+  quiet: boolean;
+  error?: string;
+  version?: number;
+  canRetry: boolean;
+  canCopy: boolean;
+}
+
+export interface AgentSettings {
+  provider: AgentProvider;
+  usageNotice?: string;
+}
+
+export interface AgentPresence {
+  provider: 'claude' | 'codex';
+  present: boolean;
+}
+
 /** What the server reports as it happens. */
 export type ProjectEvent =
   | { type: 'edits-changed'; reel: string }
@@ -202,7 +230,8 @@ export type ProjectEvent =
   | { type: 'reels-changed' }
   | { type: 'comments-changed'; reel: string; version: number }
   | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
-  | { type: 'render-progress'; job: RenderJob };
+  | { type: 'render-progress'; job: RenderJob }
+  | { type: 'agent-progress'; reel: string; job: AgentJob; version?: undefined };
 
 /** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
 export interface TranscriptionProgress {
@@ -481,6 +510,11 @@ export const startReelFromBrief = (input: { title: string; brief: string }): Pro
 export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
 
 export interface NewReelInput {
+  videoType?: 'explainer' | 'interview' | 'tutorial' | 'demo' | 'short' | 'lecture' | 'vlog';
+  broll?: 'light' | 'medium' | 'heavy';
+  captions?: 'off' | 'phrases' | 'word-by-word' | 'word by word';
+  pace?: 'calm' | 'normal' | 'fast';
+  notes?: string;
   video: string;
   title?: string;
   deadAir?: DeadAirStrength | false;
@@ -488,7 +522,28 @@ export interface NewReelInput {
 
 /** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
 export const startReel = (input: NewReelInput): Promise<{ slug: string }> =>
-  requestJson('/api/reels', jsonBody('POST', input));
+  requestJson('/api/reels', jsonBody('POST', {
+    ...input,
+    ...(input.captions !== undefined ? { captions: input.captions === 'word by word' ? 'word-by-word' : input.captions } : {}),
+  }));
+
+export const fetchAgentSettings = (): Promise<AgentSettings> => getJson('/api/agent/settings');
+export const saveAgentSettings = (provider: AgentProvider): Promise<AgentSettings> =>
+  requestJson('/api/agent/settings', jsonBody('PUT', { provider }));
+export const checkAgents = async (): Promise<AgentPresence[] & { agents: AgentPresence[] }> => {
+  const result = await getJson<{ agents: AgentPresence[] }>('/api/agent/check');
+  const arr = (result.agents ?? []) as AgentPresence[] & { agents: AgentPresence[] };
+  arr.agents = result.agents ?? [];
+  return arr;
+};
+export const fetchReelAgentJob = async (slug: string): Promise<AgentJob | null> =>
+  (await getJson<{ job: AgentJob | null }>(`/api/reels/${encodeURIComponent(slug)}/agent`)).job;
+export const cancelReelAgentJob = async (slug: string): Promise<AgentJob> =>
+  (await requestJson<{ job: AgentJob }>(`/api/reels/${encodeURIComponent(slug)}/agent`, { method: 'DELETE' })).job;
+export const retryReelAgentJob = (slug: string): Promise<AgentJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/retry`, jsonBody('POST', {}));
+export const copyReelAgentJob = (slug: string): Promise<{ request: string }> =>
+  getJson(`/api/reels/${encodeURIComponent(slug)}/agent/copy`);
 
 /** How the reel's transcription stands, or null when none has run since the server started. */
 export const fetchTranscription = async (slug: string): Promise<TranscriptionProgress | null> =>

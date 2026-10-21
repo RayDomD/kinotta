@@ -1,20 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
 
-test('Simple is the default: profile, required-note pins, navigation, persistence, copy request and same-reel editor', async ({ page, context }) => {
+test('Simple is the default: required-note pins, navigation, persistence, copy request and same-reel editor', async ({ page, context }) => {
   const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
   try {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto(server.url);
-    await expect(page.getByRole('heading', { name: 'About you', exact: true })).toBeVisible();
-    const profile = page.getByRole('form', { name: 'About you' });
-    await profile.getByLabel('Your name').fill('Alex');
-    await profile.getByLabel('Your handle').fill('@alex');
-    await profile.getByLabel('What do you make?').fill('Talking to camera');
-    await profile.getByRole('button', { name: 'Let’s make something' }).click();
+    await expect(page.getByRole('heading', { name: 'Product showreel', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Agent provider')).toBeVisible();
+
     const timeline = page.getByRole('button', { name: 'Add a timeline pin' });
     await expect(timeline).toBeVisible();
     await page.getByRole('slider', { name: 'Simple playhead' }).fill('2.5');
@@ -71,8 +68,9 @@ test('Simple is the default: profile, required-note pins, navigation, persistenc
     await expect(page.getByRole('navigation', { name: 'Phase' })).toBeVisible();
     await page.getByRole('button', { name: 'Simple mode', exact: true }).click();
     await expect(page.getByRole('complementary', { name: 'Your pins' }).getByRole('listitem')).toHaveCount(2);
-    await page.getByRole('button', { name: 'Your profile', exact: true }).click();
-    await expect(page.getByLabel('Your handle')).toHaveValue('@alex');
+    await expect(page.getByLabel('Agent provider')).toHaveValue('copy');
+    await page.getByLabel('Agent provider').selectOption('claude');
+    await expect(page.getByLabel('Agent provider')).toHaveValue('claude');
   } finally { await server.close(); }
 });
 
@@ -86,7 +84,6 @@ test('Regenerate combines section requests after freezing changed Working and of
       await server.project.addComment('founder-talk', working.number, { pin: { kind: 'frame', shot: '', time: section.start + 0.2, x: 0.5, y: 0.5, element: null }, text: `Change section ${index + 1}.` });
     }
     await page.addInitScript(() => {
-      localStorage.setItem('kinotta-simple-profile-v1', JSON.stringify({ name: 'Alex', handle: '@alex', makes: 'Vlogs', language: 'English', destination: 'TikTok', finish: 'MP4', music: 'No music' }));
       navigator.clipboard.writeText = async () => { throw new Error('Clipboard blocked'); };
     });
     await page.goto(server.url);
@@ -99,18 +96,56 @@ test('Regenerate combines section requests after freezing changed Working and of
   } finally { await server.close(); }
 });
 
-test('Make starts a real reel from a project video in Simple mode', async ({ page }) => {
-  const server = await startServer({ projectDir: copyFixture('footage-project'), port: 0, transcriber: async () => [{ text: 'Hello', start: 0.5, end: 0.9 }] });
+test('Make starts a real reel from a project video in Simple mode with treatment picker and live preview', async ({ page }) => {
+  const projectDir = copyFixture('footage-project');
+  const server = await startServer({ projectDir, port: 0, transcriber: async () => [{ text: 'Hello', start: 0.5, end: 0.9 }] });
   try {
-    await page.addInitScript(() => localStorage.setItem('kinotta-simple-profile-v1', JSON.stringify({ name: 'Alex', handle: '@alex', makes: 'Vlogs', language: 'English', destination: 'TikTok', finish: 'MP4', music: 'No music' })));
     await page.goto(server.url);
     await page.getByRole('button', { name: 'New reel', exact: true }).click();
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
+
+    // Treatment picker is shown
+    await expect(page.getByText('What are you making?')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Let Kinotta decide/ })).toBeVisible();
+
+    // Pick a video type: Explainer
+    await page.getByRole('button', { name: /Explainer/ }).click();
+    await expect(page.getByRole('button', { name: /✓ Explainer/ })).toBeVisible();
+
+    // Override B-roll dial to heavy
+    await page.getByRole('group', { name: 'B-roll' }).getByRole('button', { name: 'heavy' }).click();
+    await expect(page.getByText(/about 60% covered · yours/)).toBeVisible();
+
+    // Override Pace dial to fast
+    await page.getByRole('group', { name: 'Pace' }).getByRole('button', { name: 'fast' }).click();
+    await expect(page.getByText(/shots flash ~1–2 s, rapid cuts · yours/)).toBeVisible();
+
+    // Check Live b-roll plan preview stat line
+    const stat = page.locator('#stat');
+    await expect(stat).toBeVisible();
+    await expect(stat).toContainText('cutaways');
+    await expect(stat).toContainText('60% covered');
+    await expect(page.getByText('Added by Kinotta', { exact: true })).toBeVisible();
+
+    // Optional notes
+    await page.getByPlaceholder(/keep the jokes/).fill('Keep the jokes, hold the lab shot longer');
+
+    // Fill in Reel name and submit
     await page.getByLabel('Reel name', { exact: true }).fill('Simple make');
     await page.getByRole('button', { name: 'Make', exact: true }).click();
+
     await expect(page.getByRole('heading', { name: 'Simple make', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add a timeline pin' })).toBeVisible();
     expect((await server.project.listReels()).reels.some((reel) => reel.title === 'Simple make')).toBe(true);
+
+    // Verify treatment options persisted in plan.json
+    const plan = JSON.parse(readFileSync(join(projectDir, 'reels/simple-make/plan.json'), 'utf8'));
+    expect(plan).toMatchObject({
+      videoType: 'explainer',
+      broll: 'heavy',
+      pace: 'fast',
+      notes: 'Keep the jokes, hold the lab shot longer',
+    });
   } finally { await server.close(); }
 });
