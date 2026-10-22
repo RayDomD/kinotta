@@ -491,6 +491,25 @@ export const generateAudio = (request: { prompt: string; seconds: number; seed?:
 export const fetchSoundEffects = async (): Promise<SoundEffect[]> => (await getJson<{ effects: SoundEffect[] }>('/api/sound-effects')).effects;
 export const soundEffectUrl = (id: string): string => `/sound-effects/${encodeURIComponent(id)}`;
 export const importSoundEffect = (id: string): Promise<ImportedMedia> => requestJson(`/api/sound-effects/${encodeURIComponent(id)}`, { method: 'POST' });
+/** Prefer extracted audio; older/missing routes fall back to the source bytes. */
+export async function mediaAudioBytes(source: string): Promise<ArrayBuffer> {
+  const url = new URL(source, window.location.origin);
+  const segments = url.pathname.split('/').filter(Boolean);
+  let audio: URL | null = null;
+  if (segments[0] === 'media' && (segments.length === 2 || segments.length === 4)) {
+    const saved = segments.length === 4 ? { reel: decodeURIComponent(segments[1]!), version: Number(segments[2]) } : undefined;
+    audio = new URL(mediaAudioUrl(decodeURIComponent(segments.at(-1)!), saved), url.origin);
+  } else if (segments[0] === 'api' && segments[1] === 'media' && segments.length === 3) {
+    const reel = url.searchParams.get('reel');
+    audio = new URL(mediaAudioUrl(decodeURIComponent(segments[2]!), reel ? { reel, version: Number(url.searchParams.get('version')) } : undefined), url.origin);
+  }
+  if (!audio) return mediaBytes(source);
+  const response = await fetch(audio.href);
+  if (response.status === 404) return mediaBytes(source);
+  if (!response.ok) throw new Error('The sound could not be loaded. Check the source and retry.');
+  return response.arrayBuffer();
+}
+
 export async function mediaBytes(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url);
   if (!response.ok) throw new Error('The sound could not be loaded. Check the source and retry.');
