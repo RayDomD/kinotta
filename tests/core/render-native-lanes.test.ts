@@ -343,6 +343,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     expect(await captions.locator('[data-caption]').first().getAttribute('data-start')).toBe('1.6');
     await page.reload();
     await expect.poll(() => first.getAttribute('aria-label'), { timeout: 10_000 }).toContain('1.00 to 2.00');
+    await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
     expect(await captions.textContent()).not.toContain('early');
     await undo();
     await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 2.00');
