@@ -1,11 +1,9 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Page } from '../helpers/editor-test.ts';
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { rmSync } from 'node:fs';
+import { createStutterProject } from './realtime-project.ts';
 import { startServer } from '../../server/main.ts';
 
-const FIXTURE_VIDEO = resolve(import.meta.dirname, '../fixtures/playback-stutter-4k50.mp4');
 const MAX_ALLOWED_WAIT_MS = 0;
 const MAX_ALLOWED_CURRENT_TIME_WRITES = 4;
 const TARGET_CLOCK = 4.7;
@@ -38,39 +36,6 @@ interface PlaybackMeasurement {
   currentTimeWritesDuringPlay: PlaybackEvent[];
 }
 
-function createStutterProject(slug: 'uncut' | 'blade' | 'jump' | 'reorder') {
-  const dir = join(tmpdir(), `kinotta-stutter-${slug}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-  mkdirSync(join(dir, 'footage'), { recursive: true });
-  copyFileSync(FIXTURE_VIDEO, join(dir, 'footage', 'fixture.mp4'));
-
-  const reelDir = join(dir, 'reels', slug);
-  const v1Dir = join(reelDir, 'v1');
-  mkdirSync(v1Dir, { recursive: true });
-  writeFileSync(join(reelDir, 'reel.json'), JSON.stringify({ title: `Playback ${slug}` }));
-
-  const media = {
-    schema: 1,
-    tracks: [{ id: 'speech', name: 'Speech', order: 0, gain: 1, mute: false }],
-    sources: [{ id: 'fixture', name: 'Fixture 4K50', kind: 'video', audio: true, duration: 8.8, path: '../../../footage/fixture.mp4' }],
-    placements: [{ id: 'take', role: 'main', source: 'fixture', track: 'speech', in: 0, out: 8.8, speech: false }],
-    sequence: ['take'],
-  };
-
-  writeFileSync(join(v1Dir, 'plan.json'), JSON.stringify({ duration: 8.8, clips: [], media }));
-  writeFileSync(
-    join(reelDir, 'plan.json'),
-    JSON.stringify({
-      duration: 8.8,
-      clips: [],
-      media: { ...media, sources: media.sources.map((s) => ({ ...s, path: '../../footage/fixture.mp4' })) },
-    })
-  );
-  writeFileSync(join(v1Dir, 'media.json'), JSON.stringify({ media }));
-  writeFileSync(join(v1Dir, 'shots.json'), JSON.stringify({ contract: 1, duration: 8.8, shots: [] }));
-  writeFileSync(join(v1Dir, 'index.html'), '<!doctype html><html><body><script>window.DURATION=8.8;window.seek=()=>{};</script></body></html>');
-
-  return dir;
-}
 
 async function attachInstrumentation(page: Page) {
   await page.addInitScript(() => {
@@ -154,6 +119,8 @@ async function runPlaybackTest(
     () => document.querySelector('[data-verify-unit="MediaEditor"]')?.getAttribute('data-verify-loading') === 'false'
   );
 
+  await expect(page.locator('[data-verify-unit="MediaEditor"]')).toHaveAttribute('data-verify-editable', 'true');
+
   const allWaitEpisodes: WaitEpisode[] = [];
   const allCurrentTimeWrites: PlaybackEvent[] = [];
   let finalClock = 0;
@@ -170,6 +137,7 @@ async function runPlaybackTest(
     if (slug === 'reorder') {
       await page.waitForFunction(() => Number(document.querySelector('[data-verify-unit="MediaEditor"]')?.getAttribute('data-verify-clock')) > 0.5);
       const clips = page.locator('.native-lane[data-role="main"] .native-clip');
+      await clips.first().scrollIntoViewIfNeeded();
       const first = await clips.first().boundingBox(); const second = await clips.nth(1).boundingBox();
       await page.mouse.move(first!.x + first!.width / 2, first!.y + first!.height / 2);
       await page.mouse.down();

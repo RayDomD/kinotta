@@ -11,6 +11,7 @@ import { NewReel, NewReelSide } from './NewReel.tsx';
 import { RenderMenu, RenderPlayer, VersionActions, outputFile, presetName } from './Renders.tsx';
 import type { RenderMenuProps } from './Renders.tsx';
 import { EditorIcon, EditorRail, EditorWorkspace, Review, ReviewSide, useEditorWorkspace, useEdits } from './review/index.ts';
+import { afterPendingEdits } from './review/_internal/useEdits.ts';
 import type { EditsState } from './review/index.ts';
 import { Storyboard } from './Storyboard.tsx';
 import type { Reveal } from './Storyboard.tsx';
@@ -564,10 +565,12 @@ function Studio() {
       if (event.type === 'reels-changed') {
         refreshListing();
       } else if (event.type === 'edits-changed') {
-        if (event.reel === current.current.slug) {
+        // The save event can arrive before its HTTP reply. Keep the local preview until that reply settles.
+        afterPendingEdits(event.reel, () => {
+          if (event.reel !== current.current.slug) return;
           setVersionsTick((n) => n + 1);
           if (current.current.working) setVersionTick((n) => n + 1);
-        }
+        });
       } else if (event.type === 'version-added') {
         refreshListing();
         if (event.reel === current.current.slug) {
