@@ -745,11 +745,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
           if (media.sequence.includes(p.id) || p.role === 'main') void applyCutAnchor(p.at, p.at + p.duration, operation);
           else void edits!.add(operation);
         })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => {
+        {!media.sequence.includes(p.id) && <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => {
           const operation: NewOperation = { kind: 'placement-ripple-remove', placement: p.id };
           if (media.sequence.includes(p.id) || p.role === 'main') void applyCutAnchor(p.at, p.at + p.duration, operation);
           else void edits!.add(operation);
-        })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
+        })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>}
       </div>;
     })()}
 
