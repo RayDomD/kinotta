@@ -30,7 +30,7 @@ const RENDERS_LIST_API = /^\/api\/reels\/([^/]+)\/renders$/;
 const REVEAL_API = /^\/api\/reels\/([^/]+)\/renders\/([^/]+)\/reveal$/;
 const RENDER_FILE_ROUTE = /^\/renders\/([^/]+)\/([^/]+)$/;
 const HTTP_NO_CONTENT = 204;
-const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
+const FOOTAGE_ROUTE = /^\/footage\/([^/]+)(\/audio)?$/;
 const MEDIA_ROUTE = /^\/media\/([^/]+)$/;
 const VERSION_MEDIA_ROUTE = /^\/media\/([^/]+)\/(\d+)\/([^/]+)$/;
 const AUDIO_API = /^\/api\/media\/([^/]+)\/audio$/;
@@ -279,7 +279,7 @@ async function serveRender(req: IncomingMessage, res: ServerResponse, project: P
 
 async function serveFootage(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
-  const file = slug === null ? null : await project.footageFile(slug);
+  const file = slug === null ? null : route[2] ? await project.footageAudioFile(slug) : await project.footageFile(slug);
   if (file) await sendRanged(req, res, file);
   else sendNotFound(res);
 }

@@ -330,24 +330,3 @@ export function ensureProxyAndAudio(projectDir: string, file: string, hash?: str
     }
   })();
 }
-
-const scannedProjects = new Set<string>();
-
-export async function ensureProjectProxies(projectDir: string): Promise<void> {
-  const root = resolve(projectDir);
-  if (scannedProjects.has(root)) return;
-  scannedProjects.add(root);
-
-  const footageDir = join(root, FOOTAGE_DIR);
-  try {
-    const entries = await readdir(footageDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isFile() && !entry.name.startsWith('.') && isVideoFile(entry.name)) {
-        const file = join(footageDir, entry.name);
-        ensureProxyAndAudio(projectDir, file).catch(() => undefined);
-      }
-    }
-  } catch {
-    // footage folder might not exist yet
-  }
-}

@@ -42,8 +42,10 @@ The optional parts `alpha: true` emits the existing transparent-page class for O
   `{ type: 'approval-changed', reel, version, approved }` (a version's `approval.json` appeared or went, whoever wrote it). Debounced (150 ms), never repeated,
   `*.tmp` files ignored. It watches the reels folder while anyone is subscribed (recursive `fs.watch`, polling
   where that is unavailable). `transcription-progress` and `render-progress` come from the jobs themselves, not the watcher.
-- `footageFile(slug)` returns the absolute path of the reel's footage file, or null when the reel has none, the file is
-  missing, or the path leaves the project folder.
+- `footageFile(slug)` returns the absolute path of the file the editor plays for the reel's footage, or null when the
+  reel has none, the file is missing, or the path leaves the project folder. That is its editing proxy once made (one is
+  scheduled when missing), else its playback copy or the original. Renders never read it.
+- `footageAudioFile(slug)` returns the reel footage's AAC audio-only file, or null until it is made (one is scheduled).
 
 - `listComments(slug, n)` returns a version's comments, each with `id`, `number`, `pin`, `text` and `createdAt`.
   Comments are ordered by shot start, then creation time, and `number` is the 1-based position in that order.

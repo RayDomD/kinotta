@@ -1,6 +1,6 @@
 import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
-import { createReadStream, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
@@ -104,7 +104,12 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
     writeFileSync(join(dir, 'media/talk.mp4'), 'changed original');
     const frozen = await page.request.get(new URL(`/media/founder-talk/2/${encodeURIComponent(savedSource.id)}`, server.url).href);
     expect(frozen.status()).toBe(200);
-    expect(await frozen.body()).toEqual(original);
+    // The editor may play the content's proxy, made while the reel was open; never the changed file.
+    const proxy = join(dir, 'footage/.proxy', `sha256-${savedSource.contentHash}.mp4`);
+    const body = await frozen.body();
+    expect(body.equals(original) || (existsSync(proxy) && body.equals(readFileSync(proxy)))).toBe(true);
+    // The saved version itself keeps the original bytes, which renders read.
+    expect(readFileSync((await server.project.mediaFile(savedSource.id, { reel: 'founder-talk', version: 2 }, true))!).equals(original)).toBe(true);
   } finally { await browser.close(); await server.close(); }
 });
 

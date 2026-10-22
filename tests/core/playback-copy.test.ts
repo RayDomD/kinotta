@@ -65,7 +65,8 @@ describe('playback copies of saved-version video', () => {
     const kinotta = openProject(dir);
     const first = await kinotta.mediaFile(SOURCE, { reel: 'founder-talk', version: 1 });
     const second = await kinotta.mediaFile(SOURCE, { reel: 'founder-talk', version: 2 });
-    expect(second).toBe(first);
+    // The first request also queues the editing proxy, which the second may already get.
+    expect([first, join(dir, 'footage/.proxy', `sha256-${hash}.mp4`)]).toContain(second);
     expect(playbackFiles(dir)).toEqual([`sha256-${hash}.mp4`]);
   }, 60_000);
 

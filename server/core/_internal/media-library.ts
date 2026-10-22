@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/pr
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { KinottaError } from './errors.ts';
 import { withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { readReelFootage, SAFE_SLUG } from './footage.ts';
 import { contentPlaybackPath, ensureAudioFile, ensureEditingProxy, ensurePlaybackCopy, ensureProxyAndAudio, findAudioPath, findProxyPath, hashOf, needsPlaybackCopy, playbackPath, writeHashed } from './import.ts';
 import { probeMedia, waveformPeaks } from './runner.ts';
 import type { ImportedMedia, MediaEntry, MediaFilter, MediaWaveform, ProjectMediaFile } from './types.ts';
@@ -77,6 +78,7 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
     if (!original && entry.kind === 'video') {
       const proxy = await findProxyPath(projectDir, hash);
       if (proxy) return proxy;
+      ensureProxyAndAudio(projectDir, file, hash).catch(() => undefined);
       // Keyed by content, so versions holding the same bytes share one copy, and the library's copy is reused.
       const shared = contentPlaybackPath(projectDir, hash);
       if (await stat(shared).then(() => true, () => false)) return shared;
@@ -259,4 +261,40 @@ export async function importMedia(projectDir: string, name: string, body: AsyncI
       await rm(partial, { force: true });
     }
   });
+}
+
+const scannedProjects = new Set<string>();
+
+/**
+ * One background pass per project for footage made before editing proxies existed: video at the top of footage/, in the
+ * library, behind each reel's footage and in each saved version's media. Each file is hashed once and queued through
+ * the copy slots; files outside the project are skipped.
+ */
+export async function ensureProjectProxies(projectDir: string): Promise<void> {
+  const root = resolve(projectDir);
+  if (scannedProjects.has(root)) return;
+  scannedProjects.add(root);
+  const candidates = new Set<string>();
+  const folder = join(root, MEDIA_DIR);
+  for (const entry of await readdir(folder, { withFileTypes: true }).catch(() => [])) {
+    if (entry.isFile() && !entry.name.startsWith('.') && mediaKind(entry.name) === 'video') candidates.add(join(folder, entry.name));
+  }
+  for (const entry of await readLibrary(root).catch(() => [])) if (entry.kind === 'video') candidates.add(resolve(root, entry.path));
+  for (const reel of await readdir(join(root, 'reels'), { withFileTypes: true }).catch(() => [])) {
+    if (!reel.isDirectory() || !SAFE_SLUG.test(reel.name)) continue;
+    const reelDir = join(root, 'reels', reel.name);
+    const footage = await readReelFootage(root, reelDir);
+    if (footage?.file) candidates.add(footage.file);
+    for (const version of await readdir(reelDir, { withFileTypes: true }).catch(() => [])) {
+      if (!version.isDirectory() || !/^v\d+$/.test(version.name)) continue;
+      const versionDir = join(reelDir, version.name);
+      const text = await readFile(join(versionDir, 'plan.json'), 'utf8').catch(() => readFile(join(versionDir, 'media.json'), 'utf8')).catch(() => null);
+      const plan = text === null ? null : (JSON.parse(text) as { media?: MediaPlan });
+      for (const source of plan?.media?.sources ?? []) if (source.kind === 'video') candidates.add(resolve(versionDir, source.path));
+    }
+  }
+  for (const candidate of candidates) {
+    const file = await projectFile(root, relative(root, candidate)).catch(() => null);
+    if (file) ensureProxyAndAudio(root, file).catch(() => undefined);
+  }
 }
