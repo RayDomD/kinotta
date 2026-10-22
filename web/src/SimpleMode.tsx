@@ -594,7 +594,8 @@ export function SimpleMode({
   const problem = (err: unknown) => setError(err instanceof Error ? err.message : 'Could not complete that action. Try again.');
 
   const regenerate = async () => {
-    if (!reel || !version || busy) return;
+    // A copied batch can freeze Working into a new version, which would fail the running job's publish.
+    if (!reel || !version || busy || isJobActive) return;
     setBusy(true);
     setError('');
     setStatus('Saving the request…');
@@ -936,12 +937,12 @@ export function SimpleMode({
               <button
                 type="button"
                 className="btn"
-                disabled={busy || !version || !pins.some((pin) => !pin.state)}
+                disabled={busy || isJobActive || !version || !pins.some((pin) => !pin.state)}
                 onClick={() => void regenerate()}
               >
                 Regenerate (<span className="num">{pins.filter((pin) => !pin.state).length}</span> pins)
               </button>
-              <p className="meta">Copies the request for your agent.</p>
+              <p className="meta">{isJobActive ? 'Available when the background run finishes.' : 'Copies the request for your agent.'}</p>
             </div>
           </aside>
         </div>

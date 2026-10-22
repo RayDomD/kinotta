@@ -276,6 +276,32 @@ for (const [active, finished] of [
   });
 }
 
+test('Regenerate is blocked while a background run is active', async ({ page }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    const now = new Date().toISOString();
+    let job: AgentJob = {
+      id: 'block-test', reel: 'product-showreel', provider: 'copy', state: 'running',
+      createdAt: now, updatedAt: now, elapsedSeconds: 5, quiet: false, canCopy: true, canRetry: false,
+    };
+    await page.route('**/api/reels/*/agent', (route) => route.fulfill({ json: { job } }));
+    await page.goto(server.url);
+    await seekSimple(page, 2.5);
+    await page.getByRole('button', { name: 'Pin mode', exact: true }).click();
+    const timeline = page.getByRole('button', { name: 'Add a timeline pin' });
+    await timeline.focus(); await page.keyboard.press('Enter');
+    const composer = page.getByRole('form', { name: 'New pin' });
+    await composer.getByRole('textbox').fill('Tighten this pause.');
+    await composer.getByRole('button', { name: 'Add pin', exact: true }).click();
+    const regenerate = page.getByRole('button', { name: /Regenerate \(1 pins\)/ });
+    await expect(regenerate).toBeDisabled();
+    await expect(page.getByText('Available when the background run finishes.')).toBeVisible();
+    job = { ...job, state: 'succeeded', elapsedSeconds: 9 };
+    await page.reload();
+    await expect(regenerate).toBeEnabled();
+  } finally { await server.close(); }
+});
+
 test('Simple is the default: required-note pins, navigation, persistence, copy request and same-reel editor', async ({ page, context }) => {
   const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
   try {
