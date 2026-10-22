@@ -172,12 +172,13 @@ it('exercises three-lane simple timeline: caption editing, snap toggle, neighbou
     const ruler = timeline.locator('.sm-ruler-wrap');
     const rulerBox = (await ruler.boundingBox())!;
 
-    // Click around 2.5s (2.5 / 4 * width)
+    // Pins need pin mode; then click around 2.5s (2.5 / 4 * width)
+    await page.getByRole('button', { name: 'Pin mode', exact: true }).click();
     await page.mouse.click(rulerBox.x + (rulerBox.width * 2.5) / 4, rulerBox.y + rulerBox.height / 2);
 
-    const pinComposer = page.getByRole('form', { name: 'New timeline pin' });
-    await pinComposer.waitFor();
-    expect(await pinComposer.locator('h2').textContent()).toContain('Pin at');
+    const pinBubble = page.getByRole('form', { name: 'New pin', exact: true });
+    await pinBubble.waitFor();
+    expect(await pinBubble.locator('.sm-pin-context').textContent()).toMatch(/\d/);
 
     // Verify NO new caption operation was created
     const opsCountAfter = (await server.project.readEditList('founder-talk')).operations.length;
