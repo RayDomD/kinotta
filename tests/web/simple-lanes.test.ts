@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  mapCutResizeDelta,
   projectAddedLane,
   projectCaptionsLane,
   projectVideoLane,
 } from '../../web/src/SimpleTimeline.tsx';
+import { computeSimpleCuts } from '../../web/src/SimpleMode.tsx';
+import { vi } from 'vitest';
 import type { MediaCaptionPhrase, PlanClip, mediaWords } from '../../server/core/model.ts';
 
 type Word = ReturnType<typeof mediaWords>[number];
@@ -153,5 +156,34 @@ describe('Simple timeline lane projections', () => {
 
     const added = projectAddedLane(null, null);
     expect(added).toEqual([]);
+  });
+
+  it('computes cut join markers at played time rather than source time', () => {
+    const version = {
+      isNewest: true,
+      pieces: [{ in: 0, out: 4.0 }, { in: 6.0, out: 10.0 }],
+    };
+    const edits = {
+      busy: false,
+      list: {
+        operations: [{ id: 's1', kind: 'snip', from: 4.0, to: 6.0, by: 'dead-air' }],
+      },
+      remove: vi.fn(),
+      add: vi.fn(),
+    };
+    const result = computeSimpleCuts(version as any, edits as any);
+    expect(result).not.toBeNull();
+    expect(result!.cuts).toHaveLength(1);
+    expect(result!.cuts[0].from).toBe(4.0);
+    expect(result!.cuts[0].to).toBe(6.0);
+    // Join marker position in played time
+    expect(result!.cuts[0].joinAt).toBe(4.0);
+  });
+
+  it('maps cut resize drag delta through to source ranges', () => {
+    // 12s source, track width 600px. Moving 50px right represents +1.0s in source.
+    const initialFrom = 4.0;
+    const newFrom = mapCutResizeDelta(initialFrom, 50, 600, 12.0, 0, 5.9);
+    expect(newFrom).toBe(5.0);
   });
 });

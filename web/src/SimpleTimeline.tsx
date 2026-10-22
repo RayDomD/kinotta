@@ -22,6 +22,7 @@ export interface CutBlock {
   to: number;
   ops: SnipOperation[];
   isDeadAir: boolean;
+  joinAt?: number;
 }
 
 export interface SimpleCutsValue {
@@ -106,6 +107,21 @@ export interface VideoLaneData {
   blocks: VideoBlock[];
   cuts: VideoCut[];
   cutPoints: number[];
+}
+
+
+export function mapCutResizeDelta(
+  initialValue: number,
+  deltaX: number,
+  trackWidth: number,
+  sourceDuration: number,
+  min: number,
+  max: number,
+): number {
+  if (trackWidth <= 0) return initialValue;
+  const sourceDelta = (deltaX / trackWidth) * sourceDuration;
+  const nextValue = initialValue + sourceDelta;
+  return Math.round(Math.max(min, Math.min(max, nextValue)) * 100) / 100;
 }
 
 export function projectAddedLane(
@@ -274,12 +290,12 @@ export function SimpleTimeline({
   const [snap, setSnap] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const cuts = useContext(SimpleCutsContext);
-  const duration = Math.max(0, cuts ? cuts.sourceDuration : total);
+  const duration = Math.max(0, total > 0 ? total : (cuts ? cuts.keptMap.length : 0));
   const trackDuration = duration;
-  const displayTime = (at: number) => cuts ? safeToSource(cuts.keptMap, at) : at;
+  const displayTime = (at: number) => at;
   const [openCutIndex, setOpenCutIndex] = useState<number | null>(null);
   const [draftCut, setDraftCut] = useState<{ cutIndex: number; edge: 'start' | 'end'; from: number; to: number } | null>(null);
-  const dragState = useRef<{ pointerId: number; target: HTMLElement; cutIndex: number; edge: 'start' | 'end'; trackRect: DOMRect; lastDraft: { from: number; to: number } } | null>(null);
+  const dragState = useRef<{ pointerId: number; target: HTMLElement; cutIndex: number; edge: 'start' | 'end'; trackRect: DOMRect; startClientX: number; initialFrom: number; initialTo: number; lastDraft: { from: number; to: number } } | null>(null);
   const cutTrackRef = useRef<HTMLDivElement>(null);
 
   const inside = (at: number) => Math.max(0, Math.min(Math.max(0, total - 0.001), at));
@@ -294,16 +310,8 @@ export function SimpleTimeline({
   );
 
   const captionData = useMemo(() => {
-    if (!cuts) return projectCaptionsLane(captionsOption, phrases, words);
-    const sourceWord = <T extends { start: number; end: number }>(word: T): T => {
-      const start = safeToSource(cuts.keptMap, word.start);
-      return { ...word, start, end: start + word.end - word.start };
-    };
-    return projectCaptionsLane(captionsOption, phrases.map((phrase) => {
-      const mappedWords = phrase.words.map(sourceWord);
-      return { ...phrase, start: safeToSource(cuts.keptMap, phrase.start), end: mappedWords.at(-1)?.end ?? safeToSource(cuts.keptMap, phrase.end), words: mappedWords };
-    }), words.map(sourceWord));
-  }, [captionsOption, phrases, words, cuts]);
+    return projectCaptionsLane(captionsOption, phrases, words);
+  }, [captionsOption, phrases, words]);
 
   const videoData = useMemo(
     () =>
@@ -328,8 +336,7 @@ export function SimpleTimeline({
     if (target.closest('button, input, [role="slider"], [role="spinbutton"], .native-trim, .editorial-text-bar')) return;
     const box = trackRef.current?.getBoundingClientRect();
     if (!box || duration <= 0) return;
-    const sourceTime = ((event.clientX - box.left) / box.width) * duration;
-    const at = inside(cuts ? sourceToReel(cuts.keptMap, sourceTime) : sourceTime);
+    const at = inside(((event.clientX - box.left) / box.width) * duration);
     onSeek(at);
     if (canPin && pinMode) onPin(at);
   };
@@ -374,6 +381,9 @@ export function SimpleTimeline({
       cutIndex,
       edge,
       trackRect,
+      startClientX: event.clientX,
+      initialFrom: cut.from,
+      initialTo: cut.to,
       lastDraft: { from: cut.from, to: cut.to },
     };
     setDraftCut({ cutIndex, edge, from: cut.from, to: cut.to });
@@ -387,21 +397,20 @@ export function SimpleTimeline({
     event.stopPropagation();
     const cut = cuts.cuts[drag.cutIndex];
     if (!cut) return;
-    const ratio = Math.max(0, Math.min(1, (event.clientX - drag.trackRect.left) / drag.trackRect.width));
-    const pointerTime = ratio * trackDuration;
+    const deltaX = event.clientX - drag.startClientX;
     const prevCut = drag.cutIndex > 0 ? cuts.cuts[drag.cutIndex - 1] : undefined;
     const nextCut = drag.cutIndex < cuts.cuts.length - 1 ? cuts.cuts[drag.cutIndex + 1] : undefined;
 
     if (drag.edge === 'start') {
       const minFrom = prevCut ? prevCut.to + MIN_SNIP : 0;
       const maxFrom = cut.to - (MIN_SNIP + 0.001);
-      const clampedFrom = Math.round(Math.max(minFrom, Math.min(maxFrom, pointerTime)) * 100) / 100;
+      const clampedFrom = mapCutResizeDelta(drag.initialFrom, deltaX, drag.trackRect.width, cuts.sourceDuration, minFrom, maxFrom);
       drag.lastDraft = { from: clampedFrom, to: cut.to };
       setDraftCut({ cutIndex: drag.cutIndex, edge: 'start', from: clampedFrom, to: cut.to });
     } else {
       const minTo = cut.from + (MIN_SNIP + 0.001);
-      const maxTo = nextCut ? nextCut.from - MIN_SNIP : trackDuration;
-      const clampedTo = Math.round(Math.max(minTo, Math.min(maxTo, pointerTime)) * 100) / 100;
+      const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
+      const clampedTo = mapCutResizeDelta(drag.initialTo, deltaX, drag.trackRect.width, cuts.sourceDuration, minTo, maxTo);
       drag.lastDraft = { from: cut.from, to: clampedTo };
       setDraftCut({ cutIndex: drag.cutIndex, edge: 'end', from: cut.from, to: clampedTo });
     }
@@ -452,7 +461,7 @@ export function SimpleTimeline({
       nextFrom = Math.round(Math.max(minFrom, Math.min(maxFrom, cut.from + delta)) * 10) / 10;
     } else {
       const minTo = cut.from + (MIN_SNIP + 0.001);
-      const maxTo = nextCut ? nextCut.from - MIN_SNIP : trackDuration;
+      const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
       nextTo = Math.round(Math.max(minTo, Math.min(maxTo, cut.to + delta)) * 10) / 10;
     }
 
@@ -610,18 +619,18 @@ export function SimpleTimeline({
                 key={block.id}
                 className="sm-clip-item sm-clip-video"
                 style={{
-                  left: pct(cuts ? block.sourceIn : block.start),
-                  width: `max(2px, ${((cuts ? block.sourceOut - block.sourceIn : block.duration) / Math.max(0.001, duration)) * 100}%)`,
+                  left: pct(block.start),
+                  width: `max(2px, ${(block.duration / Math.max(0.001, duration)) * 100}%)`,
                 }}
                 title={`Video span: ${block.duration.toFixed(2)}s`}
               />
             ))}
             {/* Cut marks */}
-            {videoData.cuts.map((cut) => (
+            {!cuts && videoData.cuts.map((cut) => (
               <div
                 key={cut.at}
                 className="sm-cut-line"
-                style={{ left: pct(displayTime(cut.at)) }}
+                style={{ left: pct(cut.at) }}
                 title={cut.gap ? `Cut (${cut.gap.skipped.toFixed(2)}s removed)` : 'Cut'}
               >
                 <span className="sm-cut-icon">&#9986;</span>
@@ -631,8 +640,8 @@ export function SimpleTimeline({
         const isDraft = draftCut?.cutIndex === index;
         const displayFrom = isDraft ? draftCut.from : cut.from;
         const displayTo = isDraft ? draftCut.to : cut.to;
-        const leftPct = trackDuration > 0 ? (displayFrom / trackDuration) * 100 : 0;
-        const widthPct = trackDuration > 0 ? Math.max(0.01, ((displayTo - displayFrom) / trackDuration) * 100) : 0;
+        const joinAt = cut.joinAt ?? (cuts ? sourceToReel(cuts.keptMap, cut.from) : cut.from);
+        const leftPct = duration > 0 ? (joinAt / duration) * 100 : 0;
         const labelPrefix = cut.isDeadAir ? 'Cut pause' : 'Cut';
         const blockAriaLabel = `${labelPrefix}, ${(cut.to - cut.from).toFixed(1)} seconds at ${formatClock(cut.from)}`;
         const prevCut = index > 0 ? cuts.cuts[index - 1] : undefined;
@@ -640,7 +649,7 @@ export function SimpleTimeline({
         const minFrom = prevCut ? prevCut.to + MIN_SNIP : 0;
         const maxFrom = cut.to - (MIN_SNIP + 0.001);
         const minTo = cut.from + (MIN_SNIP + 0.001);
-        const maxTo = nextCut ? nextCut.from - MIN_SNIP : trackDuration;
+        const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
 
         return (
           <div
@@ -649,8 +658,9 @@ export function SimpleTimeline({
             data-cut-start={cut.from}
             data-cut-end={cut.to}
             data-cut-deadair={String(cut.isDeadAir)}
-            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+            style={{ left: `${leftPct}%` }}
           >
+            <div className="sm-cut-join-line" />
             <button
               type="button"
               className="sm-cut-block"
@@ -705,8 +715,8 @@ export function SimpleTimeline({
                 role="dialog"
                 aria-label={cut.isDeadAir ? 'Pause details' : 'Cut details'}
                 style={{
-                  right: (cut.from / trackDuration) > 0.5 ? 0 : 'auto',
-                  left: (cut.from / trackDuration) > 0.5 ? 'auto' : 0,
+                  right: leftPct > 50 ? 0 : 'auto',
+                  left: leftPct > 50 ? 'auto' : 0,
                 }}
               >
                 <span className="sm-cut-length num">{formatDuration(cut.to - cut.from)}</span>

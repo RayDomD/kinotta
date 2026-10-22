@@ -417,6 +417,81 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
   );
 }
 
+/** Computes legacy reel cut blocks with played-time join markers and source ranges. */
+export function computeSimpleCuts(
+  version: Pick<Version, 'pieces' | 'isNewest'> | undefined,
+  edits: Pick<EditsState, 'busy' | 'list' | 'remove' | 'add'>,
+): SimpleCutsValue | null {
+  if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
+    return null;
+  }
+  const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
+  const liveSnips = edits.list.operations.filter(
+    (op): op is SnipOperation =>
+      op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
+  );
+  const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
+  const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
+  const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
+  if (sourceDuration <= 0) return null;
+
+  let keptPieces: Piece[] = basePieces;
+  for (const snip of liveSnips) {
+    try {
+      keptPieces = snipPieces(keptPieces, snip.from, snip.to);
+    } catch {
+      // Ignored if snip cannot be applied to current pieces
+    }
+  }
+
+  const keptMap = pieceMap(keptPieces, sourceDuration);
+
+  const cuts: CutBlock[] = [];
+  let prevEnd = 0;
+  let playedAt = 0;
+  for (const piece of keptPieces) {
+    if (piece.in - prevEnd > MIN_SNIP) {
+      const from = prevEnd;
+      const to = piece.in;
+      const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+      const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+      cuts.push({ from, to, ops, isDeadAir, joinAt: playedAt });
+    }
+    playedAt += piece.out - piece.in;
+    prevEnd = piece.out;
+  }
+  if (sourceDuration - prevEnd > MIN_SNIP) {
+    const from = prevEnd;
+    const to = sourceDuration;
+    const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+    const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+    cuts.push({ from, to, ops, isDeadAir, joinAt: playedAt });
+  }
+
+  return {
+    sourceDuration,
+    basePieces,
+    keptPieces,
+    keptMap,
+    cuts,
+    busy: edits.busy,
+    restoreCut: async (cut: CutBlock) => {
+      for (const op of cut.ops) {
+        await edits.remove(op.id);
+      }
+    },
+    replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
+      await edits.remove(oldOp.id);
+      const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+      if (!ok) {
+        await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+        return false;
+      }
+      return true;
+    },
+  };
+}
+
 export function SimpleMode({
   listing,
   reel,
@@ -508,74 +583,7 @@ export function SimpleMode({
     return () => clearInterval(timer);
   }, [reel?.slug, creating, agentJob?.state]);
 
-  const cutsValue = useMemo<SimpleCutsValue | null>(() => {
-    if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
-      return null;
-    }
-    const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
-    const liveSnips = edits.list.operations.filter(
-      (op): op is SnipOperation =>
-        op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
-    );
-    const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
-    const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
-    const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
-    if (sourceDuration <= 0) return null;
-
-    let keptPieces: Piece[] = basePieces;
-    for (const snip of liveSnips) {
-      try {
-        keptPieces = snipPieces(keptPieces, snip.from, snip.to);
-      } catch {
-        // Ignored if snip cannot be applied to current pieces
-      }
-    }
-
-    const keptMap = pieceMap(keptPieces, sourceDuration);
-
-    const cuts: CutBlock[] = [];
-    let prevEnd = 0;
-    for (const piece of keptPieces) {
-      if (piece.in - prevEnd > MIN_SNIP) {
-        const from = prevEnd;
-        const to = piece.in;
-        const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
-        const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
-        cuts.push({ from, to, ops, isDeadAir });
-      }
-      prevEnd = piece.out;
-    }
-    if (sourceDuration - prevEnd > MIN_SNIP) {
-      const from = prevEnd;
-      const to = sourceDuration;
-      const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
-      const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
-      cuts.push({ from, to, ops, isDeadAir });
-    }
-
-    return {
-      sourceDuration,
-      basePieces,
-      keptPieces,
-      keptMap,
-      cuts,
-      busy: edits.busy,
-      restoreCut: async (cut: CutBlock) => {
-        for (const op of cut.ops) {
-          await edits.remove(op.id);
-        }
-      },
-      replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
-        await edits.remove(oldOp.id);
-        const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
-        if (!ok) {
-          await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
-          return false;
-        }
-        return true;
-      },
-    };
-  }, [version, edits]);
+  const cutsValue = useMemo(() => computeSimpleCuts(version, edits), [version, edits]);
   const pins = comments.comments;
   const jumpTo = (index: number) => {
     if (!pins.length) return;
