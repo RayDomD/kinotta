@@ -371,8 +371,10 @@ export interface Project {
    * comments change, or a version's `approval.json` appears or goes. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
-  /** Absolute path of the reel's footage file, or null (code-only reel, file missing, or a path outside the project). */
+  /** Absolute path of the file the editor plays for the reel's footage (its proxy once made), or null (code-only reel, file missing, or a path outside the project). */
   footageFile(slug: string): Promise<string | null>;
+  /** AAC audio-only file for the reel's footage, or null until it is made or when the reel has no footage. */
+  footageAudioFile(slug: string): Promise<string | null>;
   /** A version's comments in number order. Throws `KinottaError` for an unknown reel or version. */
   listComments(slug: string, number: number): Promise<Comment[]>;
   /**

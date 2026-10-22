@@ -12,6 +12,8 @@ const SAMPLE = 'media/talk.mp4';
 const LONG_CLIP_SECONDS = 20;
 
 const sha = (file: string): string => createHash('sha1').update(readFileSync(file)).digest('hex');
+/** The editing proxy a video gets in the background, which the editor plays instead of the playback copy once made. */
+const proxyOf = (dir: string, file: string): string => join(dir, 'footage', '.proxy', `sha256-${createHash('sha256').update(readFileSync(file)).digest('hex')}.mp4`);
 
 /** A one-second HEVC clip from ffmpeg, a codec browsers do not play. */
 function makeHevc(file: string, seconds = 1): void {
@@ -117,7 +119,7 @@ describe('importVideo', () => {
     expect(sha(hevc)).toBe(before);
     expect(codecOf(join(dir, 'footage/.playback/media--clip.mp4'))).toBe('h264');
     expect(existsSync(join(dir, 'media', '.playback'))).toBe(false);
-    expect(await project.footageFile(slug)).toBe(join(dir, 'footage', '.playback', 'media--clip.mp4'));
+    expect([join(dir, 'footage', '.playback', 'media--clip.mp4'), proxyOf(dir, hevc)]).toContain(await project.footageFile(slug));
     expect((await project.listVideos()).map((v) => v.path)).toEqual(['media/clip.mp4']);
   });
 
@@ -132,7 +134,7 @@ describe('importVideo', () => {
     expect(result.playbackCopy).toBe(true);
     expect(existsSync(join(dir, 'footage/.playback/clip.mp4'))).toBe(false);
     const { slug } = await project.startReel({ video: result.path });
-    expect(await project.footageFile(slug)).toBe(join(dir, 'footage', '.playback', 'clip.mp4'));
+    expect([join(dir, 'footage', '.playback', 'clip.mp4'), proxyOf(dir, hevc)]).toContain(await project.footageFile(slug));
     expect(codecOf(join(dir, 'footage/.playback/clip.mp4'))).toBe('h264');
     await project.whenTranscribed(slug);
   });

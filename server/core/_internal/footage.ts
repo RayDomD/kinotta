@@ -6,7 +6,8 @@ import { mediaTimeline, mediaWords } from './media-model.ts';
 import type { MediaPlan } from './media-model.ts';
 import type { Piece, PlacedPiece } from './pieces.ts';
 import { readReelPlan } from './sources.ts';
-import { playbackPath } from './import.ts';
+import { probeMedia } from './runner.ts';
+import { ensureAudioFile, ensureProxyAndAudio, findAudioPath, findProxyPath, hashOf, playbackPath } from './import.ts';
 import type { Shot, TranscriptWord, Version } from './types.ts';
 
 const REEL_FILE = 'reel.json';
@@ -181,12 +182,39 @@ export async function addFootage(projectDir: string, reelDir: string, versionDir
   };
 }
 
-/** Absolute path of a reel's footage file, or null when the reel has none, it is missing, or it leaves the project. */
+/**
+ * The file the editor plays for a reel's footage, or null when the reel has none, it is missing, or it leaves the project.
+ * Renders read the original through the reel's plan, never this.
+ */
 export async function footageFile(projectDir: string, slug: string): Promise<string | null> {
+  const file = await reelFootage(projectDir, slug);
+  if (!file) return null;
+  const hash = await hashOf(file, projectDir);
+  const proxy = await findProxyPath(projectDir, hash);
+  if (proxy) return proxy;
+  ensureProxyAndAudio(projectDir, file, hash).catch(() => undefined);
+  // An HEVC or ProRes original has an H.264 copy in footage/.playback/ that browsers can play.
+  const playback = playbackPath(projectDir, file);
+  return (await isFile(playback)) ? playback : file;
+}
+
+/** Whether footage has a sound stream, by content hash, so silent footage is probed once and never extracted. */
+const hasSound = new Map<string, Promise<boolean>>();
+
+/** AAC audio-only file for a reel's footage, null until made or when the reel has no footage or no sound. */
+export async function footageAudioFile(projectDir: string, slug: string): Promise<string | null> {
+  const file = await reelFootage(projectDir, slug);
+  if (!file) return null;
+  const hash = await hashOf(file, projectDir);
+  const existing = await findAudioPath(projectDir, hash);
+  if (existing) return existing;
+  if (!hasSound.has(hash)) hasSound.set(hash, probeMedia(file, 'video').then((probe) => probe.audio, () => false));
+  if (await hasSound.get(hash)) ensureAudioFile(projectDir, file, hash).catch(() => undefined);
+  return null;
+}
+
+async function reelFootage(projectDir: string, slug: string): Promise<string | null> {
   if (!SAFE_SLUG.test(slug)) return null;
   const ref = await readReelFootage(projectDir, join(projectDir, REELS_DIR, slug));
-  if (!ref || !(await isFile(ref.file))) return null;
-  // An HEVC or ProRes original has an H.264 copy in footage/.playback/ that browsers can play.
-  const playback = playbackPath(projectDir, ref.file!);
-  return (await isFile(playback)) ? playback : ref.file;
+  return ref && await isFile(ref.file) ? ref.file : null;
 }

@@ -39,7 +39,7 @@ function listen(server: ReturnType<typeof createServer>, port: number): Promise<
  * file names it (R12), so `kinotta render` joins its queue; closing or exiting removes the file.
  */
 export async function startServer({ projectDir, port = DEFAULT_PORT, transcriber, agent }: StartOptions): Promise<RunningServer> {
-  const project = openProject(projectDir, { transcriber, agent });
+  const project = openProject(projectDir, { transcriber, agent, proxies: true });
   // Let the handler return the same 403 for a missing Host as for any other disallowed Host.
   const server = createServer({ requireHostHeader: false }, createHandler(project, WEB_ROOT));
   try {
