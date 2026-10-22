@@ -300,6 +300,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const phrases = useMemo(() => edited.captions ? captionPhrases(words) : [], [edited.captions, words]);
   const captionStyle = typeof edited.captions === 'object' ? edited.captions : {};
   const captionPreview = useMemo(() => phrases.map((phrase) => ({ ...phrase, placement: phrase.words[0]!.placement!, sourceStart: phrase.words[0]!.sourceStart!, look: typeof edited.captions === 'object' ? edited.captions.look ?? 'highlight' : 'highlight', color: typeof edited.captions === 'object' ? edited.captions.color ?? CAPTION_COLOR : CAPTION_COLOR })), [phrases, edited.captions]);
+  // Keep the authored page's caption bound to the saved occurrence while native lanes preview the edit.
+  const [savingCaption, setSavingCaption] = useState<typeof captionPreview | null>(null);
   const captionShifts = useMemo(() => captionPreview.map((phrase) => {
     const opts = typeof edited.captions === 'object' ? edited.captions : {};
     const own = opts.phrases?.find((p) => p.placement === phrase.placement && Math.abs(p.at - phrase.sourceStart) <= CAPTION_AT);
@@ -322,7 +324,9 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     const spoken = used && used.role !== 'gap' ? used.words ?? media.sources.find((s) => s.id === used.source)?.words ?? [] : [];
     // The last word's own end in source time; its reel end can be cut short by the placement.
     const lastEnd = spoken.find((w) => Math.abs(w.start - last.sourceStart!) <= CAPTION_AT)?.end ?? last.sourceStart! + last.end - last.start;
-    await edits!.add({ kind: 'phrase-text', placement: phrase.placement, from: first.sourceStart!, to: lastEnd, text, was: phrase.words.map((w) => w.text).join(' ') });
+    setSavingCaption(captionPreview);
+    try { await edits!.add({ kind: 'phrase-text', placement: phrase.placement, from: first.sourceStart!, to: lastEnd, text, was: phrase.words.map((w) => w.text).join(' ') }); }
+    finally { setSavingCaption(null); }
   };
   const askSpeech = useCallback((id: string) => transcribeMedia(id, savedFor(id)).then((state) => setSpeech((before) => ({ ...before, [id]: state })), (failure: unknown) => setSpeech((before) => ({ ...before, [id]: { state: 'failed', error: failure instanceof Error ? failure.message : 'Speech could not be transcribed.' } }))), [savedFor]);
   const unspokenKey = unspoken.join('\n');
@@ -499,14 +503,16 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const enabled = (action: EditorAction) => {
     if (action === 'select' || action === 'snap') return true;
     if (action === 'play') return ready && timeline.duration > 0 && !pictureError;
-    if (!editable || edits!.busy) return false;
+    if (!editable) return false;
+    // History is serialized by useEdits; other commands still guard pending gesture completions.
+    if (action === 'undo') return edits!.list?.canUndo === true;
+    if (action === 'redo') return edits!.list?.canRedo === true;
+    if (edits!.busy) return false;
     if (action === 'snip' || action === 'gap') return !version!.code;
     if (action === 'apply') return !!snipRange && !version!.code;
     if (action === 'split') return !!selectedPlacement && splittable(selectedPlacement);
     if (action === 'duplicate' || action === 'remove' || action === 'closeGap') return !!selected && !!selectedPlacement;
     if (action === 'pin') return !!onSaveComment && !playing && time < timeline.duration && !pinSaving;
-    if (action === 'undo') return edits!.list?.canUndo === true;
-    if (action === 'redo') return edits!.list?.canRedo === true;
     return true;
   };
   /** Why a toolbar button is off, for its tooltip. */
@@ -579,7 +585,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
         <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
-        <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={simple ? simple.pinMode && !simple.draft ? pickFrame : undefined : pinning ? pickFrame : undefined} draftContent={simple?.draftContent} draftPin={simple ? simple.draft?.kind === 'frame' ? simple.draft : null : pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
+        <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={savingCaption ?? captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={editable && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={simple ? simple.pinMode && !simple.draft ? pickFrame : undefined : pinning ? pickFrame : undefined} draftContent={simple?.draftContent} draftPin={simple ? simple.draft?.kind === 'frame' ? simple.draft : null : pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
         {previewEntry && <MediaPreview key={previewEntry.id} entry={previewEntry} onClose={() => setPreviewEntry(null)} />}
         {!previewEntry && (pictureError || soundFailureHere || speechFailureHere) && <p className="editor-frame-error" role="status">{pictureError ?? (soundFailureHere ? 'Sound in this span could not be prepared. Retry the failed clip on its track.' : 'Speech in this span could not be transcribed. Retry speech on the clip.')}</p>}

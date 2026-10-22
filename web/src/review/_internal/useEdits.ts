@@ -43,7 +43,7 @@ function pendingFinished(slug: string) {
   for (const reload of pending.reloads) reload();
 }
 
-type Change = { kind: 'add' | 'remove' | 'undo' | 'redo' | 'handoff'; operation?: Operation; id?: string; done: (ok: boolean) => void };
+type Change = { kind: 'add' | 'remove' | 'undo' | 'redo' | 'handoff'; operation?: Operation; id?: string; afterPending?: boolean; done: (ok: boolean) => void };
 type View = { list: EditList | null; busy: boolean; error: string | null };
 type History = { list: EditList; undo: EditList[]; redo: EditList[] };
 const EMPTY: View = { list: null, busy: false, error: null };
@@ -78,7 +78,7 @@ class EditSession {
     const before = state.list;
     let list: EditList;
     let undo = state.undo; let redo = state.redo;
-    if (change.kind === 'handoff' || before.stale || (change.operation && serverFirst(change.operation))) return state;
+    if (change.afterPending || change.kind === 'handoff' || before.stale || (change.operation && serverFirst(change.operation))) return state;
     if (change.kind === 'add') list = { ...before, operations: [...before.operations, change.operation!], canUndo: true, canRedo: false };
     else if (change.kind === 'remove') list = { ...before, operations: before.operations.filter((op) => op.id !== change.id), canUndo: true, canRedo: false };
     else {
@@ -127,7 +127,9 @@ class EditSession {
     this.generation++; this.error = null;
     return new Promise((done) => {
       const op = operation ? { ...operation, by: operation.by?.trim() ?? 'you', id: `optimistic:${crypto.randomUUID()}` } as Operation : undefined;
-      this.queue.push({ kind, operation: op, id, done });
+      // History requested during a save must use the server's accepted history, not a provisional snapshot.
+      const afterPending = (kind === 'undo' || kind === 'redo') && this.queue.length > 0;
+      this.queue.push({ kind, operation: op, id, afterPending, done });
       pendingStarted(this.slug); this.emit(); void this.drain();
     });
   }
