@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectCutRange } from '../../web/src/SimpleTimeline.tsx';
+import { detectCutRange, handleTimelineDurationChange } from '../../web/src/SimpleTimeline.tsx';
 import { anchorCutWindow, mapTimeThroughCut, percentIn } from '../../web/src/review/_internal/timeline.ts';
 
 describe('SimpleTimeline cut anchoring and playhead mapping', () => {
@@ -43,5 +43,54 @@ describe('SimpleTimeline cut anchoring and playhead mapping', () => {
 
     // Playhead after cut shifts earlier by cut duration
     expect(mapTimeThroughCut(8, cut.cutStart, cut.cutEnd, 9)).toBe(5);
+  });
+
+  it('removing A from two equal pieces gives cut [0, 4] and maps time 6 to 2', () => {
+    const pieceA = { id: 'A', in: 0, out: 4 };
+    const pieceB = { id: 'B', in: 0, out: 4 };
+    const prevPieces = [pieceA, pieceB];
+    const curPieces = [pieceB];
+    const cut = detectCutRange(prevPieces, curPieces, 8, 4);
+    expect(cut).toEqual({ cutStart: 0, cutEnd: 4 });
+
+    const mapped = mapTimeThroughCut(6, cut!.cutStart, cut!.cutEnd, 4);
+    expect(mapped).toBe(2);
+  });
+
+  it('restores window and playhead when a refused cut makes the reel grow back', () => {
+    const pieceA = { id: 'A', in: 0, out: 4 };
+    const pieceB = { id: 'B', in: 0, out: 4 };
+    const initialPieces = [pieceA, pieceB];
+    const initialState = {
+      win: { start: 2, length: 6 },
+      time: 6,
+      prevDuration: 8,
+      prevItems: initialPieces,
+      preCut: null,
+    };
+
+    // User cuts piece A: duration drops from 8 to 4
+    const cutPieces = [pieceB];
+    const cutState = handleTimelineDurationChange(initialState, 4, cutPieces);
+    expect(cutState.time).toBe(2);
+    expect(cutState.seekTo).toBe(2);
+    expect(cutState.preCut).toEqual({
+      win: { start: 2, length: 6 },
+      time: 6,
+      duration: 8,
+    });
+
+    // Refused cut: duration grows back to 8 with initial pieces restored
+    const stateBeforeRefusal = {
+      ...cutState,
+      prevDuration: 4,
+      prevItems: cutPieces,
+    };
+    const restoredState = handleTimelineDurationChange(stateBeforeRefusal, 8, initialPieces);
+    // Window and playhead return to where they were before the cut, instead of resetting to start 0
+    expect(restoredState.win).toEqual({ start: 2, length: 6 });
+    expect(restoredState.time).toBe(6);
+    expect(restoredState.seekTo).toBe(6);
+    expect(restoredState.preCut).toBeNull();
   });
 });
