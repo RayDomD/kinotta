@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import type { MediaSource, MediaTimeline, PictureRegion } from '../../../../server/core/model.ts';
 
@@ -29,10 +29,10 @@ export function syncPicture(element: HTMLVideoElement, target: number, playing: 
   return seek;
 }
 
-function PictureLayer({ p, source, url, time, playing, upcoming, onStatus, onError }: {
+function PictureLayer({ p, source, url, time, playing, upcoming, visible, retained, onStatus, onError }: {
   p: Picture; source: MediaSource; url: string; time: number; playing: boolean;
   /** Starts soon: loaded hidden and parked on its first frame, so the cut finds it ready. */
-  upcoming: boolean;
+  upcoming: boolean; visible: boolean; retained: boolean;
   onStatus: (id: string, ready: boolean) => void; onError: (id: string, message: string) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -41,6 +41,7 @@ function PictureLayer({ p, source, url, time, playing, upcoming, onStatus, onErr
   useEffect(() => {
     const element = video.current;
     if (!element || p.role === 'gap') return;
+    if (retained) { element.pause(); return; }
     const target = upcoming ? p.in : p.in + time - p.at;
     if (syncPicture(element, target, playing && !upcoming, ready)) setReady(false);
     if (playing && !upcoming && element.paused) {
@@ -49,13 +50,13 @@ function PictureLayer({ p, source, url, time, playing, upcoming, onStatus, onErr
         onError(source.id, `The picture for ${source.name ?? source.id} could not be played.`);
       });
     }
-  }, [p, source, time, playing, upcoming, ready, onError]);
+  }, [p, source, time, playing, upcoming, retained, ready, onError]);
   useEffect(() => { const element = video.current; return () => { if (element) element.playbackRate = 1; }; }, []);
   if (p.role === 'gap') return null;
   const framing: CSSProperties = { objectFit: p.framing?.mode === 'fit' ? 'contain' : 'cover', objectPosition: `${(p.framing?.x ?? 0.5) * 100}% ${(p.framing?.y ?? 0.5) * 100}%` };
   const decoded = () => { if (video.current && video.current.readyState >= 2 && !video.current.seeking) setReady(true); };
   const fail = () => { setReady(false); onError(source.id, `The picture for ${source.name ?? source.id} could not be loaded.`); };
-  return <div className="mv-picture-layer" style={{ ...styleOf(p.region ?? FULL), ...(upcoming ? { visibility: 'hidden' } : {}) }} data-verify-unit={upcoming ? 'UpcomingPictureLayer' : 'PictureLayer'} data-verify-id={p.id} data-verify-ready={String(ready)} data-verify-region={JSON.stringify(p.region ?? FULL)}>
+  return <div className="mv-picture-layer" style={{ ...styleOf(p.region ?? FULL), ...(!visible ? { visibility: 'hidden' } : {}) }} data-verify-unit={upcoming ? 'UpcomingPictureLayer' : 'PictureLayer'} data-verify-id={p.id} data-verify-ready={String(ready)} data-verify-region={JSON.stringify(p.region ?? FULL)}>
     {source.kind === 'image' ? <img className="mv-picture" style={framing} src={url} alt={source.name ?? source.id} onLoad={() => setReady(true)} onError={fail} />
       : <video className="mv-picture" style={framing} ref={video} src={url} muted playsInline preload="auto" onLoadedData={decoded} onCanPlay={decoded} onPlaying={decoded} onSeeking={() => setReady(false)} onSeeked={decoded} onError={fail} />}
   </div>;
@@ -75,6 +76,15 @@ export function PictureLayers({ pictures, upcoming = [], sources, time, playing,
   onStatus: (id: string, ready: boolean) => void; onError: (id: string, message: string) => void;
   selected?: string; onRegion?: (id: string, region: PictureRegion) => void;
 }) {
+  const [decoded, setDecoded] = useState<Record<string, boolean>>({});
+  const shown = useRef<Picture[]>([]);
+  const complete = pictures.every((p) => decoded[p.id]);
+  if (complete) shown.current = pictures;
+  const retained = shown.current.filter((p) => !pictures.some((next) => next.id === p.id));
+  const status = useCallback((id: string, ready: boolean) => {
+    setDecoded((before) => before[id] === ready ? before : { ...before, [id]: ready });
+    onStatus(id, ready);
+  }, [onStatus]);
   const [draft, setDraft] = useState<{ id: string; region: PictureRegion } | null>(null);
   const cancelDrag = useRef<(() => void) | null>(null);
   useEffect(() => () => cancelDrag.current?.(), []);
@@ -101,7 +111,7 @@ export function PictureLayers({ pictures, upcoming = [], sources, time, playing,
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', finish, { once: true }); window.addEventListener('pointercancel', cancel, { once: true });
   };
   return <div className="mv-picture-layers" {...verifyAttrs(pictures.length, selected)}>
-    {[...pictures.map((p) => [p, false] as const), ...upcoming.map((p) => [p, true] as const)].map(([p, soon]) => { if (p.role === 'gap') return null; const source = sources.find((s) => s.id === p.source)!; return <PictureLayer key={`${p.id}:${attempts[source.id] ?? 0}`} p={draft?.id === p.id ? { ...p, region: draft.region } : p} source={source} url={`${sourceUrl(source.id)}${attempts[source.id] ? `?retry=${attempts[source.id]}` : ''}`} time={time} playing={playing} upcoming={soon} onStatus={onStatus} onError={onError} />; })}
+    {[...retained.map((p) => [p, false] as const), ...pictures.map((p) => [p, false] as const), ...upcoming.filter((p) => !retained.some((old) => old.id === p.id)).map((p) => [p, true] as const)].map(([p, soon]) => { if (p.role === 'gap') return null; const source = sources.find((s) => s.id === p.source)!; return <PictureLayer key={`${p.id}:${attempts[source.id] ?? 0}`} p={draft?.id === p.id ? { ...p, region: draft.region } : p} source={source} url={`${sourceUrl(source.id)}${attempts[source.id] ? `?retry=${attempts[source.id]}` : ''}`} time={time} playing={playing} upcoming={soon} retained={retained.some((old) => old.id === p.id)} visible={!soon && (complete || shown.current.some((old) => old.id === p.id))} onStatus={status} onError={onError} />; })}
     {chosen && onRegion && <div className="mv-region-selection" style={styleOf(region)}>
       <button type="button" className="mv-region-move" aria-label="Move picture region" onPointerDown={(e) => start(e, false)}>Move picture</button>
       <button type="button" className="mv-region-resize" aria-label="Resize picture region" onPointerDown={(e) => start(e, true)} />

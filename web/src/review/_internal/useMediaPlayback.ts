@@ -4,8 +4,7 @@ import type { MediaPlan } from '../../../../server/core/model.ts';
 import { mediaBytes } from '../../api/index.ts';
 
 /**
- * A shared AudioContext clock with all audible sources stopped together on pause or seek. `hold` stops the sound and the
- * clock while staying in play, for a picture that cannot keep up (AM36); releasing it resumes from the same moment.
+ * A shared AudioContext clock with all audible sources stopped together on pause or seek.
  */
 const NO_TRACK_SOLOS: readonly string[] = [];
 
@@ -22,7 +21,6 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
   const [error, setError] = useState<string | null>(null);
   const [failures, setFailures] = useState<Record<string, string>>({});
   const [attempt, setAttempt] = useState(0);
-  const [held, setHeld] = useState(false);
   const [jump, setJump] = useState(0);
   const stop = useCallback(() => {
     for (const node of nodes.current) { try { node.stop(); } catch { /* Already ended. */ } node.disconnect(); }
@@ -61,7 +59,7 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
 
   useEffect(() => {
     stop();
-    if (!playing || !ready || held) return;
+    if (!playing || !ready) return;
     const ctx = context.current!;
     const requested = Math.min(position.current, duration);
     const from = skip && requested >= skip.from && requested < skip.to ? Math.min(skip.to, duration) : requested;
@@ -124,7 +122,7 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
     };
     frame = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(frame); stop(); };
-  }, [playing, ready, held, media, duration, solo, soloTracks, sourceUrl, stop, skip, jump]);
+  }, [playing, ready, media, duration, solo, soloTracks, sourceUrl, stop, skip, jump]);
 
   const seek = useCallback((at: number) => {
     stop(); position.current = Math.max(0, Math.min(duration, at)); setTime(position.current); setPlaying(false);
@@ -136,7 +134,6 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
       await context.current?.resume(); setPlaying(true);
     }
   }, [playing, ready, duration, stop]);
-  const hold = useCallback((on: boolean) => setHeld(on), []);
   const retry = useCallback((id: string) => { buffers.current.delete(sourceUrl(id)); setAttempt((before) => before + 1); }, [sourceUrl]);
-  return { time, playing, ready, error, failures, held, seek, toggle, hold, retry };
+  return { time, playing, ready, error, failures, seek, toggle, retry };
 }

@@ -366,8 +366,6 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const placementsHere = timeline.placements.filter((p) => time >= p.at && time < p.at + p.duration);
   const soundFailureHere = placementsHere.some((p) => p.role !== 'gap' && playback.failures[p.source]);
   const speechFailureHere = placementsHere.some((p) => p.role !== 'gap' && usesSpeech(p) && speech[p.source]?.state === 'failed');
-  const waitingForPicture = playing && active.some((p) => !pictureRunning[p.id]) && pictureError === null;
-  useEffect(() => { playback.hold(waitingForPicture); }, [waitingForPicture, playback.hold]);
   const pictureStatus = useCallback((id: string, ready: boolean) => {
     setPictureRunning((before) => before[id] === ready ? before : { ...before, [id]: ready });
   }, []);
@@ -571,7 +569,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const pageUrl = version!.workingParts ? workingPartsPageUrl(reel.slug, version!.workingParts.key) : versionPageUrl(reel.slug, version!.workingBase ?? version!.number);
-  return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '', editable)} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting={String(waitingForPicture)}>
+  return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '', editable)} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting="false">
     {!simple && <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>}
     {error && <p role="alert">{error}</p>}
     {pinError && <p role="alert">{pinError}</p>}
@@ -594,7 +592,6 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       <Transport compact={!!simple} markers={markerState.markers} onMarker={(id) => { if (id) markerState.setSelected(id); else void markerState.drop(time); }} time={time} total={timeline.duration} playing={playing} timecode={workspace.settings.timecode} keys={workspace.settings.keys} disabled={!ready || (pictureError !== null && !playing)} shots={version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)} pins={shownPins.filter((c) => !c.moment.removed && !c.state).map((c) => ({ id: c.id, time: c.moment.time, number: c.number, text: c.text }))} onToggle={togglePlayback} onSeek={playback.seek} focus={workspace.focus} onFocus={() => workspace.setFocus(!workspace.focus)}>
         {simple?.controls}
         {!ready && !playback.error && <span role="status">Preparing sound…</span>}
-        {waitingForPicture && ready && <span role="status">Waiting for picture…</span>}
         {solo.length > 0 && <span role="status">Solo is for preview</span>}
       </Transport>
     </div>

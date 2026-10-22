@@ -93,3 +93,25 @@ describe('decoded picture readiness', () => {
     } finally { await close(); }
   }, 30_000);
 });
+
+it('keeps the previous decoded picture visible until the next source decodes', async () => {
+  const { page, close } = await browserHarness();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  try {
+    await page.route('**/*next-picture*', async (route) => { await gate; await route.continue(); });
+    await page.evaluate(() => (window as any).mountPicture());
+    await page.waitForFunction(() => document.querySelector('video')!.readyState >= 2);
+    await page.evaluate(() => (window as any).mountPicture({
+      pictures: [{ id: 'next', role: 'main', source: 'next', in: 0, out: 8.8, at: 0, duration: 8.8 }],
+      sources: [{ id: 'fixture', kind: 'video', path: '', duration: 8.8 }, { id: 'next', kind: 'video', path: '', duration: 8.8 }],
+      sourceUrl: (id: string) => '/tests/fixtures/playback-stutter-4k50.mp4' + (id === 'next' ? '?next-picture' : ''),
+    }));
+    await page.waitForFunction(() => !!document.querySelector('[data-verify-id="next"]'));
+    expect(await page.locator('[data-verify-id="take"]').isVisible()).toBe(true);
+    expect(await page.locator('[data-verify-id="next"]').isVisible()).toBe(false);
+    release();
+    await page.waitForFunction(() => document.querySelector('[data-verify-id="next"]')?.getAttribute('data-verify-ready') === 'true');
+    expect(await page.locator('[data-verify-id="next"]').isVisible()).toBe(true);
+  } finally { release(); await close(); }
+}, 30_000);
