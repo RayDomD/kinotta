@@ -105,8 +105,8 @@ export async function mediaAudioFile(projectDir: string, source: string, saved?:
     if (!saved) {
       const entry = (await readLibrary(projectDir)).find((s) => s.id === source || s.contentHash === source || s.path === source || s.name === source);
       if (!entry) {
-        if (source.startsWith('sha256:') || /^[a-f0-9]{64}$/.test(source)) {
-          const hash = source.startsWith('sha256:') ? source.slice(7) : source;
+        const hash = source.startsWith('sha256:') ? source.slice(7) : source;
+        if (/^[a-f0-9]{64}$/.test(hash)) {
           return await findAudioPath(projectDir, hash);
         }
         return null;

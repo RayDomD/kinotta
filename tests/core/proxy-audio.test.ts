@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
 import { makeEditingProxy, makeAudioFile } from '../../server/core/_internal/runner.ts';
+import { findAudioPath, findProxyPath } from '../../server/core/_internal/import.ts';
 import { mediaAudioFile } from '../../server/core/_internal/media-library.ts';
 import { mediaRenderArgs } from '../../server/core/_internal/media-render.ts';
 import { mediaAudioUrl } from '../../web/src/api/index.ts';
@@ -167,6 +168,35 @@ describe('GET /api/media/:id/audio and mediaAudioUrl API contract', () => {
     expect(resAfter.status).toBe(200);
     expect(resAfter.headers.get('content-type')).toBe('audio/aac');
     expect(resAfter.headers.get('accept-ranges')).toBe('bytes');
-    expect(resAfter.headers.get('accept-ranges')).toBe('bytes');
+  });
+
+  it('rejects path traversal in findAudioPath, findProxyPath, and mediaAudioFile', async () => {
+    const { dir, hash } = setupProjectWithVideo();
+    // Plant escape files directly in dir (outside footage/.audio and footage/.proxy)
+    writeFileSync(join(dir, 'escape.aac'), 'escaped-audio');
+    writeFileSync(join(dir, 'escape.mp4'), 'escaped-proxy');
+
+    const traversal = 'x/../../../escape';
+    const traversalPrefixed = 'sha256:x/../../../escape';
+
+    // Traversal or non-64-hex hash must return null, never resolve outside files
+    expect(await findAudioPath(dir, traversal)).toBeNull();
+    expect(await findProxyPath(dir, traversal)).toBeNull();
+    expect(await mediaAudioFile(dir, traversalPrefixed)).toBeNull();
+
+    // Valid 64-char lowercase hex hash still resolves
+    const audioDir = join(dir, 'footage/.audio');
+    mkdirSync(audioDir, { recursive: true });
+    const audioFile = join(audioDir, `sha256-${hash}.aac`);
+    writeFileSync(audioFile, 'valid-audio');
+
+    const proxyDir = join(dir, 'footage/.proxy');
+    mkdirSync(proxyDir, { recursive: true });
+    const proxyFile = join(proxyDir, `sha256-${hash}.mp4`);
+    writeFileSync(proxyFile, 'valid-proxy');
+
+    expect(await findAudioPath(dir, hash)).toBe(audioFile);
+    expect(await findProxyPath(dir, hash)).toBe(proxyFile);
+    expect(await mediaAudioFile(dir, `sha256:${hash}`)).toBe(audioFile);
   });
 });
