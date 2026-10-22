@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   cancelReelAgentJob,
   copyBatch,
@@ -41,6 +41,10 @@ import { EditorIcon } from './review/_internal/EditorIcon.tsx';
 import type { EditsState } from './review/index.ts';
 import type { CommentsState } from './useComments.ts';
 import { formatClock } from './timecode.ts';
+import { SimpleCutsContext } from './SimpleTimeline.tsx';
+import type { CutBlock, SimpleCutsValue } from './SimpleTimeline.tsx';
+import { pieceMap, snipPieces, MIN_SNIP } from '../../server/core/model.ts';
+import type { Piece, SnipOperation } from '../../server/core/model.ts';
 import './simple.css';
 
 /** Simple mode is the default on each new browser tab; an explicit editor switch survives reload. */
@@ -465,6 +469,74 @@ export function SimpleMode({
     return () => clearInterval(timer);
   }, [reel?.slug, creating, agentJob?.state]);
 
+  const cutsValue = useMemo<SimpleCutsValue | null>(() => {
+    if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
+      return null;
+    }
+    const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
+    const liveSnips = edits.list.operations.filter(
+      (op): op is SnipOperation =>
+        op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
+    );
+    const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
+    const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
+    const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
+    if (sourceDuration <= 0) return null;
+
+    let keptPieces: Piece[] = basePieces;
+    for (const snip of liveSnips) {
+      try {
+        keptPieces = snipPieces(keptPieces, snip.from, snip.to);
+      } catch {
+        // Ignored if snip cannot be applied to current pieces
+      }
+    }
+
+    const keptMap = pieceMap(keptPieces, sourceDuration);
+
+    const cuts: CutBlock[] = [];
+    let prevEnd = 0;
+    for (const piece of keptPieces) {
+      if (piece.in - prevEnd > MIN_SNIP) {
+        const from = prevEnd;
+        const to = piece.in;
+        const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+        const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+        cuts.push({ from, to, ops, isDeadAir });
+      }
+      prevEnd = piece.out;
+    }
+    if (sourceDuration - prevEnd > MIN_SNIP) {
+      const from = prevEnd;
+      const to = sourceDuration;
+      const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+      const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+      cuts.push({ from, to, ops, isDeadAir });
+    }
+
+    return {
+      sourceDuration,
+      basePieces,
+      keptPieces,
+      keptMap,
+      cuts,
+      busy: edits.busy,
+      restoreCut: async (cut: CutBlock) => {
+        for (const op of cut.ops) {
+          await edits.remove(op.id);
+        }
+      },
+      replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
+        await edits.remove(oldOp.id);
+        const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+        if (!ok) {
+          await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+          return false;
+        }
+        return true;
+      },
+    };
+  }, [version, edits]);
   const pins = comments.comments;
   const jumpTo = (index: number) => {
     if (!pins.length) return;
@@ -710,57 +782,59 @@ export function SimpleMode({
               </div>
             )}
 
-            <Review
-              reel={reel}
-              state={state}
-              version={version}
-              message={message}
-              comments={pins}
-              edits={edits}
-              simple={{
-                pinMode,
-                controls: <button type="button" className="rv-tool sm-pin-tool" aria-label="Pin mode" title="Pin mode (P)" aria-keyshortcuts="P" aria-pressed={pinMode} disabled={busy || !version} onClick={togglePinMode}><EditorIcon name="pin" /></button>,
-                draft,
-                draftContent: draft && (
-                  <form
-                    ref={bubble}
-                    className="sm-pin-bubble"
-                    aria-label="New pin"
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') {
-                        event.preventDefault(); event.stopPropagation();
-                        if (!busy) setDraft(null);
-                      } else if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'TEXTAREA' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                        event.preventDefault(); event.stopPropagation();
-                        event.currentTarget.requestSubmit();
-                      }
-                    }}
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      if (!text.trim() || busy) return;
-                      setBusy(true); setError('');
-                      void comments.save({ pin: draft, text: text.trim() }).then(() => {
-                        setDraft(null); setText(''); setStatus('Pin saved.');
-                      }, problem).finally(() => setBusy(false));
-                    }}
-                  >
-                    <p className="sm-pin-context"><span className="num">{formatClock(draft.time ?? 0)}</span>{draft.kind === 'frame' && draft.element && <> · <span className="sm-pin-element">{draft.element}</span></>}</p>
-                    <textarea aria-label="Pin note (required)" placeholder="What should change?" autoFocus required maxLength={4000} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
-                    <div className="sm-pin-bubble-actions">
-                      <span>Enter saves · Esc cancels</span>
-                      <button type="button" className="c-act" disabled={busy} onClick={() => setDraft(null)}>Cancel pin</button>
-                      <button type="submit" className="btn" disabled={busy || !text.trim()}>Add pin</button>
-                    </div>
-                  </form>
-                ),
-                onPin: (pin) => {
-                  setDraft(pin);
-                  setText('');
-                  setError('');
-                },
-                jump,
-              }}
-            />
+            <SimpleCutsContext.Provider value={cutsValue}>
+              <Review
+                reel={reel}
+                state={state}
+                version={version}
+                message={message}
+                comments={pins}
+                edits={edits}
+                simple={{
+                  pinMode,
+                  controls: <button type="button" className="rv-tool sm-pin-tool" aria-label="Pin mode" title="Pin mode (P)" aria-keyshortcuts="P" aria-pressed={pinMode} disabled={busy || !version} onClick={togglePinMode}><EditorIcon name="pin" /></button>,
+                  draft,
+                  draftContent: draft && (
+                    <form
+                      ref={bubble}
+                      className="sm-pin-bubble"
+                      aria-label="New pin"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault(); event.stopPropagation();
+                          if (!busy) setDraft(null);
+                        } else if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'TEXTAREA' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                          event.preventDefault(); event.stopPropagation();
+                          event.currentTarget.requestSubmit();
+                        }
+                      }}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!text.trim() || busy) return;
+                        setBusy(true); setError('');
+                        void comments.save({ pin: draft, text: text.trim() }).then(() => {
+                          setDraft(null); setText(''); setStatus('Pin saved.');
+                        }, problem).finally(() => setBusy(false));
+                      }}
+                    >
+                      <p className="sm-pin-context"><span className="num">{formatClock(draft.time ?? 0)}</span>{draft.kind === 'frame' && draft.element && <> · <span className="sm-pin-element">{draft.element}</span></>}</p>
+                      <textarea aria-label="Pin note (required)" placeholder="What should change?" autoFocus required maxLength={4000} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
+                      <div className="sm-pin-bubble-actions">
+                        <span>Enter saves · Esc cancels</span>
+                        <button type="button" className="c-act" disabled={busy} onClick={() => setDraft(null)}>Cancel pin</button>
+                        <button type="submit" className="btn" disabled={busy || !text.trim()}>Add pin</button>
+                      </div>
+                    </form>
+                  ),
+                  onPin: (pin) => {
+                    setDraft(pin);
+                    setText('');
+                    setError('');
+                  },
+                  jump,
+                }}
+              />
+            </SimpleCutsContext.Provider>
           </div>
 
           <aside className="sm-pins" aria-label="Your pins">
