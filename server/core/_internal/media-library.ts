@@ -125,7 +125,7 @@ export async function mediaAudioFile(projectDir: string, source: string, saved?:
     const entry = plan.media?.sources.find((s) => s.id === source || s.contentHash === source);
     if (!entry || entry.kind === 'image' || entry.audio === false) return null;
     const file = await projectFile(projectDir, relative(projectDir, resolve(versionDir, entry.path)));
-    const hash = entry.contentHash || await hashOf(file, projectDir);
+    const hash = await hashOf(file, projectDir);
     if (entry.contentHash && hash !== entry.contentHash) return null;
     const existing = await findAudioPath(projectDir, hash);
     if (existing) return existing;

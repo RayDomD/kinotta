@@ -199,4 +199,41 @@ describe('GET /api/media/:id/audio and mediaAudioUrl API contract', () => {
     expect(await findProxyPath(dir, hash)).toBe(proxyFile);
     expect(await mediaAudioFile(dir, `sha256:${hash}`)).toBe(audioFile);
   });
+
+  it('returns null and creates no audio file when a saved source bytes have changed', async () => {
+    const { dir, hash } = setupProjectWithVideo();
+    const versionDir = join(dir, 'reels/founder-talk/v1');
+    mkdirSync(versionDir, { recursive: true });
+    const savedVideoPath = join(versionDir, 'take.mp4');
+    // Write different bytes so disk bytes differ from contentHash
+    writeFileSync(savedVideoPath, 'changed source bytes');
+    writeFileSync(join(versionDir, 'plan.json'), JSON.stringify({
+      media: {
+        sources: [{ id: 'take', kind: 'video', path: 'take.mp4', contentHash: hash }]
+      }
+    }));
+
+    // If an audio file was previously cached for hash, it must not be returned
+    const audioDir = join(dir, 'footage/.audio');
+    mkdirSync(audioDir, { recursive: true });
+    const cachedAudio = join(audioDir, `sha256-${hash}.aac`);
+    writeFileSync(cachedAudio, 'cached-aac');
+
+    const result = await mediaAudioFile(dir, 'take', { reel: 'founder-talk', version: 1 });
+    expect(result).toBeNull();
+
+    // Without cached audio, it must return null and not create any audio file
+    const { rmSync, existsSync } = await import('node:fs');
+    rmSync(audioDir, { recursive: true, force: true });
+    // Write another valid video with audio as the changed file
+    const differentVideo = join(dir, 'footage/clip2.mp4');
+    spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=30:duration=1', '-f', 'lavfi', '-i', 'sine=frequency=400:duration=1', '-c:v', 'libx264', '-c:a', 'aac', differentVideo]);
+    writeFileSync(savedVideoPath, readFileSync(differentVideo));
+
+    const result2 = await mediaAudioFile(dir, 'take', { reel: 'founder-talk', version: 1 });
+    expect(result2).toBeNull();
+    // Wait for any background extraction attempt
+    await new Promise((r) => setTimeout(r, 1000));
+    expect(existsSync(cachedAudio)).toBe(false);
+  });
 });
