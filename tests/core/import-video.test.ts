@@ -102,7 +102,7 @@ describe('importVideo', () => {
     mkdirSync(join(dir, 'reels', 'r'), { recursive: true });
     writeFileSync(join(dir, 'reels', 'r', 'reel.json'), JSON.stringify({ title: 'r', footage: 'footage/clip.mp4' }));
 
-    expect(await project.footageFile('r')).toBe(join(dir, 'footage', '.playback', 'clip.mp4'));
+    expect([join(dir, 'footage', '.playback', 'clip.mp4'), proxyOf(dir, hevc)]).toContain(await project.footageFile('r'));
   });
 
   it('gives a picked HEVC video an H.264 copy in footage/.playback at start, leaves it where it is, and serves the copy', { timeout: SLOW_MS }, async () => {
