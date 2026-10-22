@@ -446,6 +446,17 @@ export const fetchMediaModel = (slug: string): Promise<MediaEditingModel> => get
 export const mediaUrl = (source: string, saved?: { reel: string; version: number }): string => saved
   ? `/media/${encodeURIComponent(saved.reel)}/${saved.version}/${encodeURIComponent(source)}`
   : `/media/${encodeURIComponent(source)}`;
+export const mediaAudioUrl = (id: string, saved?: { reel: string; version: number }): string => {
+  const params = new URLSearchParams();
+  if (saved) {
+    params.set('reel', saved.reel);
+    params.set('version', String(saved.version));
+  }
+  const query = params.toString();
+  return `/api/media/${encodeURIComponent(id)}/audio${query ? `?${query}` : ''}`;
+};
+export const mediaFileUrl = mediaUrl;
+
 export const fetchMedia = async (filter: MediaFilter = {}): Promise<MediaEntry[]> => {
   const params = new URLSearchParams();
   if (filter.kind) params.set('kind', filter.kind);

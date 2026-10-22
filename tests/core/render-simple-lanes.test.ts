@@ -134,6 +134,19 @@ it('exercises three-lane simple timeline: caption editing, snap toggle, neighbou
       text: 'folks',
     });
 
+    // 7. Whole-phrase edit in simple mode saves phrase-text
+    const phraseButton2 = captionsLane.getByRole('button', { name: 'Open caption at 0.50', exact: true });
+    await phraseButton2.click();
+    await captionsLane.locator('[data-caption="0"]').dblclick();
+    const phraseInput = captionsLane.getByLabel(/^Caption at/);
+    await phraseInput.fill('fresh words');
+    await phraseInput.press('Enter');
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({
+      kind: 'phrase-text',
+      placement: 'first',
+      text: 'fresh words',
+    });
+
     // 7. Snap toggle
     const snapToggle = captionsLane.getByRole('button', { name: 'Toggle snap', exact: true });
     expect(await snapToggle.getAttribute('aria-pressed')).toBe('false');
@@ -163,9 +176,9 @@ it('exercises three-lane simple timeline: caption editing, snap toggle, neighbou
     const reloadedPhrase = captionsLane.getByRole('button', { name: /^Open caption at/ });
     await reloadedPhrase.click();
 
-    // Edited words are preserved
-    expect(await captionsLane.getByRole('button', { name: /^Edit word howdy at/ }).count()).toBe(1);
-    expect(await captionsLane.getByRole('button', { name: /^Edit word folks at/ }).count()).toBe(1);
+    // Edited words are preserved (phrase-text updated the words)
+    expect(await captionsLane.getByRole('button', { name: /^Edit word fresh at/ }).count()).toBe(1);
+    expect(await captionsLane.getByRole('button', { name: /^Edit word words at/ }).count()).toBe(1);
 
     // 10. Empty space pin: clicking empty space seeks and opens frame pin composer without caption ops
     const opsCountBefore = (await server.project.readEditList('founder-talk')).operations.length;

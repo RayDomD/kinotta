@@ -341,7 +341,8 @@ export interface Project {
   /** Supported media inside the project, outside reels/, that the library does not hold yet. */
   listProjectMedia(): Promise<ProjectMediaFile[]>;
   relinkMedia(source: string, path: string): Promise<MediaEntry>;
-  mediaFile(source: string, saved?: { reel: string; version: number }): Promise<string | null>;
+  mediaFile(source: string, saved?: { reel: string; version: number }, original?: boolean): Promise<string | null>;
+  mediaAudioFile(source: string, saved?: { reel: string; version: number }): Promise<string | null>;
   mediaWaveform(source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform>;
   listMedia(filter?: MediaFilter): Promise<MediaEntry[]>;
   /** How a source's speech stands: words cached by content, a running or failed transcription, or not started. */

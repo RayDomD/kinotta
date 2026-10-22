@@ -27,3 +27,6 @@ different logos. The taste list is global, with an optional per-project addition
 - Amended 2026-10-05 (story 8): a picked HEVC or ProRes video gets the same copy when its reel starts, also in
   `footage/.playback/`, named from its project path (`media/talk.mov` gives `media--talk.mp4`). The picked video
   itself stays where it is, unaltered, and nothing is written beside it.
+- Amended 2026-10-22 (A5): editing proxies (H.264, 540p, 6-frame keyframes) and extracted AAC audio files are
+  stored by content hash in `footage/.proxy/` and `footage/.audio/`. Like `footage/.playback/`, these disposable
+  copies are the only files the editor adds outside `reels/`.
