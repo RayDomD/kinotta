@@ -44,6 +44,7 @@ const SNAP_REACH = 0.05;
 const SPLIT_MARGIN = 0.01;
 /** How far ahead a picture is loaded before its cut. */
 const PRELOAD_SECONDS = 3;
+const ignorePictureStatus = () => {};
 /** Defaults shared with engine/build.py's caption style and source-start tolerance. */
 const CAPTION_COLOR = '#FF5A1F';
 const CAPTION_AT = 0.005;
@@ -411,16 +412,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     }
     return () => { current = false; };
   }, [media.sources, base, reel.slug, version!.number]);
-  const [pictureRunning, setPictureRunning] = useState<Record<string, boolean>>({});
   const [pictureErrors, setPictureErrors] = useState<Record<string, string>>({});
   const [pictureAttempts, setPictureAttempts] = useState<Record<string, number>>({});
   const pictureError = active.map((p) => p.role !== 'gap' ? pictureErrors[p.source] : undefined).find(Boolean) ?? null;
   const placementsHere = timeline.placements.filter((p) => time >= p.at && time < p.at + p.duration);
   const soundFailureHere = placementsHere.some((p) => p.role !== 'gap' && playback.failures[p.source]);
   const speechFailureHere = placementsHere.some((p) => p.role !== 'gap' && usesSpeech(p) && speech[p.source]?.state === 'failed');
-  const pictureStatus = useCallback((id: string, ready: boolean) => {
-    setPictureRunning((before) => before[id] === ready ? before : { ...before, [id]: ready });
-  }, []);
   const pictureFailed = useCallback((id: string, message: string) => {
     setPictureErrors((before) => ({ ...before, [id]: message }));
   }, []);
@@ -429,7 +426,6 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (!id) return;
     setPictureErrors((before) => { const next = { ...before }; delete next[id]; return next; });
     setPictureAttempts((before) => ({ ...before, [id]: (before[id] ?? 0) + 1 }));
-    setPictureRunning((before) => Object.fromEntries(Object.entries(before).filter(([key]) => !active.some((p) => p.id === key && p.role !== 'gap' && p.source === id))));
   };
   const change = (id: string, changes: Partial<SourcePlacement>, leaveGap?: boolean) => { if (editable) void edits!.add({ kind: 'placement-change', placement: id, changes, ...(leaveGap ? { leaveGap: true } : {}) }).finally(() => setTrimDraft(null)); };
   const isImage = (p: Placed) => p.role !== 'gap' && media.sources.find((s) => s.id === p.source)?.kind === 'image';
@@ -638,7 +634,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <div className="rv-well">
       <div className="rv-picture-stage">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
-        <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
+        <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={ignorePictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
         <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={savingCaption ?? captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={(editable || captionEditable) && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={simple ? simple.pinMode && !simple.draft ? pickFrame : undefined : pinning ? pickFrame : undefined} draftContent={simple?.draftContent} draftPin={simple ? simple.draft?.kind === 'frame' ? simple.draft : null : pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
