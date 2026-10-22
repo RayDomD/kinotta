@@ -93,6 +93,10 @@ test('Use updates the alternate played in Review while frozen history retains it
     await expect(graphics.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
     await expect(graphics.locator('[data-scene="close"]')).toHaveAttribute('data-start', '3');
     await expect(page.locator('[data-graphic="proof"]')).toContainText('Proof 2');
+    // Stills load only on screen.
+    await page.locator('[data-graphic="proof"]').scrollIntoViewIfNeeded();
+    const shotStill = page.frameLocator('[data-graphic="proof"] .native-shot-still iframe');
+    await expect(shotStill.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
     const scrubber = page.getByRole('slider', { name: 'Scrub reel' });
     await page.getByRole('button', { name: 'Next shot', exact: true }).click();
     await expect(scrubber).toHaveAttribute('aria-valuenow', '1');
