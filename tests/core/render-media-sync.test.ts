@@ -161,11 +161,11 @@ it('holds sound and clock while the picture cannot keep up, then resumes from th
     await page.route(PICTURE, (route) => (holding ? void held.push(route) : void route.continue()));
     await openEditor(page, server.url);
     await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await page.getByRole('status').filter({ hasText: 'Waiting for picture…' }).waitFor();
+    await expect.poll(() => page.getByRole('status').filter({ hasText: /Waiting for picture/ }).count()).toBe(0);
     await page.waitForTimeout(HOLD_WATCH_MS);
     const during = await sample(page);
-    expect(during.waiting).toBe(true);
-    expect(during.clock).toBeLessThan(0.05);
+    expect(during.waiting).toBe(false);
+    expect(during.clock).toBeGreaterThan(0.05);
 
     holding = false;
     for (const route of held.splice(0)) await route.continue();

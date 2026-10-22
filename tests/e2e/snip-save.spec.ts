@@ -1,4 +1,4 @@
-import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
+import { reviewClockText, focusReview, waitForEditSave } from '../helpers/review-clock.ts';
 import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,6 +40,7 @@ async function startReel(page: Page, title: string): Promise<void> {
 
 /** With the Snip tool on, drags along the lanes between two fractions of the reel's width and leaves a stretch selected. */
 async function selectStretch(page: Page): Promise<void> {
+  await waitForEditSave(page);
   await review(page).getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Snip', exact: true }).click();
   await review(page).locator('[data-role="main"] .native-lane-bars').scrollIntoViewIfNeeded();
   const plane = (await review(page).locator('[data-role="main"] .native-lane-bars').boundingBox())!;
@@ -70,12 +71,14 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
 
   // The edit list is in the reel folder, outside every version, and no version exists yet.
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const reelDir = join(project, 'reels', 'snip-talk');
   expect(JSON.parse(readFileSync(join(reelDir, 'edit-list.json'), 'utf8')).operations).toHaveLength(1);
   expect(existsSync(join(reelDir, 'v2'))).toBe(false);
 
   // Save builds v2 and opens it.
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect(versions(page).getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
@@ -134,6 +137,7 @@ test('Undo removes the live snip and the reel plays whole again', async ({ page 
 
   await expect(page.locator('[data-verify-unit="EditsPanel"]')).toHaveAttribute('data-verify-count', '0');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const history = JSON.parse(readFileSync(join(project, 'reels', 'discard-talk', 'edit-list.json'), 'utf8'));
   expect(history.operations).toEqual([]);
@@ -161,6 +165,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   // Close the gap to check comments following their moments across the join.
   await review(page).getByRole('button', { name: 'Apply snip', exact: true }).click({ modifiers: ['Shift'] });
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(page.getByRole('alert').first()).toContainText('broken footage attachment');
   const broken = review(page).locator('[data-verify-broken-graphic="true"]');
@@ -174,6 +179,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   }
   await expect(broken).toHaveCount(0);
   await page.getByRole('tab', { name: /^Edits/ }).click();
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 
@@ -192,6 +198,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   expect(word.pin.time).toBe(5.65);
   expect(word.state).toBeUndefined();
 
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   expect(JSON.parse(readFileSync(join(project, 'reels', 'founder-talk', 'v2', 'plan.json'), 'utf8')).media.sequence).toHaveLength(2);
   expect(existsSync(join(project, 'reels', 'founder-talk', 'plan.json'))).toBe(false);
@@ -220,14 +227,17 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   await expect(cards).toHaveCount(1);
   await expect.poll(async () => (await reviewClockText(page)).split('/')[1]!.trim()).toBe(oneSnip);
   // An unbound shifted Undo key must not fall through to another Undo.
+  await waitForEditSave(page);
   await page.keyboard.press('Control+Shift+z');
   await expect(cards).toHaveCount(1);
+  await waitForEditSave(page);
   await page.keyboard.press('Control+y');
   await expect(cards).toHaveCount(2);
   await expect.poll(async () => (await reviewClockText(page)).split('/')[1]!.trim()).toBe(twoSnips);
   await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(cards).toHaveCount(1);
+  await waitForEditSave(page);
   await page.keyboard.press('Control+y');
   await expect(cards).toHaveCount(2);
 
@@ -245,6 +255,7 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   await expect(page.getByRole('button', { name: /^Redo Ctrl/ })).toBeEnabled();
 
   // Reloading restores the list and its redo history.
+  await waitForEditSave(page);
   await page.reload();
   await revealReelRail(page);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Undo talk/ }).click();
@@ -252,6 +263,7 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   await expect(cards).toHaveCount(1);
   await page.getByRole('button', { name: /^Redo Ctrl/ }).click();
   await expect(cards).toHaveCount(2);
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   expect(JSON.parse(readFileSync(join(project, 'reels', 'undo-talk', 'edit-list.json'), 'utf8')).operations).toHaveLength(2);
 });
@@ -300,11 +312,14 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await focusReview(page);
   await page.keyboard.press('Control+z');
   await expect(pieces.first()).not.toHaveAttribute('data-placement', reorderedId!);
+  await waitForEditSave(page);
   await page.keyboard.press('Control+y');
   await expect(pieces.first()).toHaveAttribute('data-placement', reorderedId!);
 
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const plan = JSON.parse(readFileSync(join(project, 'reels', 'blade-talk', 'v2', 'plan.json'), 'utf8'));
   expect(plan.media.sequence).toHaveLength(2);
@@ -334,6 +349,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await expect(word(1)).toHaveAttribute('data-source-start', '1');
 
   // Dragging a word's right edge later re-times it.
+  await waitForEditSave(page);
   const grip = (await word(1).getByLabel(/^Word end at/).boundingBox())!;
   const y = grip.y + grip.height / 2;
   await page.mouse.move(grip.x + grip.width / 2, y);
@@ -344,8 +360,10 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await expect(cards.last()).toContainText(/Re-timed to 00:01\.00 to 00:0[12]\.\d\d/);
   await expect.poll(async () => Number(await word(1).getAttribute('data-source-end'))).toBeGreaterThan(1.5);
 
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const savedPlan = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v2', 'plan.json'), 'utf8'));
   const words = savedPlan.media.placements[0].words ?? savedPlan.media.sources[0].words;
@@ -373,6 +391,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   await expect(page.frameLocator('iframe[title="Authored graphics"]').locator('.rv-caphandle')).toHaveCount(0);
 
   const dragBy = async (dx: number, dy: number, alt: boolean): Promise<void> => {
+    await waitForEditSave(page);
     const box = (await handle.boundingBox())!;
     const x = box.x + box.width / 2;
     const y = box.y + box.height / 2;
@@ -403,13 +422,16 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   await expect(cards.last()).toContainText('Captions');
 
   // The arrow keys nudge the focused handle (Shift for one pixel; Alt moves the phrase).
+  await waitForEditSave(page);
   await handle.focus();
   await page.keyboard.press('Shift+ArrowDown');
   await expect(cards).toHaveCount(3);
   await expect(cards.last()).toContainText('Moved all captions');
 
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await waitForEditSave(page);
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const reelDir = join(project, 'reels', 'caption-talk');
   const { captions } = JSON.parse(readFileSync(join(reelDir, 'v2', 'plan.json'), 'utf8'));
@@ -453,6 +475,7 @@ test('a caption is retyped in the frame, with a word added, and the page shows i
   await expect(review(page).getByRole('button', { name: /^Edit word/ })).toHaveText(['hello', 'out', 'there']);
 
   // Escape leaves a caption as it was.
+  await waitForEditSave(page);
   await handle.dblclick();
   await review(page).getByLabel('Caption text').fill('nothing');
   await page.keyboard.press('Escape');
@@ -514,6 +537,7 @@ test('keyboard only: pick a video, play, mark a stretch, snip it and Save', asyn
   // Render is reachable by Tab, and Final freezes Working.
   const render = page.getByRole('button', { name: 'Render Working', exact: true });
   await tabTo(page, render);
+  await waitForEditSave(page);
   await freezeWorking(page);
   await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 });
