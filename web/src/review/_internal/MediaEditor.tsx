@@ -7,7 +7,7 @@ import { actionForKey, keyChord } from './editor-settings.ts';
 import type { EditorAction } from './editor-settings.ts';
 import { EditorToolbar } from './EditorToolbar.tsx';
 import type { EditorTool } from './EditorToolbar.tsx';
-import { FRAME_RATE, followWindow, tickTimes, zoomWindow } from './timeline.ts';
+import { FRAME_RATE, anchorCutWindow, followWindow, mapTimeThroughCut, tickTimes, zoomWindow } from './timeline.ts';
 import type { TimeWindow } from './timeline.ts';
 import { EditorialLanes } from './EditorialLanes.tsx';
 import { TimelineOverview } from './TimelineOverview.tsx';
@@ -153,9 +153,43 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   }, [section?.id]);
   const [rawWindow, setRawWindow] = useState<TimeWindow | null>(null);
   const windowTotal = Math.max(timeline.duration, 1);
-  const win = useMemo(() => rawWindow ? zoomWindow(rawWindow, 1, rawWindow.start, windowTotal) : { start: 0, length: windowTotal }, [rawWindow, windowTotal]);
-  useEffect(() => { setRawWindow((current) => current ? followWindow(current, time, windowTotal) : null); }, [time, windowTotal]);
-  const zoom = (factor: number) => setRawWindow(zoomWindow(win, factor, Math.max(win.start, Math.min(win.start + win.length, time)), windowTotal));
+  const win = useMemo(() => rawWindow ?? { start: 0, length: windowTotal }, [rawWindow, windowTotal]);
+  const suppressFollow = useRef(false);
+  useEffect(() => {
+    if (suppressFollow.current) {
+      suppressFollow.current = false;
+      return;
+    }
+    setRawWindow((current) => current ? followWindow(current, time, Math.max(current.length, windowTotal)) : null);
+  }, [time]);
+  const zoom = (factor: number) => setRawWindow(zoomWindow(win, factor, Math.max(win.start, Math.min(win.start + win.length, time)), Math.max(windowTotal, win.length)));
+
+  const applyCutAnchor = (cutStart: number, cutEnd: number) => {
+    const currentWin = win;
+    const newTotal = Math.max(0, timeline.duration - (cutEnd - cutStart));
+    const nextTime = mapTimeThroughCut(time, cutStart, cutEnd, newTotal);
+    const nextWin = anchorCutWindow(currentWin, cutStart, cutEnd);
+    suppressFollow.current = true;
+    setRawWindow(nextWin);
+    playback.seek(nextTime);
+  };
+
+  const clipEdits = useMemo(() => {
+    if (!edits) return undefined;
+    return {
+      ...edits,
+      add: async (op: Parameters<typeof edits.add>[0]) => {
+        if (!rawWindow) setRawWindow({ start: 0, length: windowTotal });
+        if ((op.kind === 'placement-remove' || op.kind === 'placement-ripple-remove') && !('leaveGap' in op && op.leaveGap)) {
+          const p = timeline.placements.find((item) => item.id === op.placement);
+          if (p && (media.sequence.includes(p.id) || p.role === 'main')) {
+            applyCutAnchor(p.at, p.at + p.duration);
+          }
+        }
+        return edits.add(op);
+      },
+    };
+  }, [edits, timeline.placements, media.sequence, win, time, windowTotal, rawWindow]);
   // The overload of the mix this preview plays: pending edits while editing, else the saved version's (AM29, AM38).
   const overloadKey = `${version!.number}:${editable ? ops.map((op) => op.id).join(',') : 'saved'}`;
   const [measuredOverload, setMeasuredOverload] = useState<{ key: string; overload: MixOverload } | null>(null);
@@ -525,7 +559,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (action === 'prevShot' || action === 'nextShot') { playback.seek(shotTarget((version!.code ? laneGraphics.map((clip) => clip.in) : timeline.placements.filter((p) => media.sequence.includes(p.id)).map((p) => p.at)), time, action === 'prevShot' ? -1 : 1, timeline.duration)); return; }
     if (action === 'cancel' && workspace.focus) { workspace.setFocus(false); return; }
     if (action === 'zoomIn' || action === 'zoomOut') { zoom(action === 'zoomIn' ? 0.5 : 2); return; }
-    if (action === 'fit') { setRawWindow(null); return; }
+    if (action === 'fit') { setRawWindow({ start: 0, length: windowTotal }); return; }
     if (action === 'cancel') { setClipMenu(null); setSelected(null); setSnipRange(null); setTool('select'); setPinning(false); setPinDraft(null); return; }
     if (action === 'start' || action === 'end') { playback.seek(action === 'start' ? 0 : timeline.duration); return; }
     if ((action === 'left' || action === 'right') && !selected) { playback.seek(time + (action === 'left' ? -1 : 1) * (fast ? 1 : 1 / FRAME_RATE)); return; }
@@ -539,8 +573,16 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     else if (action === 'duplicate' && selectedPlacement) duplicate(selectedPlacement);
     else if (action === 'gap') void edits!.add({ kind: 'placement-add', placement: { id: crypto.randomUUID(), role: 'gap', duration: workspace.settings.gap }, index: selectedPlacement && media.sequence.includes(selectedPlacement.id) ? media.sequence.indexOf(selectedPlacement.id) + 1 : media.sequence.length });
     else if (action === 'pin') { setPinning(!pinning); setPinDraft(null); setPinError(null); }
-    else if (action === 'remove' && selected) void edits!.add({ kind: 'placement-remove', placement: selected });
-    else if (action === 'closeGap' && selected) void edits!.add({ kind: 'placement-ripple-remove', placement: selected });
+    else if (action === 'remove' && selected) {
+      const p = timeline.placements.find((item) => item.id === selected);
+      if (p && (media.sequence.includes(p.id) || p.role === 'main')) applyCutAnchor(p.at, p.at + p.duration);
+      void edits!.add({ kind: 'placement-remove', placement: selected });
+    }
+    else if (action === 'closeGap' && selected) {
+      const p = timeline.placements.find((item) => item.id === selected);
+      if (p && (media.sequence.includes(p.id) || p.role === 'main')) applyCutAnchor(p.at, p.at + p.duration);
+      void edits!.add({ kind: 'placement-ripple-remove', placement: selected });
+    }
     else if (action === 'undo') void edits!.undo();
     else if (action === 'redo') void edits!.redo();
     else if ((action === 'up' || action === 'down') && selectedPlacement?.role !== 'gap' && selectedPlacement?.track) {
@@ -548,7 +590,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       const target = tracks[tracks.findIndex((track) => track.id === selectedPlacement.track) + (action === 'up' ? -1 : 1)];
       if (target) change(selectedPlacement.id, { track: target.id });
     }
-    else if (action === 'apply' && snipRange && !version!.code) void edits!.add({ kind: 'placement-snip', ...snipRange }).then((ok) => { if (ok) { playback.seek(snipRange.from); setSnipRange(null); setTool('select'); } });
+    else if (action === 'apply' && snipRange && !version!.code) {
+      const range = snipRange;
+      applyCutAnchor(range.from, range.to);
+      void edits!.add({ kind: 'placement-snip', ...range }).then((ok) => { if (ok) { setSnipRange(null); setTool('select'); } });
+    }
   };
   // Shortcuts are heard on the window: the page opens with focus on the body, and a click on empty timeline leaves it there.
   const main = useRef<HTMLElement>(null);
@@ -686,13 +732,19 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || !splittable(p)} onClick={() => act(() => split(p))}>Split{workspace.settings.keys.split && <kbd>{workspace.settings.keys.split}</kbd>}</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate<kbd>{workspace.settings.keys.duplicate}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || p.role === 'gap'} onClick={() => { inspect(); requestAnimationFrame(() => workspace.clipHost?.querySelector<HTMLSelectElement>('select[aria-label^="Replace "]')?.focus()); }}>Replace…</button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => { void edits!.add({ kind: 'placement-remove', placement: p.id }); })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => { void edits!.add({ kind: 'placement-ripple-remove', placement: p.id }); })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => {
+          if (media.sequence.includes(p.id) || p.role === 'main') applyCutAnchor(p.at, p.at + p.duration);
+          void edits!.add({ kind: 'placement-remove', placement: p.id });
+        })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
+        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => {
+          if (media.sequence.includes(p.id) || p.role === 'main') applyCutAnchor(p.at, p.at + p.duration);
+          void edits!.add({ kind: 'placement-ripple-remove', placement: p.id });
+        })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
       </div>;
     })()}
 
     {snipRange && <div className="editor-snip-confirm"><span>{`Remove ${(snipRange.to - snipRange.from).toFixed(2)}s`}</span><button type="button" className="rv-tool" disabled={!editable || edits!.busy} onClick={() => runAction('apply')}>Apply snip</button><button type="button" className="rv-tool" onClick={() => runAction('cancel')}>Cancel snip</button></div>}
-    {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={edits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
+    {workspace.clipHost && createPortal(<ClipSettings placements={timeline.placements.filter((p) => p.id === selected)} media={media} timeline={timeline} editable={editable && !edits!.busy} emptyHint={!selectedGraphic} time={time} edits={clipEdits} waveforms={waveforms} speech={speech} unspoken={unspoken} library={library} moment={moment} followable={followable} replacing={replacing} setReplacing={setReplacing} hasSound={hasSound} usesSpeech={usesSpeech} askSpeech={askSpeech} change={change} splittable={splittable} split={split} duplicate={duplicate} replace={replace} />, workspace.clipHost)}
     {workspace.soundHost && createPortal(<SoundSettings key={selected ?? 'none'} placement={timeline.placements.find((p): p is Placed & SourcePlacement => p.id === selected && p.role !== 'gap')} media={spoken} timeline={timeline} editable={editable && !edits!.busy} edits={edits} change={change} onDetect={(id, fresh) => detectMediaBeats(id, savedFor(id), fresh)} generate={generateAudio} generatedTrackName={musicTrack?.name ?? 'Music'} onAddGenerated={addGenerated} />, workspace.soundHost)}
     {workspace.sectionHost && (authored.sections ?? []).some((s) => s.partOf) && createPortal(<section aria-label="Continuous sections"><div className="label">Surviving section spans</div><nav className="secs">{authored.sections!.map((s) => <button type="button" key={s.id} onClick={() => playback.seek(s.start)}><span className="nm">{s.name}</span><span className="sub">{s.start.toFixed(2)}–{s.end.toFixed(2)}s</span></button>)}</nav></section>, workspace.sectionHost)}
     {workspace.clipHost && selectedGraphic && createPortal(<section className="editor-graphic-settings" aria-label="Graphics attachments"><h2>Clip settings</h2>{(edited.clips ?? []).filter((c) => c.id === selectedGraphic).map((c) => {
