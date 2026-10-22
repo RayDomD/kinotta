@@ -310,6 +310,7 @@ export interface PlacementAddOperation extends AuthoredOperation {
 }
 
 export interface PlacementChangeOperation extends AuthoredOperation {
+  leaveGap?: boolean;
   id: string;
   kind: 'placement-change';
   placement: string;
@@ -810,7 +811,37 @@ function applyPlacementAdd(sources: Sources, op: PlacementAddOperation): Sources
   return withMedia(sources, { ...media, tracks, sources: nextSources, placements: [...media.placements, placement], sequence });
 }
 
+/** Coalesce adjacent gaps and discard empty time after the last picture. */
+function normalizeSequenceGaps(placements: MediaPlacement[], sequence: string[]): Pick<MediaPlan, 'placements' | 'sequence'> {
+  const placementMap = new Map<string, MediaPlacement>(placements.map((p) => [p.id, p]));
+  const normalizedSequence: string[] = [];
+  for (const id of sequence) {
+    const current = placementMap.get(id);
+    const prevId = normalizedSequence[normalizedSequence.length - 1];
+    const prev = prevId ? placementMap.get(prevId) : undefined;
+    if (current?.role === 'gap' && prev?.role === 'gap') {
+      placementMap.set(prevId, { ...prev, duration: (prev.duration ?? 0) + (current.duration ?? 0) });
+      placementMap.delete(id);
+    } else {
+      normalizedSequence.push(id);
+    }
+  }
+  while (normalizedSequence.length > 0) {
+    const lastId = normalizedSequence[normalizedSequence.length - 1]!;
+    const last = placementMap.get(lastId);
+    if (last?.role === 'gap') {
+      normalizedSequence.pop();
+      placementMap.delete(lastId);
+    } else {
+      break;
+    }
+  }
+  const nextPlacements = placements.filter((p) => placementMap.has(p.id)).map((p) => placementMap.get(p.id)!);
+  return { placements: nextPlacements, sequence: normalizedSequence };
+}
+
 function applyPlacementChange(sources: Sources, op: PlacementChangeOperation): Sources {
+  if (op.leaveGap !== undefined && typeof op.leaveGap !== 'boolean') throw new KinottaError('invalid', 'leaveGap must be a boolean.');
   const media = editableMedia(sources);
   if (!media.placements.some((p) => p.id === op.placement)) throw new KinottaError('invalid', `Placement ${op.placement} is missing.`);
   const allowed = new Set(['track', 'in', 'out', 'at', 'duration', 'loop', 'speech', 'gain', 'mute', 'fadeIn', 'fadeOut', 'volume', 'framing', 'region', 'layer', 'attachment']);
@@ -818,6 +849,34 @@ function applyPlacementChange(sources: Sources, op: PlacementChangeOperation): S
   const current = mediaTimeline(media, sources.plan.duration ?? 0).placements.find((p) => p.id === op.placement)!;
   const changes = current.role !== 'gap' && current.attachment && op.changes.at !== undefined && !Object.hasOwn(op.changes, 'attachment')
     ? { ...op.changes, attachment: { ...current.attachment, offset: (current.attachment.offset ?? 0) + op.changes.at - current.at } } : op.changes;
+  if (op.leaveGap && current.role === 'main' && media.sequence.includes(current.id) && (changes.in !== undefined || changes.out !== undefined)) {
+    if ([changes.in, changes.out].some((value) => value !== undefined && !Number.isFinite(value))) throw new KinottaError('invalid', 'Trim bounds must be finite source times.');
+    const index = media.sequence.indexOf(current.id);
+    const before = media.placements.find((p) => p.id === media.sequence[index - 1]);
+    const after = media.placements.find((p) => p.id === media.sequence[index + 1]);
+    const source = media.sources.find((s) => s.id === current.source)!;
+    const availableBefore = before?.role === 'gap' ? before.duration : 0;
+    const availableAfter = after?.role === 'gap' ? after.duration : 0;
+    const nextIn = changes.in === undefined ? current.in : Math.max(0, current.in - availableBefore, changes.in);
+    const nextOut = changes.out === undefined ? current.out : Math.min(source.duration ?? Infinity, current.out + availableAfter, changes.out);
+    const startDelta = nextIn - current.in;
+    const endDelta = current.out - nextOut;
+    const placements = media.placements.map((p) => p.id === current.id ? { ...p, ...changes, in: nextIn, out: nextOut, duration: nextOut - nextIn } : p);
+    const sequence = [...media.sequence];
+    for (const [side, delta, neighbor] of [['start', startDelta, before], ['end', endDelta, after]] as const) {
+      if (delta > 0) {
+        const id = `${current.id}~gap~${op.id}~${side}`;
+        placements.push({ id, role: 'gap', duration: delta });
+        sequence.splice(sequence.indexOf(current.id) + (side === 'end' ? 1 : 0), 0, id);
+      } else if (delta < 0 && neighbor?.role === 'gap') {
+        const remaining = neighbor.duration + delta;
+        const gapIndex = placements.findIndex((p) => p.id === neighbor.id);
+        if (remaining > 0) placements[gapIndex] = { ...neighbor, duration: remaining };
+        else { placements.splice(gapIndex, 1); sequence.splice(sequence.indexOf(neighbor.id), 1); }
+      }
+    }
+    return withMedia(sources, { ...media, ...normalizeSequenceGaps(placements, sequence) });
+  }
   return withMedia(sources, { ...media, placements: media.placements.map((p) => {
     if (p.id !== op.placement) return p;
     const next = { ...p, ...changes };
@@ -839,30 +898,7 @@ function applyPlacementRemove(sources: Sources, op: PlacementRemoveOperation): S
     const initialSequence = [...media.sequence];
     initialSequence[seqIndex] = gapId;
     const initialPlacements = media.placements.map((p) => (p.id === op.placement ? gapPlacement : p));
-    const placementMap = new Map<string, MediaPlacement>(initialPlacements.map((p) => [p.id, p]));
-    const normalizedSequence: string[] = [];
-    for (const id of initialSequence) {
-      const current = placementMap.get(id);
-      const prevId = normalizedSequence[normalizedSequence.length - 1];
-      const prev = prevId ? placementMap.get(prevId) : undefined;
-      if (current?.role === 'gap' && prev?.role === 'gap') {
-        placementMap.set(prevId, { ...prev, duration: (prev.duration ?? 0) + (current.duration ?? 0) });
-        placementMap.delete(id);
-      } else {
-        normalizedSequence.push(id);
-      }
-    }
-    while (normalizedSequence.length > 0) {
-      const lastId = normalizedSequence[normalizedSequence.length - 1]!;
-      const last = placementMap.get(lastId);
-      if (last?.role === 'gap') {
-        normalizedSequence.pop();
-        placementMap.delete(lastId);
-      } else {
-        break;
-      }
-    }
-    const nextPlacements = initialPlacements.filter((p) => placementMap.has(p.id)).map((p) => placementMap.get(p.id)!);
+    const { placements: nextPlacements, sequence: normalizedSequence } = normalizeSequenceGaps(initialPlacements, initialSequence);
     const base = media.sequence.length > 0 && normalizedSequence.length === 0 ? { ...sources, plan: { ...sources.plan, duration: 0 } } : sources;
     return withMedia(base, { ...media, placements: nextPlacements, sequence: normalizedSequence });
   }

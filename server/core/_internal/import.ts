@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -17,6 +17,8 @@ const PLAYBACK_EXT = '.mp4';
 const PLAYBACK_PATH_JOIN = '--';
 const PARTIAL_PREFIX = '.incoming-';
 const NEEDS_PLAYBACK_COPY = new Set(['hevc', 'prores']);
+/** Playback copies made at once; more would starve the rest of the machine (each ffmpeg uses every core). */
+const PLAYBACK_COPY_SLOTS = 2;
 const UNSAFE_NAME_CHARS = /[<>:"|?*\u0000-\u001f]/g;
 
 /** True for a codec browsers cannot play, whose video needs an H.264 copy. */
@@ -58,18 +60,47 @@ export async function writeHashed(body: AsyncIterable<Uint8Array>, file: string)
   return { hash: hash.digest('hex'), size };
 }
 
-/** Hashes already computed, by path, kept while the file's size and modification time are unchanged. */
-const hashes = new Map<string, { size: number; mtimeMs: number; hash: string }>();
+/** Only hashes verified against this exact file identity may bypass reading the original again. */
+const hashes = new Map<string, { identity: string; hash: string }>();
 
-export async function hashOf(file: string): Promise<string> {
+async function fileIdentity(file: string): Promise<string> {
+  const info = await stat(file, { bigint: true });
+  return [await realpath(file), info.dev, info.ino, info.size, info.mtimeNs, info.ctimeNs].join(':');
+}
+
+export async function hashOf(file: string, projectDir?: string): Promise<string> {
   const key = resolve(file);
-  const { size, mtimeMs } = await stat(key);
-  const known = hashes.get(key);
-  if (known && known.size === size && known.mtimeMs === mtimeMs) return known.hash;
+  const identity = await fileIdentity(key);
+  const cache = projectDir && join(projectDir, FOOTAGE_DIR, PLAYBACK_DIR, '.hashes', `${createHash('sha256').update(key).digest('hex')}.json`);
+  let known = hashes.get(key);
+  if (!known && cache) {
+    try {
+      const stored: unknown = JSON.parse(await readFile(cache, 'utf8'));
+      if (stored && typeof stored === 'object' && 'identity' in stored && 'hash' in stored &&
+          typeof stored.identity === 'string' && typeof stored.hash === 'string' && /^[a-f0-9]{64}$/.test(stored.hash)) {
+        known = { identity: stored.identity, hash: stored.hash };
+      }
+    } catch { /* A missing or invalid cache always falls back to hashing the bytes. */ }
+  }
+  if (known?.identity === identity) {
+    hashes.set(key, known);
+    return known.hash;
+  }
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(key)) hash.update(chunk as Buffer);
+  if (await fileIdentity(key) !== identity) throw new KinottaError('invalid', 'The media changed while its content was being verified.');
   const digest = hash.digest('hex');
-  hashes.set(key, { size, mtimeMs, hash: digest });
+  const verified = { identity, hash: digest };
+  hashes.set(key, verified);
+  if (cache) {
+    const partial = `${cache}.${randomUUID()}.tmp`;
+    try {
+      await mkdir(dirname(cache), { recursive: true });
+      await writeFile(partial, JSON.stringify(verified));
+      await rename(partial, cache);
+    } catch { /* Verification remains valid when a read-only project cannot store its disposable cache. */ }
+    finally { await rm(partial, { force: true }).catch(() => undefined); }
+  }
   return digest;
 }
 
@@ -102,7 +133,8 @@ async function freeName(footageDir: string, name: string): Promise<string> {
 /**
  * Brings a dropped video into `<project>/footage/`. The body is streamed to a temp file while it is hashed; a file
  * already in footage/ with the same content is reused and the new copy discarded. HEVC and ProRes also get an H.264
- * copy for playback; the original is never altered. A file that cannot be probed is removed and rejected.
+ * copy for playback, finished in the background so the drop returns once the file is in place. The original is never
+ * altered. A file that cannot be probed is removed and rejected.
  */
 export async function importVideo(projectDir: string, name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedVideo> {
   const wanted = safeName(name);
@@ -137,7 +169,8 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
     throw new KinottaError('invalid', `${wanted} is not a video file Kinotta can read.`);
   }
   const needsCopy = needsPlaybackCopy(codec);
-  if (needsCopy) await ensurePlaybackCopy(projectDir, file);
+  // Finished in the background; starting a reel waits for it, and makes it again (showing the error) if it failed.
+  if (needsCopy) ensurePlaybackCopy(projectDir, file).catch(() => undefined);
   return { path: `${FOOTAGE_DIR}/${basename(file)}`, copied, playbackCopy: needsCopy };
 }
 
@@ -148,6 +181,21 @@ export function contentPlaybackPath(projectDir: string, hash: string): string {
 
 /** Copies being made, by destination. Concurrent callers wait on the one transcode instead of starting their own. */
 const copying = new Map<string, Promise<void>>();
+const slotWaiters: (() => void)[] = [];
+let slotsInUse = 0;
+
+/** Runs `work` once one of the PLAYBACK_COPY_SLOTS is free. */
+async function inCopySlot<T>(work: () => Promise<T>): Promise<T> {
+  if (slotsInUse >= PLAYBACK_COPY_SLOTS) await new Promise<void>((wake) => slotWaiters.push(wake));
+  else slotsInUse++;
+  try {
+    return await work();
+  } finally {
+    const next = slotWaiters.shift();
+    if (next) next();
+    else slotsInUse--;
+  }
+}
 
 /**
  * Makes the playback copy unless it is there, at `dest` (by default the path-named copy). Written to a temp name of its
@@ -167,7 +215,7 @@ async function makeCopy(file: string, dest: string): Promise<void> {
   await mkdir(dirname(dest), { recursive: true });
   const staged = join(dirname(dest), `${PARTIAL_PREFIX}${randomUUID()}-${basename(dest)}`);
   try {
-    await makePlaybackCopy(file, staged);
+    await inCopySlot(() => makePlaybackCopy(file, staged));
     await rename(staged, dest);
   } catch (err) {
     await rm(staged, { force: true });

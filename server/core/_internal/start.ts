@@ -1,11 +1,14 @@
+import { engineCaptions, makeOptions } from './make-options.ts';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { addOperation, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
 import { ensurePlaybackCopy, needsPlaybackCopy } from './import.ts';
-import { probeVideo, transcribeAudio } from './runner.ts';
+import { probeVideo, transcribeAudio, waveformPeaks } from './runner.ts';
+import { checkDeadAir, DEAD_AIR_BY, deadAirCuts } from './dead-air.ts';
+import type { Piece } from './pieces.ts';
 import { briefRequest } from './requests.ts';
 import { autoSections } from './transcription.ts';
 import type { Transcriptions } from './transcription.ts';
@@ -63,10 +66,14 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
 /**
  * Starts a reel from a video that stays where it is: writes reel.json and a plan of one piece with captions on and
  * no clips, and returns. The transcription then runs in the background (the video plays and edits collect meanwhile): its
- * words become the reel's transcript, the plan gets its transcript and automatic sections, and v1 is built from it (which
- * keeps its own copies of both, E14). A failure leaves the reel without a version and is reported through `jobs`.
+ * words become the reel's transcript, the plan gets its transcript and automatic sections, and v1 is built uncut from it
+ * (which keeps its own copies of both, E14). When dead-air trimming is requested, each cut is added to the edit list
+ * as a tagged snip after v1 is published. A failure leaves the reel without a version and is reported through `jobs`.
  */
-export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel): Promise<StartedReel> {
+export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel, afterBuilt?: (slug: string) => Promise<unknown>): Promise<StartedReel> {
+  const options = makeOptions(input);
+  checkDeadAir(input.deadAir);
+  if (typeof input.video !== 'string' || (input.title !== undefined && typeof input.title !== 'string')) throw new KinottaError('invalid', 'Choose a video and a text title.');
   const file = await resolveVideo(projectDir, input.video);
   const probe = await probeVideo(file);
   // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
@@ -81,9 +88,10 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   const plan = {
     title,
     video: posix(relative(dirname(planFile), file)),
-    captions: true,
+    ...options,
+    captions: engineCaptions(options.captions),
     duration,
-    pieces: [{ in: 0, out: duration }],
+    pieces: [{ in: 0, out: duration }] as Piece[],
     clips: [],
     sections: [{ id: 'all', name: title, start: 0, end: duration }],
   };
@@ -98,6 +106,15 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
     });
     const staged = await stageVersion(reelDir, { plan: planned, planDir: reelDir, words, builtBy: BUILT_BY_YOU });
     await withReelLock(reelDir, () => publishVersion(reelDir, staged, 1));
+    if (input.deadAir) {
+      // Peaks only find breaths, so a video without an audio track still gets its pauses cut.
+      const peaks = await waveformPeaks(file, probe.duration).catch(() => undefined);
+      const cuts = deadAirCuts(words, duration, { strength: input.deadAir, peaks });
+      for (const cut of cuts) {
+        await addOperation(projectDir, slug, { kind: 'snip', from: cut.from, to: cut.to, by: DEAD_AIR_BY });
+      }
+    }
+    await afterBuilt?.(slug);
   });
   return { slug };
 }

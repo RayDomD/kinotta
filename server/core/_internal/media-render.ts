@@ -1,3 +1,4 @@
+import { RENDER_THREADS } from './runner.ts';
 import { resolve } from 'node:path';
 import { audioExpression } from './media-audio.ts';
 import { mediaTimeline, pictureOrder, trackGain } from './media-model.ts';
@@ -53,7 +54,7 @@ export function mediaMixArgs(media: MediaPlan, planDir: string, duration: number
   graph.push(mixSounds(sounds, timeline.duration));
   graph.push(`[a]asetnsamples=n=${Math.max(1, Math.round(window * RATE))}:p=0,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.Peak_level:file=-[out]`);
   // Bound padded silence at the output too: FFmpeg can otherwise keep measuring past the reel end.
-  return [...args, '-filter_complex', graph.join(';'), '-map', '[out]', '-t', String(timeline.duration), '-f', 'null', '-'];
+  return [...args, '-filter_complex_threads', String(RENDER_THREADS), '-filter_complex', graph.join(';'), '-map', '[out]', '-t', String(timeline.duration), '-f', 'null', '-'];
 }
 
 /** One whole-reel composition after the authored graphics' frames have been rendered. */
@@ -100,7 +101,7 @@ export function mediaRenderArgs(media: MediaPlan, planDir: string, overlay: stri
   graph.push(`[0:v]scale=${width}:${height},format=rgba[graphics]`);
   graph.push(`[${picture}][graphics]overlay=eof_action=pass:repeatlast=0,format=yuv420p[v]`);
   if (sounds.length) graph.push(mixSounds(sounds, timeline.duration));
-  args.push('-filter_complex', graph.join(';'), '-map', '[v]');
+  args.push('-filter_complex_threads', String(RENDER_THREADS), '-filter_complex', graph.join(';'), '-map', '[v]');
   if (sounds.length) args.push('-map', '[a]', '-c:a', 'aac', '-b:a', '192k');
   args.push('-c:v', 'libx264', '-crf', String(crf), '-t', String(timeline.duration), '-movflags', '+faststart', out);
   return { args, sound: sounds.length > 0 };

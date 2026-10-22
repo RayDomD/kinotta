@@ -32,6 +32,8 @@ export interface ShotSheetProps {
   comments: Comment[];
   /** The comment whose pin is highlighted, if any. */
   markedId?: string | null;
+  /** Changes for every pin reveal, including another request for the same comment. */
+  revealSequence?: number;
   /** Set on a version that cannot take comments: the sheet then shows the frame only, with this line saying why. */
   readOnlyNote?: string | null;
   /** Why a shot cannot render, by shot number. */
@@ -64,7 +66,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** The enlarged shot: a stacked-paper sheet over the storyboard, with the live frame to pin comments on. */
-export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, readOnlyNote = null, unavailable, save, onStep, onClose, edits, alternatePage, initialRevision, canAskOptions = false }: ShotSheetProps) {
+export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments, markedId = null, revealSequence = 0, readOnlyNote = null, unavailable, save, onStep, onClose, edits, alternatePage, initialRevision, canAskOptions = false }: ShotSheetProps) {
   const readOnly = readOnlyNote !== null;
   const shot = shots[index]!;
   const sheet = useRef<HTMLDivElement>(null);
@@ -112,7 +114,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   useEffect(() => {
     const pin = comments.find((comment) => comment.id === markedId)?.pin;
     if (pin?.kind === 'frame' && pin.alternate) setViewedRevision(pin.alternate);
-  }, [markedId, shot.number]);
+  }, [markedId, shot.number, revealSequence]);
 
   function viewAlternate(revision: string): void {
     setViewedRevision(revision);

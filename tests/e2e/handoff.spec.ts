@@ -1,7 +1,7 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
 import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Save runs the real build.
 const BUILD_WAIT_MS = 30_000;
@@ -32,7 +32,7 @@ test('hand-off freezes Working, later edits continue, and cancellation keeps the
 
   const note = page.getByRole('status').filter({ hasText: 'A comment batch for v2 is out' });
   await expect(note).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ })).toBeVisible();
+  await expect(page.locator('[data-working-row][data-current-version="2"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Save|^Discard/ })).toHaveCount(0);
 
   // Edits still collect: a second operation is accepted while the batch is out.
@@ -43,6 +43,5 @@ test('hand-off freezes Working, later edits continue, and cancellation keeps the
   await expect(note).toHaveCount(0);
   await expect(edits.getByRole('listitem')).toHaveCount(2);
   await freezeWorking(page);
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ })).toContainText('Final render');
+  await expect(page.locator('[data-working-row][data-current-version="3"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 });

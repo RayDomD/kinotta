@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 
 /** Two Drafts of the showreel, one after the other. */
@@ -14,14 +14,9 @@ const menu = (page: Page): Locator => page.getByRole('dialog', { name: 'Renders'
 const queue = (page: Page): Locator => menu(page).getByRole('list', { name: 'Queue' });
 
 async function renderDraft(page: Page, version: number): Promise<void> {
-  await revealReelRail(page);
-  await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: new RegExp(`^v${version}`) }).click();
-  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: `Render v${version}` }).click();
-  const form = page.getByRole('dialog', { name: `Render v${version}` });
-  await form.getByRole('radio', { name: 'Draft' }).check();
-  await form.getByRole('button', { name: 'Render', exact: true }).click();
-  await expect(form.getByRole('status').filter({ hasText: 'queued' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  // Numbered snapshots remain renderable through the API while the UI shows Current.
+  const response = await page.request.post('/api/renders', { data: { reel: 'product-showreel', version, preset: 'draft' } });
+  expect(response.ok()).toBe(true);
 }
 
 test('renders run in the background: progress on every tab, a queue with cancel, and a ready notice', async ({ page }) => {
@@ -87,9 +82,8 @@ test('a reel switch does not show another reel’s settings or past renders when
   await reels.getByRole('button', { name: /Product showreel/ }).click();
   await phases(page).getByRole('button', { name: 'Review' }).click();
   await revealReelRail(page);
-  await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v2/ }).click();
-  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render v2' }).click();
-  await expect(page.getByRole('dialog', { name: 'Render v2' }).getByLabel('Size')).toBeVisible();
+  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render Working' }).click();
+  await expect(page.getByRole('dialog', { name: 'Render Working' }).getByLabel('Size')).toBeVisible();
   await page.keyboard.press('Escape');
   await menuButton(page).click();
   await expect(menu(page)).toContainText('product-showreel-v2-draft.mp4');
@@ -103,9 +97,8 @@ test('a reel switch does not show another reel’s settings or past renders when
   await page.keyboard.press('Escape');
   await phases(page).getByRole('button', { name: 'Review' }).click();
   await revealReelRail(page);
-  await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ }).click();
-  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render v1' }).click();
-  const form = page.getByRole('dialog', { name: 'Render v1' });
+  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render Working' }).click();
+  const form = page.getByRole('dialog', { name: 'Render Working' });
   await expect(form.getByRole('alert')).toContainText('Settings unavailable');
   await expect(form.getByLabel('Size')).toHaveCount(0);
   await expect(form.getByRole('button', { name: 'Render', exact: true })).toBeDisabled();

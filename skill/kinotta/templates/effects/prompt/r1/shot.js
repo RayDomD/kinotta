@@ -1,7 +1,7 @@
 const clamp = (v) => Math.max(0, Math.min(1, v));
 const span = (t, at, dur) => clamp((t - at) / dur);
-const outExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
-const inQuad = (x) => x * x;
+const outExpo = (x) => globalThis.M?.curves?.rise?.(x) ?? (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const inQuad = (x) => globalThis.M?.curves?.sink?.(x) ?? (x * x);
 const exitAt = (local, root, len = 0.2) => 1 - inQuad(span(local, (Number(root.dataset.duration) || 1e9) - len, len));
 const root = document.querySelector('[data-scene="prompt"]');
 const field = root.querySelector('.field');

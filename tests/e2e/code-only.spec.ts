@@ -3,8 +3,8 @@ import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 const SAVE_WAIT_MS = 30_000;
 const PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-code-only-project.txt');
@@ -52,15 +52,14 @@ test('drag an element on a code-only reel, Save, and see it moved in the next ve
   await expect(tools.getByRole('button', { name: /^Select/ })).toHaveAttribute('aria-pressed', 'true');
 
   await freezeWorking(page);
-  const versions = page.getByRole('navigation', { name: 'Versions' });
-  await expect(versions.getByRole('button', { name: /^v3/ })).toBeVisible({ timeout: SAVE_WAIT_MS });
-  await expect(versions.getByRole('button', { name: /^v3/ })).toContainText('Final render');
+  const versions = page.getByRole('navigation', { name: 'Current reel', exact: true });
+  await expect(versions.locator('[data-current-version="3"]')).toBeVisible({ timeout: SAVE_WAIT_MS });
 
   // v3 is v2 plus the stylesheet, and the cube sits at its offset in the new version's page.
   const reelDir = join(readFileSync(PROJECT_FILE, 'utf8'), 'reels', 'product-showreel');
   expect(readFileSync(join(reelDir, 'v3', 'kinotta-edits.css'), 'utf8')).toMatch(/\[data-scene="cube-lands"\] \[data-el="cube"\] \{ translate: [1-9]\d*px [1-9]\d*px; \}/);
   expect(existsSync(join(reelDir, 'v2', 'kinotta-edits.css'))).toBe(false);
-  await expect(versions.getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
+  await expect(versions.getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
   const cubeV3 = frame.locator('[data-el="cube"]');
   await expect(cubeV3).toBeVisible();
   await expect(cubeV3).toHaveCSS('translate', /^[1-9]\d*px [1-9]\d*px$/);

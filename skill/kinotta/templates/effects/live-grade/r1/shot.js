@@ -1,8 +1,8 @@
 const clamp = (v) => Math.max(0, Math.min(1, v));
 const span = (t, at, dur) => clamp((t - at) / dur);
-const outExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
-const outQuart = (x) => 1 - Math.pow(1 - x, 4);
-const inQuad = (x) => x * x;
+const outExpo = (x) => globalThis.M?.curves?.rise?.(x) ?? (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const outQuart = (x) => globalThis.M?.curves?.state?.(x) ?? (1 - Math.pow(1 - x, 4));
+const inQuad = (x) => globalThis.M?.curves?.sink?.(x) ?? (x * x);
 const exitAt = (local, root, len = 0.2) => 1 - inQuad(span(local, (Number(root.dataset.duration) || 1e9) - len, len));
 const syncVideos = (root, local) => Promise.all([...root.querySelectorAll('video')].map((video) => new Promise((done) => {
   video.pause();
@@ -37,6 +37,6 @@ export function seek(local) {
     to = step.grade;
     k = outQuart(span(local, step.at, XFADE));
   }
-  plate.style.filter = Object.keys(IDENTITY).map((fn) => `${fn}(${from[fn] + (to[fn] - from[fn]) * k}${UNITS[fn] || ''})`).join(' ');
+  if (plate) plate.style.filter = Object.keys(IDENTITY).map((fn) => `${fn}(${from[fn] + (to[fn] - from[fn]) * k}${UNITS[fn] || ''})`).join(' ');
   return syncVideos(root, local);
 }

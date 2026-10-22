@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pace dial</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@800&display=swap">
+<style>
+:root{--ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+--ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);--rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+--grid:oklch(.945 .004 106 / .07);--light:oklch(.84 .11 225);--light-wash:oklch(.84 .11 225 / .12);--k-talk:oklch(.42 .02 106)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.45 Outfit,system-ui,sans-serif;padding:32px 24px 64px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 24px}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.panel{border:1px solid var(--hairline);background:var(--ground-deep);padding:22px}
+.file{display:flex;gap:12px;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--rule);margin-bottom:20px;font-size:13px}
+.file .sw{width:28px;height:48px;background:linear-gradient(160deg,oklch(.55 .05 106),oklch(.3 .03 146))}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.types{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px}
+.type{border:1px solid var(--rule);background:var(--card);padding:10px 12px;cursor:pointer;font-size:12px;color:var(--muted)}
+.type b{display:block;color:var(--ink);font-weight:500;font-size:13px;margin-bottom:2px}
+.type.on{border-color:var(--light);background:var(--light-wash)}
+.dial{display:grid;grid-template-columns:110px auto 1fr;align-items:center;gap:14px;margin:10px 0}
+.dial .name{color:var(--ink-2)}
+.seg{display:inline-flex;border:1px solid var(--hairline)}
+.seg button{background:none;border:0;color:var(--ink-2);font:inherit;padding:6px 14px;cursor:pointer;position:relative}
+.seg button+button{border-left:1px solid var(--hairline)}
+.seg button.on{background:var(--ink);color:var(--ground)}
+.seg button.mine::after{content:"";position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:50%;background:var(--light)}
+.dial .why{color:var(--muted);font-size:12px}
+.preview{margin-top:22px;border-top:1px solid var(--rule);padding-top:18px}
+.ph{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.stat{color:var(--ink-2);font-size:12px}
+.tl{position:relative;padding-top:24px}
+.ruler{position:absolute;top:0;left:0;right:0;height:20px;border-bottom:1px solid var(--rule)}
+.tick{position:absolute;bottom:0;width:1px;height:5px;background:var(--hairline)}.tick.major{height:10px;background:var(--ink-2)}
+.tick span{position:absolute;bottom:12px;left:3px;font-size:10px;color:var(--muted)}
+.grid{position:absolute;top:20px;bottom:0;left:0;right:0;pointer-events:none;background-image:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px calc(100%*5/58))}
+.ll{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.lane{position:relative;height:38px}
+.clip{position:absolute;top:0;bottom:0;border-radius:3px;overflow:hidden;font-size:11px;display:flex;align-items:center;padding:0 6px;white-space:nowrap;color:var(--ink);transition:left .35s ease,width .35s ease,opacity .25s}
+.frames{display:flex;gap:10px;margin-top:20px}
+.frame{flex:1;aspect-ratio:9/16;max-height:190px;border:1px solid var(--rule);position:relative;overflow:hidden;background:var(--card)}
+.frame i{position:absolute;inset:0}
+.frame span{position:absolute;left:6px;bottom:6px;font-size:10px;color:var(--ink);background:oklch(0 0 0 / .5);padding:1px 5px}
+.note{margin-top:18px;font-size:12px;color:var(--muted);border-left:2px solid var(--light);padding-left:10px}
+.make{display:flex;justify-content:flex-end;margin-top:22px}
+.make button{background:var(--ink);color:var(--ground);border:0;font:600 14px Outfit;padding:10px 22px;box-shadow:3px 3px 0 var(--hairline)}
+</style></head><body><div class="wrap">
+<h1>Pace: how busy the visuals are</h1>
+<p class="sub">Pace and B-roll work as a pair. B-roll sets how much of the reel gets covered, and Pace sets how long each shot lasts. Click either one; the preview below shows what the agent would aim for.</p>
+
+<div class="panel">
+  <div class="file"><div class="sw"></div><div><b>interview-final.mp4</b><br><span class="stat num">0:58 · 1080×1920</span></div></div>
+
+  <p class="label">What are you making?</p>
+  <div class="types" id="types"></div>
+
+  <p class="label">Settings · filled in by the type, change any of them</p>
+  <div class="dial"><span class="name">B-roll</span><span class="seg" data-d="broll"><button>light</button><button>medium</button><button>heavy</button></span><span class="why" id="w-broll"></span></div>
+  <div class="dial"><span class="name">Pace</span><span class="seg" data-d="pace"><button>calm</button><button>normal</button><button>fast</button></span><span class="why" id="w-pace"></span></div>
+  <div class="dial"><span class="name">Captions</span><span class="seg" data-d="captions"><button>off</button><button>phrases</button><button>word by word</button></span><span class="why"></span></div>
+
+  <div class="preview">
+    <div class="ph"><p class="label" style="margin:0">Preview of the b-roll plan</p><span class="stat" id="stat"></span></div>
+    <div class="tl" id="tl"><div class="ruler" id="ruler"></div><div class="grid"></div>
+      <div class="ll">Added by Kinotta</div><div class="lane" id="added"></div>
+      <div class="ll">Your video</div><div class="lane"><div class="clip" style="left:0;width:100%;background:var(--k-talk)">you talking</div></div>
+    </div>
+    <div class="frames" id="frames"></div>
+    <p class="note">The real result is built by the agent and will differ; this shows the target it is given. Your notes can still override it ("hold the lab shot longer").</p>
+  </div>
+  <div class="make"><button>Make</button></div>
+</div>
+</div>
+<script>
+const T=58;
+const TYPES=[['decide','Let Kinotta decide','Guesses from the video',null],['explainer','Explainer','Cutaways over jump cuts',['medium','normal','phrases']],
+ ['interview','Interview','Visuals on visual topics',['light','calm','phrases']],['tutorial','Tutorial','Zooms inside the screen',['light','calm','phrases']],
+ ['demo','Product demo','Pitch in the first 3 s',['medium','normal','phrases']],['short','Short','Hook in 3 s, fast',['heavy','fast','word by word']],
+ ['lecture','Lecture','Slides between talking',['medium','calm','phrases']],['vlog','Vlog','Sparse, authentic',['light','calm','off']]];
+const COVER={light:.2,medium:.38,heavy:.6}, SHOT={calm:5.5,normal:3,fast:1.4};
+const WHY={broll:{light:'about 20% of the reel covered',medium:'about 40% covered',heavy:'about 60% covered'},
+ pace:{calm:'shots hold ~5–6 s, few cuts',normal:'shots hold ~3 s',fast:'shots flash ~1–2 s, rapid cuts'}};
+const state={type:'short',broll:'heavy',pace:'fast',captions:'word by word'}, mine=new Set();
+const kinds=[[160,'photo'],[75,'graphic'],[330,'title'],[200,'clip']];
+const pct=x=>x/T*100+'%';
+const r=document.getElementById('ruler');for(let s=0;s<=T;s++){const t=document.createElement('div');t.className='tick'+(s%5?'':' major');t.style.left=pct(s);if(!(s%5))t.innerHTML=`<span class="num">0:${String(s).padStart(2,'0')}</span>`;r.appendChild(t)}
+function renderTypes(){document.getElementById('types').innerHTML=TYPES.map(([k,n,d])=>`<div class="type${state.type==k?' on':''}" data-k="${k}"><b>${state.type==k?'✓ ':''}${n}</b>${d}</div>`).join('');
+ document.querySelectorAll('.type').forEach(el=>el.onclick=()=>{state.type=el.dataset.k;const def=TYPES.find(t=>t[0]==state.type)[3]||['medium','normal','phrases'];
+  ['broll','pace','captions'].forEach((d,i)=>{if(!mine.has(d))state[d]=def[i]});render()})}
+function plan(){const shot=SHOT[state.pace],cover=COVER[state.broll]*T,n=Math.max(1,Math.round(cover/shot));
+ const out=[],slots=n,gap=(T-cover)/(slots+1);let x=gap*0.6+1;for(let i=0;i<n;i++){out.push([x,shot]);x+=shot+gap*(i%2?1.3:0.7)}return out.filter(([s,l])=>s+l<=T)}
+function render(){renderTypes();
+ document.querySelectorAll('.seg').forEach(seg=>{const d=seg.dataset.d;seg.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.textContent==state[d]);b.classList.toggle('mine',mine.has(d)&&b.textContent==state[d]);
+  b.onclick=()=>{state[d]=b.textContent;mine.add(d);render()}})});
+ document.getElementById('w-broll').textContent=WHY.broll[state.broll]+(mine.has('broll')?' · yours':'');
+ document.getElementById('w-pace').textContent=WHY.pace[state.pace]+(mine.has('pace')?' · yours':'');
+ const p=plan();document.getElementById('added').innerHTML=p.map(([s,l],i)=>{const[h,k]=kinds[i%4];return`<div class="clip" style="left:${pct(s)};width:${pct(l)};background:oklch(.36 .07 ${h});border:1px solid oklch(.7 .1 ${h})">${l>2.5?k:''}</div>`}).join('');
+ document.getElementById('stat').innerHTML=`<span class="num">${p.length}</span> cutaways · each about <span class="num">${SHOT[state.pace]}</span> s · <span class="num">${Math.round(p.reduce((a,[,l])=>a+l,0)/T*100)}</span>% covered`;
+ document.getElementById('frames').innerHTML=p.slice(0,6).map(([s],i)=>{const[h,k]=kinds[i%4];return`<div class="frame"><i style="background:linear-gradient(160deg,oklch(.58 .1 ${h}),oklch(.26 .04 ${h+40}))"></i><span class="num">0:${String(Math.round(s)).padStart(2,'0')} ${k}</span></div>`}).join('')}
+render();
+</script></body></html>

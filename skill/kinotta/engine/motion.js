@@ -4,8 +4,17 @@
 const M = window.M = {};
 const clamp = M.clamp = (x,a=0,b=1)=>Math.min(b,Math.max(a,x));
 M.lerp = (a,b,u)=>a+(b-a)*u;
-const eo = M.eo = x=>{x=clamp(x);return 1-Math.pow(1-x,3)};
-const eio = M.eio = x=>{x=clamp(x);return x*x*x*(x*(6*x-15)+10)};
+// B1 defaults: docs/research/2026-10-20-engine-defaults.md. Brand curves override these functions.
+M.bezier = (x1,y1,x2,y2)=>p=>{
+  p=clamp(p);if(p===0||p===1)return p;
+  const f=(a,b,u)=>3*a*u*(1-u)*(1-u)+3*b*u*u*(1-u)+u*u*u;
+  let lo=0,hi=1,u=p;
+  for(let i=0;i<40;i++){u=(lo+hi)/2;if(f(x1,x2,u)<p)lo=u;else hi=u;}
+  return f(y1,y2,u);
+};
+M.curves={rise:M.bezier(.16,1,.3,1),state:M.bezier(.65,0,.35,1),sink:M.bezier(.5,0,.75,0)};
+const eo = M.eo = x=>M.curves.rise(clamp(x));
+const eio = M.eio = x=>M.curves.state(clamp(x));
 
 // closed-form spring step response 0 -> 1 (zero initial velocity)
 const S = M.S = (tau,w,z)=>{
@@ -14,18 +23,20 @@ const S = M.S = (tau,w,z)=>{
   if(z<1){const wd=w*Math.sqrt(1-z*z);return 1-Math.exp(-z*w*tau)*(Math.cos(wd*tau)+z*w/wd*Math.sin(wd*tau));}
   return 1-Math.exp(-w*tau)*(1+w*tau);
 };
-M.MORPH=[15,0.84]; M.FAST=[27,0.86]; M.SLOW=[12.5,0.9]; M.SOFT=[10,0.95]; M.CAM=[7.5,1]; M.INSTANT=[Infinity,1];
+const statePreset=duration=>t=>M.curves.state(clamp(t/duration));
+M.MORPH=statePreset(.267); M.FAST=statePreset(.233); M.SLOW=statePreset(.5); M.SOFT=statePreset(.5); M.CAM=statePreset(.5); M.INSTANT=[Infinity,1];
 
-// a value that changes target many times = the sum of one spring per change.
+// A value that changes target many times = the sum of one response per change.
 // period>0 and a closed loop adds the previous cycle's residue so t=period == t=0.
 M.track = (v0,keys,def=M.MORPH,period=0)=>{
   let prev=v0; const ks=[];
-  for(const k of keys){const d=k[1]-prev; prev=k[1]; const sp=k[2]||def; if(d!==0) ks.push([k[0],d,sp[0],sp[1]]);}
+  for(const k of keys){const d=k[1]-prev; prev=k[1]; const sp=k[2]||def; if(d!==0) ks.push([k[0],d,sp]);}
   const loop = period>0 && Math.abs(prev-v0)<1e-9;
-  return t=>{let v=v0; for(const k of ks){v+=k[1]*S(t-k[0],k[2],k[3]); if(loop) v+=k[1]*(S(t+period-k[0],k[2],k[3])-1);} return v;};
+  const response=(t,sp)=>typeof sp==='function'?sp(t):S(t,sp[0],sp[1]);
+  return t=>{let v=v0; for(const k of ks){v+=k[1]*response(t-k[0],k[2]); if(loop) v+=k[1]*(response(t+period-k[0],k[2])-1);} return v;};
 };
 const hex = M.hex = h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
-M.ctrack = (h0,keys,def=[20,1],period=0)=>{
+M.ctrack = (h0,keys,def=M.MORPH,period=0)=>{
   const c0=hex(h0); const tr=[0,1,2].map(i=>M.track(c0[i],keys.map(k=>[k[0],hex(k[1])[i],k[2]]),def,period));
   return t=>`rgb(${tr.map(f=>Math.round(clamp(f(t),0,255))).join(',')})`;
 };
@@ -34,16 +45,16 @@ M.step = (v0,keys)=>t=>{let v=v0; for(const k of keys) if(t>=k[0]) v=k[1]; retur
 
 // content swap: exit blurs out fast; enter waits, then blurs in (own timings -> no overlap)
 M.vis = (t,tin,tout,o={})=>{
-  const din=o.din??0.07, lin=o.lin??0.26, lout=o.lout??0.12, bl=o.blur??12;
+  const din=o.din??0, lin=o.lin??0.5, lout=o.lout??0.333, bl=o.blur??20;
   const a = tin==null?1:eo((t-tin-din)/lin);
-  const b = tout==null?0:eo((t-tout)/lout);
-  return {o:a*(1-b), blur:(1-a)*bl+b*bl*0.8, s:(0.94+0.06*a)*(1-0.03*b), a, b};
+  const b = tout==null?0:M.curves.sink(clamp((t-tout)/lout));
+  return {o:a*(1-b), blur:(1-a)*bl+b*12, s:1.07-0.07*a, y:26*(1-a)-14*b, a, b};
 };
 M.apply = (el,v,extra='')=>{
   if(v.o<0.002){el.style.display='none';return false;}
   el.style.display=''; el.style.opacity=v.o.toFixed(4);
   el.style.filter=v.blur>0.05?`blur(${v.blur.toFixed(2)}px)`:'none';
-  el.style.transform=`scale(${v.s.toFixed(4)})${extra}`;
+  el.style.transform=`translateY(${(v.y||0).toFixed(2)}px) scale(${v.s.toFixed(4)})${extra}`;
   return true;
 };
 M.setText = (el,s)=>{ if(el._t!==s){ el.textContent=s; el._t=s; } };
@@ -100,7 +111,7 @@ M.scene = (cfg)=>{
   const sp=cfg.spring||M.MORPH;
   const tr=k=>M.track(P0[k],SEQ.map(([t,n])=>[t,cfg.SH[n][k]]),sp);
   const shW=tr('w'), shH=tr('h'), shR=tr('r');
-  const shBG=M.ctrack(P0.bg,SEQ.map(([t,n])=>[t,cfg.SH[n].bg]),[20,1]);
+  const shBG=M.ctrack(P0.bg,SEQ.map(([t,n])=>[t,cfg.SH[n].bg]));
   const cam=M.track(P0.cam,SEQ.map(([t,n])=>[t,cfg.SH[n].cam]),cfg.camSpring||M.CAM);
   const press=M.track(0,(cfg.shapePress||[]).flatMap(c=>[[c-0.07,1,[45,1]],[c+0.035,0,[22,.72]]]));
   const intro=cfg.intro===undefined?0.02:cfg.intro;
@@ -109,7 +120,8 @@ M.scene = (cfg)=>{
   const layers=(cfg.layers||[]).map(L=>({...L,node:$(L.el)}));
   const seek=(t)=>{
     let g={t, w:shW(t), h:shH(t), r:shR(t), bg:shBG(t), s:cam(t), cx:0, cy:0, fx:0, fy:0, sc:1-0.035*press(t), op:1};
-    if(intro!=null){const a=S(t-intro,13,0.78); g.sc*=0.55+0.45*a; g.op=clamp((t-intro)/0.12);}
+    const entrance=intro==null?{o:1,s:1,y:0,blur:0}:M.vis(t,intro,null);
+    g.sc*=entrance.s; g.op=entrance.o;
     g.cursor=cpath?cpath(t):null;
     if(cfg.geom) g=cfg.geom(t,g)||g;
     g.r=Math.min(g.r,g.h/2,g.w/2);
@@ -117,7 +129,8 @@ M.scene = (cfg)=>{
     const st=shape.style;
     st.left=(g.cx-g.w/2).toFixed(3)+'px'; st.top=(g.cy-g.h/2).toFixed(3)+'px';
     st.width=g.w.toFixed(3)+'px'; st.height=g.h.toFixed(3)+'px'; st.borderRadius=g.r.toFixed(3)+'px';
-    st.background=g.bg; st.transform=`scale(${g.sc.toFixed(5)})`; st.opacity=g.op.toFixed(4);
+    st.background=g.bg; st.transform=`translateY(${entrance.y.toFixed(2)}px) scale(${g.sc.toFixed(5)})`; st.opacity=g.op.toFixed(4);
+    st.filter=entrance.blur>0.05?`blur(${entrance.blur.toFixed(2)}px)`:'none';
     for(const L of layers){
       const v=M.vis(t,L.tin,L.tout,L.o||{});
       if(M.apply(L.node,v)){

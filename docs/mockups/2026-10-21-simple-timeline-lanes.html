@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simple timeline</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@800&display=swap">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);--grid:oklch(.945 .004 106 / .07);
+  --light:oklch(.84 .11 225);--light-wash:oklch(.84 .11 225 / .12);--k-talk:oklch(.42 .02 106);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.45 Outfit,system-ui,sans-serif;padding:32px 24px 64px}
+h1{font-size:22px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 24px;max-width:80ch}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+section.opt{border:1px solid var(--hairline);background:var(--ground-deep);padding:20px 20px 28px}
+.player{display:flex;gap:16px;align-items:center;margin-bottom:14px;color:var(--ink-2);font-size:12px}
+.player .play{width:30px;height:30px;border:1px solid var(--hairline);display:grid;place-items:center}
+.tl{position:relative;padding-top:26px}
+.ruler{position:absolute;top:0;left:0;right:0;height:22px;border-bottom:1px solid var(--rule)}
+.tick{position:absolute;bottom:0;width:1px;background:var(--hairline);height:5px}
+.tick.major{height:10px;background:var(--ink-2)}
+.tick span{position:absolute;bottom:12px;left:3px;font-size:10px;color:var(--muted);white-space:nowrap}
+.gridlines{position:absolute;top:22px;bottom:0;left:0;right:0;pointer-events:none;background-image:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px calc(100%/58))}
+.gridlines.major{background-image:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px calc(100%*5/58))}
+.lane{position:relative}
+.lane-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px;display:flex;gap:10px}
+.lane-label em{font-style:normal;text-transform:none;letter-spacing:0;color:var(--ink-2)}
+.clip{position:absolute;top:0;bottom:0;overflow:hidden;border-radius:3px;border:1px solid oklch(0 0 0 / .4);display:flex;align-items:stretch;font-size:12px}
+.clip .lbl{padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
+.thumb{flex:0 0 auto;aspect-ratio:9/16;height:100%}
+.cap{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--card-raised);border:1px solid var(--hairline);font-size:12px;padding:0 8px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2);cursor:text}
+.cap:hover{border-color:var(--ink-2)}
+.cap.open{background:var(--light-wash);border-color:var(--light);color:var(--ink);overflow:visible;z-index:4;padding:0 4px;gap:3px}
+.w{position:relative;padding:3px 6px;border-radius:2px;background:var(--card);border:1px solid var(--rule)}
+.w::before,.w::after{content:"";position:absolute;top:3px;bottom:3px;width:3px;background:var(--light);opacity:.0;cursor:ew-resize}
+.w::before{left:-2px}.w::after{right:-2px}
+.w.edit{background:var(--ground);border-color:var(--light);color:var(--ink);outline:2px solid var(--light-wash)}
+.w.edit::before,.w.edit::after{opacity:1}
+.w.edit .caret{display:inline-block;width:1px;height:13px;background:var(--light);vertical-align:-2px;margin-left:1px;animation:b 1s steps(1) infinite}
+@keyframes b{50%{opacity:0}}
+.w.fixed{border-color:oklch(.7 .12 75);color:oklch(.85 .1 75)}
+.playhead{position:absolute;top:0;bottom:-6px;width:2px;background:var(--light);pointer-events:none;z-index:5}
+.playhead::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top-color:var(--light)}
+.pin{position:absolute;top:-2px;transform:translateX(-50%);width:22px;height:22px;background:var(--light);color:var(--ground);display:grid;place-items:center;font-size:11px;z-index:6;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.cut{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--light);opacity:.7}
+.cut b{position:absolute;top:-16px;left:-5px;font-size:10px;color:var(--light)}
+.hint{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;font-size:12px;color:var(--ink-2)}
+.hint div{border:1px solid var(--rule);padding:10px 12px;background:var(--card)}
+.hint strong{display:block;color:var(--ink);margin-bottom:2px;font-weight:500}
+kbd{font:inherit;border:1px solid var(--hairline);padding:0 4px;border-radius:2px}
+</style></head>
+<body>
+<h1>Simple timeline: two lanes plus editable captions</h1>
+<p class="sub">Option B, with a captions lane between what Kinotta added and your video. It uses the editor's existing caption model: click a phrase to open its words, click a word to fix its text, and drag a word's edges to retime it.</p>
+
+<section class="opt">
+<div class="player"><span class="play">&#9654;</span><span class="num">0:21</span> / <span class="num">0:58</span></div>
+<div class="tl" id="tl"></div>
+<div class="hint">
+  <div><strong>Fix a word</strong>Click a phrase, then a word. Type, <kbd>Enter</kbd> to keep, <kbd>Esc</kbd> to cancel. Fixed words show amber.</div>
+  <div><strong>Retime</strong>Drag a word's left or right edge. It snaps to the 1 s grid and to cut points.</div>
+  <div><strong>Pin instead</strong>Not sure how to fix it? Click the lane anywhere else to leave a note for Regenerate.</div>
+</div>
+</section>
+
+<script>
+const T=58,NOW=21,pins=[[9,1],[33,2]],cuts=[14.5,27,44];
+const added=[{s:0,e:6,h:330,t:'Hook: "Nobody tells you this"'},{s:14.5,e:20,h:160,t:'Campus photo'},{s:20,e:27,h:75,t:'Chip tally: credentials'},{s:38,e:44,h:160,t:'Lab footage'},{s:53,e:58,h:330,t:'Outro card'}];
+const phrases=[[0.4,3.2,'Nobody tells you this'],[3.6,6,'about PhDs'],[6.4,10.5,'So I spent six years'],[10.8,14,'at Stanford'],[14.8,18.6,'and honestly'],
+ [19.6,24.6,null],[25,26.8,'it was fine'],[27.4,31,'Here is what'],[31.3,35,'actually went wrong'],[35.4,38,'nobody warned me'],[38.4,43.5,'late nights in the lab'],
+ [44.3,48,'If I did it again'],[48.3,52.6,'I would start earlier'],[53,57.5,'follow for part 2']];
+const pct=x=>x/T*100+'%';
+const bg=h=>`linear-gradient(160deg,oklch(.55 .09 ${h}),oklch(.28 .04 ${h+40}))`;
+const el=document.getElementById('tl');
+const r=document.createElement('div');r.className='ruler';
+for(let s=0;s<=T;s++){const t=document.createElement('div');t.className='tick'+(s%5==0?' major':'');t.style.left=pct(s);if(s%5==0)t.innerHTML=`<span class="num">0:${String(s).padStart(2,'0')}</span>`;r.appendChild(t)}
+el.appendChild(r);el.insertAdjacentHTML('beforeend','<div class="gridlines"></div><div class="gridlines major"></div>');
+function lane(h,label){el.insertAdjacentHTML('beforeend',`<div class="lane-label">${label}</div>`);const l=document.createElement('div');l.className='lane';l.style.height=h+'px';el.appendChild(l);return l}
+
+const addedLane=lane(40,'Added by Kinotta');
+added.forEach(c=>addedLane.insertAdjacentHTML('beforeend',`<div class="clip" style="left:${pct(c.s)};width:${pct(c.e-c.s)};background:oklch(.32 .06 ${c.h});border-color:oklch(.7 .1 ${c.h});color:var(--ink)"><div class="thumb" style="background:${bg(c.h)}"></div><div class="lbl">${c.t}</div></div>`));
+
+const caps=lane(34,'Captions <em>click to edit</em>');
+phrases.forEach(([s,e,t])=>{
+  if(t===null){ // the opened phrase, mid-edit
+    caps.insertAdjacentHTML('beforeend',`<div class="cap open" style="left:${pct(s)};min-width:${pct(e-s)}">
+      <span class="w">PhD,</span><span class="w edit">Stanford<span class="caret"></span></span><span class="w fixed">Ex-Google</span><span class="w">three</span><span class="w">papers</span></div>`);
+  } else caps.insertAdjacentHTML('beforeend',`<div class="cap" style="left:${pct(s)};width:${pct(e-s)}" title="${t}">${t}</div>`);
+});
+
+const bot=lane(48,'Your video');
+[[0,14.5],[14.5,27],[27,44],[44,58]].forEach(([s,e])=>bot.insertAdjacentHTML('beforeend',`<div class="clip" style="left:${pct(s)};width:${pct(e-s)};background:var(--k-talk)">${Array.from({length:Math.round((e-s)/5)},()=>`<div class="thumb" style="background:${bg(106)}"></div>`).join('')}</div>`));
+cuts.forEach(s=>bot.insertAdjacentHTML('beforeend',`<div class="cut" style="left:${pct(s)}"><b>&#9986;</b></div>`));
+pins.forEach(([s,n])=>bot.insertAdjacentHTML('beforeend',`<div class="pin num" style="left:${pct(s)}">${n}</div>`));
+el.insertAdjacentHTML('beforeend',`<div class="playhead" style="left:${pct(NOW)};top:22px"></div>`);
+</script>
+</body></html>

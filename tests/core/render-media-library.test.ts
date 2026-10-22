@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -32,7 +33,7 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     page.on('request', (request) => { if (/\/(overload|waveform)(?:\?|$)/.test(request.url())) analyses.add(request); });
     page.on('requestfinished', (request) => analyses.delete(request));
     page.on('requestfailed', (request) => analyses.delete(request));
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
@@ -113,7 +114,7 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     // Close the player requests before simulating an externally moved file on Windows.
     await page.goto('about:blank');
     await expect.poll(() => { try { renameSync(join(dir, 'tone.wav'), join(dir, 'moved.wav')); return true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EBUSY') return false; throw error; } }, { timeout: 5_000 }).toBe(true);
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();

@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // These tests save comments, so they run against their own server on the footage sample project
 // (playwright.config.ts) and in order.

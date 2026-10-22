@@ -5,7 +5,6 @@ import type { ProjectEvent } from './types.ts';
 
 const STATE_DIR = '.kinotta';
 const SHOTS_FILE = 'shots.json';
-const APPROVAL_FILE = 'approval.json';
 const VERSION_DIR = /^v(\d+)$/;
 const TEMP_FILE = /\.tmp$/;
 const DEBOUNCE_MS = 150;
@@ -21,8 +20,6 @@ interface Snapshot {
   versions: Set<string>;
   /** `<reel>/<n>` to the state file's mtime and size. */
   states: Map<string, string>;
-  /** `<reel>/<n>` of every version folder with an approval.json. */
-  approvals: Set<string>;
 }
 
 function subdirs(dir: string): string[] {
@@ -36,13 +33,12 @@ function subdirs(dir: string): string[] {
 }
 
 function takeSnapshot(reelsDir: string): Snapshot {
-  const snapshot: Snapshot = { reels: new Set(), versions: new Set(), states: new Map(), approvals: new Set() };
+  const snapshot: Snapshot = { reels: new Set(), versions: new Set(), states: new Map() };
   for (const reel of subdirs(reelsDir)) {
     snapshot.reels.add(reel);
     for (const name of subdirs(join(reelsDir, reel))) {
       const match = VERSION_DIR.exec(name);
       if (match && existsSync(join(reelsDir, reel, name, SHOTS_FILE))) snapshot.versions.add(`${reel}/${match[1]}`);
-      if (match && existsSync(join(reelsDir, reel, name, APPROVAL_FILE))) snapshot.approvals.add(`${reel}/${match[1]}`);
     }
   }
   const stateRoot = join(reelsDir, STATE_DIR);
@@ -76,12 +72,6 @@ function diff(before: Snapshot, after: Snapshot): ProjectEvent[] {
   }
   for (const [key, stamp] of after.states) {
     if (before.states.get(key) !== stamp) events.push({ type: 'comments-changed', ...splitKey(key) });
-  }
-  for (const key of after.approvals) {
-    if (!before.approvals.has(key)) events.push({ type: 'approval-changed', ...splitKey(key), approved: true });
-  }
-  for (const key of before.approvals) {
-    if (!after.approvals.has(key)) events.push({ type: 'approval-changed', ...splitKey(key), approved: false });
   }
   return events;
 }

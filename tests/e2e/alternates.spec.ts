@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 import { startServer } from '../../server/main.ts';
 import { alternatesFixture } from '../helpers/parts.ts';
 import { copyFixture } from '../helpers/project.ts';
@@ -7,10 +7,45 @@ import { cardInvariants } from '../../web/src/Storyboard.verify.ts';
 import { topBarInvariants } from '../../web/src/App.verify.ts';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Locator } from '@playwright/test';
+import type { Locator } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 
 const verify = (root: Locator, rules: Array<{ check(root: Element): boolean }>) => root.evaluate((element, checks) => checks.map((source) => new Function('return (' + source + ')')()(element)), rules.map((rule) => rule.check.toString()));
+
+test('a pin reveal selects its alternate in an open sheet, including repeated reveals and another shot', async ({ page }) => {
+  const { dir } = alternatesFixture(false, true);
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts');
+    for (const [shot, text] of [['02', 'Proof B'], ['01', 'Hook B']] as const) {
+      await server.project.addComment('parts', 1, { pin: { shot, alternate: 'r2', x: 0.5, y: 0.5, element: 'label' }, text });
+    }
+    const before = (await server.project.readWorkingVersion('parts')).workingParts;
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    await page.locator('.grid').getByRole('button', { name: /^Shot 02,/ }).click();
+    const dialog = page.getByRole('dialog');
+    const proofPin = page.getByRole('button', { name: /^Open comment \d+ on shot 02,/ });
+    // Deliver the comments panel's reveal while the existing sheet covers that panel.
+    await proofPin.dispatchEvent('click');
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Proof B']);
+    await dialog.getByRole('button', { name: 'View alternate A', exact: true }).click();
+    await proofPin.dispatchEvent('click');
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true').catch(async (error) => {
+      mkdirSync('tests/artifacts/review-f3-f6', { recursive: true });
+      await page.screenshot({ path: 'tests/artifacts/review-f3-f6/f6-before.png' });
+      throw error;
+    });
+    await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Proof B']);
+    await page.getByRole('button', { name: /^Open comment \d+ on shot 01,/ }).dispatchEvent('click');
+    await expect(dialog.getByRole('button', { name: 'View alternate B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.frameLocator('.sheet .well iframe').locator('[data-scene="hook"]')).toHaveAttribute('data-revision', 'r2');
+    await expect(dialog.locator('.well .pintext')).toHaveText(['Hook B']);
+    expect((await server.project.readWorkingVersion('parts')).workingParts).toEqual(before);
+  } finally { await server.close(); }
+});
 
 for (const opening of ['A', 'C']) {
   test(`the shot sheet keeps B visible after Use when opened on ${opening}`, async ({ page }) => {
@@ -57,6 +92,9 @@ test('Use updates the alternate played in Review while frozen history retains it
     const graphics = page.frameLocator('.rv-page iframe');
     await expect(graphics.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
     await expect(graphics.locator('[data-scene="close"]')).toHaveAttribute('data-start', '3');
+    await expect(page.locator('[data-graphic="proof"]')).toContainText('Proof 2');
+    // Stills load only on screen.
+    await page.locator('[data-graphic="proof"]').scrollIntoViewIfNeeded();
     const shotStill = page.frameLocator('[data-graphic="proof"] .native-shot-still iframe');
     await expect(shotStill.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
     const scrubber = page.getByRole('slider', { name: 'Scrub reel' });
@@ -70,9 +108,7 @@ test('Use updates the alternate played in Review while frozen history retains it
     await expect(page.getByRole('separator', { name: 'Picture and tracks' })).toBeVisible();
 
     await revealReelRail(page);
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1 Built/ }).click();
-    await expect(graphics.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r1');
-    await page.getByRole('button', { name: 'Back to Working', exact: true }).click();
+    expect((await server.project.readVersion('parts', 1)).shots[1].revision).toBe('r1');
     await expect(graphics.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
     await server.project.undoEdit('parts');
     await expect(graphics.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r1');
@@ -446,12 +482,8 @@ test('card Use chooses alternate in the reel with undo, and Not this dismisses w
     await expect(card).toHaveAttribute('data-verify-shown', 'r1');
     await expect(openBtn).toBeFocused();
 
-    // Both Use and Not this are absent when viewing frozen v1
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ }).click();
-    await expect(page.locator('.main .readonly-note')).toBeVisible();
-    const frozenCard = page.locator('.grid .shot.has-alternates');
-    await expect(frozenCard.getByRole('button', { name: /Use alternate/ })).toHaveCount(0);
-    await expect(frozenCard.getByRole('button', { name: /Not this alternate/ })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Versions', exact: true })).toHaveCount(0);
+    expect((await server.project.readVersion('parts', 1)).shots.find((shot) => shot.name === 'proof')?.revision).toBe('r1');
   } finally {
     await server.close();
   }

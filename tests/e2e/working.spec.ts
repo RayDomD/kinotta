@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -9,7 +9,7 @@ import { invariants as reviewChecks } from '../../web/src/review/_internal/Revie
 import { invariants as renderChecks } from '../../web/src/Renders.verify.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 
-test('Working is distinct from frozen history, survives reopen, and shows author names and working render choices', async ({ page }) => {
+test('Current survives reopen, preserves author names and supports Undo and Redo', async ({ page }) => {
   const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
   try {
     const reel = 'product-showreel';
@@ -18,11 +18,11 @@ test('Working is distinct from frozen history, survives reopen, and shows author
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
     await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
     await revealReelRail(page);
-    const versions = page.getByRole('navigation', { name: 'Versions' });
+    const versions = page.getByRole('navigation', { name: 'Current reel', exact: true });
     for (const check of railChecks) expect(await versions.evaluate(check.check), check.description).toBe(true);
     for (const check of renderChecks) expect(await page.locator('[data-verify-unit="VersionActions"]').evaluate(check.check), check.description).toBe(true);
-    await expect(versions.getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
-    await expect(versions.getByRole('button', { name: /^Working/ })).toContainText('1 edit since v2');
+    await expect(versions.getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
+    await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('1 edit');
     await expect(page.getByRole('button', { name: /^Save|^Discard/ })).toHaveCount(0);
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Codex');
@@ -32,37 +32,24 @@ test('Working is distinct from frozen history, survives reopen, and shows author
     await expect(render.getByText('Final, freezes as v3', { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await server.project.addOperation(reel, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 20, y: 0, scale: 1, by: 'Claude' });
-    await expect(versions.getByRole('button', { name: /^Working/ })).toContainText('2 edits since v2');
+    await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('2 edits');
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Claude');
-    await versions.getByRole('button', { name: /^v2/ }).click();
-    await expect(page.getByText('You are viewing v2, a frozen version.', { exact: true })).toBeVisible();
-    const review = page.locator('[data-verify-unit="Review"]');
-    for (const check of reviewChecks) expect(await review.evaluate(check.check), check.description).toBe(true);
-    await review.evaluate((root) => { const invalid = document.createElement('span'); invalid.dataset.verifyEditable = 'true'; invalid.id = 'invalid-editing-fixture'; root.append(invalid); });
-    expect(await review.evaluate(reviewChecks[3].check)).toBe(false);
-    await review.locator('#invalid-editing-fixture').evaluate((root) => root.remove());
-    await versions.getByRole('button', { name: /^Working/ }).evaluate((root) => root.setAttribute('aria-current', 'true'));
-    expect(await versions.evaluate(railChecks[1].check)).toBe(false);
-    await versions.getByRole('button', { name: /^Working/ }).evaluate((root) => root.removeAttribute('aria-current'));
-    const actions = page.locator('[data-verify-unit="VersionActions"]');
-    await actions.evaluate((root) => { root.setAttribute('data-verify-working', 'true'); const invalid = document.createElement('span'); invalid.className = 'pk-base'; root.append(invalid); });
-    expect(await actions.evaluate(renderChecks[2].check)).toBe(false);
-    await actions.locator('.pk-base').evaluate((root) => root.remove());
-    await actions.evaluate((root) => root.setAttribute('data-verify-working', 'false'));
-    mkdirSync(resolve('tests/artifacts/working'), { recursive: true });
-    await page.screenshot({ path: resolve('tests/artifacts/working/frozen-desktop.png'), fullPage: true });
-    for (const button of await page.getByRole('list', { name: 'Edits' }).getByRole('button', { name: /Remove/ }).all()) await expect(button).toBeDisabled();
-    await page.getByRole('button', { name: 'Back to Working' }).click();
+    expect((await server.project.readVersion(reel, 2)).number).toBe(2);
+    await expect(page.getByRole('navigation', { name: 'Versions', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: /^Undo Ctrl/ }).click();
+    await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('1 edit');
+    await page.getByRole('button', { name: /^Redo Ctrl/ }).click();
+    await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('2 edits');
     await page.reload();
     await revealReelRail(page);
-    await expect(versions.getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
+    await expect(versions.getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Codex');
     await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
     await expect(page.frameLocator('iframe[title="Authored graphics"]').locator('[data-scene="cube-lands"] [data-el="cube"]')).toBeVisible();
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       if (width <= 900) {
-        const row = await versions.getByRole('button', { name: /^Working/ }).boundingBox();
+        const row = await versions.getByRole('button', { name: /^Current/ }).boundingBox();
         const rail = await page.getByRole('complementary', { name: 'Project' }).boundingBox();
         expect(row!.y + row!.height).toBeLessThanOrEqual(rail!.y + rail!.height);
         await expect.poll(async () => {
@@ -78,7 +65,7 @@ test('Working is distinct from frozen history, survives reopen, and shows author
   } finally { await server.close(); }
 });
 
-test('a frozen native mix opens with exact captured inputs and no working operations applied again', async ({ page }) => {
+test('a native mix reopens Current with exact captured inputs and no operations applied again', async ({ page }) => {
   const dir = copyFixture('showreel-project');
   const file = join(dir, 'sound.wav');
   const made = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.4', file], { encoding: 'utf8' });
@@ -92,11 +79,11 @@ test('a frozen native mix opens with exact captured inputs and no working operat
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
     await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
     await revealReelRail(page);
-    await page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v3/ }).click();
+    await expect(page.locator('[data-current-version="3"]')).toBeVisible();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
     await expect(editor).toBeVisible();
     await expect(editor).toHaveAttribute('data-verify-count', '1');
-    await expect(page.getByText('You are viewing v3, a frozen version.', { exact: true })).toBeVisible();
-    await expect(page.getByRole('main', { name: 'Review' }).getByRole('button', { name: 'Snip', exact: true })).toBeDisabled();
+    expect((await server.project.readVersion('product-showreel', 3)).media!.placements).toHaveLength(1);
+    await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeVisible();
   } finally { await server.close(); }
 });

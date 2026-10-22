@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
-import { openProject, type Project, type Transcriber } from './core/index.ts';
+import { openProject, type Project, type ProjectOptions, type Transcriber } from './core/index.ts';
 import { createHandler } from './http/index.ts';
 import { removePortFile, writePortFile } from './port-file.ts';
 
@@ -10,6 +10,8 @@ const WEB_ROOT = resolve(import.meta.dirname, '../dist/web');
 export interface StartOptions {
   projectDir: string;
   port?: number;
+  /** Local test seam; never accepted over HTTP. */
+  agent?: ProjectOptions['agent'];
   /** Replaces the audio transcription when a reel starts; the e2e server passes a fake. */
   transcriber?: Transcriber;
 }
@@ -25,7 +27,7 @@ export interface RunningServer {
 function listen(server: ReturnType<typeof createServer>, port: number): Promise<void> {
   return new Promise((resolvePromise, reject) => {
     server.once('error', reject);
-    server.listen(port, () => {
+    server.listen(port, '127.0.0.1', () => {
       server.off('error', reject);
       resolvePromise();
     });
@@ -36,9 +38,10 @@ function listen(server: ReturnType<typeof createServer>, port: number): Promise<
  * Serves the project's reels. Falls back to a free port when the requested one is taken. While it runs, the project's port
  * file names it (R12), so `kinotta render` joins its queue; closing or exiting removes the file.
  */
-export async function startServer({ projectDir, port = DEFAULT_PORT, transcriber }: StartOptions): Promise<RunningServer> {
-  const project = openProject(projectDir, { transcriber });
-  const server = createServer(createHandler(project, WEB_ROOT));
+export async function startServer({ projectDir, port = DEFAULT_PORT, transcriber, agent }: StartOptions): Promise<RunningServer> {
+  const project = openProject(projectDir, { transcriber, agent });
+  // Let the handler return the same 403 for a missing Host as for any other disallowed Host.
+  const server = createServer({ requireHostHeader: false }, createHandler(project, WEB_ROOT));
   try {
     await listen(server, port);
   } catch (err) {
@@ -54,13 +57,15 @@ export async function startServer({ projectDir, port = DEFAULT_PORT, transcriber
     url: `http://localhost:${bound}`,
     port: bound,
     project,
-    close: () =>
-      new Promise((done) => {
+    close: async () => {
+      await project.close();
+      return new Promise((done) => {
         process.off('exit', removeOnExit);
         removePortFile(projectDir, entry);
         server.close(() => done());
         // Event streams stay open until the browser leaves; closing must not wait for them.
         server.closeAllConnections();
-      }),
+      });
+    },
   };
 }

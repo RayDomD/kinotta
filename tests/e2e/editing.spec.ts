@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Edits, deletes and notes change what the server holds, so this has its own server and temp project
 // (playwright.config.ts) and runs in order: each test builds on the comments the ones before it left.
@@ -136,7 +136,7 @@ test('Undo restores a deleted comment with its pin and its natural number', asyn
   await expect(page.locator('.undo')).toContainText('Comment 1 deleted');
   await expect(cards(page)).toHaveCount(1);
 
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: 'Undo' }).click();
 
   await expect(cards(page)).toHaveCount(2);
   await expect(cards(page).first().locator('.dot')).toHaveText('1');

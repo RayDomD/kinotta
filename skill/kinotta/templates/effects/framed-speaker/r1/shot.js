@@ -1,8 +1,8 @@
 const clamp = (v) => Math.max(0, Math.min(1, v));
 const span = (t, at, dur) => clamp((t - at) / dur);
-const outExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
-const outQuart = (x) => 1 - Math.pow(1 - x, 4);
-const inQuad = (x) => x * x;
+const outExpo = (x) => globalThis.M?.curves?.rise?.(x) ?? (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const outQuart = (x) => globalThis.M?.curves?.state?.(x) ?? (1 - Math.pow(1 - x, 4));
+const inQuad = (x) => globalThis.M?.curves?.sink?.(x) ?? (x * x);
 const exitAt = (local, root, len = 0.2) => 1 - inQuad(span(local, (Number(root.dataset.duration) || 1e9) - len, len));
 const syncVideos = (root, local) => Promise.all([...root.querySelectorAll('video')].map((video) => new Promise((done) => {
   video.pause();
@@ -37,8 +37,8 @@ export function seek(local) {
   const out = exitAt(local, root);
   const at = Number(root.dataset.frameAt || 0);
   const f = outExpo(span(local, at, 0.5));
-  plate.style.transform = `scale(${1 - (1 - CARD) * f})`;
-  plate.style.clipPath = `inset(0 round ${56 * f}px)`;
+  if (plate) plate.style.transform = `scale(${1 - (1 - CARD) * f})`;
+  if (plate) plate.style.clipPath = `inset(0 round ${56 * f}px)`;
   const s = at + 0.3;
   const r = outQuart(span(local, s, 0.45));
   ring.style.opacity = String((r > 0 ? 1 : 0) * out);

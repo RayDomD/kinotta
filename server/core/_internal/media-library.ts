@@ -7,7 +7,7 @@ import { contentPlaybackPath, ensurePlaybackCopy, hashOf, needsPlaybackCopy, pla
 import { probeMedia, waveformPeaks } from './runner.ts';
 import type { ImportedMedia, MediaEntry, MediaFilter, MediaWaveform, ProjectMediaFile } from './types.ts';
 import type { MediaPlan } from './media-model.ts';
-import { requireVersionDir } from './approval.ts';
+import { requireVersionDir } from './version.ts';
 
 const LIBRARY_FILE = '.media-library.json';
 const MEDIA_DIR = 'footage';
@@ -59,7 +59,7 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
       const entry = (await readLibrary(projectDir)).find((s) => s.id === source);
       if (!entry) return null;
       const file = await projectFile(projectDir, entry.path);
-      if (await hashOf(file) !== entry.contentHash) return null;
+      if (await hashOf(file, projectDir) !== entry.contentHash) return null;
       return !original && entry.playback ? await projectFile(projectDir, entry.playback) : file;
     }
     const { versionDir } = await requireVersionDir(projectDir, saved.reel, saved.version);
@@ -68,7 +68,7 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
     const entry = plan.media?.sources.find((s) => s.id === source);
     if (!entry) return null;
     const file = await projectFile(projectDir, relative(projectDir, resolve(versionDir, entry.path)));
-    const hash = await hashOf(file);
+    const hash = await hashOf(file, projectDir);
     if (entry.contentHash && hash !== entry.contentHash) return null;
     if (!original && entry.kind === 'video') {
       // Keyed by content, so versions holding the same bytes share one copy, and the library's copy is reused.
@@ -98,7 +98,7 @@ export async function mediaWaveform(projectDir: string, source: string, saved?: 
   try {
     const file = await mediaFile(projectDir, source, saved, true);
     if (!file) throw new Error('The original source is missing or changed. Relink it before preparing the waveform.');
-    const hash = await hashOf(file);
+    const hash = await hashOf(file, projectDir);
     const cache = join(projectDir, 'footage', '.waveforms', `${hash}.json`);
     const cached = await readFile(cache, 'utf8').catch(() => null);
     if (cached) return JSON.parse(cached) as MediaWaveform;
@@ -118,7 +118,7 @@ export async function referenceMedia(projectDir: string, path: string): Promise<
   return withReelLock(projectDir, async () => {
     const file = await projectFile(projectDir, path);
     const kind = mediaKind(file);
-    const hash = await hashOf(file);
+    const hash = await hashOf(file, projectDir);
     const entries = await readLibrary(projectDir);
     const existing = entries.find((s) => s.contentHash === hash);
     if (existing && await hashOf(resolve(projectDir, existing.path)).then((value) => value === hash, () => false)) return { ...existing, copied: false };
@@ -163,7 +163,7 @@ export async function relinkMedia(projectDir: string, source: string, path: stri
     const entry = entries.find((s) => s.id === source);
     if (!entry) throw new KinottaError('not-found', `Source ${source} is missing from the library.`);
     const file = await projectFile(projectDir, path);
-    if (await hashOf(file) !== entry.contentHash) throw new KinottaError('invalid', 'This file has different content. Import it as replacement media instead.');
+    if (await hashOf(file, projectDir) !== entry.contentHash) throw new KinottaError('invalid', 'This file has different content. Import it as replacement media instead.');
     const { playback: _old, ...original } = entry;
     let playback: string | undefined;
     if (entry.kind === 'video' && needsPlaybackCopy(entry.codec)) {

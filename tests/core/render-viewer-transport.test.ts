@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { chromium } from 'playwright';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -14,7 +15,7 @@ it('shares a keyboard scrubber, persists the viewer divider, and restores focus 
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.addInitScript(() => localStorage.setItem('kinotta.editor.settings', JSON.stringify({ keys: { fit: 'F', rail: 'M' } })));
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Product showreel' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const slider = page.getByRole('slider', { name: 'Scrub reel' });
@@ -67,7 +68,7 @@ it('saves and edits markers, closes a sound gap in one undo, appends prompt chip
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Product showreel' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();

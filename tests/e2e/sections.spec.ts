@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Read-only, on the footage server (two sections) so it never disturbs footage.spec.ts, which saves comments there.
 // Pin counts are not asserted for that reason. The one-section reel is checked on the shared server, in the last test.
@@ -19,7 +19,7 @@ test.describe('two sections', () => {
 
     await expect(page.locator('.rail .label').filter({ hasText: 'Sections' })).toHaveText('Sections · 2');
     const labels = await page.locator('.rail .label').allTextContents();
-    expect(labels.findIndex((l) => l.startsWith('Sections'))).toBeLessThan(labels.indexOf('Versions'));
+    expect(labels.findIndex((l) => l.startsWith('Sections'))).toBeLessThan(labels.indexOf('Reel'));
 
     await expect(railSections(page)).toHaveCount(2);
     await expect(railSections(page).nth(0).locator('.n')).toHaveText('01');

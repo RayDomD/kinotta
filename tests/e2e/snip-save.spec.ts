@@ -3,8 +3,8 @@ import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
 
 // Starting a reel runs the real build, and so does Save.
 const BUILD_WAIT_MS = 30_000;
@@ -24,7 +24,7 @@ test.describe.configure({ mode: 'default' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');
-const versions = (page: Page): Locator => page.getByRole('navigation', { name: 'Versions' });
+const versions = (page: Page): Locator => page.getByRole('navigation', { name: 'Current reel', exact: true });
 
 async function startReel(page: Page, title: string): Promise<void> {
   await page.goto('/');
@@ -35,7 +35,7 @@ async function startReel(page: Page, title: string): Promise<void> {
   await expect(review(page).getByRole('heading', { name: title })).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The reel opens at once; v1 follows when the (fake) transcription and the build are done.
   await revealReelRail(page);
-  await expect(page.getByRole('navigation', { name: 'Versions' }).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(page.locator('[data-working-row][data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 }
 
 /** With the Snip tool on, drags along the lanes between two fractions of the reel's width and leaves a stretch selected. */
@@ -54,7 +54,6 @@ async function selectStretch(page: Page): Promise<void> {
 test('snip a stretch, see it in the Edits panel, and Save it as a new version', async ({ page }) => {
   await startReel(page, 'Snip talk');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
-  await expect(versions(page)).toContainText('you');
   await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
 
   await selectStretch(page);
@@ -78,9 +77,8 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
 
   // Save builds v2 and opens it.
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toContainText('Final render');
-  await expect(versions(page).getByRole('button', { name: /^Working/ })).toHaveAttribute('aria-current', 'true');
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('button', { name: /^Save as v3/ })).toHaveCount(0);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
   await expect(review(page).locator('[data-role="main"]').getByRole('button', { name: /^Gap, gap,/ })).toHaveCount(1);
@@ -93,7 +91,7 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
 
 test('a selected stretch previews the snip: the picture is past it, and playing skips it before Snip', async ({ page }) => {
   await startReel(page, 'Preview talk');
-  const footage = (): Promise<number> => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime);
+  const footage = (): Promise<number> => review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate((el: HTMLVideoElement) => el.currentTime);
 
   // The selection runs from a quarter to a half of 12 s: about 3 s to 6 s. The picture shows the frame after the join.
   await selectStretch(page);
@@ -102,7 +100,7 @@ test('a selected stretch previews the snip: the picture is past it, and playing 
 
   // Space plays a lead-in before the stretch and goes straight on to its end.
   await page.keyboard.press('Space');
-  const seen = await review(page).locator('video').evaluate(
+  const seen = await review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate(
     (el: HTMLVideoElement) =>
       new Promise<number[]>((done) => {
         const times: number[] = [];
@@ -140,7 +138,7 @@ test('Undo removes the live snip and the reel plays whole again', async ({ page 
   const history = JSON.parse(readFileSync(join(project, 'reels', 'discard-talk', 'edit-list.json'), 'utf8'));
   expect(history.operations).toEqual([]);
   expect(history.redo).toHaveLength(1);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toHaveCount(0);
+  await expect(versions(page).locator('[data-current-version="2"]')).toHaveCount(0);
 });
 
 test('an agent-built footage reel can be snipped and saved too, and its unsent comments go with their moments', async ({ page }) => {
@@ -177,7 +175,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   await expect(broken).toHaveCount(0);
   await page.getByRole('tab', { name: /^Edits/ }).click();
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 
   // v2 holds all three: the one whose moment was snipped says so, the others sit at their new times (the word 3 s earlier).
   await page.getByRole('tab', { name: /^Comments/ }).click();
@@ -295,7 +293,7 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await expect(cards.last()).toContainText('Reordered media');
   const reorderedId = await pieces.first().getAttribute('data-placement');
   await review(page).getByLabel('Playhead', { exact: true }).fill('0.1');
-  await expect.poll(() => review(page).locator('video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(6);
+  await expect.poll(() => review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(6);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
   // Undo takes the move back.
@@ -306,7 +304,7 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await expect(pieces.first()).toHaveAttribute('data-placement', reorderedId!);
 
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const plan = JSON.parse(readFileSync(join(project, 'reels', 'blade-talk', 'v2', 'plan.json'), 'utf8'));
   expect(plan.media.sequence).toHaveLength(2);
@@ -347,7 +345,7 @@ test('a word is fixed in place and re-timed by its edge, and Save puts both in t
   await expect.poll(async () => Number(await word(1).getAttribute('data-source-end'))).toBeGreaterThan(1.5);
 
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const savedPlan = JSON.parse(readFileSync(join(project, 'reels', 'words-talk', 'v2', 'plan.json'), 'utf8'));
   const words = savedPlan.media.placements[0].words ?? savedPlan.media.sources[0].words;
@@ -411,7 +409,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   await expect(cards.last()).toContainText('Moved all captions');
 
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   const project = readFileSync(PROJECT_FILE, 'utf8');
   const reelDir = join(project, 'reels', 'caption-talk');
   const { captions } = JSON.parse(readFileSync(join(reelDir, 'v2', 'plan.json'), 'utf8'));
@@ -491,7 +489,7 @@ test('keyboard only: pick a video, play, mark a stretch, snip it and Save', asyn
   await page.keyboard.press('Enter');
   await expect(review(page).getByRole('heading', { name: 'Keys talk' })).toBeVisible({ timeout: BUILD_WAIT_MS });
   await page.getByRole('tab', { name: 'Reel rail', exact: true }).press('Enter');
-  await expect(versions(page).getByRole('button', { name: /^v1/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
 
   // Play, pause, step with the arrows.
@@ -517,5 +515,5 @@ test('keyboard only: pick a video, play, mark a stretch, snip it and Save', asyn
   const render = page.getByRole('button', { name: 'Render Working', exact: true });
   await tabTo(page, render);
   await freezeWorking(page);
-  await expect(versions(page).getByRole('button', { name: /^v2/ })).toBeVisible({ timeout: BUILD_WAIT_MS });
+  await expect(versions(page).locator('[data-current-version="2"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
 });

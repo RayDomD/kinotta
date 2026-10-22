@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Caption editing</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@800&display=swap">
+<style>
+:root{--ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+--ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);--rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+--grid:oklch(.945 .004 106 / .08);--light:oklch(.84 .11 225);--light-wash:oklch(.84 .11 225 / .12);--amber:oklch(.80 .13 75)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.45 Outfit,system-ui,sans-serif;padding:32px 24px 64px;user-select:none}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 20px;max-width:80ch}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.modes{display:flex;gap:0;border:1px solid var(--hairline);width:max-content;margin-bottom:16px}
+.modes button{background:none;border:0;color:var(--ink-2);font:inherit;padding:8px 16px;cursor:pointer}
+.modes button+button{border-left:1px solid var(--hairline)}
+.modes button.on{background:var(--ink);color:var(--ground)}
+.panel{border:1px solid var(--hairline);background:var(--ground-deep);padding:20px}
+.screen{height:150px;display:grid;place-items:center;background:linear-gradient(160deg,oklch(.36 .03 106),oklch(.2 .02 146));margin-bottom:18px;position:relative}
+.screen .cap{font-size:22px;font-weight:600;text-shadow:0 2px 8px #000;display:flex;gap:7px}
+.screen .cap span.now{color:var(--light)}
+.tl{position:relative;padding-top:24px}
+.ruler{position:absolute;top:0;left:0;right:0;height:20px;border-bottom:1px solid var(--rule)}
+.tick{position:absolute;bottom:0;width:1px;height:5px;background:var(--hairline)}.tick.major{height:10px;background:var(--ink-2)}
+.tick span{position:absolute;bottom:12px;left:3px;font-size:10px;color:var(--muted)}
+.lanes{position:relative}
+.gridl{position:absolute;inset:0;pointer-events:none;background-image:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px calc(100%/12))}
+.snapgrid .gridl{background-image:repeating-linear-gradient(90deg,oklch(.84 .11 225 / .22) 0 1px,transparent 1px calc(100%/24))}
+.ll{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.lane{position:relative;height:40px}
+.w{position:absolute;top:4px;bottom:4px;background:var(--card-raised);border:1px solid var(--hairline);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:text;white-space:nowrap;overflow:hidden}
+.w:hover{border-color:var(--ink-2)}
+.w .h{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize}
+.w .h::after{content:"";position:absolute;top:6px;bottom:6px;left:3px;width:2px;background:var(--light);opacity:0;border-radius:1px}
+.w:hover .h::after,.w.drag .h::after{opacity:1}
+.w .h.l{left:-1px}.w .h.r{right:-1px}
+.w.drag{border-color:var(--light);background:var(--light-wash)}
+.w.fixed{border-color:var(--amber);color:var(--amber)}
+.w.fixed::before{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--amber)}
+.free .w.fixed{border-color:var(--hairline);color:var(--ink)} .free .w.fixed::before{display:none}
+.w input{background:var(--ground);border:0;outline:2px solid var(--light);color:var(--ink);font:inherit;width:100%;height:100%;text-align:center}
+.cut{position:absolute;top:-4px;bottom:-4px;border-left:2px dashed var(--light);opacity:.7;pointer-events:none}
+.snapline{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--amber);display:none;pointer-events:none;z-index:5}
+.snapline.on{display:block}
+.snaplabel{position:absolute;top:-20px;left:4px;font-size:10px;color:var(--amber);white-space:nowrap}
+.video{position:absolute;inset:4px 0;background:oklch(.42 .02 106);border-radius:3px}
+.readout{display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--ink-2);min-height:20px}
+.readout b{color:var(--ink);font-weight:500}
+.try{margin-top:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;color:var(--ink-2)}
+.try div{border:1px solid var(--rule);background:var(--card);padding:10px 12px}
+.try strong{display:block;color:var(--ink);font-weight:500;margin-bottom:2px}
+.compare{margin-top:18px;font-size:13px;color:var(--ink-2);border-left:2px solid var(--light);padding-left:12px}
+</style></head><body><div class="wrap">
+<h1>Fixing a caption word: free drag or snap + amber?</h1>
+<p class="sub">This is a zoomed-in view of 6 seconds, so you can drag word edges. Switch between the two behaviours and try the same edits in each.</p>
+<div class="modes"><button data-m="free">A · Free drag (today's editor)</button><button data-m="snap" class="on">B · Snap + amber marks</button></div>
+
+<div class="panel" id="panel">
+  <div class="screen"><div class="cap" id="screen"></div></div>
+  <div class="tl"><div class="ruler" id="ruler"></div>
+    <div class="lanes" id="lanes"><div class="gridl"></div>
+      <div class="ll">Captions</div><div class="lane" id="caps"><div class="snapline" id="snap"><span class="snaplabel" id="snaplabel"></span></div></div>
+      <div class="ll">Your video</div><div class="lane"><div class="video"></div></div>
+      <div class="cut" id="cut"></div>
+    </div>
+  </div>
+  <div class="readout" id="readout">Hover a word to see its handles.</div>
+  <div class="try">
+    <div><strong>1. Retype</strong>Double-click "Stamford", fix it to "Stanford", press Enter.</div>
+    <div><strong>2. Retime</strong>Drag the right edge of "Ex-Google" toward the dashed cut.</div>
+    <div><strong>3. Compare</strong>Switch modes and do it again. Watch where the edge lands.</div>
+  </div>
+  <p class="compare" id="compare"></p>
+</div></div>
+<script>
+const T0=18,T1=24,SPAN=T1-T0,CUT=22.4;
+let mode='snap';
+const words=[{t:'PhD,',s:18.3,e:18.9},{t:'Stamford',s:19.0,e:19.8},{t:'Ex-Google',s:20.1,e:21.1},{t:'three',s:21.5,e:21.9},{t:'papers',s:22.6,e:23.4}];
+const orig=words.map(w=>({...w}));
+const caps=document.getElementById('caps'),lanes=document.getElementById('lanes');
+const pct=t=>(t-T0)/SPAN*100+'%';
+const r=document.getElementById('ruler');for(let i=0;i<=SPAN*4;i++){const t=T0+i/4,d=document.createElement('div');d.className='tick'+(i%4?'':' major');d.style.left=pct(t);if(!(i%4))d.innerHTML=`<span class="num">0:${t}</span>`;r.appendChild(d)}
+document.getElementById('cut').style.left=pct(CUT);
+function changed(w,i){return w.t!==orig[i].t||Math.abs(w.s-orig[i].s)>.01||Math.abs(w.e-orig[i].e)>.01}
+function render(){
+  document.getElementById('panel').className='panel '+(mode=='snap'?'snapgrid':'free');
+  caps.querySelectorAll('.w').forEach(n=>n.remove());
+  words.forEach((w,i)=>{const n=document.createElement('div');n.className='w'+(changed(w,i)?' fixed':'');n.style.left=pct(w.s);n.style.width=(w.e-w.s)/SPAN*100+'%';
+    n.innerHTML=`<span class="h l"></span><span class="lbl">${w.t}</span><span class="h r"></span>`;
+    n.ondblclick=()=>edit(n,w);
+    n.querySelectorAll('.h').forEach(h=>h.onpointerdown=ev=>drag(ev,n,w,h.classList.contains('l')?'s':'e'));
+    caps.appendChild(n)});
+  document.getElementById('screen').innerHTML=words.map(w=>`<span class="${w.t=='Ex-Google'?'now':''}">${w.t}</span>`).join('');
+  document.getElementById('compare').textContent=mode=='snap'
+   ?'B: edges snap to every 0.25 s and to cuts within 0.15 s (amber line shows the target). Changed words turn amber with a dot, so you can see at a glance what you fixed.'
+   :'A: edges follow the mouse exactly with no snapping. Changed words look the same as untouched ones. This is how the detailed editor works today.'}
+function edit(n,w){const inp=document.createElement('input');inp.value=w.t;n.innerHTML='';n.appendChild(inp);inp.focus();inp.select();
+  inp.onkeydown=e=>{if(e.key=='Enter'){w.t=inp.value||w.t;render();say(`Saved "<b>${w.t}</b>"`)}if(e.key=='Escape'){render();say('Cancelled, nothing changed')}};
+  inp.onblur=()=>{if(document.activeElement!==inp){w.t=inp.value||w.t;render()}}}
+function say(h){document.getElementById('readout').innerHTML=h}
+function drag(ev,n,w,edge){ev.preventDefault();ev.stopPropagation();n.classList.add('drag');
+  const box=lanes.getBoundingClientRect(),snap=document.getElementById('snap'),lab=document.getElementById('snaplabel');
+  const move=e=>{let t=T0+(e.clientX-box.left)/box.width*SPAN,why='';
+    if(mode=='snap'){const q=Math.round(t*4)/4;if(Math.abs(t-CUT)<.15){t=CUT;why='cut'}else{t=q;why='0.25 s grid'}
+      snap.classList.add('on');snap.style.left=pct(t);lab.textContent=`snap · ${why}`}
+    if(edge=='e')w.e=Math.max(w.s+.15,t);else w.s=Math.min(w.e-.15,t);
+    n.style.left=pct(w.s);n.style.width=(w.e-w.s)/SPAN*100+'%';
+    say(`<b>${w.t}</b> <span class="num">${w.s.toFixed(2)}</span> → <span class="num">${w.e.toFixed(2)}</span> s ${why?'· snapped to '+why:''}`)};
+  const up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);snap.classList.remove('on');render()};
+  addEventListener('pointermove',move);addEventListener('pointerup',up)}
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('on',x===b));render()});
+render();
+</script></body></html>

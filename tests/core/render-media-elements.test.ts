@@ -1,3 +1,4 @@
+import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,7 +21,7 @@ it('keeps moving named elements in a code-only reel once it has sound in the sha
     await server.project.addOperation(REEL, { kind: 'placement-add', source: { id: 'sound', kind: 'audio', path: '../../../sound.wav', duration: 2 }, placement: { id: 'sound-use', role: 'audio', source: 'sound', at: 0, in: 0, out: 2 } });
     expect(await server.project.freezeEdits(REEL)).toEqual({ version: 3 });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
     await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
@@ -63,7 +64,7 @@ it('reattaches a graphic to the pass of a looping voice under the playhead (A2)'
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     const graphics = await inspectGraphic(page);

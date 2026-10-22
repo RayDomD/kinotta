@@ -350,3 +350,47 @@ describe('media placement mapping', () => {
     expect(rippled.plan.media!.sequence).toEqual(['second', 'third']);
   });
 });
+
+describe('main sequence keep-gap trims', () => {
+  const media: MediaPlan = { schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 10 }], placements: [{ id: 'first', role: 'main', source: 'a', in: 2, out: 6 }, { id: 'second', role: 'main', source: 'a', in: 6, out: 10 }], sequence: ['first', 'second'] };
+  const sources = { plan: { media }, words: [] };
+  it('shortens either edge without moving later clips and replays legacy trims unchanged', () => {
+    const op = { by: 'you', id: 'trim', kind: 'placement-change' as const, placement: 'first', changes: { in: 3, out: 5 }, leaveGap: true };
+    const changed = applyOperation(sources, op);
+    expect(mediaTimeline(changed.plan.media!).placements.map((p) => [p.role, p.at, p.duration])).toEqual([['gap', 0, 1], ['main', 1, 2], ['gap', 3, 1], ['main', 4, 4]]);
+    expect(mediaTimeline(applyOperation(sources, { ...op, leaveGap: undefined }).plan.media!).placements.map((p) => [p.at, p.duration])).toEqual([[0, 2], [2, 4]]);
+    expect(mediaTimeline(applyOperations(sources, []).plan.media!).placements.map((p) => [p.at, p.duration])).toEqual([[0, 4], [4, 4]]);
+  });
+  it('fills only adjacent gaps, clamps to their size, merges repeated trims and drops a trailing gap', () => {
+    const trim = (base: Parameters<typeof applyOperation>[0], id: string, placement: string, changes: { in?: number; out?: number }) => applyOperation(base, { by: 'you', id, kind: 'placement-change', placement, changes, leaveGap: true });
+    const shorter = trim(sources, 'short', 'first', { in: 3, out: 5 });
+    const merged = trim(shorter, 'short-again', 'first', { in: 4, out: 4.5 });
+    expect(mediaTimeline(merged.plan.media!).placements.map((p) => [p.role, p.at, p.duration])).toEqual([['gap', 0, 2], ['main', 2, 0.5], ['gap', 2.5, 1.5], ['main', 4, 4]]);
+    const extended = trim(merged, 'extend', 'first', { in: 0, out: 9 });
+    expect(mediaTimeline(extended.plan.media!).placements.map((p) => [p.id, p.at, p.duration])).toEqual([['first', 0, 4], ['second', 4, 4]]);
+    expect(extended.plan.media!.placements[0]).toMatchObject({ in: 2, out: 6 });
+    const noSpace = trim(sources, 'extend-blocked', 'first', { in: 0, out: 9 });
+    expect(mediaTimeline(noSpace.plan.media!).placements.map((p) => [p.at, p.duration])).toEqual([[0, 4], [4, 4]]);
+    const trailing = trim(sources, 'tail', 'second', { out: 9 });
+    expect(mediaTimeline(trailing.plan.media!).placements.map((p) => [p.role, p.at, p.duration])).toEqual([['main', 0, 4], ['main', 4, 3]]);
+  });
+  it('clamps extensions to available source footage and rejects a non-boolean flag', () => {
+    const spaced: MediaPlan = { ...media, placements: [{ id: 'leading', role: 'gap', duration: 4 }, ...media.placements, { id: 'trailing-space', role: 'gap', duration: 5 }], sequence: ['leading', 'first', 'trailing-space', 'second'] };
+    const extended = applyOperation({ plan: { media: spaced }, words: [] }, { by: 'you', id: 'extend', kind: 'placement-change', placement: 'first', changes: { in: -5, out: 20 }, leaveGap: true });
+    expect(extended.plan.media!.placements.find((p) => p.id === 'first')).toMatchObject({ in: 0, out: 10, duration: 10 });
+    expect(mediaTimeline(extended.plan.media!).placements.find((p) => p.id === 'second')!.at).toBe(13);
+    expect(() => applyOperation(sources, { by: 'you', id: 'invalid', kind: 'placement-change', placement: 'first', changes: { out: 5 }, leaveGap: 'true' } as unknown as Parameters<typeof applyOperation>[1])).toThrow('leaveGap must be a boolean');
+  });
+  it('maps words from source time after a keep-gap trim and leaves attached inserts on their existing timing rules', () => {
+    const speech: MediaPlan = { ...media, sources: [{ ...media.sources[0]!, words: [{ text: 'removed', start: 2, end: 2.5 }, { text: 'kept', start: 3.5, end: 4 }, { text: 'later', start: 7, end: 7.5 }] }], placements: [...media.placements, { id: 'insert', role: 'insert', source: 'a', in: 0, out: 1, at: 1, attachment: { placement: 'first', time: 3.5 } }] };
+    const changed = applyOperation({ plan: { media: speech }, words: [] }, { by: 'you', id: 'trim', kind: 'placement-change', placement: 'first', changes: { in: 3, out: 5 }, leaveGap: true });
+    expect(mediaWords(changed.plan.media!).map((w) => [w.text, w.start, w.end])).toEqual([['kept', 1.5, 2], ['later', 5, 5.5]]);
+    expect(mediaTimeline(changed.plan.media!).placements.find((p) => p.id === 'insert')).toMatchObject({ at: 1.5 });
+    expect(mediaTimeline(changed.plan.media!).placements.find((p) => p.id === 'insert')!.attachmentBroken).not.toBe(true);
+  });
+
+  it.each(['3', null, false, Infinity, NaN])('refuses malformed keep-gap source bounds: %s', (value) => {
+    expect(() => applyOperation(sources, { by: 'you', id: 'invalid-bound', kind: 'placement-change', placement: 'first', changes: { in: value }, leaveGap: true } as unknown as Parameters<typeof applyOperation>[1])).toThrow(expect.objectContaining({ code: 'invalid' }));
+  });
+
+});

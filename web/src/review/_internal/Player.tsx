@@ -8,6 +8,7 @@ import { Transport } from './Transport.tsx';
 import type { TransportProps } from './Transport.tsx';
 
 export interface PlayerProps {
+  portrait?: boolean;
   transport: Omit<TransportProps, 'time' | 'total' | 'playing' | 'onToggle'>;
   title: string;
   /** The footage to play under the page, when the reel has footage. */
@@ -67,17 +68,19 @@ export function Player(props: PlayerProps) {
             onError={onVideoError}
           />
         )}
-        {pageUrl !== undefined && <PagePlayer className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} captionShifts={captionShifts} onCaptionMove={onCaptionMove} elements={elements} clipTiming={clipTiming} captionWords={captionWords} onCaptionText={onCaptionText} />}
+        {pageUrl !== undefined && <PagePlayer portrait={props.portrait} className="rv-page" pageUrl={pageUrl} time={pageTime} title={`${title} page`} onPhrases={onPhrases} captionShifts={captionShifts} onCaptionMove={onCaptionMove} elements={elements} clipTiming={clipTiming} captionWords={captionWords} onCaptionText={onCaptionText} />}
         {problem !== null && <div className="rv-problem" role="status">{problem}</div>}
       </div>
       </div>
       <Transport {...props.transport} time={time} total={total} playing={playing} onToggle={onToggle}>
+        {!props.transport.compact && <>
         {tools}
         <div className="rv-zoom">
           Showing <b>{`${formatClock(win.start)} to ${formatClock(win.start + win.length)}`}</b>
           <button type="button" className="rv-tool" aria-label="Zoom out" disabled={win.length >= total} onClick={() => onZoom(ZOOM_OUT)}>−</button>
           <button type="button" className="rv-tool" aria-label="Zoom in" onClick={() => onZoom(ZOOM_IN)}>+</button>
         </div>
+        </>}
       </Transport>
     </div>
   );

@@ -358,6 +358,7 @@
 
 .rv-main[data-verify-unit="MediaEditor"] { padding: 16px 22px 24px; }
 .rv-main .head-actions .btn { white-space: nowrap; }
+.rv-main .head-actions { margin-left: auto; }
 .editor-clip-settings .mv-controls, .editor-graphic-settings .mv-controls { gap: 8px; }
 :is(.editor-clip-settings, .editor-graphic-settings) .mv-controls label:has(input[type="number"], select) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 :is(.editor-clip-settings, .editor-graphic-settings) .mv-controls :is(input[type="number"], select) { width: 100%; min-width: 0; }
