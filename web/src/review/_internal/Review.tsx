@@ -253,7 +253,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
   const snip = async (): Promise<void> => {
     const { selection: chosen, pieces: shown, editable: allowed, edits: changes } = live.current;
-    if (!chosen || !shown || !allowed || !changes || changes.busy) return;
+    if (!chosen || !shown || !allowed || !changes) return;
     afterSnip.current = chosen.start;
     setSelection(null);
     for (const { from, to } of sourceStretches(shown, chosen.start, chosen.end)) {
@@ -263,7 +263,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   /** Cuts the footage at a timeline time. A time already on a join is refused by the core, and its reason shows in the Edits panel. */
   const cutAt = async (at: number): Promise<void> => {
     const { pieces: shown, editable: allowed, edits: changes } = live.current;
-    if (!shown || !allowed || !changes || changes.busy) return;
+    if (!shown || !allowed || !changes) return;
     const source = toSource(pieceMap(shown, 0), at);
     if (source !== null) await changes.add({ kind: 'cut', at: source });
   };
@@ -271,32 +271,32 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   cutRef.current = cutAt;
   const movePiece = (from: number, to: number): void => {
     const { editable: allowed, edits: changes } = live.current;
-    if (!allowed || !changes || changes.busy) return;
+    if (!allowed || !changes) return;
     void changes.add({ kind: 'move-piece', from, to });
   };
   const fixWord = (index: number, text: string): void => {
     const { editable: allowed, edits: changes } = live.current;
     const word = shownWordsRef.current?.[index];
-    if (!allowed || !changes || changes.busy || !word) return;
+    if (!allowed || !changes || !word) return;
     void changes.add({ kind: 'word-text', at: word.source.start, text, was: word.text });
   };
   const retimeWord = (index: number, startBy: number, endBy: number): void => {
     const { editable: allowed, edits: changes } = live.current;
     const word = shownWordsRef.current?.[index];
-    if (!allowed || !changes || changes.busy || !word) return;
+    if (!allowed || !changes || !word) return;
     void changes.add({ kind: 'word-timing', at: word.source.start, start: word.source.start + startBy, end: word.source.end + endBy });
   };
   const slideClip = (id: string, by: number): void => {
     const { editable: allowed, edits: changes, clips: shown } = live.current;
     const clip = shown.find((c) => c.id === id);
-    if (!allowed || !changes || changes.busy || !clip?.source) return;
+    if (!allowed || !changes || !clip?.source) return;
     void changes.add({ kind: 'clip-slide', clip: id, delta: by });
   };
   /** An edge dragged by `by` seconds of the timeline: the new edge is where that lands in the footage, the other edge stays. */
   const trimClip = (id: string, edge: 'start' | 'end', by: number): void => {
     const { editable: allowed, edits: changes, clips: shown, pieces: current } = live.current;
     const clip = shown.find((c) => c.id === id);
-    if (!allowed || !changes || changes.busy || !clip?.source || !current) return;
+    if (!allowed || !changes || !clip?.source || !current) return;
     const now = pieceMap(current, 0);
     // An out edge belongs to the footage before it, so ask for the second just inside.
     const found = edge === 'start' ? toSource(now, clip.start + by) : toSource(now, clip.end + by - SAME_SECOND);
@@ -309,7 +309,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const moveCaption = async ({ index, alt, dx, dy }: CaptionMove): Promise<void> => {
     const { editable: allowed, edits: changes } = live.current;
     const placed = placementsRef.current?.[index];
-    if (!allowed || !changes || changes.busy || !placed) return;
+    if (!allowed || !changes || !placed) return;
     if (!alt) {
       await changes.add({ kind: 'caption-position', x: placed.wide.x + dx, y: placed.wide.y + dy });
       return;
@@ -322,12 +322,12 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const retypeCaption = async ({ index, text }: CaptionText): Promise<void> => {
     const { editable: allowed, edits: changes } = live.current;
     const words = captionsRef.current?.[index]?.words;
-    if (!allowed || !changes || changes.busy || !words || words.length === 0) return;
+    if (!allowed || !changes || !words || words.length === 0) return;
     await changes.add({ kind: 'phrase-text', from: words[0]!.start, to: words[words.length - 1]!.end, text, was: words.map((w) => w.text).join(' ') });
   };
   const changeElement = async ({ clip, element, x, y, scale }: ElementChange): Promise<void> => {
     const { moveable: allowed, edits: changes } = live.current;
-    if (!allowed || !changes || changes.busy) return;
+    if (!allowed || !changes) return;
     await changes.add({ kind: 'element-offset', clip, element, x, y, scale });
   };
   const changeElementRef = useRef(changeElement);
@@ -398,7 +398,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.defaultPrevented && /^[zy]$/i.test(e.key)) {
         const field = e.target instanceof HTMLElement && (TYPING.has(e.target.tagName) || e.target.isContentEditable);
         const { moveable: allowed, edits: changes } = live.current;
-        if (field || !allowed || !changes || changes.busy) return;
+        if (field || !allowed || !changes) return;
         e.preventDefault();
         void (e.key.toLowerCase() === 'y' || e.shiftKey ? changes.redo() : changes.undo());
         return;
@@ -475,7 +475,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
                 if (next === 'select') setSelection(null);
               }}
               selection={selection}
-              busy={edits?.busy === true}
+              busy={false}
               onSnip={() => void snip()}
               onCutAtPlayhead={() => void cutAt(time)}
             />
