@@ -594,8 +594,13 @@ export async function probeMedia(file: string, kind: 'video' | 'audio' | 'image'
 /** Packaged authoring instructions, resolved from the installed server rather than the user's project. */
 export const agentSkillDirectory = (): string => SKILL_DIR;
 export interface AgentCommand { command: string; prefix: string[] }
-export const CLAUDE_BROLL_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash';
-export const CLAUDE_BROLL_ALLOWED_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash(python *),Bash(python3 *),Bash(node *)';
+/** Claude's shell tool is PowerShell on native Windows and Bash elsewhere. */
+export const CLAUDE_BROLL_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash,PowerShell';
+/** Only the commands of SKILL.md "Unattended add b-roll". Claude's sandbox does not run on native Windows, so these rules are the boundary. */
+const BROLL_COMMANDS = ['python skill/engine/build.py *', 'python3 skill/engine/build.py *', 'python skill/scripts/shots.py *', 'python3 skill/scripts/shots.py *', 'node skill/engine/beats.js *'];
+export const CLAUDE_BROLL_ALLOWED_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', ...['Bash', 'PowerShell'].flatMap((shell) => BROLL_COMMANDS.map((command) => `${shell}(${command})`))];
+/** The run may not rewrite the copied skill and then run it. Edit rules cover every file-writing tool. */
+export const CLAUDE_BROLL_DENIED_TOOLS = ['Edit(./skill/**)'];
 
 /** npm's Windows shim is not an executable. Run its Node entry without a shell. */
 export async function agentCommand(provider: 'claude' | 'codex'): Promise<AgentCommand> {
@@ -621,7 +626,7 @@ export interface AgentLaunch {
 
 export function agentArguments(provider: 'claude' | 'codex'): string[] {
   return provider === 'claude'
-    ? ['-p', '--verbose', '--output-format', 'stream-json', '--permission-mode', 'acceptEdits', '--permission-prompts', 'none', '--tools', CLAUDE_BROLL_TOOLS, '--allowedTools', CLAUDE_BROLL_ALLOWED_TOOLS, '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence']
+    ? ['-p', '--verbose', '--output-format', 'stream-json', '--permission-mode', 'acceptEdits', '--permission-prompts', 'none', '--tools', CLAUDE_BROLL_TOOLS, '--allowedTools', ...CLAUDE_BROLL_ALLOWED_TOOLS, '--disallowedTools', ...CLAUDE_BROLL_DENIED_TOOLS, '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence']
     : ['exec', '--json', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--ephemeral', '-'];
 }
 

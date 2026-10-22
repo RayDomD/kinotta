@@ -191,8 +191,11 @@ describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, ()
     expect(await project.agentJob(slug)).toMatchObject({ state: 'copy-ready' });
   });
   it('uses provider flags and resolves the Windows npm Node entry without a shell', async () => {
-    expect(agentArguments('claude')).toContain('Read,Write,Edit,Glob,Grep,Bash');
+    expect(agentArguments('claude')).toContain('Read,Write,Edit,Glob,Grep,Bash,PowerShell');
     expect(agentArguments('claude')).not.toContain('--dangerously-skip-permissions');
+    // Only the skill's own commands run, and the copied skill cannot be rewritten first.
+    expect(agentArguments('claude')).toEqual(expect.arrayContaining(['Bash(python skill/engine/build.py *)', 'PowerShell(python skill/scripts/shots.py *)', 'Edit(./skill/**)']));
+    expect(agentArguments('claude').filter((arg) => /^(Bash|PowerShell)\((python3?|node) \*\)$/.test(arg))).toEqual([]);
     expect(agentArguments('codex')).toContain('workspace-write');
     if (process.platform === 'win32') {
       const command = await agentCommand('codex');
