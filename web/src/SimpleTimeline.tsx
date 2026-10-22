@@ -16,12 +16,19 @@ import type {
 import { toSource, toTimeline, MIN_SNIP } from '../../server/core/model.ts';
 import { formatClock, formatDuration } from './timecode.ts';
 import { CaptionLane } from './review/_internal/CaptionLane.tsx';
+import {
+  anchorCutWindow,
+  mapTimeThroughCut,
+  percentIn,
+  type TimeWindow,
+} from './review/_internal/timeline.ts';
 
 export interface CutBlock {
   from: number;
   to: number;
   ops: SnipOperation[];
   isDeadAir: boolean;
+  joinAt?: number;
 }
 
 export interface SimpleCutsValue {
@@ -106,6 +113,174 @@ export interface VideoLaneData {
   blocks: VideoBlock[];
   cuts: VideoCut[];
   cutPoints: number[];
+}
+
+
+
+export function detectCutRange(
+  prevItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number; id?: string; source?: string })[] | undefined,
+  curItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number; id?: string; source?: string })[] | undefined,
+  prevDuration: number,
+  curDuration: number,
+): { cutStart: number; cutEnd: number } | null {
+  if (curDuration >= prevDuration - 0.001 || prevDuration <= 0) return null;
+  const cutDuration = prevDuration - curDuration;
+  let cutStart = -1;
+  let prevAt = 0;
+
+  const getItemDuration = (item: Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number }) =>
+    'duration' in item && typeof item.duration === 'number'
+      ? item.duration
+      : ('out' in item && typeof item.out === 'number' && 'in' in item && typeof item.in === 'number' ? item.out - item.in : 0);
+  const getItemIn = (item: Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number }) =>
+    'in' in item && typeof item.in === 'number' ? item.in : 0;
+
+  if (prevItems && curItems) {
+    const matchedCur = new Set<number>();
+    const matches: (number | null)[] = new Array(prevItems.length).fill(null);
+
+    // Pass 1: exact match by id or object reference
+    for (let i = 0; i < prevItems.length; i++) {
+      const p = prevItems[i]!;
+      const pId = (p as any).id;
+      for (let j = 0; j < curItems.length; j++) {
+        if (matchedCur.has(j)) continue;
+        const c = curItems[j]!;
+        const cId = (c as any).id;
+        if (p === c || (pId !== undefined && cId !== undefined && pId === cId)) {
+          matches[i] = j;
+          matchedCur.add(j);
+          break;
+        }
+      }
+    }
+
+    // Pass 2: match by source span / in-out if unmatched
+    for (let i = 0; i < prevItems.length; i++) {
+      if (matches[i] !== null) continue;
+      const p = prevItems[i]!;
+      const pSource = (p as any).source;
+      const pIn = (p as any).in;
+      const pOut = (p as any).out;
+      if (typeof pIn !== 'number') continue;
+
+      for (let j = 0; j < curItems.length; j++) {
+        if (matchedCur.has(j)) continue;
+        const c = curItems[j]!;
+        const cSource = (c as any).source;
+        if (pSource !== undefined && cSource !== undefined && pSource !== cSource) continue;
+        const cIn = (c as any).in;
+        const cOut = (c as any).out;
+        if (typeof cIn !== 'number') continue;
+
+        if (Math.abs(pIn - cIn) < 0.001 || (cIn >= pIn - 0.001 && typeof pOut === 'number' && typeof cOut === 'number' && cOut <= pOut + 0.001)) {
+          matches[i] = j;
+          matchedCur.add(j);
+          break;
+        }
+      }
+    }
+
+    for (let i = 0; i < prevItems.length; i++) {
+      const prev = prevItems[i]!;
+      const prevDur = getItemDuration(prev);
+      const matchedIdx = matches[i];
+
+      if (matchedIdx === null) {
+        cutStart = prevAt;
+        break;
+      }
+
+      const cur = curItems[matchedIdx]!;
+      const curDur = getItemDuration(cur);
+      const curIn = getItemIn(cur);
+      const prevIn = getItemIn(prev);
+
+      if (Math.abs(curDur - prevDur) > 0.001 || Math.abs(curIn - prevIn) > 0.001) {
+        if (curIn > prevIn) {
+          cutStart = prevAt;
+        } else {
+          cutStart = prevAt + Math.min(prevDur, curDur);
+        }
+        break;
+      }
+      prevAt += prevDur;
+    }
+  }
+
+  if (cutStart < 0) {
+    cutStart = Math.max(0, curDuration);
+  }
+  return { cutStart, cutEnd: cutStart + cutDuration };
+}
+
+export interface CutTrackingState {
+  win: TimeWindow;
+  time: number;
+  prevDuration: number;
+  prevItems?: readonly any[];
+  preCut?: { win: TimeWindow; time: number; duration: number } | null;
+}
+
+export function handleTimelineDurationChange(
+  state: CutTrackingState,
+  currentDuration: number,
+  currentItems?: readonly any[],
+): {
+  win: TimeWindow;
+  time: number;
+  preCut: { win: TimeWindow; time: number; duration: number } | null;
+  seekTo?: number;
+} {
+  const { win, time, prevDuration, prevItems, preCut } = state;
+
+  if (currentDuration < prevDuration - 0.001 && prevDuration > 0) {
+    const cut = detectCutRange(prevItems, currentItems, prevDuration, currentDuration);
+    if (cut) {
+      const nextWin = anchorCutWindow(win, cut.cutStart, cut.cutEnd);
+      const mappedTime = mapTimeThroughCut(time, cut.cutStart, cut.cutEnd, currentDuration);
+      const seekTo = Math.abs(mappedTime - time) > 0.001 ? mappedTime : undefined;
+      return {
+        win: nextWin,
+        time: mappedTime,
+        preCut: { win, time, duration: prevDuration },
+        seekTo,
+      };
+    }
+  } else if (currentDuration > prevDuration + 0.001) {
+    if (preCut && Math.abs(currentDuration - preCut.duration) < 0.001) {
+      return {
+        win: preCut.win,
+        time: preCut.time,
+        preCut: null,
+        seekTo: preCut.time,
+      };
+    }
+    return {
+      win: {
+        start: 0,
+        length: Math.max(win.length, currentDuration),
+      },
+      time,
+      preCut: null,
+    };
+  }
+
+  return { win, time, preCut: preCut ?? null };
+}
+
+export function mapCutResizeDelta(
+  initialValue: number,
+  deltaX: number,
+  trackWidth: number,
+  sourceDuration: number,
+  min: number,
+  max: number,
+): number {
+  if (trackWidth <= 0) return initialValue;
+  const sourceDelta = (deltaX / trackWidth) * sourceDuration;
+  const nextValue = initialValue + sourceDelta;
+  return Math.round(Math.max(min, Math.min(max, nextValue)) * 100) / 100;
 }
 
 export function projectAddedLane(
@@ -241,6 +416,7 @@ export interface SimpleTimelineProps {
   captionEditable?: boolean;
   isWordChanged?: (word: Word) => boolean;
   snapPoints?: readonly number[];
+  win?: TimeWindow;
   onSeek(time: number): void;
   onPin(time: number): void;
   onWord?: (word: Word, text: string) => void;
@@ -265,6 +441,7 @@ export function SimpleTimeline({
   captionEditable = false,
   isWordChanged,
   snapPoints = [],
+  win: propsWin,
   onSeek,
   onPin,
   onWord = () => {},
@@ -274,13 +451,47 @@ export function SimpleTimeline({
   const [snap, setSnap] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const cuts = useContext(SimpleCutsContext);
-  const duration = Math.max(0, cuts ? cuts.sourceDuration : total);
+  const duration = Math.max(0, total > 0 ? total : (cuts ? cuts.keptMap.length : 0));
   const trackDuration = duration;
-  const displayTime = (at: number) => cuts ? safeToSource(cuts.keptMap, at) : at;
+  const displayTime = (at: number) => at;
   const [openCutIndex, setOpenCutIndex] = useState<number | null>(null);
   const [draftCut, setDraftCut] = useState<{ cutIndex: number; edge: 'start' | 'end'; from: number; to: number } | null>(null);
-  const dragState = useRef<{ pointerId: number; target: HTMLElement; cutIndex: number; edge: 'start' | 'end'; trackRect: DOMRect; lastDraft: { from: number; to: number } } | null>(null);
+  const dragState = useRef<{ pointerId: number; target: HTMLElement; cutIndex: number; edge: 'start' | 'end'; trackRect: DOMRect; startClientX: number; initialFrom: number; initialTo: number; lastDraft: { from: number; to: number } } | null>(null);
   const cutTrackRef = useRef<HTMLDivElement>(null);
+
+  const [internalWin, setInternalWin] = useState<TimeWindow>(() => ({
+    start: 0,
+    length: Math.max(0.001, duration),
+  }));
+  const win = propsWin ?? internalWin;
+
+  const trackingRef = useRef<CutTrackingState>({
+    win: { start: 0, length: Math.max(0.001, duration) },
+    time,
+    prevDuration: duration,
+    prevItems: pieces ?? timeline?.placements,
+    preCut: null,
+  });
+
+  trackingRef.current.win = win;
+  trackingRef.current.time = time;
+
+  useEffect(() => {
+    const currentItems = pieces ?? timeline?.placements;
+    const next = handleTimelineDurationChange(trackingRef.current, duration, currentItems);
+    trackingRef.current.prevDuration = duration;
+    trackingRef.current.prevItems = currentItems;
+    trackingRef.current.preCut = next.preCut;
+
+    if (next.win !== trackingRef.current.win) {
+      setInternalWin(next.win);
+      trackingRef.current.win = next.win;
+    }
+    if (next.seekTo !== undefined) {
+      onSeek(next.seekTo);
+      trackingRef.current.time = next.seekTo;
+    }
+  }, [duration, pieces, timeline?.placements, time, onSeek]);
 
   const inside = (at: number) => Math.max(0, Math.min(Math.max(0, total - 0.001), at));
 
@@ -294,16 +505,8 @@ export function SimpleTimeline({
   );
 
   const captionData = useMemo(() => {
-    if (!cuts) return projectCaptionsLane(captionsOption, phrases, words);
-    const sourceWord = <T extends { start: number; end: number }>(word: T): T => {
-      const start = safeToSource(cuts.keptMap, word.start);
-      return { ...word, start, end: start + word.end - word.start };
-    };
-    return projectCaptionsLane(captionsOption, phrases.map((phrase) => {
-      const mappedWords = phrase.words.map(sourceWord);
-      return { ...phrase, start: safeToSource(cuts.keptMap, phrase.start), end: mappedWords.at(-1)?.end ?? safeToSource(cuts.keptMap, phrase.end), words: mappedWords };
-    }), words.map(sourceWord));
-  }, [captionsOption, phrases, words, cuts]);
+    return projectCaptionsLane(captionsOption, phrases, words);
+  }, [captionsOption, phrases, words]);
 
   const videoData = useMemo(
     () =>
@@ -327,9 +530,9 @@ export function SimpleTimeline({
     const target = event.target as HTMLElement;
     if (target.closest('button, input, [role="slider"], [role="spinbutton"], .native-trim, .editorial-text-bar')) return;
     const box = trackRef.current?.getBoundingClientRect();
-    if (!box || duration <= 0) return;
-    const sourceTime = ((event.clientX - box.left) / box.width) * duration;
-    const at = inside(cuts ? sourceToReel(cuts.keptMap, sourceTime) : sourceTime);
+    if (!box || win.length <= 0) return;
+    const clickTime = win.start + ((event.clientX - box.left) / box.width) * win.length;
+    const at = inside(clickTime);
     onSeek(at);
     if (canPin && pinMode) onPin(at);
   };
@@ -374,6 +577,9 @@ export function SimpleTimeline({
       cutIndex,
       edge,
       trackRect,
+      startClientX: event.clientX,
+      initialFrom: cut.from,
+      initialTo: cut.to,
       lastDraft: { from: cut.from, to: cut.to },
     };
     setDraftCut({ cutIndex, edge, from: cut.from, to: cut.to });
@@ -387,21 +593,20 @@ export function SimpleTimeline({
     event.stopPropagation();
     const cut = cuts.cuts[drag.cutIndex];
     if (!cut) return;
-    const ratio = Math.max(0, Math.min(1, (event.clientX - drag.trackRect.left) / drag.trackRect.width));
-    const pointerTime = ratio * trackDuration;
+    const deltaX = event.clientX - drag.startClientX;
     const prevCut = drag.cutIndex > 0 ? cuts.cuts[drag.cutIndex - 1] : undefined;
     const nextCut = drag.cutIndex < cuts.cuts.length - 1 ? cuts.cuts[drag.cutIndex + 1] : undefined;
 
     if (drag.edge === 'start') {
       const minFrom = prevCut ? prevCut.to + MIN_SNIP : 0;
       const maxFrom = cut.to - (MIN_SNIP + 0.001);
-      const clampedFrom = Math.round(Math.max(minFrom, Math.min(maxFrom, pointerTime)) * 100) / 100;
+      const clampedFrom = mapCutResizeDelta(drag.initialFrom, deltaX, drag.trackRect.width, cuts.sourceDuration, minFrom, maxFrom);
       drag.lastDraft = { from: clampedFrom, to: cut.to };
       setDraftCut({ cutIndex: drag.cutIndex, edge: 'start', from: clampedFrom, to: cut.to });
     } else {
       const minTo = cut.from + (MIN_SNIP + 0.001);
-      const maxTo = nextCut ? nextCut.from - MIN_SNIP : trackDuration;
-      const clampedTo = Math.round(Math.max(minTo, Math.min(maxTo, pointerTime)) * 100) / 100;
+      const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
+      const clampedTo = mapCutResizeDelta(drag.initialTo, deltaX, drag.trackRect.width, cuts.sourceDuration, minTo, maxTo);
       drag.lastDraft = { from: cut.from, to: clampedTo };
       setDraftCut({ cutIndex: drag.cutIndex, edge: 'end', from: cut.from, to: clampedTo });
     }
@@ -452,7 +657,7 @@ export function SimpleTimeline({
       nextFrom = Math.round(Math.max(minFrom, Math.min(maxFrom, cut.from + delta)) * 10) / 10;
     } else {
       const minTo = cut.from + (MIN_SNIP + 0.001);
-      const maxTo = nextCut ? nextCut.from - MIN_SNIP : trackDuration;
+      const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
       nextTo = Math.round(Math.max(minTo, Math.min(maxTo, cut.to + delta)) * 10) / 10;
     }
 
@@ -466,14 +671,14 @@ export function SimpleTimeline({
   const ticks = useMemo(() => {
     if (duration <= 0) return [];
     const result: { s: number; major: boolean }[] = [];
-    const endSec = Math.ceil(duration);
+    const endSec = Math.ceil(Math.max(duration, win.start + win.length));
     for (let s = 0; s <= endSec; s++) {
       result.push({ s, major: s % 5 === 0 });
     }
     return result;
-  }, [duration]);
+  }, [duration, win.start, win.length]);
 
-  const pct = (s: number) => (duration > 0 ? `${(s / duration) * 100}%` : '0%');
+  const pct = (s: number) => `${percentIn(win, s)}%`;
 
   return (
     <section className="sm-timeline" aria-label="Simple timeline" data-verify-cuts={cuts ? cuts.cuts.length : 0}>
@@ -552,7 +757,7 @@ export function SimpleTimeline({
                   className="sm-clip-item sm-clip-added"
                   style={{
                     left: pct(displayTime(block.start)),
-                    width: `max(2px, ${((displayTime(block.end) - displayTime(block.start)) / Math.max(0.001, duration)) * 100}%)`,
+                    width: `max(2px, ${((displayTime(block.end) - displayTime(block.start)) / Math.max(0.001, win.length)) * 100}%)`,
                   }}
                   title={block.title}
                 >
@@ -568,7 +773,7 @@ export function SimpleTimeline({
         {/* Lane 2: Captions */}
         <div className="sm-lane-row" data-lane="captions">
           <CaptionLane
-            win={{ start: 0, length: Math.max(0.001, duration) }}
+            win={win}
             words={captionData.words}
             phrases={captionData.phrases}
             editable={captionEditable}
@@ -610,18 +815,18 @@ export function SimpleTimeline({
                 key={block.id}
                 className="sm-clip-item sm-clip-video"
                 style={{
-                  left: pct(cuts ? block.sourceIn : block.start),
-                  width: `max(2px, ${((cuts ? block.sourceOut - block.sourceIn : block.duration) / Math.max(0.001, duration)) * 100}%)`,
+                  left: pct(block.start),
+                  width: `max(2px, ${(block.duration / Math.max(0.001, win.length)) * 100}%)`,
                 }}
                 title={`Video span: ${block.duration.toFixed(2)}s`}
               />
             ))}
             {/* Cut marks */}
-            {videoData.cuts.map((cut) => (
+            {!cuts && videoData.cuts.map((cut) => (
               <div
                 key={cut.at}
                 className="sm-cut-line"
-                style={{ left: pct(displayTime(cut.at)) }}
+                style={{ left: pct(cut.at) }}
                 title={cut.gap ? `Cut (${cut.gap.skipped.toFixed(2)}s removed)` : 'Cut'}
               >
                 <span className="sm-cut-icon">&#9986;</span>
@@ -631,8 +836,8 @@ export function SimpleTimeline({
         const isDraft = draftCut?.cutIndex === index;
         const displayFrom = isDraft ? draftCut.from : cut.from;
         const displayTo = isDraft ? draftCut.to : cut.to;
-        const leftPct = trackDuration > 0 ? (displayFrom / trackDuration) * 100 : 0;
-        const widthPct = trackDuration > 0 ? Math.max(0.01, ((displayTo - displayFrom) / trackDuration) * 100) : 0;
+        const joinAt = cut.joinAt ?? (cuts ? sourceToReel(cuts.keptMap, cut.from) : cut.from);
+        const leftPct = percentIn(win, joinAt);
         const labelPrefix = cut.isDeadAir ? 'Cut pause' : 'Cut';
         const blockAriaLabel = `${labelPrefix}, ${(cut.to - cut.from).toFixed(1)} seconds at ${formatClock(cut.from)}`;
         const prevCut = index > 0 ? cuts.cuts[index - 1] : undefined;
@@ -640,7 +845,7 @@ export function SimpleTimeline({
         const minFrom = prevCut ? prevCut.to + MIN_SNIP : 0;
         const maxFrom = cut.to - (MIN_SNIP + 0.001);
         const minTo = cut.from + (MIN_SNIP + 0.001);
-        const maxTo = nextCut ? nextCut.from - MIN_SNIP : trackDuration;
+        const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
 
         return (
           <div
@@ -649,8 +854,9 @@ export function SimpleTimeline({
             data-cut-start={cut.from}
             data-cut-end={cut.to}
             data-cut-deadair={String(cut.isDeadAir)}
-            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+            style={{ left: `${leftPct}%` }}
           >
+            <div className="sm-cut-join-line" />
             <button
               type="button"
               className="sm-cut-block"
@@ -705,8 +911,8 @@ export function SimpleTimeline({
                 role="dialog"
                 aria-label={cut.isDeadAir ? 'Pause details' : 'Cut details'}
                 style={{
-                  right: (cut.from / trackDuration) > 0.5 ? 0 : 'auto',
-                  left: (cut.from / trackDuration) > 0.5 ? 'auto' : 0,
+                  right: leftPct > 50 ? 0 : 'auto',
+                  left: leftPct > 50 ? 'auto' : 0,
                 }}
               >
                 <span className="sm-cut-length num">{formatDuration(cut.to - cut.from)}</span>

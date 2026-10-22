@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { centerWindow, follow, followWindow, pieceIndexAt, sourceAt, stepTime, tickTimes, zoomWindow } from '../../web/src/review/_internal/timeline.ts';
+import {
+  anchorCutWindow,
+  centerWindow,
+  follow,
+  followWindow,
+  mapTimeThroughCut,
+  pieceIndexAt,
+  sourceAt,
+  stepTime,
+  tickTimes,
+  zoomWindow,
+} from '../../web/src/review/_internal/timeline.ts';
 
 /** Seconds 3 to 5 of a 12 s video are snipped. */
 const SNIPPED = [
@@ -109,5 +120,60 @@ describe('the zoom window', () => {
     expect(ticks.length).toBeGreaterThanOrEqual(4);
     expect(ticks.length).toBeLessThanOrEqual(8);
     expect(ticks.every((t) => t >= 34 && t <= 46)).toBe(true);
+  });
+});
+
+describe('mapTimeThroughCut', () => {
+  it('leaves times before the cut unchanged', () => {
+    expect(mapTimeThroughCut(2, 4, 7)).toBe(2);
+    expect(mapTimeThroughCut(0, 4, 7)).toBe(0);
+    expect(mapTimeThroughCut(3.99, 4, 7)).toBe(3.99);
+  });
+
+  it('maps times within the cut to the cut start', () => {
+    expect(mapTimeThroughCut(4, 4, 7)).toBe(4);
+    expect(mapTimeThroughCut(5.5, 4, 7)).toBe(4);
+    expect(mapTimeThroughCut(7, 4, 7)).toBe(4);
+  });
+
+  it('shifts times after the cut earlier by cut duration', () => {
+    expect(mapTimeThroughCut(8, 4, 7)).toBe(5);
+    expect(mapTimeThroughCut(10, 4, 7)).toBe(7);
+  });
+
+  it('clamps to [0, newTotal] when newTotal is provided', () => {
+    expect(mapTimeThroughCut(10, 4, 7, 6)).toBe(6);
+    expect(mapTimeThroughCut(8, 4, 7, 6)).toBe(5);
+    expect(mapTimeThroughCut(-2, 4, 7, 6)).toBe(0);
+  });
+});
+
+describe('anchorCutWindow', () => {
+  it('keeps seconds-per-pixel scale unchanged (length remains win.length)', () => {
+    const win = { start: 10, length: 15 };
+    const anchored = anchorCutWindow(win, 12, 14);
+    expect(anchored.length).toBe(15);
+  });
+
+  it('shifts window earlier when cutEnd <= win.start', () => {
+    // Cut is [2, 5], duration is 3. win is [10, 25].
+    // cutEnd (5) <= win.start (10) -> shifted earlier by 3: start = 7.
+    expect(anchorCutWindow({ start: 10, length: 15 }, 2, 5)).toEqual({ start: 7, length: 15 });
+    // Clamping to start >= 0
+    expect(anchorCutWindow({ start: 2, length: 15 }, 0, 4)).toEqual({ start: 0, length: 15 });
+  });
+
+  it('sets start = cutStart when cutStart <= win.start and win.start < cutEnd', () => {
+    // Cut is [4, 8]. win.start is 6.
+    // 4 <= 6 && 6 < 8 -> start = 4.
+    expect(anchorCutWindow({ start: 6, length: 15 }, 4, 8)).toEqual({ start: 4, length: 15 });
+    // Exact boundary at cutStart: win.start = 4
+    expect(anchorCutWindow({ start: 4, length: 15 }, 4, 8)).toEqual({ start: 4, length: 15 });
+  });
+
+  it('leaves start unchanged when win.start < cutStart', () => {
+    // Cut is [8, 12]. win.start is 5.
+    // win.start (5) < cutStart (8) -> start remains 5.
+    expect(anchorCutWindow({ start: 5, length: 15 }, 8, 12)).toEqual({ start: 5, length: 15 });
   });
 });

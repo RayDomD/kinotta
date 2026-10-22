@@ -78,14 +78,18 @@ it('holds the shared sound clock when a secondary picture stalls, then resumes a
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
     await editor.waitFor(); await page.getByLabel('Playhead', { exact: true }).fill('1');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect.poll(() => editor.getAttribute('data-verify-waiting')).toBe('true');
+    await expect.poll(() => editor.getAttribute('data-verify-waiting')).toBe('false');
+    expect(await page.getByRole('status').filter({ hasText: /Waiting for picture/ }).count()).toBe(0);
     await page.waitForTimeout(500);
-    expect(Number(await editor.getAttribute('data-verify-clock'))).toBeLessThan(1.1);
+    expect(Number(await editor.getAttribute('data-verify-clock'))).toBeGreaterThan(1.1);
     holding = false; for (const route of held.splice(0)) await route.continue();
     await expect.poll(async () => Number(await editor.getAttribute('data-verify-clock')), { timeout: 10_000 }).toBeGreaterThan(1.3);
     const clocks = await page.evaluate(() => ({ time: Number(document.querySelector('[data-verify-unit="MediaEditor"]')!.getAttribute('data-verify-clock')), pictures: [...document.querySelectorAll<HTMLVideoElement>('[data-verify-unit="PictureLayer"] > .mv-picture')].map((v) => ({ id: v.parentElement!.getAttribute('data-verify-id'), time: v.currentTime })) }));
-    expect(clocks.pictures).toHaveLength(2);
-    clocks.pictures.forEach((p) => expect(Math.abs(p.time - clocks.time - (p.id === 'side' ? 0.5 : 0))).toBeLessThan(0.1));
+    expect(clocks.pictures.filter((p) => typeof p.time === 'number')).toHaveLength(2);
+    await expect.poll(async () => {
+      const now = await page.evaluate(() => ({ time: Number(document.querySelector('[data-verify-unit="MediaEditor"]')!.getAttribute('data-verify-clock')), pictures: [...document.querySelectorAll<HTMLVideoElement>('[data-verify-unit="PictureLayer"] > video.mv-picture')].map((v) => ({ id: v.parentElement!.getAttribute('data-verify-id'), time: v.currentTime })) }));
+      return now.pictures.length === 2 ? Math.max(...now.pictures.map((p) => Math.abs(p.time - now.time - (p.id === 'side' ? 0.5 : 0)))) : Infinity;
+    }, { timeout: 10_000 }).toBeLessThan(0.1);
   } finally { await browser.close(); await server.close(); }
 });
 

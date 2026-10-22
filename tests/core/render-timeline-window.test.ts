@@ -92,3 +92,71 @@ it('pans and zooms all native lanes together, seeks on the ruler and keeps edits
     await expect.poll(() => page.getByLabel('Playhead', { exact: true }).inputValue()).toBe('4.00');
   } finally { await browser.close(); await server.close(); }
 });
+
+it('anchors timeline viewport, keeps scale, maps playhead through cuts, and only explicit Fit rescales', { timeout: 90_000 }, async () => {
+  const dir = copyFixture('footage-project');
+  const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=lime:s=160x90:r=30:d=4', '-c:v', 'libx264', join(dir, 'take.mp4')], { encoding: 'utf8' });
+  expect(generated.status, generated.stderr).toBe(0);
+  const reel = join(dir, 'reels/founder-talk');
+  const media = (prefix: string) => ({
+    schema: 1,
+    sources: [{ id: 'take', kind: 'video', audio: false, duration: 4, path: `${prefix}take.mp4` }],
+    placements: ['first', 'second', 'third'].map((id) => ({ id, role: 'main', source: 'take', in: 0, out: 4 })),
+    sequence: ['first', 'second', 'third'],
+  });
+  const plan = { duration: 12, clips: [], media: media('../../') };
+  writeFileSync(join(reel, 'plan.json'), JSON.stringify(plan));
+  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ ...plan, media: media('../../../') }));
+  const server = await startServer({ projectDir: dir, port: 0 });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1272, height: 1000 } });
+    await openDetailedEditor(page, server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
+    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    const lanes = page.locator('[data-verify-unit="NativeLanes"]');
+    await expect.poll(() => lanes.getAttribute('data-verify-window-length')).toBe('12');
+
+    // Zoom in once: length becomes 6, start is 0
+    await page.getByRole('button', { name: 'Zoom in timeline', exact: true }).click();
+    await expect.poll(() => lanes.getAttribute('data-verify-window-length')).toBe('6');
+
+    // Pan to start=3 (window is [3, 9])
+    await page.getByLabel('Pan timeline', { exact: true }).evaluate((input: HTMLInputElement) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '3');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect.poll(() => lanes.getAttribute('data-verify-window-start')).toBe('3');
+
+    // Seek playhead to 5.0 (inside second clip)
+    await page.getByLabel('Playhead', { exact: true }).fill('5.00');
+    await page.getByLabel('Playhead', { exact: true }).press('Enter');
+    await expect.poll(() => page.getByLabel('Playhead', { exact: true }).inputValue()).toBe('5.00');
+
+    // Delete second clip [4, 8] (cutStart: 4, cutEnd: 8)
+    // win.start is 3 < cutStart (4) -> anchorCutWindow leaves start = 3, length = 6
+    // playhead is at 5.00 (inside cut [4, 8]) -> mapTimeThroughCut maps playhead to cutStart = 4.00
+    const last = async () => { await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 5000 }).toBe(true); return (await server.project.readEditList('founder-talk')).operations.at(-1)!; };
+    const secondClip = lanes.locator('[data-role="main"] [data-placement="second"]');
+    await secondClip.click();
+    await secondClip.focus();
+    await page.keyboard.press('Delete');
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'second' });
+
+    // After delete closes up:
+    // 1. Scale is preserved: length remains 6!
+    await expect.poll(() => lanes.getAttribute('data-verify-window-length')).toBe('6');
+    // 2. Viewport is anchored: start remains 3!
+    await expect.poll(() => lanes.getAttribute('data-verify-window-start')).toBe('3');
+    // 3. Playhead mapped through cut: inside [4, 8] -> lands on 4.00!
+    await expect.poll(() => page.getByLabel('Playhead', { exact: true }).inputValue()).toBe('4.00');
+
+    // 4. Only explicit Fit rescales to the new total duration (8):
+    await page.getByRole('button', { name: 'Fit timeline', exact: true }).click();
+    await expect.poll(() => lanes.getAttribute('data-verify-window-start')).toBe('0');
+    await expect.poll(() => lanes.getAttribute('data-verify-window-length')).toBe('8');
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+});

@@ -497,6 +497,30 @@ export function revealInFolder(file: string): void {
  * frames. Renders read the original, so this costs no output quality. `ultrafast` makes the copy about 30% sooner than
  * `veryfast` for a file about 3.5x larger; only the editor plays it.
  */
+export async function makeEditingProxy(source: string, dest: string): Promise<void> {
+  const args = [
+    '-v', 'error', '-y', '-i', source,
+    '-vf', 'scale=-2:min(540\\,ih)',
+    '-g', '6', '-keyint_min', '6',
+    '-c:v', 'libx264', '-preset', 'fast',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-movflags', '+faststart',
+    dest,
+  ];
+  await run('ffmpeg', args);
+}
+
+export async function makeAudioFile(source: string, dest: string): Promise<void> {
+  const args = [
+    '-v', 'error', '-y', '-i', source,
+    '-vn',
+    '-c:a', 'aac',
+    dest,
+  ];
+  await run('ffmpeg', args);
+}
+
 export async function makePlaybackCopy(source: string, dest: string): Promise<void> {
   const args = ['-v', 'error', '-y', '-i', source, '-vf', `scale='min(${PLAYBACK_MAX_WIDTH},iw)':-2`,
     '-force_key_frames', `expr:gte(t,n_forced*${PLAYBACK_KEYFRAME_SECONDS})`,

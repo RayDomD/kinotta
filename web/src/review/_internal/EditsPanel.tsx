@@ -87,10 +87,10 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
         {editable && operations.length === 0 && !codeOnly && !media && <p className="meta rv-hint">No edits yet. Press S for the Snip tool, drag across the lanes, then press Snip. Press B for the Blade to cut, and drag a piece to move it. Drag a clip to slide it, or its edges to trim it. Click an element in the frame to move it; the arrow keys nudge it.</p>}
         {editable && (operations.length > 0 || edits?.list?.canUndo === true || edits?.list?.canRedo === true) && (
           <div className="rv-undo">
-            <button type="button" disabled={!idle || edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>
+            <button type="button" disabled={edits?.list?.canUndo !== true} onClick={() => void edits?.undo()}>
               Undo <kbd className="dot">Ctrl Z</kbd>
             </button>
-            <button type="button" disabled={!idle || edits?.list?.canRedo !== true} onClick={() => void edits?.redo()}>
+            <button type="button" disabled={edits?.list?.canRedo !== true} onClick={() => void edits?.redo()}>
               Redo <kbd className="dot">Ctrl Shift Z</kbd>
             </button>
             <span>{`since v${edits?.list?.base ?? ''}`}</span>
@@ -110,7 +110,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
                   <p>{text}</p><span className="rv-edit-author">{op.by}</span>
                   {gone !== undefined && <div className="note">{`No longer applies to v${edits?.list?.base ?? ''}: ${gone} Remove it, or make the edit again.`}</div>}
                   {gone === undefined && op.kind === 'clip-slide' && <div className="note">Off its words: its changes no longer land on the words they were placed on. Keep it, or ask your agent to re-sync.</div>}
-                  <button type="button" className="x" aria-label={`Remove edit ${i + 1}`} disabled={!editable || !idle || stale} onClick={() => void edits?.remove(op.id)}>
+                  <button type="button" className="x" aria-label={`Remove edit ${i + 1}`} disabled={!editable || !edits || stale} onClick={() => void edits?.remove(op.id)}>
                     Remove
                   </button>
                 </li>

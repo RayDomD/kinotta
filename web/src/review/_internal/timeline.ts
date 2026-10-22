@@ -138,3 +138,38 @@ export function tickTimes(win: TimeWindow): number[] {
 export function percentIn(win: TimeWindow, time: number): number {
   return ((time - win.start) / win.length) * 100;
 }
+
+/**
+ * Maps a playhead or marker time across a removed range [cutStart, cutEnd].
+ * Times before the cut stay put; times within the cut land on the cut; times after shift earlier by the cut duration.
+ */
+export function mapTimeThroughCut(time: number, cutStart: number, cutEnd: number, newTotal?: number): number {
+  let mapped: number;
+  if (time < cutStart) {
+    mapped = time;
+  } else if (time <= cutEnd) {
+    mapped = cutStart;
+  } else {
+    mapped = time - (cutEnd - cutStart);
+  }
+  if (newTotal !== undefined) {
+    mapped = clamp(mapped, 0, newTotal);
+  }
+  return mapped;
+}
+
+/**
+ * Anchors the visible timeline window across a cut [cutStart, cutEnd] to preserve seconds-per-pixel scale.
+ * Keeps win.length unchanged.
+ */
+export function anchorCutWindow(win: TimeWindow, cutStart: number, cutEnd: number): TimeWindow {
+  let start: number;
+  if (cutEnd <= win.start) {
+    start = Math.max(0, win.start - (cutEnd - cutStart));
+  } else if (cutStart <= win.start && win.start < cutEnd) {
+    start = cutStart;
+  } else {
+    start = win.start;
+  }
+  return { start, length: win.length };
+}

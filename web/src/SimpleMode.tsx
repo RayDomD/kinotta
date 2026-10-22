@@ -47,6 +47,45 @@ import { pieceMap, snipPieces, MIN_SNIP } from '../../server/core/model.ts';
 import type { Piece, SnipOperation } from '../../server/core/model.ts';
 import './simple.css';
 
+/** Handles undo/redo keyboard shortcuts in Simple mode. */
+export function handleSimpleUndoRedo(
+  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'defaultPrevented' | 'target' | 'preventDefault'>,
+  edits: Pick<EditsState, 'busy' | 'list' | 'undo' | 'redo'>,
+): boolean {
+  if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey)) {
+    return false;
+  }
+  const isUndo = !event.shiftKey && event.key.toLowerCase() === 'z';
+  const isRedo = (event.shiftKey && event.key.toLowerCase() === 'z') || event.key.toLowerCase() === 'y';
+  if (!isUndo && !isRedo) return false;
+
+  const target = event.target as HTMLElement | null;
+  const dialog = target?.closest?.('dialog') as HTMLDialogElement | null | undefined;
+  const isOpenDialog = dialog ? (dialog.open || (typeof dialog.hasAttribute === 'function' && dialog.hasAttribute('open'))) : false;
+  if (
+    target?.isContentEditable ||
+    target?.closest?.('input, textarea, select, [contenteditable="true"]') ||
+    isOpenDialog
+  ) {
+    return false;
+  }
+
+  if (isUndo) {
+    if (edits.list?.canUndo) {
+      event.preventDefault();
+      void edits.undo();
+      return true;
+    }
+  } else if (isRedo) {
+    if (edits.list?.canRedo) {
+      event.preventDefault();
+      void edits.redo();
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Simple mode is the default on each new browser tab; an explicit editor switch survives reload. */
 export function startsInSimpleMode(): boolean {
   try { return sessionStorage.getItem('kinotta-mode') !== 'editor'; } catch { return true; }
@@ -378,6 +417,89 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
   );
 }
 
+/** Computes legacy reel cut blocks with played-time join markers and source ranges. */
+export function computeSimpleCuts(
+  version: Pick<Version, 'pieces' | 'isNewest'> | undefined,
+  edits: Pick<EditsState, 'busy' | 'list' | 'remove' | 'add'>,
+  replacingCut?: { oldId: string; newOp: SnipOperation } | null,
+): SimpleCutsValue | null {
+  if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
+    return null;
+  }
+  const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
+  let liveSnips = edits.list.operations.filter(
+    (op): op is SnipOperation =>
+      op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
+  );
+  if (replacingCut) {
+    const hasNew = liveSnips.some((s) => s.from === replacingCut.newOp.from && s.to === replacingCut.newOp.to);
+    if (!hasNew) {
+      liveSnips = [...liveSnips.filter((s) => s.id !== replacingCut.oldId), replacingCut.newOp];
+    }
+  }
+  const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
+  const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
+  const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
+  if (sourceDuration <= 0) return null;
+
+  let keptPieces: Piece[] = basePieces;
+  for (const snip of liveSnips) {
+    try {
+      keptPieces = snipPieces(keptPieces, snip.from, snip.to);
+    } catch {
+      // Ignored if snip cannot be applied to current pieces
+    }
+  }
+
+  const keptMap = pieceMap(keptPieces, sourceDuration);
+
+  const cuts: CutBlock[] = [];
+  let prevEnd = 0;
+  let playedAt = 0;
+  for (const piece of keptPieces) {
+    if (piece.in - prevEnd > MIN_SNIP) {
+      const from = prevEnd;
+      const to = piece.in;
+      const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+      const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+      cuts.push({ from, to, ops, isDeadAir, joinAt: playedAt });
+    }
+    playedAt += piece.out - piece.in;
+    prevEnd = piece.out;
+  }
+  if (sourceDuration - prevEnd > MIN_SNIP) {
+    const from = prevEnd;
+    const to = sourceDuration;
+    const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
+    const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
+    cuts.push({ from, to, ops, isDeadAir, joinAt: playedAt });
+  }
+
+  return {
+    sourceDuration,
+    basePieces,
+    keptPieces,
+    keptMap,
+    cuts,
+    // Cut edits use the same ordered queue as the rest of Working.
+    busy: false,
+    restoreCut: async (cut: CutBlock) => {
+      for (const op of cut.ops) {
+        await edits.remove(op.id);
+      }
+    },
+    replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
+      await edits.remove(oldOp.id);
+      const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+      if (!ok) {
+        await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+        return false;
+      }
+      return true;
+    },
+  };
+}
+
 export function SimpleMode({
   listing,
   reel,
@@ -469,74 +591,44 @@ export function SimpleMode({
     return () => clearInterval(timer);
   }, [reel?.slug, creating, agentJob?.state]);
 
-  const cutsValue = useMemo<SimpleCutsValue | null>(() => {
-    if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
-      return null;
-    }
-    const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
-    const liveSnips = edits.list.operations.filter(
-      (op): op is SnipOperation =>
-        op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
-    );
-    const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
-    const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
-    const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
-    if (sourceDuration <= 0) return null;
+  const [replacingCut, setReplacingCut] = useState<{ oldId: string; newOp: SnipOperation } | null>(null);
 
-    let keptPieces: Piece[] = basePieces;
-    for (const snip of liveSnips) {
-      try {
-        keptPieces = snipPieces(keptPieces, snip.from, snip.to);
-      } catch {
-        // Ignored if snip cannot be applied to current pieces
-      }
-    }
-
-    const keptMap = pieceMap(keptPieces, sourceDuration);
-
-    const cuts: CutBlock[] = [];
-    let prevEnd = 0;
-    for (const piece of keptPieces) {
-      if (piece.in - prevEnd > MIN_SNIP) {
-        const from = prevEnd;
-        const to = piece.in;
-        const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
-        const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
-        cuts.push({ from, to, ops, isDeadAir });
-      }
-      prevEnd = piece.out;
-    }
-    if (sourceDuration - prevEnd > MIN_SNIP) {
-      const from = prevEnd;
-      const to = sourceDuration;
-      const ops = liveSnips.filter((s) => s.from < to + MIN_SNIP && s.to > from - MIN_SNIP);
-      const isDeadAir = ops.length > 0 && ops.every((s) => s.by === 'dead-air');
-      cuts.push({ from, to, ops, isDeadAir });
-    }
-
+  const effectiveEdits = useMemo(() => {
+    if (!replacingCut || !edits.list) return edits;
+    const hasNew = edits.list.operations.some((op) => op.kind === 'snip' && op.from === replacingCut.newOp.from && op.to === replacingCut.newOp.to);
+    if (hasNew) return edits;
+    const ops = edits.list.operations.filter((op) => op.id !== replacingCut.oldId);
     return {
-      sourceDuration,
-      basePieces,
-      keptPieces,
-      keptMap,
-      cuts,
-      busy: edits.busy,
-      restoreCut: async (cut: CutBlock) => {
-        for (const op of cut.ops) {
-          await edits.remove(op.id);
-        }
-      },
-      replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
-        await edits.remove(oldOp.id);
-        const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
-        if (!ok) {
-          await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
-          return false;
-        }
-        return true;
+      ...edits,
+      list: {
+        ...edits.list,
+        operations: [...ops, replacingCut.newOp],
       },
     };
-  }, [version, edits]);
+  }, [edits, replacingCut]);
+
+  const cutsValue = useMemo(() => {
+    const base = computeSimpleCuts(version, effectiveEdits, replacingCut);
+    if (!base) return null;
+    return {
+      ...base,
+      replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
+        const newOp: SnipOperation = { kind: 'snip', from, to, by: oldOp.by, id: `pending:${crypto.randomUUID()}` };
+        setReplacingCut({ oldId: oldOp.id, newOp });
+        try {
+          await edits.remove(oldOp.id);
+          const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+          if (!ok) {
+            await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+            return false;
+          }
+          return true;
+        } finally {
+          setReplacingCut(null);
+        }
+      },
+    };
+  }, [version, effectiveEdits, replacingCut, edits]);
   const pins = comments.comments;
   const jumpTo = (index: number) => {
     if (!pins.length) return;
@@ -590,6 +682,14 @@ export function SimpleMode({
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [pins, selected, busy, reel, version, creating]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      handleSimpleUndoRedo(event, edits);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [edits]);
 
   const problem = (err: unknown) => setError(err instanceof Error ? err.message : 'Could not complete that action. Try again.');
 
@@ -790,7 +890,7 @@ export function SimpleMode({
                 version={version}
                 message={message}
                 comments={pins}
-                edits={edits}
+                edits={effectiveEdits}
                 simple={{
                   pinMode,
                   controls: <button type="button" className="rv-tool sm-pin-tool" aria-label="Pin mode" title="Pin mode (P)" aria-keyshortcuts="P" aria-pressed={pinMode} disabled={busy || !version} onClick={togglePinMode}><EditorIcon name="pin" /></button>,

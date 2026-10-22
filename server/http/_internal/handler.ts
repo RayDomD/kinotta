@@ -30,9 +30,10 @@ const RENDERS_LIST_API = /^\/api\/reels\/([^/]+)\/renders$/;
 const REVEAL_API = /^\/api\/reels\/([^/]+)\/renders\/([^/]+)\/reveal$/;
 const RENDER_FILE_ROUTE = /^\/renders\/([^/]+)\/([^/]+)$/;
 const HTTP_NO_CONTENT = 204;
-const FOOTAGE_ROUTE = /^\/footage\/([^/]+)$/;
+const FOOTAGE_ROUTE = /^\/footage\/([^/]+)(\/audio)?$/;
 const MEDIA_ROUTE = /^\/media\/([^/]+)$/;
 const VERSION_MEDIA_ROUTE = /^\/media\/([^/]+)\/(\d+)\/([^/]+)$/;
+const AUDIO_API = /^\/api\/media\/([^/]+)\/audio$/;
 const WAVEFORM_API = /^\/api\/media\/([^/]+)\/waveform$/;
 const STILL_API = /^\/api\/media\/([^/]+)\/still$/;
 const FOOTAGE_STILL_API = /^\/api\/reels\/([^/]+)\/footage-still$/;
@@ -278,7 +279,7 @@ async function serveRender(req: IncomingMessage, res: ServerResponse, project: P
 
 async function serveFootage(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
-  const file = slug === null ? null : await project.footageFile(slug);
+  const file = slug === null ? null : route[2] ? await project.footageAudioFile(slug) : await project.footageFile(slug);
   if (file) await sendRanged(req, res, file);
   else sendNotFound(res);
 }
@@ -351,6 +352,7 @@ export function createHandler(project: Project, webRoot: string) {
       const footageRoute = FOOTAGE_ROUTE.exec(pathname);
       const mediaRoute = MEDIA_ROUTE.exec(pathname);
       const versionMediaRoute = VERSION_MEDIA_ROUTE.exec(pathname);
+      const audioRoute = AUDIO_API.exec(pathname);
       const waveformRoute = WAVEFORM_API.exec(pathname);
       const stillRoute = STILL_API.exec(pathname); const footageStillRoute = FOOTAGE_STILL_API.exec(pathname);
       const speechRoute = SPEECH_API.exec(pathname);
@@ -541,6 +543,14 @@ export function createHandler(project: Project, webRoot: string) {
         const width = searchParams.has('width') ? Number(searchParams.get('width')) : 160;
         if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
         await sendRanged(req, res, await project.mediaStill(source, time, width, reel ? { reel, version } : undefined, footageStillRoute ? source : undefined));
+      } else if (audioRoute && req.method === 'GET') {
+        const source = safeDecode(audioRoute[1]!);
+        const reel = searchParams.get('reel');
+        const version = Number(searchParams.get('version'));
+        if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
+        const file = await project.mediaAudioFile(source, reel ? { reel, version } : undefined);
+        if (file) await sendRanged(req, res, file);
+        else sendNotFound(res);
       } else if (waveformRoute) {
         const source = safeDecode(waveformRoute[1]!);
         const reel = searchParams.get('reel');

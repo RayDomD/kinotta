@@ -10,9 +10,9 @@ import { addOperation, cancelHandoff, discardEdits, readEditList, readEditListNo
 import { captureWorking, freezeEdits } from './_internal/save.ts';
 import { readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
-import { footageFile } from './_internal/footage.ts';
+import { footageAudioFile, footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
-import { importMedia, listMedia, listProjectMedia, mediaFile, mediaWaveform, referenceMedia, relinkMedia } from './_internal/media-library.ts';
+import { ensureProjectProxies, importMedia, listMedia, listProjectMedia, mediaAudioFile, mediaFile, mediaWaveform, referenceMedia, relinkMedia } from './_internal/media-library.ts';
 import { createMediaSpeech } from './_internal/media-speech.ts';
 import { createMediaBeats } from './_internal/media-beats.ts';
 import { soundEffects, soundEffectFile, importSoundEffect } from './_internal/sound-effects.ts';
@@ -124,10 +124,13 @@ export interface ProjectOptions {
   transcriber?: Transcriber;
   /** How many parallel segments every render runs in; tests pin it. Otherwise the CPU and the render's length decide. */
   renderSegments?: number;
+  /** Makes missing editing proxies and audio files for existing footage in the background. The editor server turns it on. */
+  proxies?: boolean;
 }
 
 export function openProject(projectDir: string, options: ProjectOptions = {}): Project {
   const dir = resolve(projectDir);
+  if (options.proxies) ensureProjectProxies(dir).catch(() => undefined);
   const watcher = createWatcher(join(dir, 'reels'));
   const listeners = new Set<(event: ProjectEvent) => void>();
   const emit = (event: ProjectEvent): void => listeners.forEach((listener) => listener(event));
@@ -166,7 +169,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     referenceMedia: (path) => referenceMedia(dir, path),
     listProjectMedia: () => listProjectMedia(dir),
     relinkMedia: (source, path) => relinkMedia(dir, source, path),
-    mediaFile: (source, saved) => mediaFile(dir, source, saved),
+    mediaFile: (source, saved, original) => mediaFile(dir, source, saved, original),
+    mediaAudioFile: (source, saved) => mediaAudioFile(dir, source, saved),
     mediaStill: (source, time, width, saved, footageReel) => mediaStill(dir, source, time, width, saved, footageReel),
     listMarkers: (slug) => listMarkers(dir, slug),
     addMarker: (slug, input) => addMarker(dir, slug, input),
@@ -206,6 +210,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
       };
     },
     footageFile: (slug) => footageFile(dir, slug),
+    footageAudioFile: (slug) => footageAudioFile(dir, slug),
     listComments: (slug, number) => listComments(dir, slug, number),
     addComment: (slug, number, input) => addComment(dir, slug, number, input),
     editComment: (slug, number, id, text) => editComment(dir, slug, number, id, text),

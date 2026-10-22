@@ -12,6 +12,8 @@ import { copyFixture } from '../helpers/project.ts';
 const REEL = 'founder-talk';
 const ROOT = '[data-verify-unit="MediaEditor"]';
 const SOUND = '**/media/founder-talk/1/tone';
+/** The editor prepares sound from the audio-only file first, then the media file. */
+const SOUND_AUDIO = '**/api/media/tone/audio?*';
 
 /** A footage-project reel whose v1 is native media: one tone, or nothing at all. */
 function mediaReel(empty: boolean): string {
@@ -40,7 +42,7 @@ function check(page: Page, tamper: Record<string, string> = {}): Promise<boolean
 
 /** Opens Review, routing the sound through `route` first when given. */
 async function open(page: Page, url: string, route?: (route: Route) => void): Promise<void> {
-  if (route) await page.route(SOUND, route);
+  if (route) { await page.route(SOUND, route); await page.route(SOUND_AUDIO, route); }
   await openDetailedEditor(page, url);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
   await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -87,6 +89,7 @@ it('holds every MediaEditor invariant in each fixture state, and fails the delib
     await failing.getByLabel('Playhead', { exact: true }).fill('2');
     expect(await failing.locator('.editor-frame-error').count()).toBe(0);
     await failing.unroute(SOUND);
+    await failing.unroute(SOUND_AUDIO);
     await failing.getByRole('button', { name: 'Retry sound for bed', exact: true }).click();
     await expect.poll(() => status(failing, 'status')).toBe('ready');
     expect(await failing.getByRole('button', { name: 'Retry sound for bed', exact: true }).count()).toBe(0);

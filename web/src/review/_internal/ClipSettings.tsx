@@ -105,7 +105,7 @@ export function ClipSettings({ placements, media, timeline, editable, emptyHint,
               </div>)}
             </>}
           </>}
-          {timeline.placements.length > 0 && <button className="rv-tool" disabled={!editable} onClick={() => void edits!.add({ kind: 'placement-remove', placement: p.id, leaveGap: true })}>Remove</button>}
+          {timeline.placements.length > 0 && <button className="rv-tool" disabled={!editable} onClick={() => void edits!.add({ kind: 'placement-remove', placement: p.id })}>Remove</button>}
           {media.sequence.includes(p.id) && <button className="rv-tool" disabled={!editable || media.sequence.indexOf(p.id) === 0} onClick={() => void edits!.add({ kind: 'placement-move', placement: p.id, index: media.sequence.indexOf(p.id) - 1 })}>Earlier</button>}
           <button type="button" className="rv-tool" disabled={!editable || !splittable(p)} onClick={() => split(p)}>Split at playhead</button>
           <button type="button" className="rv-tool" disabled={!editable} onClick={() => duplicate(p)}>Duplicate</button>

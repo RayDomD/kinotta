@@ -11,8 +11,15 @@ export async function reviewClockText(page: Page): Promise<string> {
   return `${timestamp(at)} / ${timestamp(duration)}`;
 }
 
+/** A preview can appear while edit commands still wait for the server reply. */
+export async function waitForEditSave(page: Page): Promise<void> {
+  const addTrack = page.getByRole('button', { name: 'Add track', exact: true });
+  if (await addTrack.count()) await page.waitForFunction((button) => !!button?.matches(':enabled'), await addTrack.elementHandle());
+}
+
 /** Keyboard commands belong to the editor while its own control is focused. */
 export async function focusReview(page: Page): Promise<void> {
+  await waitForEditSave(page);
   const toolbar = page.getByRole('toolbar', { name: 'Timeline tools' });
   if (await toolbar.count()) await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
   else await page.getByRole('main', { name: 'Review' }).getByRole('button', { name: 'Play', exact: true }).focus();

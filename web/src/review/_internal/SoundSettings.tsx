@@ -65,8 +65,8 @@ export function SoundSettings({ placement: p, media, timeline, editable, edits, 
   }, [track]);
   const sound = !!source && source.kind !== 'image' && source.audio !== false;
   const curve = p && points.map((point) => `${point.at / p.duration * 300},${48 - point.gain / Math.max(p.gain ?? 1, 0.001) * 38}`).join(' ');
-  return <section className="mv-placements editor-clip-settings" aria-label="Sound settings" {...verifyAttrs(p, ready, detecting || (edits?.busy ?? false), error)} data-verify-eq-count={eq.length} data-verify-eq-bypass={String(track?.eqBypass ?? false)} data-verify-beat-status={beatError ? 'error' : detecting ? 'detecting' : source?.beats ? 'ready' : 'idle'} data-verify-beat-count={source?.beats?.beats.length ?? 0}>
-    <SoundGenerate editable={editable} targetName={generatedTrackName} generate={generate} onAdd={onAddGenerated} />
+  return <section className="mv-placements editor-clip-settings" aria-label="Sound settings" {...verifyAttrs(p, ready, detecting, error)} data-verify-eq-count={eq.length} data-verify-eq-bypass={String(track?.eqBypass ?? false)} data-verify-beat-status={beatError ? 'error' : detecting ? 'detecting' : source?.beats ? 'ready' : 'idle'} data-verify-beat-count={source?.beats?.beats.length ?? 0}>
+    <SoundGenerate editable={editable && !edits?.busy} targetName={generatedTrackName} generate={generate} onAdd={onAddGenerated} />
     {!p ? <p className="meta">Select an audio clip to adjust its sound.</p> : <div className="mv-placement">
       <div className="mv-placement-head"><strong>{source?.name ?? source?.path.split('/').at(-1)}</strong><span>{p.at.toFixed(2)}–{(p.at + p.duration).toFixed(2)}s</span></div>
       {!sound ? <p className="meta">This source has no sound.</p> : <>
@@ -88,7 +88,7 @@ export function SoundSettings({ placement: p, media, timeline, editable, edits, 
           {speechTrack && !overlapping && <p className="meta">No overlapping transcribed speech on this track. Transcribe the speech clip or choose another track.</p>}
           <p className="meta">Applying replaces this clip’s volume points. Undo restores them. Drag the resulting points on the timeline to refine them.</p>
           {error && !beatError && <p role="alert">{error}</p>}
-          <button className="rv-tool" type="button" disabled={!ready || edits?.busy} onClick={() => { if (ready) void edits!.add({ kind: 'placement-duck', placement: p.id, spans, ...settings }); }}>Apply ducking</button>
+          <button className="rv-tool" type="button" disabled={!ready} onClick={() => { if (ready) void edits!.add({ kind: 'placement-duck', placement: p.id, spans, ...settings }); }}>Apply ducking</button>
         </div>}
         {track && <div className="mv-controls">
           <h3>Track EQ · {track.name}</h3>
@@ -112,7 +112,7 @@ export function SoundSettings({ placement: p, media, timeline, editable, edits, 
           <h3>Beats</h3>
           <span className="meta">Source timing shared by every use of this music file. Ticks follow trims and loops.</span>
           {source?.beats && <strong>{source.beats.tempo.toFixed(1)} BPM · {source.beats.beats.length} beats</strong>}
-          <button type="button" className="rv-tool" disabled={!editable || detecting || !!p.attachmentBroken} onClick={async () => {
+          <button type="button" className="rv-tool" disabled={!editable || edits?.busy || detecting || !!p.attachmentBroken} onClick={async () => {
             setBeatError(null); setDetecting(true);
             try { const beats = await onDetect(p.source, !!source?.beats); await edits!.add({ kind: 'source-beats', source: p.source, beats }); }
             catch (failure) { setBeatError(failure instanceof Error ? failure.message : 'Beat detection failed.'); }

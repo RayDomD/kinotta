@@ -341,7 +341,8 @@ export interface Project {
   /** Supported media inside the project, outside reels/, that the library does not hold yet. */
   listProjectMedia(): Promise<ProjectMediaFile[]>;
   relinkMedia(source: string, path: string): Promise<MediaEntry>;
-  mediaFile(source: string, saved?: { reel: string; version: number }): Promise<string | null>;
+  mediaFile(source: string, saved?: { reel: string; version: number }, original?: boolean): Promise<string | null>;
+  mediaAudioFile(source: string, saved?: { reel: string; version: number }): Promise<string | null>;
   mediaWaveform(source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform>;
   listMedia(filter?: MediaFilter): Promise<MediaEntry[]>;
   /** How a source's speech stands: words cached by content, a running or failed transcription, or not started. */
@@ -370,8 +371,10 @@ export interface Project {
    * comments change, or a version's `approval.json` appears or goes. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
-  /** Absolute path of the reel's footage file, or null (code-only reel, file missing, or a path outside the project). */
+  /** Absolute path of the file the editor plays for the reel's footage (its proxy once made), or null (code-only reel, file missing, or a path outside the project). */
   footageFile(slug: string): Promise<string | null>;
+  /** AAC audio-only file for the reel's footage, or null until it is made or when the reel has no footage. */
+  footageAudioFile(slug: string): Promise<string | null>;
   /** A version's comments in number order. Throws `KinottaError` for an unknown reel or version. */
   listComments(slug: string, number: number): Promise<Comment[]>;
   /**

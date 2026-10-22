@@ -5,7 +5,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from 'node:p
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { KinottaError } from './errors.ts';
-import { makePlaybackCopy, probeVideo } from './runner.ts';
+import { makeAudioFile, makeEditingProxy, makePlaybackCopy, probeVideo } from './runner.ts';
 import type { ImportedVideo } from './types.ts';
 import { isVideoFile } from './videos.ts';
 
@@ -13,6 +13,10 @@ const FOOTAGE_DIR = 'footage';
 /** Where H.264 copies of videos browsers cannot play live: `footage/.playback/`. A dot folder, so it is never listed as a video. */
 const PLAYBACK_DIR = '.playback';
 const PLAYBACK_EXT = '.mp4';
+export const PROXY_DIR = '.proxy';
+export const AUDIO_DIR = '.audio';
+export const PROXY_EXT = '.mp4';
+export const AUDIO_EXT = '.aac';
 /** Joins the folders of a video outside footage/ into its copy's name: `media/talk.mov` becomes `media--talk.mp4`. */
 const PLAYBACK_PATH_JOIN = '--';
 const PARTIAL_PREFIX = '.incoming-';
@@ -144,8 +148,11 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
 
   let file: string;
   let copied: boolean;
+  let hash: string;
   try {
-    const { hash, size } = await writeHashed(body, partial);
+    const written = await writeHashed(body, partial);
+    hash = written.hash;
+    const size = written.size;
     const identical = await findIdentical(footageDir, size, hash);
     if (identical !== null) {
       await rm(partial, { force: true });
@@ -171,6 +178,7 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
   const needsCopy = needsPlaybackCopy(codec);
   // Finished in the background; starting a reel waits for it, and makes it again (showing the error) if it failed.
   if (needsCopy) ensurePlaybackCopy(projectDir, file).catch(() => undefined);
+  ensureProxyAndAudio(projectDir, file, hash).catch(() => undefined);
   return { path: `${FOOTAGE_DIR}/${basename(file)}`, copied, playbackCopy: needsCopy };
 }
 
@@ -221,4 +229,104 @@ async function makeCopy(file: string, dest: string): Promise<void> {
     await rm(staged, { force: true });
     throw err;
   }
+}
+
+export function contentProxyPath(projectDir: string, hash: string): string {
+  return join(resolve(projectDir, FOOTAGE_DIR), PROXY_DIR, `sha256-${hash}${PROXY_EXT}`);
+}
+
+export function contentAudioPath(projectDir: string, hash: string): string {
+  return join(resolve(projectDir, FOOTAGE_DIR), AUDIO_DIR, `sha256-${hash}${AUDIO_EXT}`);
+}
+
+export async function findProxyPath(projectDir: string, hash: string): Promise<string | null> {
+  if (!/^[a-f0-9]{64}$/.test(hash)) return null;
+  const standard = contentProxyPath(projectDir, hash);
+  if (await exists(standard)) return standard;
+  const unprefixed = join(resolve(projectDir, FOOTAGE_DIR), PROXY_DIR, `${hash}${PROXY_EXT}`);
+  if (await exists(unprefixed)) return unprefixed;
+  return null;
+}
+
+export async function findAudioPath(projectDir: string, hash: string): Promise<string | null> {
+  if (!/^[a-f0-9]{64}$/.test(hash)) return null;
+  const standard = contentAudioPath(projectDir, hash);
+  if (await exists(standard)) return standard;
+  const unprefixed = join(resolve(projectDir, FOOTAGE_DIR), AUDIO_DIR, `${hash}${AUDIO_EXT}`);
+  if (await exists(unprefixed)) return unprefixed;
+  return null;
+}
+
+export async function ensureEditingProxy(projectDir: string, file: string, hash?: string): Promise<string> {
+  const h = hash ?? await hashOf(file, projectDir);
+  const existing = await findProxyPath(projectDir, h);
+  if (existing) return existing;
+  const dest = contentProxyPath(projectDir, h);
+  const key = resolve(dest);
+  const running = copying.get(key);
+  if (running) {
+    await running;
+    return dest;
+  }
+  const job = (async () => {
+    if (await exists(dest)) return;
+    await mkdir(dirname(dest), { recursive: true });
+    const staged = join(dirname(dest), `${PARTIAL_PREFIX}${randomUUID()}-${basename(dest)}`);
+    try {
+      await inCopySlot(() => makeEditingProxy(file, staged));
+      await rename(staged, dest);
+    } catch (err) {
+      await rm(staged, { force: true }).catch(() => undefined);
+      throw err;
+    }
+  })().finally(() => copying.delete(key));
+  copying.set(key, job);
+  await job;
+  return dest;
+}
+
+export async function ensureAudioFile(projectDir: string, file: string, hash?: string): Promise<string | null> {
+  const h = hash ?? await hashOf(file, projectDir);
+  const existing = await findAudioPath(projectDir, h);
+  if (existing) return existing;
+  const dest = contentAudioPath(projectDir, h);
+  const key = resolve(dest);
+  const running = copying.get(key);
+  if (running) {
+    await running;
+    return (await exists(dest)) ? dest : null;
+  }
+  const job = (async () => {
+    if (await exists(dest)) return;
+    await mkdir(dirname(dest), { recursive: true });
+    const staged = join(dirname(dest), `${PARTIAL_PREFIX}${randomUUID()}-${basename(dest)}`);
+    try {
+      await inCopySlot(() => makeAudioFile(file, staged));
+      await rename(staged, dest);
+    } catch (err) {
+      await rm(staged, { force: true }).catch(() => undefined);
+      throw err;
+    }
+  })().finally(() => copying.delete(key));
+  copying.set(key, job);
+  try {
+    await job;
+    return (await exists(dest)) ? dest : null;
+  } catch {
+    return null;
+  }
+}
+
+export function ensureProxyAndAudio(projectDir: string, file: string, hash?: string): Promise<void> {
+  return (async () => {
+    try {
+      const h = hash ?? await hashOf(file, projectDir);
+      await Promise.allSettled([
+        ensureEditingProxy(projectDir, file, h),
+        ensureAudioFile(projectDir, file, h),
+      ]);
+    } catch {
+      // background error is ignored
+    }
+  })();
 }

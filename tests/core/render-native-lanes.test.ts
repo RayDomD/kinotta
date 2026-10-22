@@ -1,3 +1,4 @@
+import { waitForEditSave } from '../helpers/review-clock.ts';
 import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -156,7 +157,7 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
   } finally { await browser.close(); await server.close(); }
 });
 
-it('leaves a gap on Delete and Apply snip so later clips keep their times, and closes the gap with Shift', { timeout: 90_000 }, async () => {
+it('closes up on Delete, menu Remove, ClipSettings Remove, and Apply snip by default', { timeout: 90_000 }, async () => {
   const dir = copyFixture('footage-project');
   const generated = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=lime:s=160x90:r=30:d=4', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=4', '-c:v', 'libx264', '-c:a', 'aac', join(dir, 'take.mp4')], { encoding: 'utf8' });
   expect(generated.status, generated.stderr).toBe(0);
@@ -197,23 +198,60 @@ it('leaves a gap on Delete and Apply snip so later clips keep their times, and c
     await secondClip.waitFor();
     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
 
-    // 1. Delete on first clip leaves a gap so second clip keeps its time
+    // Ordered pictures have one removal choice; the independent sound menu above keeps both.
+    await firstClip.click({ button: 'right' });
+    const orderedMenu = page.getByRole('menu', { name: 'Clip actions' });
+    await expect.poll(() => orderedMenu.getByRole('menuitem', { name: /^Remove and close the gap/ }).count()).toBe(0);
+    await expect.poll(() => orderedMenu.getByRole('menuitem', { name: /^Remove( Delete)?$/ }).count()).toBe(1);
+    await page.keyboard.press('Escape');
+
+    // 1. Delete on first clip closes up and ripples second clip earlier
     await firstClip.click();
     await firstClip.focus();
     await expect.poll(() => firstClip.getAttribute('aria-pressed')).toBe('true');
     await page.keyboard.press('Delete');
-    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'first', leaveGap: true });
-    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBeGreaterThan(0);
-    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'first' });
+    expect((await last() as any).leaveGap).toBeUndefined();
+    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBe(0);
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('0.00 to 2.00');
 
-    // 2. Undo restores first clip and removes the gap
+    // Undo restores first clip
     await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
     await page.keyboard.press('Control+z');
     await firstClip.waitFor();
-    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBe(0);
     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
 
-    // 3. Snip 1s range across first (0.5 to 1.5) leaves a gap
+    // 2. Menu Remove on first clip closes up
+    await firstClip.click({ button: 'right' });
+    const menu = page.getByRole('menu', { name: 'Clip actions' });
+    await menu.getByRole('menuitem', { name: /^Remove( Delete)?$/ }).click();
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'first' });
+    expect((await last() as any).leaveGap).toBeUndefined();
+    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBe(0);
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('0.00 to 2.00');
+
+    // Undo restores first clip
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await firstClip.waitFor();
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    // 3. ClipSettings Remove button closes up
+    await firstClip.dblclick();
+    const clipSettings = page.getByRole('region', { name: 'Clip settings' });
+    await clipSettings.getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-remove', placement: 'first' });
+    expect((await last() as any).leaveGap).toBeUndefined();
+    await expect.poll(() => lanes.locator('[data-role="main"] [aria-label*=", gap,"]').count()).toBe(0);
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('0.00 to 2.00');
+
+    // Undo restores first clip
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await firstClip.waitFor();
+    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
+
+    // 4. Snip 1s range across first (0.5 to 1.5) closes up
     await toolbar.getByRole('button', { name: 'Snip', exact: true }).click();
     const footage = lanes.locator('[data-role="main"]').locator('.native-lane-bars');
     await footage.scrollIntoViewIfNeeded();
@@ -224,29 +262,11 @@ it('leaves a gap on Delete and Apply snip so later clips keep their times, and c
     await page.mouse.up();
 
     const snipConfirm = page.locator('.editor-snip-confirm');
-    await expect.poll(async () => snipConfirm.textContent()).toContain('keep the gap');
-    await expect.poll(async () => snipConfirm.textContent()).toContain('Shift');
+    await expect.poll(async () => snipConfirm.textContent()).toContain('Remove 1.00s');
+    expect(await snipConfirm.textContent()).not.toContain('keep the gap');
     await page.getByRole('button', { name: 'Apply snip' }).click();
-    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-snip', leaveGap: true });
-    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
-
-    // 4. Undo and Shift+Apply snip closes the gap
-    await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
-    await page.keyboard.press('Control+z');
-    await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
-
-    await toolbar.getByRole('button', { name: 'Snip', exact: true }).click();
-    await page.mouse.move(box.x + box.width * 0.5 / 4, box.y + 20);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 1.5 / 4, box.y + 20, { steps: 8 });
-    await page.mouse.up();
-
-    await page.getByRole('button', { name: 'Apply snip' }).click({ modifiers: ['Shift'] });
-    await expect.poll(async () => {
-      const op = await last();
-      if (!op || op.kind !== 'placement-snip') return null;
-      return (op as any).leaveGap ?? false;
-    }, { timeout: 5000 }).toBe(false);
+    await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-snip' });
+    expect((await last() as any).leaveGap).toBeUndefined();
     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('1.00 to 3.00');
 
     // 5. Undo and Shift+Delete ripples (closes the gap)
@@ -259,6 +279,7 @@ it('leaves a gap on Delete and Apply snip so later clips keep their times, and c
     await firstClip.click();
     await firstClip.focus();
     await expect.poll(() => firstClip.getAttribute('aria-pressed')).toBe('true');
+    await waitForEditSave(page);
     await page.keyboard.press('Shift+Delete');
     await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-ripple-remove', placement: 'first' });
     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('0.00 to 2.00');
@@ -294,6 +315,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     await first.scrollIntoViewIfNeeded();
     const width = (await lane.boundingBox())!.width;
     const trim = async (seconds: number, shift = false, preview = false) => {
+      const count = (await server.project.readEditList('founder-talk')).operations.length;
       const edge = first.locator('.native-trim-end');
       const box = (await edge.boundingBox())!;
       if (shift) await page.keyboard.down('Shift');
@@ -312,7 +334,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
       }
       await page.mouse.up();
       if (shift) await page.keyboard.up('Shift');
-      await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
+      await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length, { timeout: 10_000 }).toBe(count + 1);
     };
     await page.screenshot({ path: join(dir, 'trim-before.png') });
     await trim(-1, false, true);
@@ -320,7 +342,12 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 1.00');
     expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
     expect(await lane.locator('[aria-label*=", gap,"]').count()).toBe(1);
-    const undo = async () => { await page.getByRole('button', { name: 'Select', exact: true }).focus(); await page.keyboard.press('Control+z'); };
+    const undo = async () => {
+      const saved = page.waitForResponse((response) => response.url().endsWith('/edits/undo') && response.request().method() === 'POST' && response.ok());
+      await page.getByRole('button', { name: 'Select', exact: true }).focus();
+      await page.keyboard.press('Control+z');
+      await saved;
+    };
     await trim(1.5);
     await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 2.00');
     expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
@@ -342,6 +369,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
     expect(await captions.textContent()).not.toContain('early');
     expect(await captions.locator('[data-caption]').first().getAttribute('data-start')).toBe('1.6');
+    await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.at(-1), { timeout: 10_000 }).toMatchObject({ kind: 'placement-change', placement: 'first', changes: { in: 1 } });
     await page.reload();
     await expect.poll(() => first.getAttribute('aria-label'), { timeout: 10_000 }).toContain('1.00 to 2.00');
     await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
