@@ -441,6 +441,7 @@ export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
 
 /** Same-origin URL of a footage reel's footage file (served with byte ranges so video can seek). */
 export const footageUrl = (slug: string): string => `/footage/${encodeURIComponent(slug)}`;
+export const footageAudioUrl = (slug: string): string => `${footageUrl(slug)}/audio`;
 export const fetchMediaModel = (slug: string): Promise<MediaEditingModel> => getJson(`/api/reels/${encodeURIComponent(slug)}/media-model`);
 
 export const mediaUrl = (source: string, saved?: { reel: string; version: number }): string => saved
@@ -502,6 +503,8 @@ export async function mediaAudioBytes(source: string): Promise<ArrayBuffer> {
   } else if (segments[0] === 'api' && segments[1] === 'media' && segments.length === 3) {
     const reel = url.searchParams.get('reel');
     audio = new URL(mediaAudioUrl(decodeURIComponent(segments[2]!), reel ? { reel, version: Number(url.searchParams.get('version')) } : undefined), url.origin);
+  } else if (segments[0] === 'footage' && segments.length === 2) {
+    audio = new URL(footageAudioUrl(decodeURIComponent(segments[1]!)), url.origin);
   }
   if (!audio) return mediaBytes(source);
   const response = await fetch(audio.href);

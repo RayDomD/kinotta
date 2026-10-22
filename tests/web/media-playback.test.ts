@@ -63,3 +63,14 @@ it('uses audio-only bytes with saved reel/version and falls back only for a miss
   expect(new Uint8Array(await mediaAudioBytes('/media/voice'))).toEqual(new Uint8Array([3]));
   expect(fetcher.mock.calls[2]![0]).toBe('/media/voice');
 });
+
+it("uses a legacy reel's footage audio file instead of the whole video, and falls back while it is missing", async () => {
+  vi.stubGlobal('window', { location: { origin: 'http://localhost:9999' } });
+  const fetcher = vi.fn().mockResolvedValueOnce(new Response(new Uint8Array([4])))
+    .mockResolvedValueOnce(new Response('', { status: 404 })).mockResolvedValueOnce(new Response(new Uint8Array([5])));
+  vi.stubGlobal('fetch', fetcher);
+  expect(new Uint8Array(await mediaAudioBytes('/footage/a%20reel'))).toEqual(new Uint8Array([4]));
+  expect(fetcher.mock.calls[0]![0]).toBe('http://localhost:9999/footage/a%20reel/audio');
+  expect(new Uint8Array(await mediaAudioBytes('/footage/a%20reel'))).toEqual(new Uint8Array([5]));
+  expect(fetcher.mock.calls[2]![0]).toBe('/footage/a%20reel');
+});
