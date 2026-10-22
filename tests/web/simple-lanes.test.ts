@@ -187,3 +187,13 @@ describe('Simple timeline lane projections', () => {
     expect(newFrom).toBe(5.0);
   });
 });
+
+it('keeps Simple cut controls available while an earlier edit is saving', () => {
+  const cuts = computeSimpleCuts({ isNewest: true, pieces: [{ at: 0, in: 0, out: 12 }] }, {
+    busy: true,
+    list: { base: 1, operations: [{ id: 'pending-cut', by: 'you', kind: 'snip', from: 4, to: 5 }], canUndo: true, canRedo: false },
+    add: vi.fn(), remove: vi.fn(),
+  });
+  expect(cuts?.busy).toBe(false);
+  expect(cuts?.cuts).toHaveLength(1);
+});

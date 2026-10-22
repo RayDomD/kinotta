@@ -30,6 +30,7 @@ it('opens Sound beside an audio clip, applies ducking, undoes it and saves point
   writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ duration: 4, clips: [], media: media('../../../') }));
   const server = await startServer({ projectDir: dir, port: 0 });
   const browser = await chromium.launch();
+  let release = () => {};
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
@@ -55,13 +56,18 @@ it('opens Sound beside an audio clip, applies ducking, undoes it and saves point
     await sound.getByLabel('Amount in dB').fill('20');
     await verify();
     await page.screenshot({ path: join(tmpdir(), 'kinotta-duck-sidebar.png') });
+    const saving = new Promise<void>((resolve) => { release = resolve; });
     await page.route('**/edits', async (route) => {
-      if (route.request().method() === 'POST') await new Promise((resolve) => setTimeout(resolve, 300));
+      if (route.request().method() === 'POST') await saving;
       await route.continue();
     });
     await sound.getByRole('button', { name: 'Apply ducking' }).click();
-    await expect.poll(() => sound.getAttribute('data-verify-loading')).toBe('true');
+    await expect.poll(() => sound.getAttribute('data-verify-point-count')).toBe('4');
+    expect(await sound.getAttribute('data-verify-loading')).toBe('false');
+    expect(await sound.getByRole('button', { name: 'Apply ducking' }).isEnabled()).toBe(true);
+    expect((await server.project.readEditList('founder-talk')).operations).toHaveLength(0);
     await verify();
+    release();
     await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.at(-1)?.kind).toBe('placement-duck');
     await expect.poll(() => sound.getByRole('button', { name: 'Apply ducking' }).isEnabled()).toBe(true);
     const markup = await sound.evaluate((el) => el.outerHTML);
@@ -96,5 +102,5 @@ it('opens Sound beside an audio clip, applies ducking, undoes it and saves point
       const expected = mixAt(version.media!, at, 4).find((p) => p.placement === 'song')!.gain * 0.2;
       expect(heard, `render vs preview at ${at}s`).toBeCloseTo(expected, 3);
     }
-  } finally { await browser.close(); await server.close(); }
+  } finally { release(); await browser.close(); await server.close(); }
 });

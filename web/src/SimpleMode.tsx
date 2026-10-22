@@ -481,7 +481,8 @@ export function computeSimpleCuts(
     keptPieces,
     keptMap,
     cuts,
-    busy: edits.busy,
+    // Cut edits use the same ordered queue as the rest of Working.
+    busy: false,
     restoreCut: async (cut: CutBlock) => {
       for (const op of cut.ops) {
         await edits.remove(op.id);

@@ -4,7 +4,7 @@ export const fixtures = [
   { name: 'detected-beats', description: 'Source beats and estimated downbeats are frozen with an edit' },
   { name: 'failed-beats', description: 'Detection error retains the existing grid and allows retry' },
   { name: 'empty', description: 'No selected audio clip' },
-  { name: 'busy', description: 'Applying an edit disables Apply' },
+  { name: 'busy', description: 'Detecting beats disables Apply' },
   { name: 'ready', description: 'Selected music with overlapping transcribed speech' },
   { name: 'eq', description: 'Track filters shared by the selected clips' },
   { name: 'bypassed', description: 'Track EQ retained while bypassed' },

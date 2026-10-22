@@ -315,6 +315,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     await first.scrollIntoViewIfNeeded();
     const width = (await lane.boundingBox())!.width;
     const trim = async (seconds: number, shift = false, preview = false) => {
+      const count = (await server.project.readEditList('founder-talk')).operations.length;
       const edge = first.locator('.native-trim-end');
       const box = (await edge.boundingBox())!;
       if (shift) await page.keyboard.down('Shift');
@@ -333,7 +334,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
       }
       await page.mouse.up();
       if (shift) await page.keyboard.up('Shift');
-      await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
+      await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.length, { timeout: 10_000 }).toBe(count + 1);
     };
     await page.screenshot({ path: join(dir, 'trim-before.png') });
     await trim(-1, false, true);
@@ -341,7 +342,12 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 1.00');
     expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
     expect(await lane.locator('[aria-label*=", gap,"]').count()).toBe(1);
-    const undo = async () => { await page.getByRole('button', { name: 'Select', exact: true }).focus(); await page.keyboard.press('Control+z'); };
+    const undo = async () => {
+      const saved = page.waitForResponse((response) => response.url().endsWith('/edits/undo') && response.request().method() === 'POST' && response.ok());
+      await page.getByRole('button', { name: 'Select', exact: true }).focus();
+      await page.keyboard.press('Control+z');
+      await saved;
+    };
     await trim(1.5);
     await expect.poll(() => first.getAttribute('aria-label')).toContain('0.00 to 2.00');
     expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
@@ -363,6 +369,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     expect(await second.getAttribute('aria-label')).toContain('2.00 to 4.00');
     expect(await captions.textContent()).not.toContain('early');
     expect(await captions.locator('[data-caption]').first().getAttribute('data-start')).toBe('1.6');
+    await expect.poll(async () => (await server.project.readEditList('founder-talk')).operations.at(-1), { timeout: 10_000 }).toMatchObject({ kind: 'placement-change', placement: 'first', changes: { in: 1 } });
     await page.reload();
     await expect.poll(() => first.getAttribute('aria-label'), { timeout: 10_000 }).toContain('1.00 to 2.00');
     await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
