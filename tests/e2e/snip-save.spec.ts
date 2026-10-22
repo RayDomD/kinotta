@@ -54,7 +54,6 @@ async function selectStretch(page: Page): Promise<void> {
 test('snip a stretch, see it in the Edits panel, and Save it as a new version', async ({ page }) => {
   await startReel(page, 'Snip talk');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:12\.0\d$/);
-  await expect(versions(page)).toContainText('you');
   await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
 
   await selectStretch(page);

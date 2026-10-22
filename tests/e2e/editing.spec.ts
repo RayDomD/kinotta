@@ -136,7 +136,7 @@ test('Undo restores a deleted comment with its pin and its natural number', asyn
   await expect(page.locator('.undo')).toContainText('Comment 1 deleted');
   await expect(cards(page)).toHaveCount(1);
 
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: 'Undo' }).click();
 
   await expect(cards(page)).toHaveCount(2);
   await expect(cards(page).first().locator('.dot')).toHaveText('1');
