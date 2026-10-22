@@ -148,3 +148,21 @@ it('rebinds a queued split-child target to the server identity', async () => {
     expect(await page.evaluate(() => (window as any).edits.list.operations[1].placement)).toBe('take~persisted-1');
   } finally { release(); await close(); }
 }, 30_000);
+
+it('keeps accepted A when pending B is refused and cancels the Undo queued behind B', async () => {
+  const { page, close } = await browserHarness(); let release = () => {};
+  try {
+    const accepted: Operation = { id: 'accepted-A', by: 'you', kind: 'placement-change', placement: 'take', changes: { out: 9 } };
+    const server = await journal(page, 1, { ...initial, operations: [accepted], canUndo: true });
+    release = server.hold();
+    await page.evaluate(() => {
+      void (window as any).edits.add({ kind: 'placement-change', placement: 'take', changes: { out: 8 } });
+      void (window as any).edits.undo();
+    });
+    await page.waitForFunction(() => (window as any).edits.list.operations.length === 2);
+    release(); await page.waitForFunction(() => !(window as any).edits.busy);
+    expect(await page.evaluate(() => (window as any).edits.list.operations)).toEqual([accepted]);
+    expect(server.requests).toHaveLength(1);
+    expect(await page.evaluate(() => (window as any).edits.error)).toBe('The second edit was refused.');
+  } finally { release(); await close(); }
+}, 30_000);

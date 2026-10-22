@@ -17,7 +17,7 @@ import { MediaPreview } from './MediaPreview.tsx';
 import { ClipSettings } from './ClipSettings.tsx';
 import { SoundSettings } from './SoundSettings.tsx';
 import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
-import type { MediaSource, MediaTimeline, SourcePlacement, Sources } from '../../../../server/core/model.ts';
+import type { MediaSource, MediaTimeline, NewOperation, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
 import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
@@ -44,6 +44,7 @@ const SNAP_REACH = 0.05;
 const SPLIT_MARGIN = 0.01;
 /** How far ahead a picture is loaded before its cut. */
 const PRELOAD_SECONDS = 3;
+const ignorePictureStatus = () => {};
 /** Defaults shared with engine/build.py's caption style and source-start tolerance. */
 const CAPTION_COLOR = '#FF5A1F';
 const CAPTION_AT = 0.005;
@@ -164,14 +165,28 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   }, [time]);
   const zoom = (factor: number) => setRawWindow(zoomWindow(win, factor, Math.max(win.start, Math.min(win.start + win.length, time)), Math.max(windowTotal, win.length)));
 
-  const applyCutAnchor = (cutStart: number, cutEnd: number) => {
-    const currentWin = win;
-    const newTotal = Math.max(0, timeline.duration - (cutEnd - cutStart));
-    const nextTime = mapTimeThroughCut(time, cutStart, cutEnd, newTotal);
-    const nextWin = anchorCutWindow(currentWin, cutStart, cutEnd);
+  const [cutRestore, setCutRestore] = useState<{ window: TimeWindow | null; time: number; playing: boolean; range: typeof snipRange } | null>(null);
+  // The hook's media update runs first, so restoration uses the refused cut's original duration and inputs.
+  useEffect(() => {
+    if (!cutRestore || edits?.busy) return;
     suppressFollow.current = true;
-    setRawWindow(nextWin);
-    playback.seek(nextTime);
+    setRawWindow(cutRestore.window);
+    setSnipRange(cutRestore.range);
+    playback.remap(cutRestore.time, cutRestore.playing);
+    setCutRestore(null);
+  }, [cutRestore, edits?.busy, playback.remap]);
+
+  const applyCutAnchor = async (cutStart: number, cutEnd: number, operation: NewOperation) => {
+    const before = { window: rawWindow, time, playing, range: snipRange };
+    const newTotal = Math.max(0, timeline.duration - (cutEnd - cutStart));
+    suppressFollow.current = true;
+    setRawWindow(anchorCutWindow(win, cutStart, cutEnd));
+    // A committed snip must not also skip its old preview interval on the shortened timeline.
+    if (operation.kind === 'placement-snip') setSnipRange(null);
+    playback.remap(mapTimeThroughCut(time, cutStart, cutEnd, newTotal));
+    let accepted = false;
+    try { accepted = await edits!.add(operation); return accepted; }
+    finally { if (!accepted) setCutRestore(before); }
   };
 
   const clipEdits = useMemo(() => {
@@ -183,7 +198,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         if ((op.kind === 'placement-remove' || op.kind === 'placement-ripple-remove') && !('leaveGap' in op && op.leaveGap)) {
           const p = timeline.placements.find((item) => item.id === op.placement);
           if (p && (media.sequence.includes(p.id) || p.role === 'main')) {
-            applyCutAnchor(p.at, p.at + p.duration);
+            return applyCutAnchor(p.at, p.at + p.duration, op);
           }
         }
         return edits.add(op);
@@ -397,16 +412,12 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     }
     return () => { current = false; };
   }, [media.sources, base, reel.slug, version!.number]);
-  const [pictureRunning, setPictureRunning] = useState<Record<string, boolean>>({});
   const [pictureErrors, setPictureErrors] = useState<Record<string, string>>({});
   const [pictureAttempts, setPictureAttempts] = useState<Record<string, number>>({});
   const pictureError = active.map((p) => p.role !== 'gap' ? pictureErrors[p.source] : undefined).find(Boolean) ?? null;
   const placementsHere = timeline.placements.filter((p) => time >= p.at && time < p.at + p.duration);
   const soundFailureHere = placementsHere.some((p) => p.role !== 'gap' && playback.failures[p.source]);
   const speechFailureHere = placementsHere.some((p) => p.role !== 'gap' && usesSpeech(p) && speech[p.source]?.state === 'failed');
-  const pictureStatus = useCallback((id: string, ready: boolean) => {
-    setPictureRunning((before) => before[id] === ready ? before : { ...before, [id]: ready });
-  }, []);
   const pictureFailed = useCallback((id: string, message: string) => {
     setPictureErrors((before) => ({ ...before, [id]: message }));
   }, []);
@@ -415,7 +426,6 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     if (!id) return;
     setPictureErrors((before) => { const next = { ...before }; delete next[id]; return next; });
     setPictureAttempts((before) => ({ ...before, [id]: (before[id] ?? 0) + 1 }));
-    setPictureRunning((before) => Object.fromEntries(Object.entries(before).filter(([key]) => !active.some((p) => p.id === key && p.role !== 'gap' && p.source === id))));
   };
   const change = (id: string, changes: Partial<SourcePlacement>, leaveGap?: boolean) => { if (editable) void edits!.add({ kind: 'placement-change', placement: id, changes, ...(leaveGap ? { leaveGap: true } : {}) }).finally(() => setTrimDraft(null)); };
   const isImage = (p: Placed) => p.role !== 'gap' && media.sources.find((s) => s.id === p.source)?.kind === 'image';
@@ -577,15 +587,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     else if (action === 'duplicate' && selectedPlacement) duplicate(selectedPlacement);
     else if (action === 'gap') void edits!.add({ kind: 'placement-add', placement: { id: crypto.randomUUID(), role: 'gap', duration: workspace.settings.gap }, index: selectedPlacement && media.sequence.includes(selectedPlacement.id) ? media.sequence.indexOf(selectedPlacement.id) + 1 : media.sequence.length });
     else if (action === 'pin') { setPinning(!pinning); setPinDraft(null); setPinError(null); }
-    else if (action === 'remove' && selected) {
+    else if ((action === 'remove' || action === 'closeGap') && selected) {
       const p = timeline.placements.find((item) => item.id === selected);
-      if (p && (media.sequence.includes(p.id) || p.role === 'main')) applyCutAnchor(p.at, p.at + p.duration);
-      void edits!.add({ kind: 'placement-remove', placement: selected });
-    }
-    else if (action === 'closeGap' && selected) {
-      const p = timeline.placements.find((item) => item.id === selected);
-      if (p && (media.sequence.includes(p.id) || p.role === 'main')) applyCutAnchor(p.at, p.at + p.duration);
-      void edits!.add({ kind: 'placement-ripple-remove', placement: selected });
+      const operation: NewOperation = { kind: action === 'remove' ? 'placement-remove' : 'placement-ripple-remove', placement: selected };
+      if (p && (media.sequence.includes(p.id) || p.role === 'main')) void applyCutAnchor(p.at, p.at + p.duration, operation);
+      else void edits!.add(operation);
     }
     else if (action === 'undo') void edits!.undo();
     else if (action === 'redo') void edits!.redo();
@@ -596,8 +602,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     }
     else if (action === 'apply' && snipRange && !version!.code) {
       const range = snipRange;
-      applyCutAnchor(range.from, range.to);
-      void edits!.add({ kind: 'placement-snip', ...range }).then((ok) => { if (ok) { setSnipRange(null); setTool('select'); } });
+      void applyCutAnchor(range.from, range.to, { kind: 'placement-snip', ...range }).then((ok) => { if (ok) { setSnipRange(null); setTool('select'); } });
     }
   };
   // Shortcuts are heard on the window: the page opens with focus on the body, and a click on empty timeline leaves it there.
@@ -629,7 +634,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     <div className="rv-well">
       <div className="rv-picture-stage">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>
-        <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={pictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
+        <PictureLayers pictures={active} upcoming={upcoming} sources={media.sources} time={time} playing={playing} sourceUrl={sourceUrl} attempts={pictureAttempts} onStatus={ignorePictureStatus} onError={pictureFailed} selected={editable && !pinning && active.some((p) => p.id === selected) ? selected ?? undefined : undefined} onRegion={editable && !pinning ? (id, region) => change(id, { region }) : undefined} />
         {!picture && graphicsAbsent && <p className="mv-audio-only">Sound only. No picture or graphics at this point.</p>}
         <PagePlayer portrait={false} className="rv-page" title="Authored graphics" pageUrl={pageUrl} time={Math.min(time, timeline.duration)} clipTiming={graphicTiming} captionPreview={savingCaption ?? captionPreview} captionShifts={captionShifts} onCaptionMove={editable && edited.captions && !pinning ? moveCaption : undefined} onCaptionText={(editable || captionEditable) && edited.captions && !pinning ? retypeCaption : undefined} elements={elements} onFramePick={simple ? simple.pinMode && !simple.draft ? pickFrame : undefined : pinning ? pickFrame : undefined} draftContent={simple?.draftContent} draftPin={simple ? simple.draft?.kind === 'frame' ? simple.draft : null : pinDraft?.pin.kind === 'frame' && draftMoment && !draftMoment.removed && Math.abs(draftMoment.time - time) < PIN_FRAME_WINDOW ? pinDraft.pin : null} pins={shownPins.filter((c) => c.pin.kind === 'frame' && !c.state && !c.moment.removed && Math.abs(c.moment.time - time) < PIN_FRAME_WINDOW).map((c) => ({ id: c.id, number: c.number, text: c.text, x: c.pin.kind === 'frame' ? c.pin.x : 0, y: c.pin.kind === 'frame' ? c.pin.y : 0, element: c.pin.kind === 'frame' ? c.pin.element : null }))} />
         {previewEffect && <MediaPreview key={previewEffect.id} entry={{ ...previewEffect, kind: 'audio' }} sourceUrl={soundEffectUrl(previewEffect.id)} onClose={() => setPreviewEffect(null)} />}
@@ -736,13 +741,15 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => duplicate(p))}>Duplicate<kbd>{workspace.settings.keys.duplicate}</kbd></button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy || p.role === 'gap'} onClick={() => { inspect(); requestAnimationFrame(() => workspace.clipHost?.querySelector<HTMLSelectElement>('select[aria-label^="Replace "]')?.focus()); }}>Replace…</button>
         <button type="button" role="menuitem" disabled={!editable || edits!.busy} onClick={() => act(() => {
-          if (media.sequence.includes(p.id) || p.role === 'main') applyCutAnchor(p.at, p.at + p.duration);
-          void edits!.add({ kind: 'placement-remove', placement: p.id });
+          const operation: NewOperation = { kind: 'placement-remove', placement: p.id };
+          if (media.sequence.includes(p.id) || p.role === 'main') void applyCutAnchor(p.at, p.at + p.duration, operation);
+          else void edits!.add(operation);
         })}>Remove<kbd>{workspace.settings.keys.remove}</kbd></button>
-        <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => {
-          if (media.sequence.includes(p.id) || p.role === 'main') applyCutAnchor(p.at, p.at + p.duration);
-          void edits!.add({ kind: 'placement-ripple-remove', placement: p.id });
-        })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>
+        {!media.sequence.includes(p.id) && <button type="button" role="menuitem" disabled={!editable || edits!.busy || !!p.attachmentBroken} onClick={() => act(() => {
+          const operation: NewOperation = { kind: 'placement-ripple-remove', placement: p.id };
+          if (media.sequence.includes(p.id) || p.role === 'main') void applyCutAnchor(p.at, p.at + p.duration, operation);
+          else void edits!.add(operation);
+        })}>Remove and close the gap<kbd>{workspace.settings.keys.closeGap}</kbd></button>}
       </div>;
     })()}
 

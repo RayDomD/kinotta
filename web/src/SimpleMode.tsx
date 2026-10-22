@@ -71,13 +71,13 @@ export function handleSimpleUndoRedo(
   }
 
   if (isUndo) {
-    if (!edits.busy && edits.list?.canUndo) {
+    if (edits.list?.canUndo) {
       event.preventDefault();
       void edits.undo();
       return true;
     }
   } else if (isRedo) {
-    if (!edits.busy && edits.list?.canRedo) {
+    if (edits.list?.canRedo) {
       event.preventDefault();
       void edits.redo();
       return true;

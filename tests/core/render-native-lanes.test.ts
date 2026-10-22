@@ -198,6 +198,13 @@ it('closes up on Delete, menu Remove, ClipSettings Remove, and Apply snip by def
     await secondClip.waitFor();
     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('2.00 to 4.00');
 
+    // Ordered pictures have one removal choice; the independent sound menu above keeps both.
+    await firstClip.click({ button: 'right' });
+    const orderedMenu = page.getByRole('menu', { name: 'Clip actions' });
+    await expect.poll(() => orderedMenu.getByRole('menuitem', { name: /^Remove and close the gap/ }).count()).toBe(0);
+    await expect.poll(() => orderedMenu.getByRole('menuitem', { name: /^Remove( Delete)?$/ }).count()).toBe(1);
+    await page.keyboard.press('Escape');
+
     // 1. Delete on first clip closes up and ripples second clip earlier
     await firstClip.click();
     await firstClip.focus();

@@ -137,6 +137,11 @@ export class MediaPlaybackEngine {
     if (time >= this.duration) { this.publish({ playing: false }); this.stop(); }
     else this.frame = requestAnimationFrame(this.tick);
   };
+  /** Relocate an edit's clock without turning a running transport into a paused seek. */
+  remap = (at: number, playing = this.state.playing) => {
+    this.publish({ time: Math.max(0, Math.min(this.duration, at)), playing });
+    this.schedule();
+  };
   seek = (at: number) => { this.stop(); this.publish({ time: Math.max(0, Math.min(this.duration, at)), playing: false }); };
   toggle = async () => {
     if (this.state.playing) { this.publish({ time: this.moment(), playing: false }); this.stop(); await this.ctx.suspend(); }
