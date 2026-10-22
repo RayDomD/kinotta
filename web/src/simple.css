@@ -111,6 +111,7 @@
 .sm-pin-bubble-actions > span { flex-basis: 100%; color: var(--muted); }
 .sm-pin-bubble-actions .btn { margin-left: auto; padding: 5px 9px; font-size: 12px; }
 .sm-cut { position: absolute; inset-block: 0; z-index: 5; box-sizing: border-box; width: 32px; transform: translateX(-50%); pointer-events: none; }
+.sm-cut:has(.sm-cut-popover) { z-index: 25; }
 .sm-cut-join-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--light); opacity: 0.6; pointer-events: none; }
 .sm-cut-block { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); height: 22px; padding: 0 5px; border: 1px solid var(--hairline); border-radius: 3px; background: var(--ground-deep); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; font: inherit; pointer-events: auto; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
 .sm-cut-block:hover { border-color: var(--light); color: var(--light); }
@@ -122,9 +123,9 @@
 .sm-cut:hover .sm-cut-handle, .sm-cut-handle:hover, .sm-cut-handle:focus-visible, .sm-cut-handle[data-dragging="true"] { background: var(--light); }
 .sm-cut-handle:focus-visible { outline: 2px solid var(--light); outline-offset: 1px; }
 .sm-cut-handle[aria-disabled="true"] { cursor: not-allowed; pointer-events: none; }
-.sm-cut-popover { position: absolute; bottom: calc(100% + 8px); background: var(--card); border: 1px solid var(--hairline); box-shadow: var(--sheet-rest); border-radius: 0; padding: 8px 12px; display: flex; align-items: center; gap: 12px; z-index: 20; white-space: nowrap; max-width: calc(100vw - 32px); }
+.sm-cut-popover { position: absolute; bottom: calc(100% + 8px); background: var(--card); border: 1px solid var(--hairline); box-shadow: var(--sheet-rest); border-radius: 0; padding: 8px 12px; display: flex; align-items: center; gap: 12px; z-index: 20; white-space: nowrap; max-width: calc(100vw - 32px); pointer-events: auto; }
 .sm-cut-popover .sm-cut-length { font-size: 13px; color: var(--ink); }
-.sm-cut-keep { background: var(--ink); color: var(--ground); font-weight: 500; font-size: 13px; padding: 5px 12px; border: 1px solid var(--ink); border-radius: 0; cursor: pointer; white-space: nowrap; }
+.sm-cut-keep { background: var(--ink); color: var(--ground); font-weight: 500; font-size: 13px; padding: 5px 12px; border: 1px solid var(--ink); border-radius: 0; cursor: pointer; white-space: nowrap; pointer-events: auto; }
 .sm-cut-keep:hover:not(:disabled) { opacity: 0.9; }
 .sm-cut-keep:disabled { background: none; color: var(--muted); border-color: var(--hairline); cursor: not-allowed; }
 .sm-pins { border-left: 1px solid var(--rule); padding: 22px; display: flex; flex-direction: column; gap: 20px; }
