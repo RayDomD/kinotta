@@ -1,3 +1,4 @@
+import { waitForEditSave } from '../helpers/review-clock.ts';
 import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -259,6 +260,7 @@ it('leaves a gap on Delete and Apply snip so later clips keep their times, and c
     await firstClip.click();
     await firstClip.focus();
     await expect.poll(() => firstClip.getAttribute('aria-pressed')).toBe('true');
+    await waitForEditSave(page);
     await page.keyboard.press('Shift+Delete');
     await expect.poll(last, { timeout: 5000 }).toMatchObject({ kind: 'placement-ripple-remove', placement: 'first' });
     await expect.poll(() => secondClip.getAttribute('aria-label')).toContain('0.00 to 2.00');
