@@ -16,6 +16,12 @@ import type {
 import { toSource, toTimeline, MIN_SNIP } from '../../server/core/model.ts';
 import { formatClock, formatDuration } from './timecode.ts';
 import { CaptionLane } from './review/_internal/CaptionLane.tsx';
+import {
+  anchorCutWindow,
+  mapTimeThroughCut,
+  percentIn,
+  type TimeWindow,
+} from './review/_internal/timeline.ts';
 
 export interface CutBlock {
   from: number;
@@ -109,6 +115,49 @@ export interface VideoLaneData {
   cutPoints: number[];
 }
 
+
+
+export function detectCutRange(
+  prevItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number })[] | undefined,
+  curItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number })[] | undefined,
+  prevDuration: number,
+  curDuration: number,
+): { cutStart: number; cutEnd: number } | null {
+  if (curDuration >= prevDuration - 0.001 || prevDuration <= 0) return null;
+  const cutDuration = prevDuration - curDuration;
+  let cutStart = -1;
+  let prevAt = 0;
+
+  if (prevItems && curItems) {
+    for (let i = 0; i < prevItems.length; i++) {
+      const prev = prevItems[i]!;
+      const cur = curItems[i];
+      const prevDur = typeof prev.duration === 'number' ? prev.duration : (typeof prev.out === 'number' && typeof prev.in === 'number' ? prev.out - prev.in : 0);
+      if (!cur) {
+        cutStart = prevAt;
+        break;
+      }
+      const curDur = typeof cur.duration === 'number' ? cur.duration : (typeof cur.out === 'number' && typeof cur.in === 'number' ? cur.out - cur.in : 0);
+      const curIn = typeof cur.in === 'number' ? cur.in : 0;
+      const prevIn = typeof prev.in === 'number' ? prev.in : 0;
+
+      if (Math.abs(curDur - prevDur) > 0.001 || Math.abs(curIn - prevIn) > 0.001) {
+        if (curIn > prevIn) {
+          cutStart = prevAt;
+        } else {
+          cutStart = prevAt + Math.min(prevDur, curDur);
+        }
+        break;
+      }
+      prevAt += prevDur;
+    }
+  }
+
+  if (cutStart < 0) {
+    cutStart = Math.max(0, curDuration);
+  }
+  return { cutStart, cutEnd: cutStart + cutDuration };
+}
 
 export function mapCutResizeDelta(
   initialValue: number,
@@ -257,6 +306,7 @@ export interface SimpleTimelineProps {
   captionEditable?: boolean;
   isWordChanged?: (word: Word) => boolean;
   snapPoints?: readonly number[];
+  win?: TimeWindow;
   onSeek(time: number): void;
   onPin(time: number): void;
   onWord?: (word: Word, text: string) => void;
@@ -281,6 +331,7 @@ export function SimpleTimeline({
   captionEditable = false,
   isWordChanged,
   snapPoints = [],
+  win: propsWin,
   onSeek,
   onPin,
   onWord = () => {},
@@ -297,6 +348,37 @@ export function SimpleTimeline({
   const [draftCut, setDraftCut] = useState<{ cutIndex: number; edge: 'start' | 'end'; from: number; to: number } | null>(null);
   const dragState = useRef<{ pointerId: number; target: HTMLElement; cutIndex: number; edge: 'start' | 'end'; trackRect: DOMRect; startClientX: number; initialFrom: number; initialTo: number; lastDraft: { from: number; to: number } } | null>(null);
   const cutTrackRef = useRef<HTMLDivElement>(null);
+
+  const [internalWin, setInternalWin] = useState<TimeWindow>(() => ({
+    start: 0,
+    length: Math.max(0.001, duration),
+  }));
+  const win = propsWin ?? internalWin;
+
+  const prevDurationRef = useRef<number>(duration);
+  const prevItemsRef = useRef<any>(pieces ?? timeline?.placements);
+
+  useEffect(() => {
+    const prevDuration = prevDurationRef.current;
+    const prevItems = prevItemsRef.current;
+    const currentItems = pieces ?? timeline?.placements;
+
+    prevDurationRef.current = duration;
+    prevItemsRef.current = currentItems;
+
+    if (duration < prevDuration - 0.001 && prevDuration > 0) {
+      const cut = detectCutRange(prevItems, currentItems, prevDuration, duration);
+      if (cut) {
+        setInternalWin((prev) => anchorCutWindow(prev, cut.cutStart, cut.cutEnd));
+        const mapped = mapTimeThroughCut(time, cut.cutStart, cut.cutEnd, duration);
+        if (Math.abs(mapped - time) > 0.001) {
+          onSeek(mapped);
+        }
+      }
+    } else if (duration > prevDuration + 0.001) {
+      setInternalWin({ start: 0, length: Math.max(0.001, duration) });
+    }
+  }, [duration, pieces, timeline?.placements, time, onSeek]);
 
   const inside = (at: number) => Math.max(0, Math.min(Math.max(0, total - 0.001), at));
 
@@ -335,8 +417,9 @@ export function SimpleTimeline({
     const target = event.target as HTMLElement;
     if (target.closest('button, input, [role="slider"], [role="spinbutton"], .native-trim, .editorial-text-bar')) return;
     const box = trackRef.current?.getBoundingClientRect();
-    if (!box || duration <= 0) return;
-    const at = inside(((event.clientX - box.left) / box.width) * duration);
+    if (!box || win.length <= 0) return;
+    const clickTime = win.start + ((event.clientX - box.left) / box.width) * win.length;
+    const at = inside(clickTime);
     onSeek(at);
     if (canPin && pinMode) onPin(at);
   };
@@ -482,7 +565,7 @@ export function SimpleTimeline({
     return result;
   }, [duration]);
 
-  const pct = (s: number) => (duration > 0 ? `${(s / duration) * 100}%` : '0%');
+  const pct = (s: number) => `${percentIn(win, s)}%`;
 
   return (
     <section className="sm-timeline" aria-label="Simple timeline" data-verify-cuts={cuts ? cuts.cuts.length : 0}>
@@ -577,7 +660,7 @@ export function SimpleTimeline({
         {/* Lane 2: Captions */}
         <div className="sm-lane-row" data-lane="captions">
           <CaptionLane
-            win={{ start: 0, length: Math.max(0.001, duration) }}
+            win={win}
             words={captionData.words}
             phrases={captionData.phrases}
             editable={captionEditable}
