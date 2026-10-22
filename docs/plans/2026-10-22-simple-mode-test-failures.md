@@ -1,7 +1,7 @@
 ---
 title: simple-mode test failures
 date: 2026-10-22
-status: In Progress
+status: Done
 summary: Fix the 10 unit and E2E failures codex found on feat/simple-mode e2693b1
 spec: .herdr/briefs/2026-10-22-failure-origin-codex.md (main checkout)
 ---
@@ -36,6 +36,16 @@ Per group, find the introducing commit, check DESIGN.md and the simple-mode plan
 1. F1 to F6 in order, one commit per group.
 2. Full rerun of all 12 files.
 
+## Result
+
+All 12 files pass on feat/simple-mode: units 16/16, E2E 44/44, tsc clean. Every failure was a stale or platform-fragile test; no source changed.
+
+- F6 launcher: busy port held on the wildcard address, which Windows lets 127.0.0.1 share. Now held on 127.0.0.1 (e220f3d).
+- F5 simple-lanes: pinning needs Pin mode and the form is the "New pin" bubble since 422a32d (5add48c). agent-make: Simple starts reels from the "Choose reel" picker (c5bddac). native-lanes passed here without change; codex's failures were its environment.
+- F1/F2 editing, snip-save, transcription: the Current reel rail (794e210, approved plan) has two Undo buttons and no "you" label (272cb28).
+- F3 sections: the "Versions" label is now "Reel" (126636d).
+- F4 renders: the test posted to a route that never existed; renders queue via POST /api/renders (239017a).
+
 ## Risks
 
 - Some failures may be environment flakiness; confirm each reproduces here first.
@@ -48,3 +58,4 @@ Per group, find the introducing commit, check DESIGN.md and the simple-mode plan
 
 ### 2026-10-22
 - Plan created and approved.
+- Done: six test-only commits; all 12 files pass.
