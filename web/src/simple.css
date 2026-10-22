@@ -113,7 +113,7 @@
 .sm-cut { position: absolute; inset-block: 0; z-index: 5; box-sizing: border-box; width: 32px; transform: translateX(-50%); pointer-events: none; }
 .sm-cut:has(.sm-cut-popover) { z-index: 25; }
 .sm-cut-join-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--light); opacity: 0.6; pointer-events: none; }
-.sm-cut-block { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); height: 22px; padding: 0 5px; border: 1px solid var(--hairline); border-radius: 3px; background: var(--ground-deep); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; font: inherit; pointer-events: auto; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+.sm-cut-block { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); height: 22px; padding: 0 5px; border: 1px solid var(--hairline); background: var(--ground-deep); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; font: inherit; pointer-events: auto; white-space: nowrap; }
 .sm-cut-block:hover { border-color: var(--light); color: var(--light); }
 .sm-cut-block:focus-visible { outline: 2px solid var(--light); outline-offset: 1px; border-color: var(--light); }
 .sm-cut-length { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; pointer-events: none; overflow: hidden; text-overflow: clip; }

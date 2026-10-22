@@ -105,8 +105,8 @@ export async function mediaAudioFile(projectDir: string, source: string, saved?:
     if (!saved) {
       const entry = (await readLibrary(projectDir)).find((s) => s.id === source || s.contentHash === source || s.path === source || s.name === source);
       if (!entry) {
-        if (source.startsWith('sha256:') || /^[a-f0-9]{64}$/.test(source)) {
-          const hash = source.startsWith('sha256:') ? source.slice(7) : source;
+        const hash = source.startsWith('sha256:') ? source.slice(7) : source;
+        if (/^[a-f0-9]{64}$/.test(hash)) {
           return await findAudioPath(projectDir, hash);
         }
         return null;
@@ -125,7 +125,7 @@ export async function mediaAudioFile(projectDir: string, source: string, saved?:
     const entry = plan.media?.sources.find((s) => s.id === source || s.contentHash === source);
     if (!entry || entry.kind === 'image' || entry.audio === false) return null;
     const file = await projectFile(projectDir, relative(projectDir, resolve(versionDir, entry.path)));
-    const hash = entry.contentHash || await hashOf(file, projectDir);
+    const hash = await hashOf(file, projectDir);
     if (entry.contentHash && hash !== entry.contentHash) return null;
     const existing = await findAudioPath(projectDir, hash);
     if (existing) return existing;

@@ -240,6 +240,7 @@ export function contentAudioPath(projectDir: string, hash: string): string {
 }
 
 export async function findProxyPath(projectDir: string, hash: string): Promise<string | null> {
+  if (!/^[a-f0-9]{64}$/.test(hash)) return null;
   const standard = contentProxyPath(projectDir, hash);
   if (await exists(standard)) return standard;
   const unprefixed = join(resolve(projectDir, FOOTAGE_DIR), PROXY_DIR, `${hash}${PROXY_EXT}`);
@@ -248,6 +249,7 @@ export async function findProxyPath(projectDir: string, hash: string): Promise<s
 }
 
 export async function findAudioPath(projectDir: string, hash: string): Promise<string | null> {
+  if (!/^[a-f0-9]{64}$/.test(hash)) return null;
   const standard = contentAudioPath(projectDir, hash);
   if (await exists(standard)) return standard;
   const unprefixed = join(resolve(projectDir, FOOTAGE_DIR), AUDIO_DIR, `${hash}${AUDIO_EXT}`);
