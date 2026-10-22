@@ -1,7 +1,7 @@
 ---
 title: Realtime editing
 date: 2026-10-22
-status: Draft
+status: Approved
 summary: Cuts close up without the timeline jumping, playback never stalls for a late picture, edits show instantly, seeks are fast on real footage, and Ctrl+Z works on Simple-mode captions.
 spec: .herdr/briefs/2026-10-22-timeline-feel-diagnosis2-codex.md
 ---
@@ -97,3 +97,4 @@ agy, in parallel (agents take separate items):
 - Plan created from codex's diagnosis (runs 1 and 2). Owner decisions: cuts, snips and deletes close up; trims keep leaving space; aim for realtime response, including architecture changes; use ffmpeg proxies.
 - Base branch resolved: main (PR #59 merged as 5fade2f). Branch `feat/realtime-editing`, worktree `.worktrees/realtime-editing`.
 - Owner approved the Intent, including proxies at 540p with a keyframe every 6 frames. Goal through Checks drafted: Claude orchestrates; codex takes the playback engine and optimistic edits; agy takes close-up, timeline anchoring, Simple fixes and proxies with parallel Gemini 3.8 agents.
+- Owner approved the plan. Lanes dispatched: codex on feat/realtime-codex, agy on feat/realtime-agy.
