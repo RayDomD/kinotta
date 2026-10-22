@@ -39,6 +39,17 @@ function mockElement(options: {
 }
 
 describe('Simple mode undo and redo keyboard shortcuts', () => {
+  it.each(['z', 'y'])('queues busy Redo for Ctrl+%s when history allows it', (key) => {
+    const redo = vi.fn().mockResolvedValue(undefined);
+    const preventDefault = vi.fn();
+    const handled = handleSimpleUndoRedo({ key, ctrlKey: true, metaKey: false, shiftKey: key === 'z', altKey: false,
+      defaultPrevented: false, target: mockElement(), preventDefault } as any,
+    { busy: true, list: { canUndo: false, canRedo: true } as any, undo: vi.fn(), redo });
+    expect(handled).toBe(true);
+    expect(redo).toHaveBeenCalledTimes(1);
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+  });
+
   it('triggers undo on Ctrl+Z or Cmd+Z when edits.list.canUndo is true', () => {
     const undo = vi.fn().mockResolvedValue(undefined);
     const redo = vi.fn().mockResolvedValue(undefined);
@@ -140,7 +151,7 @@ describe('Simple mode undo and redo keyboard shortcuts', () => {
     expect(redo).toHaveBeenCalledTimes(2);
   });
 
-  it('does not trigger or prevent default when edits is busy or cannot undo/redo', () => {
+  it('queues enabled Undo while busy and leaves unavailable history to browser undo', () => {
     const undo = vi.fn().mockResolvedValue(undefined);
     const preventDefault = vi.fn();
 
@@ -160,9 +171,10 @@ describe('Simple mode undo and redo keyboard shortcuts', () => {
       redo: vi.fn(),
     } as any);
 
-    expect(handledBusy).toBe(false);
-    expect(preventDefault).not.toHaveBeenCalled();
-    expect(undo).not.toHaveBeenCalled();
+    expect(handledBusy).toBe(true);
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(undo).toHaveBeenCalledTimes(1);
+    preventDefault.mockClear(); undo.mockClear();
 
     const handledCannotUndo = handleSimpleUndoRedo({
       key: 'z',

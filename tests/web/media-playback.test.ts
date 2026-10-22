@@ -1,4 +1,4 @@
-import { audioRouteBytesUntilHelperAvailable } from '../../web/src/review/_internal/useMediaPlayback.ts';
+import { mediaAudioBytes } from '../../web/src/api/index.ts';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MediaPlaybackEngine } from '../../web/src/review/_internal/MediaPlaybackEngine.ts';
 import type { MediaPlan } from '../../server/core/model.ts';
@@ -58,8 +58,8 @@ it('uses audio-only bytes with saved reel/version and falls back only for a miss
   const fetcher = vi.fn().mockResolvedValueOnce(new Response(new Uint8Array([1, 2])))
     .mockResolvedValueOnce(new Response('', { status: 404 })).mockResolvedValueOnce(new Response(new Uint8Array([3])));
   vi.stubGlobal('fetch', fetcher);
-  expect(new Uint8Array(await audioRouteBytesUntilHelperAvailable('/media/a%20reel/2/voice'))).toEqual(new Uint8Array([1, 2]));
+  expect(new Uint8Array(await mediaAudioBytes('/media/a%20reel/2/voice'))).toEqual(new Uint8Array([1, 2]));
   expect(fetcher.mock.calls[0]![0]).toBe('http://localhost:9999/api/media/voice/audio?reel=a+reel&version=2');
-  expect(new Uint8Array(await audioRouteBytesUntilHelperAvailable('/media/voice'))).toEqual(new Uint8Array([3]));
+  expect(new Uint8Array(await mediaAudioBytes('/media/voice'))).toEqual(new Uint8Array([3]));
   expect(fetcher.mock.calls[2]![0]).toBe('/media/voice');
 });

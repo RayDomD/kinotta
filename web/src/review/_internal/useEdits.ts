@@ -157,7 +157,13 @@ class EditSession {
         else if (change.kind === 'undo') { this.undo.pop(); this.redo.push(before); }
         else if (change.kind === 'redo') { this.redo.pop(); this.undo.push(before); }
         this.committed = list; ok = true;
-      } catch (error) { this.error = reason(error); }
+      } catch (error) {
+        this.error = reason(error);
+        // A refused transition invalidates history requested behind it; never undo an older accepted edit instead.
+        const cancelled = this.queue.slice(1).filter((next) => next.afterPending);
+        this.queue = this.queue.filter((next) => !cancelled.includes(next));
+        for (const next of cancelled) { pendingFinished(this.slug); next.done(false); }
+      }
       this.queue.shift(); this.emit(); pendingFinished(this.slug); change.done(ok);
     }
     this.running = false;
