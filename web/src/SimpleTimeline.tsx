@@ -128,18 +128,25 @@ export function detectCutRange(
   let cutStart = -1;
   let prevAt = 0;
 
+  const getItemDuration = (item: Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number }) =>
+    'duration' in item && typeof item.duration === 'number'
+      ? item.duration
+      : ('out' in item && typeof item.out === 'number' && 'in' in item && typeof item.in === 'number' ? item.out - item.in : 0);
+  const getItemIn = (item: Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number }) =>
+    'in' in item && typeof item.in === 'number' ? item.in : 0;
+
   if (prevItems && curItems) {
     for (let i = 0; i < prevItems.length; i++) {
       const prev = prevItems[i]!;
       const cur = curItems[i];
-      const prevDur = typeof prev.duration === 'number' ? prev.duration : (typeof prev.out === 'number' && typeof prev.in === 'number' ? prev.out - prev.in : 0);
+      const prevDur = getItemDuration(prev);
       if (!cur) {
         cutStart = prevAt;
         break;
       }
-      const curDur = typeof cur.duration === 'number' ? cur.duration : (typeof cur.out === 'number' && typeof cur.in === 'number' ? cur.out - cur.in : 0);
-      const curIn = typeof cur.in === 'number' ? cur.in : 0;
-      const prevIn = typeof prev.in === 'number' ? prev.in : 0;
+      const curDur = getItemDuration(cur);
+      const curIn = getItemIn(cur);
+      const prevIn = getItemIn(prev);
 
       if (Math.abs(curDur - prevDur) > 0.001 || Math.abs(curIn - prevIn) > 0.001) {
         if (curIn > prevIn) {
