@@ -486,11 +486,11 @@ export function SimpleTimeline({
         .sm-lanes-stack { position: relative; display: flex; flex-direction: column; gap: 8px; }
         .sm-lane-row { position: relative; }
         .sm-lane-heading { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 6px 0 3px; display: flex; justify-content: space-between; align-items: center; }
-        .sm-snap-toggle { background: none; border: 1px solid var(--hairline); color: var(--ink-2); font-size: 11px; padding: 2px 8px; border-radius: 2px; cursor: pointer; }
+        .sm-snap-toggle { background: none; border: 1px solid var(--hairline); color: var(--ink-2); font-size: 11px; padding: 2px 8px; cursor: pointer; }
         .sm-snap-toggle.on, .sm-snap-toggle[aria-pressed="true"] { background: var(--light-wash); border-color: var(--light); color: var(--light); font-weight: 500; }
-        .sm-lane-track { position: relative; height: 38px; background: var(--ground-deep); border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+        .sm-lane-track { position: relative; height: 38px; background: var(--ground-deep); border: 1px solid var(--rule); overflow: hidden; }
         .sm-lane-track.video-track { height: 46px; }
-        .sm-clip-item { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; overflow: hidden; display: flex; align-items: center; padding: 0 8px; font-size: 11px; border: 1px solid var(--rule); }
+        .sm-clip-item { position: absolute; top: 3px; bottom: 3px; overflow: hidden; display: flex; align-items: center; padding: 0 8px; font-size: 11px; border: 1px solid var(--rule); }
         .sm-clip-added { background: var(--card-raised); border-color: var(--hairline); color: var(--ink); }
         .sm-clip-video { background: oklch(.32 .02 106); border-color: var(--rule); color: var(--ink-2); }
         .sm-cut-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--light); opacity: .7; pointer-events: none; z-index: 3; }
@@ -498,8 +498,8 @@ export function SimpleTimeline({
         .sm-empty-text { font-size: 11px; color: var(--muted); line-height: 38px; padding-left: 12px; font-style: italic; }
         .sm-playhead-v { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--light); pointer-events: none; z-index: 10; }
         .sm-playhead-v::before { content: ""; position: absolute; top: 0; left: -4px; border: 5px solid transparent; border-top-color: var(--light); }
-        .editorial-word.fixed, .w.fixed { border-color: var(--amber, oklch(.80 .13 75)) !important; color: var(--amber, oklch(.80 .13 75)) !important; }
-        .editorial-word.fixed::before, .w.fixed::before { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--amber, oklch(.80 .13 75)); pointer-events: none; }
+        .editorial-word.fixed, .w.fixed { border-color: var(--changed) !important; color: var(--changed) !important; }
+        .editorial-word.fixed::before, .w.fixed::before { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; background: var(--changed); pointer-events: none; }
       `}</style>
 
       <div className="sm-timeline-label">

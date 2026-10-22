@@ -15,6 +15,8 @@
   --still-ground: oklch(.13 .006 50);
   --scrim: oklch(.12 .003 106 / .86);
   --light-wash: oklch(.84 .11 225 / .07);
+  /** Amber mark on caption words the owner changed (owner, 2026-10-21). */
+  --changed: oklch(.80 .13 75);
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t-press: 120ms;
   --t-shadow: 180ms;
@@ -39,6 +41,7 @@
   --muted: oklch(.460 .008 106);
   --rule: oklch(.220 .004 106 / .18);
   --hairline: oklch(.220 .004 106 / .35);
+  --changed: oklch(.44 .10 75);
   --light: oklch(.440 .105 225);
   --light-glow: oklch(.440 .105 225 / .3);
   --light-wash: oklch(.440 .105 225 / .09);
