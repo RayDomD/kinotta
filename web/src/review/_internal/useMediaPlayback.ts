@@ -18,7 +18,8 @@ export function useMediaPlayback(media: MediaPlan, duration: number, sourceUrl: 
   }, []);
   useEffect(() => { void engine.current?.update(media, duration, sourceUrl, solo, soloTracks, skip); }, [media, duration, sourceUrl, solo, soloTracks, skip]);
   const seek = useCallback((at: number) => engine.current?.seek(at), []);
+  const remap = useCallback((at: number, playing?: boolean) => engine.current?.remap(at, playing), []);
   const toggle = useCallback(async () => { await engine.current?.toggle(); }, []);
   const retry = useCallback((id: string) => { void engine.current?.retry(id); }, []);
-  return { ...state, seek, toggle, retry };
+  return { ...state, seek, remap, toggle, retry };
 }
