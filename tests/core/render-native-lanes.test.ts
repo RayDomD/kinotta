@@ -281,7 +281,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(server.url);
+    await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
     await page.getByRole('button', { name: 'Review', exact: true }).click();
     await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
