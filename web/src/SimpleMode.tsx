@@ -47,6 +47,45 @@ import { pieceMap, snipPieces, MIN_SNIP } from '../../server/core/model.ts';
 import type { Piece, SnipOperation } from '../../server/core/model.ts';
 import './simple.css';
 
+/** Handles undo/redo keyboard shortcuts in Simple mode. */
+export function handleSimpleUndoRedo(
+  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'defaultPrevented' | 'target' | 'preventDefault'>,
+  edits: Pick<EditsState, 'busy' | 'list' | 'undo' | 'redo'>,
+): boolean {
+  if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey)) {
+    return false;
+  }
+  const isUndo = !event.shiftKey && event.key.toLowerCase() === 'z';
+  const isRedo = (event.shiftKey && event.key.toLowerCase() === 'z') || event.key.toLowerCase() === 'y';
+  if (!isUndo && !isRedo) return false;
+
+  const target = event.target as HTMLElement | null;
+  const dialog = target?.closest?.('dialog') as HTMLDialogElement | null | undefined;
+  const isOpenDialog = dialog ? (dialog.open || (typeof dialog.hasAttribute === 'function' && dialog.hasAttribute('open'))) : false;
+  if (
+    target?.isContentEditable ||
+    target?.closest?.('input, textarea, select, [contenteditable="true"]') ||
+    isOpenDialog
+  ) {
+    return false;
+  }
+
+  if (isUndo) {
+    if (!edits.busy && edits.list?.canUndo) {
+      event.preventDefault();
+      void edits.undo();
+      return true;
+    }
+  } else if (isRedo) {
+    if (!edits.busy && edits.list?.canRedo) {
+      event.preventDefault();
+      void edits.redo();
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Simple mode is the default on each new browser tab; an explicit editor switch survives reload. */
 export function startsInSimpleMode(): boolean {
   try { return sessionStorage.getItem('kinotta-mode') !== 'editor'; } catch { return true; }
@@ -590,6 +629,14 @@ export function SimpleMode({
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [pins, selected, busy, reel, version, creating]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      handleSimpleUndoRedo(event, edits);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [edits]);
 
   const problem = (err: unknown) => setError(err instanceof Error ? err.message : 'Could not complete that action. Try again.');
 
