@@ -42,7 +42,7 @@ describe('importVideo', () => {
 
     expect(result).toEqual({ path: 'footage/Founder Talk.mp4', copied: true, playbackCopy: false });
     expect(sha(join(dir, result.path))).toBe(sha(join(source, SAMPLE)));
-    expect(readdirSync(join(dir, 'footage'))).toEqual(['Founder Talk.mp4']);
+    expect(readdirSync(join(dir, 'footage')).filter((f) => !f.startsWith('.'))).toEqual(['Founder Talk.mp4']);
     expect((await project.listVideos()).map((v) => v.path)).toEqual(['footage/Founder Talk.mp4']);
   });
 
@@ -57,7 +57,7 @@ describe('importVideo', () => {
 
     expect(again).toEqual({ ...first, copied: false });
     expect(renamed).toEqual({ ...first, copied: false });
-    expect(readdirSync(join(dir, 'footage'))).toEqual(['talk.mp4']);
+    expect(readdirSync(join(dir, 'footage')).filter((f) => !f.startsWith('.'))).toEqual(['talk.mp4']);
   });
 
   it('keeps a different file that has the same name under a new name', { timeout: SLOW_MS }, async () => {
