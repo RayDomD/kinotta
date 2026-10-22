@@ -1,7 +1,7 @@
 ---
 title: Realtime editing
 date: 2026-10-22
-status: Approved
+status: In Progress
 summary: Cuts close up without the timeline jumping, playback never stalls for a late picture, edits show instantly, seeks are fast on real footage, and Ctrl+Z works on Simple-mode captions.
 spec: .herdr/briefs/2026-10-22-timeline-feel-diagnosis2-codex.md
 ---
@@ -98,3 +98,6 @@ agy, in parallel (agents take separate items):
 - Base branch resolved: main (PR #59 merged as 5fade2f). Branch `feat/realtime-editing`, worktree `.worktrees/realtime-editing`.
 - Owner approved the Intent, including proxies at 540p with a keyframe every 6 frames. Goal through Checks drafted: Claude orchestrates; codex takes the playback engine and optimistic edits; agy takes close-up, timeline anchoring, Simple fixes and proxies with parallel Gemini 3.8 agents.
 - Owner approved the plan. Lanes dispatched: codex on feat/realtime-codex, agy on feat/realtime-agy.
+- Codex: steps 1-5 (e167b4d, 8385ec4, 77ee60f, 628e721, 4651686), save waits in tests (5d4e466), four regressions found by Claude fixed (4fb1f11). Owner chose extra decoders only for simultaneous uses of one source. agy: A1-A5 with three parallel Gemini 3.8 agents.
+- Merged both lanes (4867155, 9c40a4c); verify test now blocks the audio route too (2c32b14). Merged checks: build pass; vitest 1112 pass, 1 skip, 1 fail (editor-settings, fails on main); e2e 66/71, the 5 failures pass alone under no load (6/6); optimistic-edits 3/3; playback-stutter 4/4.
+- Owner tried the merged build on RayDom (port 4330): "looking well, it feels good".
