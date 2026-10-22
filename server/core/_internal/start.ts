@@ -5,7 +5,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { addOperation, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { BUILT_BY_YOU } from './edit-model.ts';
 import { KinottaError } from './errors.ts';
-import { ensurePlaybackCopy, needsPlaybackCopy } from './import.ts';
+import { ensurePlaybackCopy, ensureProxyAndAudio, needsPlaybackCopy } from './import.ts';
 import { probeVideo, transcribeAudio, waveformPeaks } from './runner.ts';
 import { checkDeadAir, DEAD_AIR_BY, deadAirCuts } from './dead-air.ts';
 import type { Piece } from './pieces.ts';
@@ -78,6 +78,7 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   const probe = await probeVideo(file);
   // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
   if (needsPlaybackCopy(probe.codec)) await ensurePlaybackCopy(projectDir, file);
+  ensureProxyAndAudio(projectDir, file).catch(() => undefined);
   const title = input.title?.trim() || titleFromFile(file);
   const { slug, dir: reelDir } = await makeReelDir(join(projectDir, REELS_DIR), title);
   const footage = posix(relative(resolve(projectDir), file));

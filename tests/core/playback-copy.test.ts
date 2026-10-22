@@ -76,7 +76,7 @@ describe('playback copies of saved-version video', () => {
     const kinotta = openProject(dir);
     const entry = await kinotta.referenceMedia('footage/take.mp4');
     const file = await kinotta.mediaFile(SOURCE, { reel: 'founder-talk', version: 1 });
-    expect(file).toBe(join(dir, entry.playback!));
+    expect([join(dir, entry.playback!), join(dir, 'footage/.proxy', `sha256-${hash}.mp4`)]).toContain(file);
     expect(playbackFiles(dir)).toEqual(['take.mp4']);
   }, 60_000);
 
