@@ -35,6 +35,13 @@ describe('picture sync', () => {
     expect(late.writes).toEqual([]);
   });
 
+  it('starts rate correction at half a frame so render latency does not exceed a sound frame', () => {
+    const { element, writes } = picture(4);
+    syncPicture(element, 4.02, true, true);
+    expect(element.playbackRate).toBeCloseTo(1.04);
+    expect(writes).toEqual([]);
+  });
+
   it('returns to normal speed within one frame', () => {
     const { element, writes } = picture(4);
     element.playbackRate = 1.1;
@@ -101,7 +108,7 @@ it('keeps the previous decoded picture visible until the next source decodes', a
   try {
     await page.route('**/*next-picture*', async (route) => { await gate; await route.continue(); });
     await page.evaluate(() => (window as any).mountPicture());
-    await page.waitForFunction(() => document.querySelector('video')!.readyState >= 2);
+    await expect.poll(async () => await page.locator('[data-verify-id="take"]').getAttribute('data-verify-ready') === 'true' && await page.locator('[data-verify-id="take"]').isVisible()).toBe(true);
     await page.evaluate(() => (window as any).mountPicture({
       pictures: [{ id: 'next', role: 'main', source: 'next', in: 0, out: 8.8, at: 0, duration: 8.8 }],
       sources: [{ id: 'fixture', kind: 'video', path: '', duration: 8.8 }, { id: 'next', kind: 'video', path: '', duration: 8.8 }],
@@ -112,6 +119,6 @@ it('keeps the previous decoded picture visible until the next source decodes', a
     expect(await page.locator('[data-verify-id="next"]').isVisible()).toBe(false);
     release();
     await page.waitForFunction(() => document.querySelector('[data-verify-id="next"]')?.getAttribute('data-verify-ready') === 'true');
-    expect(await page.locator('[data-verify-id="next"]').isVisible()).toBe(true);
+    await expect.poll(() => page.locator('[data-verify-id="next"]').isVisible()).toBe(true);
   } finally { release(); await close(); }
 }, 30_000);

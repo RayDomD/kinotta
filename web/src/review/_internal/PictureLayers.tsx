@@ -4,8 +4,8 @@ import type { MediaSource, MediaTimeline, PictureRegion } from '../../../../serv
 
 type Picture = MediaTimeline['placements'][number];
 const FULL: PictureRegion = { x: 0, y: 0, width: 1, height: 1 };
-/** Ignore drift within one preview frame. */
-const DRIFT = 1 / 30;
+/** Correct beyond half a frame, leaving room for a React clock update before audible drift exceeds a frame. */
+const DRIFT = 1 / 60;
 /** Seek only when rate correction would leave picture visibly out of sync. */
 const SEEK_DRIFT = 0.25;
 /** Paused and preloaded pictures must land within half a preview frame. */
@@ -29,15 +29,15 @@ export function syncPicture(element: HTMLVideoElement, target: number, playing: 
   return seek;
 }
 
-function PictureLayer({ p, source, url, time, playing, upcoming, visible, retained, onStatus, onError }: {
+function PictureLayer({ p, source, url, time, playing, upcoming, visible, retained, idle, onStatus, onError }: {
   p: Picture; source: MediaSource; url: string; time: number; playing: boolean;
   /** Starts soon: loaded hidden and parked on its first frame, so the cut finds it ready. */
-  upcoming: boolean; visible: boolean; retained: boolean;
+  upcoming: boolean; visible: boolean; retained: boolean; idle: boolean;
   onStatus: (id: string, ready: boolean) => void; onError: (id: string, message: string) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
-  useEffect(() => { if (!upcoming) onStatus(p.id, ready); }, [p.id, ready, upcoming, onStatus]);
+  useEffect(() => { if (!upcoming && !idle) onStatus(p.id, ready); }, [p.id, ready, upcoming, idle, onStatus]);
   useEffect(() => {
     const element = video.current;
     if (!element || p.role === 'gap') return;
@@ -56,7 +56,7 @@ function PictureLayer({ p, source, url, time, playing, upcoming, visible, retain
   const framing: CSSProperties = { objectFit: p.framing?.mode === 'fit' ? 'contain' : 'cover', objectPosition: `${(p.framing?.x ?? 0.5) * 100}% ${(p.framing?.y ?? 0.5) * 100}%` };
   const decoded = () => { if (video.current && video.current.readyState >= 2 && !video.current.seeking) setReady(true); };
   const fail = () => { setReady(false); onError(source.id, `The picture for ${source.name ?? source.id} could not be loaded.`); };
-  return <div className="mv-picture-layer" style={{ ...styleOf(p.region ?? FULL), ...(!visible ? { visibility: 'hidden' } : {}) }} data-verify-unit={upcoming ? 'UpcomingPictureLayer' : 'PictureLayer'} data-verify-id={p.id} data-verify-ready={String(ready)} data-verify-region={JSON.stringify(p.region ?? FULL)}>
+  return <div className="mv-picture-layer" style={{ ...styleOf(p.region ?? FULL), ...(!visible ? { visibility: 'hidden' } : {}) }} data-verify-unit={idle ? 'PooledPictureLayer' : upcoming ? 'UpcomingPictureLayer' : 'PictureLayer'} data-verify-id={p.id} data-verify-ready={String(ready)} data-verify-region={JSON.stringify(p.region ?? FULL)}>
     {source.kind === 'image' ? <img className="mv-picture" style={framing} src={url} alt={source.name ?? source.id} onLoad={() => setReady(true)} onError={fail} />
       : <video className="mv-picture" style={framing} ref={video} src={url} muted playsInline preload="auto" onLoadedData={decoded} onCanPlay={decoded} onPlaying={decoded} onSeeking={() => setReady(false)} onSeeked={decoded} onError={fail} />}
   </div>;
@@ -66,7 +66,7 @@ function verifyAttrs(count: number, selected: string | undefined) {
   return { 'data-verify-unit': 'PictureLayers', 'data-verify-count': count, 'data-verify-empty': String(count === 0), 'data-verify-selected': selected ?? '' };
 }
 
-/** Each visible occurrence owns its picture clock, including repeated uses of one source. */
+/** Sources keep their decoder across cuts; simultaneous uses get independent clocks. */
 export function PictureLayers({ pictures, upcoming = [], sources, time, playing, sourceUrl, attempts, onStatus, onError, selected, onRegion }: {
   pictures: Picture[];
   /** Pictures that start soon, loaded ahead of their cut. After the visible ones, so becoming visible moves no element. */
@@ -76,11 +76,12 @@ export function PictureLayers({ pictures, upcoming = [], sources, time, playing,
   onStatus: (id: string, ready: boolean) => void; onError: (id: string, message: string) => void;
   selected?: string; onRegion?: (id: string, region: PictureRegion) => void;
 }) {
+  const pool = useRef(new Map<string, Picture>());
   const [decoded, setDecoded] = useState<Record<string, boolean>>({});
   const shown = useRef<Picture[]>([]);
   const complete = pictures.every((p) => decoded[p.id]);
   if (complete) shown.current = pictures;
-  const retained = shown.current.filter((p) => !pictures.some((next) => next.id === p.id));
+  const retained = shown.current.filter((p) => p.role !== 'gap' && !pictures.some((next) => next.role !== 'gap' && next.source === p.source));
   const status = useCallback((id: string, ready: boolean) => {
     setDecoded((before) => before[id] === ready ? before : { ...before, [id]: ready });
     onStatus(id, ready);
@@ -110,8 +111,29 @@ export function PictureLayers({ pictures, upcoming = [], sources, time, playing,
     cancelDrag.current = cleanup;
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', finish, { once: true }); window.addEventListener('pointercancel', cancel, { once: true });
   };
+  const used = new Set<string>();
+  const entries: { key: string; p: Picture; soon: boolean; retained: boolean; idle: boolean; primary: boolean }[] = [];
+  for (const [p, soon, keep] of [...retained.map((p) => [p, false, true] as const), ...pictures.map((p) => [p, false, false] as const), ...upcoming.map((p) => [p, true, false] as const)]) {
+    if (p.role === 'gap' || !sources.some((source) => source.id === p.source)) continue;
+    const primary = !used.has(p.source);
+    // A future use of the current source already has a warm decoder; do not seek it away from the picture.
+    if (!primary && (soon || keep)) continue;
+    if (primary) { used.add(p.source); pool.current.set(p.source, p); }
+    entries.push({ key: primary ? `source:${p.source}` : `overlap:${p.source}:${p.id}`, p, soon, retained: keep, idle: false, primary });
+  }
+  for (const [id, p] of pool.current) {
+    if (!sources.some((source) => source.id === id)) { pool.current.delete(id); continue; }
+    if (!used.has(id)) entries.push({ key: `source:${id}`, p, soon: false, retained: true, idle: true, primary: true });
+  }
   return <div className="mv-picture-layers" {...verifyAttrs(pictures.length, selected)}>
-    {[...retained.map((p) => [p, false] as const), ...pictures.map((p) => [p, false] as const), ...upcoming.filter((p) => !retained.some((old) => old.id === p.id)).map((p) => [p, true] as const)].map(([p, soon]) => { if (p.role === 'gap') return null; const source = sources.find((s) => s.id === p.source)!; return <PictureLayer key={`${p.id}:${attempts[source.id] ?? 0}`} p={draft?.id === p.id ? { ...p, region: draft.region } : p} source={source} url={`${sourceUrl(source.id)}${attempts[source.id] ? `?retry=${attempts[source.id]}` : ''}`} time={time} playing={playing} upcoming={soon} retained={retained.some((old) => old.id === p.id)} visible={!soon && (complete || shown.current.some((old) => old.id === p.id))} onStatus={status} onError={onError} />; })}
+    {entries.map(({ key, p, soon, retained: keep, idle, primary }) => {
+      if (p.role === 'gap') return null;
+      const source = sources.find((s) => s.id === p.source)!;
+      const url = sourceUrl(source.id);
+      const retryUrl = attempts[source.id] ? `${url}${url.includes('?') ? '&' : '?'}retry=${attempts[source.id]}` : url;
+      const seen = shown.current.some((old) => old.id === p.id || (primary && old.role !== 'gap' && old.source === p.source));
+      return <PictureLayer key={`${key}:${attempts[source.id] ?? 0}`} p={draft?.id === p.id ? { ...p, region: draft.region } : p} source={source} url={retryUrl} time={time} playing={playing} upcoming={soon} retained={keep} idle={idle} visible={!idle && !soon && (complete || seen)} onStatus={status} onError={onError} />;
+    })}
     {chosen && onRegion && <div className="mv-region-selection" style={styleOf(region)}>
       <button type="button" className="mv-region-move" aria-label="Move picture region" onPointerDown={(e) => start(e, false)}>Move picture</button>
       <button type="button" className="mv-region-resize" aria-label="Resize picture region" onPointerDown={(e) => start(e, true)} />
