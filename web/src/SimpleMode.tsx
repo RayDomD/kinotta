@@ -421,15 +421,22 @@ function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
 export function computeSimpleCuts(
   version: Pick<Version, 'pieces' | 'isNewest'> | undefined,
   edits: Pick<EditsState, 'busy' | 'list' | 'remove' | 'add'>,
+  replacingCut?: { oldId: string; newOp: SnipOperation } | null,
 ): SimpleCutsValue | null {
   if (!version?.pieces || version.pieces.length === 0 || !version.isNewest || !edits.list || edits.list.stale || edits.list.handedOff) {
     return null;
   }
   const basePieces: Piece[] = version.pieces.map((p) => ({ in: p.in, out: p.out }));
-  const liveSnips = edits.list.operations.filter(
+  let liveSnips = edits.list.operations.filter(
     (op): op is SnipOperation =>
       op.kind === 'snip' && !(edits.list?.flagged && edits.list.flagged[op.id]),
   );
+  if (replacingCut) {
+    const hasNew = liveSnips.some((s) => s.from === replacingCut.newOp.from && s.to === replacingCut.newOp.to);
+    if (!hasNew) {
+      liveSnips = [...liveSnips.filter((s) => s.id !== replacingCut.oldId), replacingCut.newOp];
+    }
+  }
   const baseMaxOut = Math.max(0, ...basePieces.map((p) => p.out));
   const snipMaxTo = Math.max(0, ...liveSnips.map((s) => s.to));
   const sourceDuration = Math.max(baseMaxOut, snipMaxTo);
@@ -583,7 +590,44 @@ export function SimpleMode({
     return () => clearInterval(timer);
   }, [reel?.slug, creating, agentJob?.state]);
 
-  const cutsValue = useMemo(() => computeSimpleCuts(version, edits), [version, edits]);
+  const [replacingCut, setReplacingCut] = useState<{ oldId: string; newOp: SnipOperation } | null>(null);
+
+  const effectiveEdits = useMemo(() => {
+    if (!replacingCut || !edits.list) return edits;
+    const hasNew = edits.list.operations.some((op) => op.kind === 'snip' && op.from === replacingCut.newOp.from && op.to === replacingCut.newOp.to);
+    if (hasNew) return edits;
+    const ops = edits.list.operations.filter((op) => op.id !== replacingCut.oldId);
+    return {
+      ...edits,
+      list: {
+        ...edits.list,
+        operations: [...ops, replacingCut.newOp],
+      },
+    };
+  }, [edits, replacingCut]);
+
+  const cutsValue = useMemo(() => {
+    const base = computeSimpleCuts(version, effectiveEdits, replacingCut);
+    if (!base) return null;
+    return {
+      ...base,
+      replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
+        const newOp: SnipOperation = { kind: 'snip', from, to, by: oldOp.by, id: `pending:${crypto.randomUUID()}` };
+        setReplacingCut({ oldId: oldOp.id, newOp });
+        try {
+          await edits.remove(oldOp.id);
+          const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+          if (!ok) {
+            await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+            return false;
+          }
+          return true;
+        } finally {
+          setReplacingCut(null);
+        }
+      },
+    };
+  }, [version, effectiveEdits, replacingCut, edits]);
   const pins = comments.comments;
   const jumpTo = (index: number) => {
     if (!pins.length) return;
@@ -845,7 +889,7 @@ export function SimpleMode({
                 version={version}
                 message={message}
                 comments={pins}
-                edits={edits}
+                edits={effectiveEdits}
                 simple={{
                   pinMode,
                   controls: <button type="button" className="rv-tool sm-pin-tool" aria-label="Pin mode" title="Pin mode (P)" aria-keyshortcuts="P" aria-pressed={pinMode} disabled={busy || !version} onClick={togglePinMode}><EditorIcon name="pin" /></button>,

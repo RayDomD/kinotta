@@ -383,7 +383,10 @@ export function SimpleTimeline({
         }
       }
     } else if (duration > prevDuration + 0.001) {
-      setInternalWin({ start: 0, length: Math.max(0.001, duration) });
+      setInternalWin((prev) => ({
+        start: 0,
+        length: Math.max(prev.length, duration),
+      }));
     }
   }, [duration, pieces, timeline?.placements, time, onSeek]);
 
@@ -565,12 +568,12 @@ export function SimpleTimeline({
   const ticks = useMemo(() => {
     if (duration <= 0) return [];
     const result: { s: number; major: boolean }[] = [];
-    const endSec = Math.ceil(duration);
+    const endSec = Math.ceil(Math.max(duration, win.start + win.length));
     for (let s = 0; s <= endSec; s++) {
       result.push({ s, major: s % 5 === 0 });
     }
     return result;
-  }, [duration]);
+  }, [duration, win.start, win.length]);
 
   const pct = (s: number) => `${percentIn(win, s)}%`;
 
@@ -651,7 +654,7 @@ export function SimpleTimeline({
                   className="sm-clip-item sm-clip-added"
                   style={{
                     left: pct(displayTime(block.start)),
-                    width: `max(2px, ${((displayTime(block.end) - displayTime(block.start)) / Math.max(0.001, duration)) * 100}%)`,
+                    width: `max(2px, ${((displayTime(block.end) - displayTime(block.start)) / Math.max(0.001, win.length)) * 100}%)`,
                   }}
                   title={block.title}
                 >
@@ -710,7 +713,7 @@ export function SimpleTimeline({
                 className="sm-clip-item sm-clip-video"
                 style={{
                   left: pct(block.start),
-                  width: `max(2px, ${(block.duration / Math.max(0.001, duration)) * 100}%)`,
+                  width: `max(2px, ${(block.duration / Math.max(0.001, win.length)) * 100}%)`,
                 }}
                 title={`Video span: ${block.duration.toFixed(2)}s`}
               />
@@ -731,7 +734,7 @@ export function SimpleTimeline({
         const displayFrom = isDraft ? draftCut.from : cut.from;
         const displayTo = isDraft ? draftCut.to : cut.to;
         const joinAt = cut.joinAt ?? (cuts ? sourceToReel(cuts.keptMap, cut.from) : cut.from);
-        const leftPct = duration > 0 ? (joinAt / duration) * 100 : 0;
+        const leftPct = percentIn(win, joinAt);
         const labelPrefix = cut.isDeadAir ? 'Cut pause' : 'Cut';
         const blockAriaLabel = `${labelPrefix}, ${(cut.to - cut.from).toFixed(1)} seconds at ${formatClock(cut.from)}`;
         const prevCut = index > 0 ? cuts.cuts[index - 1] : undefined;
