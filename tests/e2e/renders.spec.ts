@@ -15,7 +15,7 @@ const queue = (page: Page): Locator => menu(page).getByRole('list', { name: 'Que
 
 async function renderDraft(page: Page, version: number): Promise<void> {
   // Numbered snapshots remain renderable through the API while the UI shows Current.
-  const response = await page.request.post('/api/reels/product-showreel/renders', { data: { version, preset: 'draft' } });
+  const response = await page.request.post('/api/renders', { data: { reel: 'product-showreel', version, preset: 'draft' } });
   expect(response.ok()).toBe(true);
 }
 

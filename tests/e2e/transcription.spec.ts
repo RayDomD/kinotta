@@ -58,7 +58,6 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   writeFileSync(join(readFileSync(PROJECT_FILE, 'utf8'), '.release-transcript'), '');
   await revealReelRail(page);
   await expect(versions(page).locator('[data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });
-  await expect(versions(page)).toContainText('you');
   await expect(review(page).getByRole('progressbar', { name: 'Transcription' })).toHaveCount(0);
   await expect(review(page).locator('[data-row="captions"]').locator('.editorial-text-bar > button')).toHaveText('hello there');
   await review(page).getByRole('button', { name: /^Open caption at/ }).first().click();

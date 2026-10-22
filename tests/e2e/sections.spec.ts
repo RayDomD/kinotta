@@ -19,7 +19,7 @@ test.describe('two sections', () => {
 
     await expect(page.locator('.rail .label').filter({ hasText: 'Sections' })).toHaveText('Sections · 2');
     const labels = await page.locator('.rail .label').allTextContents();
-    expect(labels.findIndex((l) => l.startsWith('Sections'))).toBeLessThan(labels.indexOf('Versions'));
+    expect(labels.findIndex((l) => l.startsWith('Sections'))).toBeLessThan(labels.indexOf('Reel'));
 
     await expect(railSections(page)).toHaveCount(2);
     await expect(railSections(page).nth(0).locator('.n')).toHaveText('01');

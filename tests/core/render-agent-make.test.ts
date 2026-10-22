@@ -19,7 +19,7 @@ it('Make in Simple plays v1 while a fake agent runs, then loads published v2 as 
     const page = await browser.newPage();
     await page.addInitScript(() => localStorage.setItem('kinotta-simple-profile-v1', JSON.stringify({ name: 'Alex', handle: '@alex', makes: 'Vlogs', language: 'English', destination: 'TikTok', finish: 'MP4', music: 'No music' })));
     await page.goto(server.url);
-    await page.getByRole('button', { name: 'New reel', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
     await page.getByLabel('Or use a video in this project').selectOption('media/talk.mp4');
     await page.getByLabel('Reel name', { exact: true }).fill('Fake agent Make');
     await page.getByRole('button', { name: 'Make', exact: true }).click();

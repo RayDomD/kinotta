@@ -7,6 +7,8 @@ import { copyFixture } from '../helpers/project.ts';
 const LAUNCHER = resolve(import.meta.dirname, '../../bin/kinotta.mjs');
 const URL_LINE = /^Kinotta: (http:\/\/localhost:(\d+))\s*$/m;
 const LAUNCH_TIMEOUT_MS = 20_000;
+// The server binds this host only; Windows lets a wildcard listener share the port with it.
+const SERVER_HOST = '127.0.0.1';
 
 const children: ChildProcess[] = [];
 afterEach(() => {
@@ -57,7 +59,7 @@ describe('launcher', () => {
   it('falls back to a free port when the requested one is taken', async () => {
     const dir = copyFixture('showreel-project');
     const busy = createServer();
-    await new Promise<void>((r) => busy.listen(0, r));
+    await new Promise<void>((r) => busy.listen(0, SERVER_HOST, r));
     const busyPort = (busy.address() as { port: number }).port;
 
     try {
