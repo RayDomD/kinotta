@@ -118,8 +118,8 @@ export interface VideoLaneData {
 
 
 export function detectCutRange(
-  prevItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number })[] | undefined,
-  curItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number })[] | undefined,
+  prevItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number; id?: string; source?: string })[] | undefined,
+  curItems: readonly (Piece | PlacedPiece | { at?: number; duration?: number; in?: number; out?: number; id?: string; source?: string })[] | undefined,
   prevDuration: number,
   curDuration: number,
 ): { cutStart: number; cutEnd: number } | null {
@@ -136,14 +136,62 @@ export function detectCutRange(
     'in' in item && typeof item.in === 'number' ? item.in : 0;
 
   if (prevItems && curItems) {
+    const matchedCur = new Set<number>();
+    const matches: (number | null)[] = new Array(prevItems.length).fill(null);
+
+    // Pass 1: exact match by id or object reference
+    for (let i = 0; i < prevItems.length; i++) {
+      const p = prevItems[i]!;
+      const pId = (p as any).id;
+      for (let j = 0; j < curItems.length; j++) {
+        if (matchedCur.has(j)) continue;
+        const c = curItems[j]!;
+        const cId = (c as any).id;
+        if (p === c || (pId !== undefined && cId !== undefined && pId === cId)) {
+          matches[i] = j;
+          matchedCur.add(j);
+          break;
+        }
+      }
+    }
+
+    // Pass 2: match by source span / in-out if unmatched
+    for (let i = 0; i < prevItems.length; i++) {
+      if (matches[i] !== null) continue;
+      const p = prevItems[i]!;
+      const pSource = (p as any).source;
+      const pIn = (p as any).in;
+      const pOut = (p as any).out;
+      if (typeof pIn !== 'number') continue;
+
+      for (let j = 0; j < curItems.length; j++) {
+        if (matchedCur.has(j)) continue;
+        const c = curItems[j]!;
+        const cSource = (c as any).source;
+        if (pSource !== undefined && cSource !== undefined && pSource !== cSource) continue;
+        const cIn = (c as any).in;
+        const cOut = (c as any).out;
+        if (typeof cIn !== 'number') continue;
+
+        if (Math.abs(pIn - cIn) < 0.001 || (cIn >= pIn - 0.001 && typeof pOut === 'number' && typeof cOut === 'number' && cOut <= pOut + 0.001)) {
+          matches[i] = j;
+          matchedCur.add(j);
+          break;
+        }
+      }
+    }
+
     for (let i = 0; i < prevItems.length; i++) {
       const prev = prevItems[i]!;
-      const cur = curItems[i];
       const prevDur = getItemDuration(prev);
-      if (!cur) {
+      const matchedIdx = matches[i];
+
+      if (matchedIdx === null) {
         cutStart = prevAt;
         break;
       }
+
+      const cur = curItems[matchedIdx]!;
       const curDur = getItemDuration(cur);
       const curIn = getItemIn(cur);
       const prevIn = getItemIn(prev);
@@ -164,6 +212,61 @@ export function detectCutRange(
     cutStart = Math.max(0, curDuration);
   }
   return { cutStart, cutEnd: cutStart + cutDuration };
+}
+
+export interface CutTrackingState {
+  win: TimeWindow;
+  time: number;
+  prevDuration: number;
+  prevItems?: readonly any[];
+  preCut?: { win: TimeWindow; time: number; duration: number } | null;
+}
+
+export function handleTimelineDurationChange(
+  state: CutTrackingState,
+  currentDuration: number,
+  currentItems?: readonly any[],
+): {
+  win: TimeWindow;
+  time: number;
+  preCut: { win: TimeWindow; time: number; duration: number } | null;
+  seekTo?: number;
+} {
+  const { win, time, prevDuration, prevItems, preCut } = state;
+
+  if (currentDuration < prevDuration - 0.001 && prevDuration > 0) {
+    const cut = detectCutRange(prevItems, currentItems, prevDuration, currentDuration);
+    if (cut) {
+      const nextWin = anchorCutWindow(win, cut.cutStart, cut.cutEnd);
+      const mappedTime = mapTimeThroughCut(time, cut.cutStart, cut.cutEnd, currentDuration);
+      const seekTo = Math.abs(mappedTime - time) > 0.001 ? mappedTime : undefined;
+      return {
+        win: nextWin,
+        time: mappedTime,
+        preCut: { win, time, duration: prevDuration },
+        seekTo,
+      };
+    }
+  } else if (currentDuration > prevDuration + 0.001) {
+    if (preCut && Math.abs(currentDuration - preCut.duration) < 0.001) {
+      return {
+        win: preCut.win,
+        time: preCut.time,
+        preCut: null,
+        seekTo: preCut.time,
+      };
+    }
+    return {
+      win: {
+        start: 0,
+        length: Math.max(win.length, currentDuration),
+      },
+      time,
+      preCut: null,
+    };
+  }
+
+  return { win, time, preCut: preCut ?? null };
 }
 
 export function mapCutResizeDelta(
@@ -362,31 +465,31 @@ export function SimpleTimeline({
   }));
   const win = propsWin ?? internalWin;
 
-  const prevDurationRef = useRef<number>(duration);
-  const prevItemsRef = useRef<any>(pieces ?? timeline?.placements);
+  const trackingRef = useRef<CutTrackingState>({
+    win: { start: 0, length: Math.max(0.001, duration) },
+    time,
+    prevDuration: duration,
+    prevItems: pieces ?? timeline?.placements,
+    preCut: null,
+  });
+
+  trackingRef.current.win = win;
+  trackingRef.current.time = time;
 
   useEffect(() => {
-    const prevDuration = prevDurationRef.current;
-    const prevItems = prevItemsRef.current;
     const currentItems = pieces ?? timeline?.placements;
+    const next = handleTimelineDurationChange(trackingRef.current, duration, currentItems);
+    trackingRef.current.prevDuration = duration;
+    trackingRef.current.prevItems = currentItems;
+    trackingRef.current.preCut = next.preCut;
 
-    prevDurationRef.current = duration;
-    prevItemsRef.current = currentItems;
-
-    if (duration < prevDuration - 0.001 && prevDuration > 0) {
-      const cut = detectCutRange(prevItems, currentItems, prevDuration, duration);
-      if (cut) {
-        setInternalWin((prev) => anchorCutWindow(prev, cut.cutStart, cut.cutEnd));
-        const mapped = mapTimeThroughCut(time, cut.cutStart, cut.cutEnd, duration);
-        if (Math.abs(mapped - time) > 0.001) {
-          onSeek(mapped);
-        }
-      }
-    } else if (duration > prevDuration + 0.001) {
-      setInternalWin((prev) => ({
-        start: 0,
-        length: Math.max(prev.length, duration),
-      }));
+    if (next.win !== trackingRef.current.win) {
+      setInternalWin(next.win);
+      trackingRef.current.win = next.win;
+    }
+    if (next.seekTo !== undefined) {
+      onSeek(next.seekTo);
+      trackingRef.current.time = next.seekTo;
     }
   }, [duration, pieces, timeline?.placements, time, onSeek]);
 
