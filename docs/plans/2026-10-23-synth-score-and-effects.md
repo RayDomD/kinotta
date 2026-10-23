@@ -27,7 +27,7 @@ spec:
 - Out of scope: Real-instrument or ambient sound (Stable Audio's job), a music editor UI, changes to the mixer or render audio path, and motion blur (its own plan).
 - Open questions (one at a time):
   - O1: Resolved 2026-10-23. Catalogue effects are rendered once and committed as WAV files, so the editor needs no Python. The script regenerates them when a recipe changes.
-  - O2: Does the generator need scipy, or only numpy? scipy gives filters and fast reverb; numpy alone is a lighter dependency.
+  - O2: Resolved 2026-10-23. The generator uses numpy and scipy (both BSD-3-Clause). They are needed only to generate a score or re-render the catalogue, never to use the editor.
 
 ## Goal
 
@@ -44,7 +44,7 @@ The catalogue keeps its shape (`id`, `file`, `duration`, `description`), so `sou
 
 ## Steps
 
-1. Answer O2 (O1 resolved).
+1. Open questions resolved (O1, O2).
 2. Write the generator's effect recipes and `effects` mode. Render the catalogue and listen against the Pixabay set; the owner signs off by ear.
 3. Swap the catalogue: replace the MP3s, manifest, `CREDITS.md` and `NOTICE.md`; update `sound-effects.ts` and tests. Confirm an old reel with a copied Pixabay effect still opens and renders.
 4. Write `score` mode: read cut and hit times from the plan, write the bed stem with `beats` and one effect stem per hit, and print the `placement-add` operations.
@@ -68,3 +68,4 @@ The catalogue keeps its shape (`id`, `file`, `duration`, `description`), so `sou
 ### 2026-10-23
 - Plan created. Owner chose stems on audio tracks for generated music and to remove the bundled Pixabay effects; Stable Audio stays optional.
 - O1 resolved: committed WAVs.
+- O2 resolved: numpy and scipy, authoring only.
