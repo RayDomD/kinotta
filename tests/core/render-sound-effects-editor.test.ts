@@ -117,21 +117,21 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
 });
 
 
-it('opens and renders a frozen reel from its copied Pixabay MP3 after the catalogue switches to WAV', { timeout: 90_000 }, async () => {
+it('opens and renders a frozen reel from its copied MP3 after the catalogue switches to WAV', { timeout: 90_000 }, async () => {
   const dir = emptyProject();
   const version = join(dir, 'reels/legacy/v1');
   mkdirSync(join(version, 'assets'), { recursive: true });
-  copyFileSync(resolve('tests/fixtures/legacy-pixabay-pop.mp3'), join(version, 'assets/pop.mp3'));
+  copyFileSync(resolve('tests/fixtures/legacy-effect.mp3'), join(version, 'assets/pop.mp3'));
   const plan = { duration: 2, clips: [], media: {
     schema: 1,
     tracks: [{ id: 'sfx', name: 'Effects', order: 0, gain: 1, mute: false }],
-    sources: [{ id: 'pop', kind: 'audio', path: 'assets/pop.mp3', duration: 0.72 }],
+    sources: [{ id: 'pop', kind: 'audio', path: 'assets/pop.mp3', duration: 0.4 }],
     placements: [
       { id: 'gap', role: 'gap', duration: 2 },
-      { id: 'legacy-pop', role: 'audio', source: 'pop', track: 'sfx', in: 0, out: 0.72, at: 0.5, gain: 0.35 },
+      { id: 'legacy-pop', role: 'audio', source: 'pop', track: 'sfx', in: 0, out: 0.4, at: 0.5, gain: 0.35 },
     ], sequence: ['gap'],
   } };
-  writeFileSync(join(dir, 'reels/legacy/reel.json'), JSON.stringify({ title: 'Legacy Pixabay reel' }));
+  writeFileSync(join(dir, 'reels/legacy/reel.json'), JSON.stringify({ title: 'Legacy MP3 reel' }));
   writeFileSync(join(version, 'plan.json'), JSON.stringify(plan));
   writeFileSync(join(version, 'shots.json'), JSON.stringify({ schema: 1, shots: [] }));
   writeFileSync(join(version, 'index.html'), '<!doctype html><style>html,body{margin:0;width:160px;height:90px;background:transparent}</style><script>window.DURATION=2;window.seek=()=>{};</script>');
