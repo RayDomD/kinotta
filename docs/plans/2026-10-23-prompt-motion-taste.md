@@ -35,7 +35,7 @@ spec: docs/research/2026-10-23-prompt-motion.md
   - The taste list is the owner's. Codex drafts the additions in the plan; the owner approves before they are written.
 - Out of scope:
   - Three.js or 3D templates, and switching render tools (Remotion, HyperFrames). Kinotta keeps its own engine.
-  - Generated soundtracks (Web Audio kicks and risers).
+  - Generated soundtracks. Moved to `2026-10-23-synth-score-and-effects.md`.
   - Scraping the gallery's 200 entries one by one.
 - Open questions (one at a time):
   - O1: Resolved 2026-10-23. The templates are shape morph, motif carry, letter swap and beat showreel, plus phone, chart and diagram added later the same day. All are optional: a build may start from one, but the skill never requires them, and no rule or check fails a reel for not using them.
@@ -138,6 +138,7 @@ Phase 1 checks: all eight source pages loaded; the research note has a section f
 ## Changelog
 
 ### 2026-10-23
+- Generated soundtracks now live in the synthesized score plan.
 - Owner added reference analysis, choice sheets, measurable motion rules and checks, and the `film-look` and `presenter-split` templates, from comparing two outside skills (O3). The new motion rules join step 2's table for approval.
 - Steps 1–2 completed: added the eight-source research note and proposed taste-additions table, checked existing-rule overlaps, and stopped for owner approval without changing taste, skills or templates.
 - Plan created. Source pages read on 2026-10-23.

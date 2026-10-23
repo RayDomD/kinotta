@@ -29,6 +29,7 @@ spec:
 1. The Codex cleanup is merged and marked Done.
 2. The media import plan has its open questions answered, is Approved and runs.
 3. The motion-taste plan finishes all its steps and is marked Done.
+4. The synthesized score and effects plan is Done.
 
 ## Approach
 
@@ -40,7 +41,8 @@ Close what is nearly finished first, then run the two larger plans. The motion-t
 2. **Remove leaves gap.** Already Done (2026-10-19). Nothing to run.
 3. **Motion taste.** Owner approves or edits the taste table in the plan, including the new motion rules. Then Codex runs steps 3 to 6: write the rules, add the brief shape, reference analysis and choice sheets to the skill, and build the nine templates.
 4. **Media import and folder reels.** Owner answers O1 to O4 in that plan one at a time (folder order, how motion graphics sit on a track, crop or fit, where non-video files go). Approve it, then run it.
-5. Mark this plan Done when the three child plans are Done.
+5. **Synthesized score and effects** (`2026-10-23-synth-score-and-effects.md`). Owner answers its O1 and O2, approves, then it runs. Independent of steps 3 and 4.
+6. Mark this plan Done when the four child plans are Done.
 
 ## Risks
 
@@ -57,3 +59,4 @@ Close what is nearly finished first, then run the two larger plans. The motion-t
 ### 2026-10-23
 - Plan created to bundle the session's threads. Remove-leaves-gap found already Done; folder-to-video found already drafted as the media import plan.
 - O1 resolved. Codex cleanup found already merged and closed. Status In Progress.
+- Added the synthesized score and effects plan (owner removed the bundled Pixabay effects).
