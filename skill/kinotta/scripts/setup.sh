@@ -8,7 +8,7 @@ command -v node >/dev/null || missing+=("node (https://nodejs.org)")
 command -v ffmpeg >/dev/null || missing+=("ffmpeg (macOS: brew install ffmpeg)")
 command -v python3 >/dev/null || missing+=("python3")
 if [ ${#missing[@]} -gt 0 ]; then echo "Missing: ${missing[*]}"; exit 1; fi
-python3 -c "import numpy" 2>/dev/null || python3 -m pip install --user numpy || python3 -m pip install --break-system-packages numpy
+python3 -c "import numpy, scipy" 2>/dev/null || python3 -m pip install --user numpy scipy || python3 -m pip install --break-system-packages numpy scipy
 if [ ! -d "$MOTION_DIR/node_modules/playwright" ]; then
   (cd "$MOTION_DIR" && [ -f package.json ] || echo '{"private":true}' > "$MOTION_DIR/package.json"; cd "$MOTION_DIR" && npm install --silent playwright && npx playwright install chromium)
 fi

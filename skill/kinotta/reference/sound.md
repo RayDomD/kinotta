@@ -21,7 +21,7 @@ python <skill>/scripts/synth.py score <plan.json> <out-dir> [--tempo 120] [--see
 It reads cut and hit times from the plan and writes:
 - A bed stem (`bed.wav`) with an exact `beats` grid, ducking under the kick drum inside the stem, and peak near −6 dBFS.
 - One effect stem per cut or hit (`hit-01.wav`, `hit-02.wav`, etc.), each starting within one frame of its cut, peaked well below full scale.
-- Prints `placement-add` operations to stdout, ready to apply to Working via `kinotta edit`.
+- Prints `track-add` operations for missing `music` and `sfx` tracks, then `placement-add` operations to stdout, ready to apply to Working via `kinotta edit`.
 
 ### Synthesized effects catalogue
 
@@ -58,6 +58,8 @@ relative to the authoring plan. The pop starts at the reveal at one second.
 ```
 
 For an existing reel, add `track-add` and `placement-add` operations through `kinotta edit <slug> --by <your name> <operation json>` using the imported source identity and path. Adjust gain or mute with `placement-change`. Do not copy a version for sound changes. A render or comment hand-off preserves exact source bytes. For an initial build or a picture rebuild, follow `native-media.md` and keep the authored timing contract.
+
+Old reels keep their copied Pixabay files and still play from those preserved files.
 
 ## Ducking music under speech
 

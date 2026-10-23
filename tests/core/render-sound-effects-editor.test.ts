@@ -1,4 +1,3 @@
-import '../fixtures/synth-effects.ts';
 import { openDetailedEditor } from '../helpers/review-rail.ts';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -45,7 +44,7 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
     catalogueFails = false;
     await library.getByRole('button', { name: 'Retry effects', exact: true }).click();
     await browserExpect(library.getByRole('status')).toContainText('Loading effects'); await verify();
-    await browserExpect(library.locator('[data-effect-id]')).toHaveCount(2);
+    await browserExpect(library.locator('[data-effect-id]')).toHaveCount(17);
     await verify();
     const invalidCount = await library.evaluate((root) => { const previous = root.getAttribute('data-verify-count')!; root.setAttribute('data-verify-count', '99'); return previous; });
     expect(await library.evaluate(invariants.find((rule) => rule.description === 'rows match their count')!.check)).toBe(false);
@@ -78,7 +77,7 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
     const last = async () => (await server.project.readEditList('founder-talk')).operations.at(-1);
     await browserExpect.poll(last).toMatchObject({ kind: 'placement-add', placement: { role: 'audio', at: 1.25, gain: 0.35, fadeIn: 0, fadeOut: 0 } });
     const entry = (await server.project.listMedia())[0];
-    expect(readFileSync(join(dir, entry.path))).toEqual(readFileSync(resolve('tests/fixtures/sfx-synth/pop.wav')));
+    expect(readFileSync(join(dir, entry.path))).toEqual(readFileSync(resolve('skill/kinotta/assets/sfx-synth/pop.wav')));
     const lane = page.getByRole('region', { name: 'Media timeline' });
     await browserExpect(lane.getByRole('button', { name: /^pop.wav, audio,/ })).toHaveCount(1);
     expect((await server.project.readEditList('founder-talk')).operations.find((op) => op.kind === 'track-add')).toMatchObject({ track: { name: 'Effects' } });
@@ -103,7 +102,7 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
     const job = await server.project.whenRendered((await server.project.render({ reel: 'founder-talk', version: 2, preset: 'draft', size: 'source', fps: 30 })).id);
     expect(job.error).toBeUndefined();
     const samples = decode(join(dir, job.output!));
-    const original = decode(resolve('tests/fixtures/sfx-synth/pop.wav'));
+    const original = decode(resolve('skill/kinotta/assets/sfx-synth/pop.wav'));
     const rms = (values: Float32Array) => Math.sqrt(values.reduce((sum, value) => sum + value * value, 0) / values.length);
     expect(rms(samples.slice(0, 48000))).toBeLessThan(0.0001);
     expect(rms(samples.slice(60000, 60000 + original.length))).toBeCloseTo(rms(original) * 0.35, 3);
@@ -139,7 +138,7 @@ it('opens and renders a frozen reel from its copied MP3 after the catalogue swit
   const original = readFileSync(join(version, 'assets/pop.mp3'));
   const server = await startServer({ projectDir: dir, port: 0 });
   try {
-    expect(await server.project.soundEffects()).toContainEqual(expect.objectContaining({ id: 'pop', file: 'pop.wav', duration: 0.24 }));
+    expect(await server.project.soundEffects()).toContainEqual(expect.objectContaining({ id: 'pop', file: 'pop.wav', duration: 0.1 }));
     // The old identity overlaps the new catalogue; the saved source must still win.
     const response = await fetch(`${server.url}/api/reels/legacy/versions/1`);
     expect(response.status).toBe(200);

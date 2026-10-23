@@ -21,9 +21,11 @@ import scipy.io.wavfile
 import scipy.signal
 
 RATE = 48000
+EFFECT_PEAK_DBFS = -4.5
+PEAK_CEILING_DBFS = -3.0
 
 
-def to_i16(samples: np.ndarray, peak_dbfs: float = -4.5) -> np.ndarray:
+def to_i16(samples: np.ndarray, peak_dbfs: float = EFFECT_PEAK_DBFS) -> np.ndarray:
     """Normalize float audio to target peak dBFS and convert to signed 16-bit PCM."""
     max_val = np.max(np.abs(samples))
     if max_val < 1e-9:
@@ -97,7 +99,7 @@ def synth_chime(seed: int = 101) -> np.ndarray:
             tone += p_amp * np.sin(2.0 * np.pi * (f0 * p_ratio) * sub_t)
         out[idx:] += tone * env
 
-    return to_i16(out, peak_dbfs=-4.5)
+    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_click(seed: int = 102) -> np.ndarray:
@@ -143,7 +145,7 @@ def synth_error(seed: int = 103) -> np.ndarray:
     out[idx2:idx2 + len2] += saw2 * env2
 
     filtered = butter_lowpass_filter(out, 650.0)
-    return to_i16(filtered, peak_dbfs=-4.5)
+    return to_i16(filtered, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_glitch_1(seed: int = 104) -> np.ndarray:
@@ -170,7 +172,7 @@ def synth_glitch_1(seed: int = 104) -> np.ndarray:
 
     env = np.exp(-t / 0.22)
     out = 0.7 * (held * env) + 0.3 * click
-    return to_i16(out, peak_dbfs=-4.5)
+    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_glitch_2(seed: int = 105) -> np.ndarray:
@@ -201,7 +203,7 @@ def synth_glitch_2(seed: int = 105) -> np.ndarray:
         bp = butter_bandpass_filter(seg, freq * 0.7, freq * 1.4)
         out[i0:i1] += bp
 
-    return to_i16(out, peak_dbfs=-4.5)
+    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_glitch_3(seed: int = 106) -> np.ndarray:
@@ -306,7 +308,7 @@ def synth_key_press(seed: int = 109) -> np.ndarray:
     # Keycap bottom-out thud: damped sine
     thud = np.sin(2.0 * np.pi * 310.0 * t) * np.exp(-t / 0.018)
     combined = 0.6 * click + 0.4 * thud
-    return to_i16(combined, peak_dbfs=-4.5)
+    return to_i16(combined, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_notification(seed: int = 110) -> np.ndarray:
@@ -327,7 +329,7 @@ def synth_notification(seed: int = 110) -> np.ndarray:
         tone = np.sin(2.0 * np.pi * f0 * sub_t) + 0.22 * np.sin(2.0 * np.pi * (2.0 * f0) * sub_t) + 0.08 * np.sin(2.0 * np.pi * (3.0 * f0) * sub_t)
         out[idx:] += tone * env
 
-    return to_i16(out, peak_dbfs=-4.5)
+    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_ping(seed: int = 111) -> np.ndarray:
@@ -343,7 +345,7 @@ def synth_ping(seed: int = 111) -> np.ndarray:
     att = int(0.001 * RATE)
     env[:att] *= np.linspace(0.0, 1.0, att)
 
-    return to_i16(tone * env, peak_dbfs=-4.5)
+    return to_i16(tone * env, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_pop(seed: int = 112) -> np.ndarray:
@@ -358,7 +360,7 @@ def synth_pop(seed: int = 112) -> np.ndarray:
     att = int(0.002 * RATE)
     env[:att] *= np.linspace(0.0, 1.0, att)
 
-    return to_i16(np.sin(phi) * env, peak_dbfs=-4.5)
+    return to_i16(np.sin(phi) * env, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_riser(seed: int = 113) -> np.ndarray:
@@ -414,7 +416,7 @@ def synth_sparkle(seed: int = 114) -> np.ndarray:
         tone = np.sin(phi) + 0.15 * np.sin(2.0 * phi)
         out[idx:] += tone * env
 
-    return to_i16(out, peak_dbfs=-4.5)
+    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_typing(seed: int = 115) -> np.ndarray:
@@ -438,7 +440,7 @@ def synth_typing(seed: int = 115) -> np.ndarray:
             thud = np.sin(2.0 * np.pi * pitch * sub_t) * np.exp(-sub_t / 0.018)
             out[idx:idx + k_samples] += 0.55 * click + 0.45 * thud
 
-    return to_i16(out, peak_dbfs=-4.5)
+    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_whoosh(seed: int = 116) -> np.ndarray:
@@ -452,7 +454,7 @@ def synth_whoosh(seed: int = 116) -> np.ndarray:
     # Filter with swept center frequency
     bp = butter_bandpass_filter(noise, 400.0, 3200.0)
     env = (np.sin(np.pi * t / dur)) ** 2.2
-    return to_i16(bp * env, peak_dbfs=-4.5)
+    return to_i16(bp * env, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
 def synth_whoosh_cinematic(seed: int = 117) -> np.ndarray:
@@ -764,7 +766,7 @@ def run_effects(out_dir: pathlib.Path) -> None:
 
         duration = round(float(len(samples)) / float(RATE), 2)
         peak_dbfs = measure_peak_dbfs(samples)
-        if peak_dbfs >= -3.0:
+        if peak_dbfs >= PEAK_CEILING_DBFS:
             raise RuntimeError(f"Effect {effect_id} peaks at {peak_dbfs:.2f} dBFS, which violates < -3 dBFS!")
 
         manifest[effect_id] = {
@@ -809,6 +811,16 @@ def run_score(plan_path: pathlib.Path, out_dir: pathlib.Path, tempo: float = 120
         bed_rel_path = bed_filepath.as_posix()
 
     operations = []
+    tracks = plan.get("media", {}).get("tracks", [])
+    track_ids = {track["id"] for track in tracks}
+    next_order = max((track["order"] for track in tracks), default=-1) + 1
+    for track_id, name in [("music", "Music"), ("sfx", "Sound effects")]:
+        if track_id not in track_ids:
+            operations.append({
+                "kind": "track-add",
+                "track": {"id": track_id, "name": name, "order": next_order, "gain": 1, "mute": False},
+            })
+            next_order += 1
 
     # Bed placement-add operation
     bed_op = {

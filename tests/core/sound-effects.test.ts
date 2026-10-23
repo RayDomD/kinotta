@@ -1,4 +1,3 @@
-import '../fixtures/synth-effects.ts';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
@@ -12,9 +11,9 @@ it('auditions bundled effects without importing, then copies exact reusable cont
     const catalogue = await fetch(`${server.url}/api/sound-effects`);
     expect(catalogue.status).toBe(200);
     const { effects } = await catalogue.json();
-    expect(effects).toHaveLength(2);
-    expect(effects.find((effect: { id: string }) => effect.id === 'pop')).toMatchObject({ name: 'Pop', duration: 0.24, description: expect.stringContaining('Quick pop') });
-    const original = readFileSync(resolve('tests/fixtures/sfx-synth/pop.wav'));
+    expect(effects).toHaveLength(17);
+    expect(effects.find((effect: { id: string }) => effect.id === 'pop')).toMatchObject({ name: 'Pop', duration: 0.1, description: expect.stringContaining('Quick pop') });
+    const original = readFileSync(resolve('skill/kinotta/assets/sfx-synth/pop.wav'));
     const preview = await fetch(`${server.url}/sound-effects/pop`, { headers: { range: 'bytes=0-99' } });
     expect(preview.status).toBe(206);
     expect(preview.headers.get('content-type')).toBe('audio/wav');
