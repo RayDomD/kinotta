@@ -38,8 +38,6 @@ See `reference/engine-api.md` for the full plan shape.
 | `live-grade` | The footage changes grade on the word that names it. | Steps with `data-at` and `data-grade` (`warm`, `mono`, `cool`, `none`); grade presets |
 | `annotate` | Labels enter; a red X strikes one, a hand-drawn loop circles a word. | Labels and word with `data-at`; `.strike` and `.loop` with their own `data-at` |
 | `arc-flow` | A thumbnail rides a dotted arc between two devices; the receiver's bar fills, then ticks. | `data-send-at`, `data-arrive-at`; device labels |
-
-
 | `shape-morph` | Circle becomes bar then open frame with continuous position. | `title`; root `data-bar-at`, `data-frame-at` (local seconds). Match terminal geometry to the next shot. |
 | `motif-carry` | Outgoing underline travels into the next scene's spine. | `outgoing`, `incoming`; root `data-carry-at`. Keep the bridge in one shot or match its endpoint in the next. |
 | `letter-swap` | Letters exit then replacements enter without overlap. | `old-word`, `new-word` (`text`, `at`); unequal lengths supported. |

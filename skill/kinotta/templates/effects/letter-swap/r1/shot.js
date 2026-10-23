@@ -1,3 +1,9 @@
+const swapAt = 2;
+const stagger = .05;
+const exitDuration = .2;
+const enterDelay = .05;
+const enterDuration = .25;
+const letterTravel = 40;
 const clamp = (x) => Math.max(0, Math.min(1, x));
 const span = (t, at, duration) => clamp((t - at) / duration);
 const ease = (x) => globalThis.M?.curves?.state?.(x) ?? (x * x * (3 - 2 * x));
@@ -19,16 +25,15 @@ const letters = words.map((word, index) => {
   });
 });
 export function seek(local) {
-  const at = Number(words[1].dataset.at || 2);
-  const stagger = .05, exitDuration = .2;
+  const at = Number(words[1].dataset.at || swapAt);
   // All old glyphs clear before any replacement glyph appears, including unequal lengths.
-  const enterAt = at + Math.max(0, letters[0].length - 1) * stagger + exitDuration + .05;
+  const enterAt = at + Math.max(0, letters[0].length - 1) * stagger + exitDuration + enterDelay;
   letters[0].forEach((el, i) => {
     const k = span(local, at + i * stagger, exitDuration);
-    el.style.opacity = String(1 - k); el.style.transform = `translateY(${-40 * k}px)`;
+    el.style.opacity = String(1 - k); el.style.transform = `translateY(${-letterTravel * k}px)`;
   });
   letters[1].forEach((el, i) => {
-    const k = rise(span(local, enterAt + i * stagger, .25));
-    el.style.opacity = String(k); el.style.transform = `translateY(${40 * (1 - k)}px)`;
+    const k = rise(span(local, enterAt + i * stagger, enterDuration));
+    el.style.opacity = String(k); el.style.transform = `translateY(${letterTravel * (1 - k)}px)`;
   });
 }

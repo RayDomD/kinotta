@@ -138,7 +138,7 @@ Rule 12 goes into the skill's hand-over checks (step 5a), not the taste list: ta
    - Choice sheets: for an open font or palette, render six to eight candidates in the real title treatment as one numbered sheet and ask the owner to pick one.
    - Motion rules, proposed as taste lines for owner approval with step 2's table: drop-ins land in about three steps plus one small settle; a push into a detail zooms exponentially toward it; transitions travel through an object rather than a plain cut or fade; no full-frame flicker.
    - Checks before hand-over: tags on screen at least 0.8 s and titles at least 1.5 s, nothing covers the speaker or key words, and a short test on a light and a dark ground before a full render.
-6. [ ] **README and checks.** List the nine in `templates/effects/README.md`. Run the checks below and record results here.
+6. [x] **README and checks.** List the nine in `templates/effects/README.md`. Run the checks below and record results here.
 
 ## Risks
 
@@ -264,3 +264,7 @@ dashboard changes were made in this follow-up.
 - O1 resolved: the four templates, all optional.
 - O2 resolved: beat timing only on reels with music. Owner approved the plan.
 - Owner added three optional templates: phone, chart and diagram (from the site's gallery categories). Particles, 3D and characters left out.
+
+### Review-fix execution, 2026-10-23
+- Plan: join the README table, reuse activity-feed video synchronization exactly in phone/film-look/presenter-split, name diagram geometry and letter-swap timing/travel constants, then run engine tests and typecheck. Status stays Approved as requested.
+- Result: A1-A4 complete. README rows form one table; step 6 is ticked and Status remains Approved. All three syncVideos bodies match activity-feed exactly. `npx vitest run tests/engine`: 15 files, 72 tests passed; `npm run typecheck`: passed; `git diff --check`: passed. No editor or Working behavior changed; no separate video playback claim is made.

@@ -1,18 +1,12 @@
-const syncVideos = (root, local) => Promise.all([...root.querySelectorAll('video')].map(async (video) => {
+const syncVideos = (root, local) => Promise.all([...root.querySelectorAll('video')].map((video) => new Promise((done) => {
   video.pause();
-  if (video.readyState < 1) await new Promise((done, fail) => {
-    video.addEventListener('loadedmetadata', done, {once: true});
-    video.addEventListener('error', fail, {once: true});
-  });
-  const time = Math.max(0, Math.min(Number.isFinite(video.duration) ? Math.max(0, video.duration - .001) : local,
-    local + Number(video.dataset.offset || 0)));
-  if (Math.abs(video.currentTime - time) < .001 && video.readyState >= 2) return;
-  await new Promise((done, fail) => {
-    video.addEventListener('seeked', done, {once: true});
-    video.addEventListener('error', fail, {once: true});
-    video.currentTime = time;
-  });
-}));
+  const time = local + Number(video.dataset.offset || 0);
+  if (Math.abs(video.currentTime - time) < 0.001) return done();
+  video.addEventListener('seeked', done, { once: true });
+  setTimeout(done, 400);
+  video.currentTime = time;
+})));
+
 const clamp = (x) => Math.max(0, Math.min(1, x));
 const span = (t, at, duration) => clamp((t - at) / duration);
 const ease = (x) => globalThis.M?.curves?.state?.(x) ?? (x * x * (3 - 2 * x));
