@@ -23,7 +23,7 @@ spec:
   - Pins are available only where pins are today: Review, not playing, editable.
 - Out of scope: Pins on video or picture clips on the timeline, waveform-region comments (a span inside a clip), and voiceover word pins (already covered by word pins).
 - Open questions (one at a time):
-  - O1: When several audio clips overlap under the click on the same track row, which one gets the pin: the topmost drawn, or a small chooser?
+  - O1: Resolved 2026-10-23. No chooser needed: overlapping clips already drop to separate rows within their track (`2026-10-12-separate-overlapping-clips.md`), so a click always hits one clip. Tracks stay grouped by kind (Music, Sound effects, Voice); no track per sound.
 
 ## Goal
 
@@ -37,7 +37,7 @@ Reuse the existing pin path: the editor sends a frame-kind pin with `placement` 
 
 ## Steps
 
-1. Answer O1.
+1. O1 resolved. Confirm in the running editor that overlapping synthesized hits sit on separate rows.
 2. Core tests (red): a sound pin saves with its placement, survives a clip move in Working, and renders in the batch with clip, track and id; an old frame pin's batch line is unchanged.
 3. Server: accept and store the sound marker; write the batch line.
 4. Editor: pin tool on audio clips in `NativeLanes`, pin markers on clips, comments list label.
@@ -59,3 +59,4 @@ Reuse the existing pin path: the editor sends a frame-kind pin with `placement` 
 
 ### 2026-10-23
 - Plan created at the owner's request, for finer sound refinement through comments.
+- O1 resolved: separate rows already exist; tracks stay grouped by kind.
