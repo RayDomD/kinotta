@@ -74,8 +74,18 @@ Two herdr lanes in the worktree `.worktrees/synth-score` on branch `feat/synth-s
 
 ## Changelog
 
+### 2026-10-23 — Codex catalogue lane plan
+- Point the server catalogue at `sfx-synth` and preserve the selected file's extension during import; reuse the existing WAV HTTP content type and editor actions.
+- Exercise catalogue listing, ranged preview, import, reuse, editor playback and placement with a deterministic WAV fixture while agy's assets are pending.
+- Add a copied-Pixabay frozen-reel regression that opens and renders from project bytes independently of the catalogue. Run the three scoped suites and typecheck, review the diff, and commit only lane files.
+- Follow the brief's scope: no skill edits, deletion, dashboard regeneration, separate plan or session-summary files.
+
 ### 2026-10-23
 - Plan created. Owner chose stems on audio tracks for generated music and to remove the bundled Pixabay effects; Stable Audio stays optional.
 - O1 resolved: committed WAVs.
 - O2 resolved: numpy and scipy, authoring only.
 - Approved by the owner. Split between agy and a second Codex lane in a worktree.
+
+- Codex catalogue lane complete: `sound-effects.ts` reads `sfx-synth` and imports each file with its own extension. Existing HTTP WAV content types and editor actions required no changes.
+- Verification: the three scoped Vitest suites passed (5 tests), including ranged WAV preview/import, browser playback/add/reuse/Undo/Save/render, and a copied-Pixabay frozen-reel open/render regression with unchanged plan/audio bytes and saved timing/gain. `npm run typecheck`, the local frontend build and `git diff --check` passed.
+- The synthesized catalogue is still pending from agy; API/editor checks use committed WAV fixtures, and the catalogue asset check uses the real manifest when present. The original Pixabay directory is untouched; its pop is retained separately as a legacy-project regression fixture with provenance.
