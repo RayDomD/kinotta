@@ -62,6 +62,6 @@ For this task, the relevant lesson is to specify a repeatable build method. Kino
 
 The plan's proposed-additions table separates new obligations from nearby existing rules. The viewer-facing concept test, reading holds, device variety, decorative-motion ban, glow/gradient restrictions and fabricated-statistics ban already exist in `~/.kinotta/taste.md`; restating them would lengthen the list without changing behavior.
 
-Text replacement timing and scaled-text rasterization are already discussed in `skill/kinotta/reference/motion-broll.md`; the proposal makes those checks global taste guidance, not new techniques. Existing key-word still checks also cover speech-led clips. Music-beat still review remains a later skill change. Brief collection and all seven optional templates remain outside this phase.
+Text replacement timing and scaled-text rasterization are already discussed in `skill/kinotta/reference/motion-broll.md`; the proposal makes those checks global taste guidance, not new techniques. Existing key-word still checks also cover speech-led clips. Music-beat still review remains a later skill change. Brief collection and all nine optional templates remain outside this phase.
 
 The plan's draft about extending a covering shape beyond every corner is not established by the eight pages read here. It is omitted from the proposed source-derived additions rather than presented as a measured finding. Loop closure is conditional on an intended loop, and music timing preserves speech-led pacing under O2.

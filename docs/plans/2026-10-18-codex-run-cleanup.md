@@ -72,10 +72,11 @@ All five goals are met. Goals 1 to 4 shipped as recorded below. Goal 5: `codex/r
 
 - Goals 1–3 are complete: one green full core run, the proven Draft owner fix, corrected design wording, three closed original plans with summaries, and the regenerated dashboard.
 - Goal 4 is complete. The owner approved two GPT-6.1-sol/high reviewers and the proposed Playwright fallback. Independent source/artifact assessments were followed by parent-run live checks on cleanup commit `78db54a`. Design: 25/40; technical audit: 14/20, provisional. The complete review, evidence, limits and all 55 font-size dispositions (including the original 39) are saved under `.impeccable/review/2026-10-18-codex-run-cleanup/`. Findings are recorded only; no UI fixes were made.
-- Goal 5 is pending the owner's final merge approval. Neither this branch nor the seeds branch has been merged or pushed. The plan remains In Progress until the remaining outcomes satisfy the original Intent.
+- Goal 5 is complete. Both branches were merged into `main` on 2026-10-19 (see Result).
 
 ### 2026-10-23
 - Closed: both branches were already merged on 2026-10-19 (`a330bdc`, `1ba1a4a`). Status set to Done and Result filled.
+- Execution status for goal 5 updated to match the close.
 
 ### UI review completion
 
