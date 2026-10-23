@@ -1,7 +1,7 @@
 ---
 title: Synthesized score and effects
 date: 2026-10-23
-status: Approved
+status: Done
 summary: Kinotta writes its own beat-synced music and sound effects in code, as editable stems on audio tracks, and drops the bundled Pixabay effects.
 spec:
 ---
@@ -72,6 +72,18 @@ Two herdr lanes in the worktree `.worktrees/synth-score` on branch `feat/synth-s
 - Core and editor tests for the catalogue, preview and add; the old-reel render test.
 - `grep -rn "pixabay\|Pixabay" skill server web` finds nothing outside history and plans.
 
+## Result
+
+Shipped as planned on `feat/synth-score`:
+- `skill/kinotta/scripts/synth.py` with `effects` and `score` modes (agy). All 17 former catalogue ids have synthesized WAVs in `skill/kinotta/assets/sfx-synth/`; none were dropped.
+- The editor catalogue reads the synthesized WAVs and keeps each file's extension; old reels with a copied Pixabay effect still open and render (codex-2, test with a generated fixture, no Pixabay bytes).
+- `sound.md` and `SKILL.md` put synthesized sound first and Stable Audio second for organic beds.
+- The owner signed off all 17 sounds by ear on 2026-10-23; `skill/kinotta/assets/sfx/` (MP3s, `CREDITS.md`, `NOTICE.md`, manifest) removed.
+
+Checks, rerun by Claude: catalogue regeneration byte-identical to the committed files; score mode deterministic; every effect peaks at −4 dBFS or below, 48 kHz; on a sample plan the bed's beat grid is exactly 120 BPM and each hit starts on its cut; three sound suites pass (5 tests); typecheck clean; no Pixabay reference left in `skill`, `server`, `web` or `tests`.
+
+Deviation: score-mode hits all use one effect by default; choosing an effect per hit is left to the agent. The full core suite was not run.
+
 ## Changelog
 
 ### 2026-10-23 — Codex catalogue lane plan
@@ -98,3 +110,4 @@ Two herdr lanes in the worktree `.worktrees/synth-score` on branch `feat/synth-s
 - Rendered 17 catalogue effects in skill/kinotta/assets/sfx-synth/ matching manifest shape, every file peaking below −3 dBFS (measured between −6.00 and −4.00 dBFS), verified byte-identical across multiple runs.
 - Implemented synth.py score mode: parses plan cut and hit times, outputs bed stem with exact `beats` grid (and ducking under the kick) plus one stem per hit starting within one frame of its cut, and prints placement-add operations.
 - Updated sound.md and SKILL.md to prioritize synthesized score and catalogue effects first and Stable Audio for organic beds, removing all Pixabay references.
+- Owner signed off all 17 synthesized effects. Pixabay folder removed. Done.
