@@ -1,0 +1,65 @@
+---
+title: Next work bundle
+date: 2026-10-23
+status: In Progress
+summary: One order for the open work from 2026-10-23: close the Codex cleanup, import a folder of shots, and finish the motion-taste plan with the borrowed methods.
+spec:
+---
+
+## Intent
+
+- Problem: Six threads came out of one session on 2026-10-23, each in its own plan or conversation, with no single order:
+  - Codex run cleanup (`2026-10-18-codex-run-cleanup.md`) was In Progress, waiting on its merge. Both branches turned out to be already merged; it is now Done.
+  - Remove and snip leave a gap (`2026-10-19-remove-leaves-gap.md`) was recommended next, but it is already Done.
+  - Building a reel from a folder of shots is new work, drafted as `2026-10-23-media-import-and-lanes.md` with four open questions.
+  - Motion taste and templates (`2026-10-23-prompt-motion-taste.md`) is Approved, and the owner approved its taste lines. It now also holds the methods and two templates borrowed from the outside-skills comparison.
+  - Synthesized score and effects (`2026-10-23-synth-score-and-effects.md`) replaces the bundled Pixabay effects.
+  - Pin comments to sounds (`2026-10-23-pin-comments-to-sounds.md`) lets a comment name the audio clip it is about.
+- Why: The owner wants one place that says what runs next and what each step waits on.
+- Proposed outcome: The threads run in a fixed order, each through its own plan, and this plan tracks only the order and the gates.
+- Affected: the child plans above and `docs/plans/index.html`. No code is changed by this plan itself.
+- Constraints:
+  - Each child plan stays the record of its own work, Result and checks. One plan, one file.
+  - Push or merge to `main` only after the owner confirms.
+  - Owner decisions are asked one at a time.
+- Out of scope: Any work not listed in the six threads. The skills-compare findings outside what the motion-taste plan now holds (for example the full collage style) stay out.
+- Open questions:
+  - O1: Resolved 2026-10-23. Owner said merge; both branches were already merged on 2026-10-19 (`a330bdc`, `1ba1a4a`).
+
+## Goal
+
+1. The Codex cleanup is merged and marked Done.
+2. The media import plan has its open questions answered, is Approved and runs.
+3. The motion-taste plan finishes all its steps and is marked Done.
+4. The synthesized score and effects plan is Done.
+
+## Approach
+
+Close what is nearly finished first, then run the two larger plans. The motion-taste work touches only the skill, taste list and templates, while media import touches the server, editor and engine, so they can run in parallel once their gates clear. Each one runs on its own branch.
+
+## Steps
+
+1. **Codex cleanup.** Done 2026-10-23. Both branches were already in `main`; the plan is closed.
+2. **Remove leaves gap.** Already Done (2026-10-19). Nothing to run.
+3. **Motion taste.** Owner approved the taste table, including the new motion rules. Codex runs steps 3 to 6: write the rules, add the brief shape, reference analysis and choice sheets to the skill, and build the nine templates. The work is on branch `feat/prompt-motion-taste`.
+4. **Media import and folder reels.** Owner answers O1 to O4 in that plan one at a time (folder order, how motion graphics sit on a track, crop or fit, where non-video files go). Approve it, then run it.
+5. **Synthesized score and effects** (`2026-10-23-synth-score-and-effects.md`). O1 and O2 are resolved. The work is on branch `feat/synth-score`, which also records the plan's status and Result. Independent of steps 3 and 4.
+6. **Pin comments to sounds** (`2026-10-23-pin-comments-to-sounds.md`). Draft with O1 resolved; owner approves. Runs after step 5 is merged.
+7. Mark this plan Done when the six child plans are Done.
+
+## Risks
+
+- The media import plan touches the engine and many editor files, so it can conflict with other open branches. Rebase on `main` after step 1.
+## Checks to run
+
+- Each child plan's own checks, recorded in that plan.
+- After step 1: `npx vitest run tests/core --maxWorkers=1` passes on `main`.
+
+## Changelog
+
+### 2026-10-23
+- Plan created to bundle the session's threads. Remove-leaves-gap found already Done; folder-to-video found already drafted as the media import plan.
+- O1 resolved. Codex cleanup found already merged and closed. Status In Progress.
+- Added the synthesized score and effects plan (owner removed the bundled Pixabay effects).
+- Added the pin-comments-to-sounds plan.
+- Review fixes: six threads listed, stale gates updated, branch pointers added, media import plan committed as Draft.

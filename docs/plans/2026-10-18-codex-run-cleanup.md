@@ -1,7 +1,7 @@
 ---
 title: Codex run cleanup
 date: 2026-10-18
-status: In Progress
+status: Done
 summary: Close the loose ends of the live edits, parts and alternates run: a green full suite, the Draft capture race, stale docs, the skipped review, and the unmerged seeds branch.
 spec: docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md
 ---
@@ -64,11 +64,19 @@ spec: docs/briefs/2026-10-14-live-edits-parts-alternates/1-chain-codex.md
 - The four requested browser configurations pass all 46 tests. Regression test corrections are in `04e8e60`. The second full invocation exposed another attachment request/Undo synchronization failure, reproduced and corrected in `aea5b3a`; a complete green rerun is still required.
 - Fresh full verification from `aea5b3a`: all 109 core files pass; 811 tests pass with one existing opt-in faster-whisper skip; exit 0, 1029.22 seconds. Command: `npx vitest run tests/core --maxWorkers=1 --reporter=verbose --bail=1`. Typecheck, build and all 46 requested browser checks pass. Logs and limitations are recorded in `docs/session-summaries/2026-10-18-codex-run-cleanup-summary.md`.
 
+## Result
+
+All five goals are met. Goals 1 to 4 shipped as recorded below. Goal 5: `codex/random-audio-seeds` was merged into `main` in `1ba1a4a` and the cleanup branch in `a330bdc`, both on 2026-10-19. The branches were deleted afterwards. Confirmed on 2026-10-23 that `49b0492`, `aea5b3a`, `78db54a` and `367c95e` are ancestors of `main`. The plan status was not updated at merge time; it is closed now. UI review findings remain recorded follow-ups, not fixes.
+
 ## Execution status
 
 - Goals 1–3 are complete: one green full core run, the proven Draft owner fix, corrected design wording, three closed original plans with summaries, and the regenerated dashboard.
 - Goal 4 is complete. The owner approved two GPT-6.1-sol/high reviewers and the proposed Playwright fallback. Independent source/artifact assessments were followed by parent-run live checks on cleanup commit `78db54a`. Design: 25/40; technical audit: 14/20, provisional. The complete review, evidence, limits and all 55 font-size dispositions (including the original 39) are saved under `.impeccable/review/2026-10-18-codex-run-cleanup/`. Findings are recorded only; no UI fixes were made.
-- Goal 5 is pending the owner's final merge approval. Neither this branch nor the seeds branch has been merged or pushed. The plan remains In Progress until the remaining outcomes satisfy the original Intent.
+- Goal 5 is complete. Both branches were merged into `main` on 2026-10-19 (see Result).
+
+### 2026-10-23
+- Closed: both branches were already merged on 2026-10-19 (`a330bdc`, `1ba1a4a`). Status set to Done and Result filled.
+- Execution status for goal 5 updated to match the close.
 
 ### UI review completion
 

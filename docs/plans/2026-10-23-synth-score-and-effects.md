@@ -1,0 +1,71 @@
+---
+title: Synthesized score and effects
+date: 2026-10-23
+status: Draft
+summary: Kinotta writes its own beat-synced music and sound effects in code, as editable stems on audio tracks, and drops the bundled Pixabay effects.
+spec:
+---
+
+## Intent
+
+- Problem: Kinotta's sound comes from 21 bundled Pixabay MP3s (`skill/kinotta/assets/sfx/`), the optional Stable Audio model, Kokoro voice and owner files. None of them know where the reel's cuts are, so hits are placed by hand. Stable Audio is gated and slow. The Pixabay effects carry third-party terms that are a risk for open sourcing (recorded in the sound-sourcing plan, D4). A native Claude reel showed that a short numpy script can write a full score and effects with math, timed to the picture's own cut times.
+- Why: Sound is where a native showreel is furthest ahead of Kinotta's reels. Writing sound in code fixes the timing, removes the licensing risk and needs no model.
+- Proposed outcome:
+  - A generator script writes a reel's score from its cut and hit times as stems: one music-bed file with an exact `beats` grid, plus one short file per effect (whoosh, impact, riser, pop, ping, bell, click). Each stem goes on its own track through the existing `placement-add` path, so the owner can move, trim, mute and duck it.
+  - The editor's sound-effects catalogue lists synthesized effects instead of the Pixabay files, with the same preview and add actions.
+  - The Pixabay MP3s, their `CREDITS.md`, `NOTICE.md` and manifest entries leave the repo.
+  - Stable Audio stays optional, for organic beds and ambience.
+- Affected: `skill/kinotta/scripts/` (new generator), `skill/kinotta/assets/sfx/`, `skill/kinotta/reference/sound.md`, `skill/kinotta/SKILL.md`, `server/core/_internal/sound-effects.ts`, `server/core/index.ts`, `server/http/_internal/handler.ts`, `web/src/api/_internal/client.ts`, `web/src/review/_internal/MediaEditor.tsx`, `tests/core/sound-effects.test.ts`, `tests/core/render-sound-effects-editor.test.ts`, `tests/engine/sound-skill.test.ts`.
+- Constraints:
+  - Frozen versions never change. Reels that already copied a Pixabay MP3 into a version keep it; only new work uses synthesized sound.
+  - Saved edit lists replay to the same result (ADR 0003). An old placement that names a Pixabay effect still resolves to its copied file in the project.
+  - The same inputs and seed give the same bytes, so a version freezes reproducible audio.
+  - Headroom: the bed peaks near −6 dBFS and effects stay well below full scale, so Kinotta's unlimited mix and overload check pass with speech on top.
+  - Clean room: our own synthesis code, no samples. The native reel's `score.py` is a reference for techniques, not code to copy.
+  - Kinotta starts processes only through `runner.ts`. Check licences of any new dependency (numpy, scipy).
+  - Stable Audio, Kokoro, ducking, EQ and beat detection are unchanged.
+- Out of scope: Real-instrument or ambient sound (Stable Audio's job), a music editor UI, changes to the mixer or render audio path, and motion blur (its own plan).
+- Open questions (one at a time):
+  - O1: Resolved 2026-10-23. Catalogue effects are rendered once and committed as WAV files, so the editor needs no Python. The script regenerates them when a recipe changes.
+  - O2: Resolved 2026-10-23. The generator uses numpy and scipy (both BSD-3-Clause). They are needed only to generate a score or re-render the catalogue, never to use the editor.
+
+## Goal
+
+1. A reel's score can be generated from its plan's cut and hit times as a bed stem plus effect stems, placed on tracks, and every hit lands within one frame of its cut.
+2. The bed's `beats` field matches the tempo the generator used exactly.
+3. The editor's catalogue previews and adds synthesized effects, and no Pixabay file remains in the repo.
+4. Old reels and versions that used a Pixabay effect open and render unchanged.
+
+## Approach
+
+One Python generator with a recipe per sound (kick, snare, hat, bass, pad, arp, whoosh, riser, impact, bell, pop, click, ping). Two modes: `score` reads a plan and writes stems for that reel; `effects` writes the catalogue WAVs and manifest. Ducking under the kick happens inside the bed stem. Everything else (levels, ducking under speech, mutes) stays in Kinotta's mixer, which is why the output is stems and not one mixed file.
+
+The catalogue keeps its shape (`id`, `file`, `duration`, `description`), so `sound-effects.ts`, the API route and the editor panel change little. The ids of effects that have a synthesized equivalent are kept, so the agent's habits and docs carry over.
+
+## Steps
+
+1. Open questions resolved (O1, O2).
+2. Write the generator's effect recipes and `effects` mode. Render the catalogue and listen against the Pixabay set; the owner signs off by ear.
+3. Swap the catalogue: replace the MP3s, manifest, `CREDITS.md` and `NOTICE.md`; update `sound-effects.ts` and tests. Confirm an old reel with a copied Pixabay effect still opens and renders.
+4. Write `score` mode: read cut and hit times from the plan, write the bed stem with `beats` and one effect stem per hit, and print the `placement-add` operations.
+5. Update `sound.md` and `SKILL.md`: synthesized score and effects first, Stable Audio for organic beds, bundled-effects text removed.
+6. Run the checks below and record results here.
+
+## Risks
+
+- Synthesized effects may sound thinner than recordings for paper, keys or footsteps. The by-ear sign-off in step 2 catches this; drop such effects rather than ship weak ones.
+- A beat grid that ignores speech would make talking-head reels mechanical. The motion-taste plan's O2 applies: beat timing only for reels with music.
+
+## Checks to run
+
+- Generate the same score twice and compare the WAVs byte for byte.
+- Measure each stem's peak and confirm the overload check passes with a speech track at normal level.
+- Core and editor tests for the catalogue, preview and add; the old-reel render test.
+- `grep -rn "pixabay\|Pixabay" skill server web` finds nothing outside history and plans.
+
+## Changelog
+
+### 2026-10-23
+- Plan created. Owner chose stems on audio tracks for generated music and to remove the bundled Pixabay effects; Stable Audio stays optional.
+- O1 resolved: committed WAVs.
+- O2 resolved: numpy and scipy, authoring only.
