@@ -205,7 +205,51 @@ Step 6's implementation and permitted checks are complete, but its literal works
 condition and whole-file blank-line duplicate wording are not silently treated as passing.
 No unrelated files were cleaned to force those checks green.
 
+### Follow-up result, 2026-10-23
+
+The three follow-up items are complete. Chart's isolated `.chart-row` fix was already present;
+the reviewed `all-sheets.png` was stale. Regenerated evidence now includes visible bars from
+the plan's test list (Brief 12, Build 24, Review 18), separate label/bar/value columns, and
+full-opacity labels as soon as each cue is reached while bars grow independently.
+
+Phone now splits each supplied screen into a fixed header band (150 px by default, configurable
+per screen or root with `data-header-height`) and a scrolling body. Scroll is clamped to available
+content. Both Inbox and Next step stay fully visible. Fixed screen/header layers keep rounded
+clipping byte-identical after backward seeks; no timing runs outside `seek(t)`.
+
+The new choice sheet uses the unmodified existing `title-card` treatment and actual scratch
+title, Make room for the idea: 92 px uppercase Outfit 700, 34 px subtitle, original card geometry,
+and a 1920 x 1080 stage. Six numbered cells use role assignments from the checked
+`reels/brand.md` source `DESIGN.md` (Table, Gate, Slate, Slate Lifted, Title, Caption, Tally),
+including light and dark grounds. No new brand palette or owner choice is invented. Existing
+title-card files and the brand file were read only.
+
+Verification: both scratch reels print `no contract issues`. PNG bytes match after seeking
+forward to 7.8 s and backward to 0.01 s at chart times 0.95, 1.05, 1.2, 3.5 s and phone times
+0.2, 1.3, 2.7, 3.5 s. Geometry checks confirm positive bar widths, separated labels and values,
+fixed 150 px header bounds, and no scroll beyond content even for a requested 10000 px scroll.
+No browser errors. Banned-construct scan of chart and phone has zero matches; `git diff --check`
+passes. Final sheets were inspected, including the last phone screen and all six title cells.
+
+Follow-up evidence:
+
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/chart-sheet.png`: corrected chart samples, visible bars in every sampled frame.
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/phone-sheet.png`: fixed headers through both screens and scrolling states.
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/choice-sheet.png`: six numbered real title treatments, three columns by two rows.
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/all-sheets.png`: combined nine-template overview with corrected chart/phone sheets. The earlier root `all-sheets.png` is refreshed too.
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/validation.json`: repeat-frame SHA-256 hashes and geometry assertions.
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/choice/notes.md`, `plan.json`, `candidates.html`: choice provenance and reproducible treatment.
+- `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/reels/chart/v1/` and `C:/Users/ryand/AppData/Local/Temp/kinotta-motion-taste-phase2/follow-up/reels/phone/v1/`: new scratch plans, pages and shot lists.
+
+This completes the follow-up block independently of the original brief's pre-existing
+workspace-status and blank-line exceptions. No engine, editor, existing template, taste or
+dashboard changes were made in this follow-up.
+
 ## Changelog
+
+### Follow-up execution, 2026-10-23
+- Completed chart evidence/label visibility, fixed phone headers and clamped scrolling, and regenerated the choice sheet with the real title-card treatment and brand roles. Both scratch reels pass contract and repeated-frame checks; paths and assertions are in Result.
+- Plan: regenerate the already-corrected chart evidence; pin each phone screen header above a clamped scrolling body; render six brand-role title-card candidates at real size; verify both scratch reels, repeat seeks and banned constructs; record evidence and commit within the original scope.
 
 ### Phase 2 execution, 2026-10-23
 - Completed steps 3, 4, 5 and 5a, nine optional templates, and permitted step 6 checks. Literal clean-status and blank-line duplicate conditions remain exceptions; see Result. Existing asynchronous video-seek behavior is documented without an engine change.

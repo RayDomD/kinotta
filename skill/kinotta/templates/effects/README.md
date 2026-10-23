@@ -44,7 +44,7 @@ See `reference/engine-api.md` for the full plan shape.
 | `motif-carry` | Outgoing underline travels into the next scene's spine. | `outgoing`, `incoming`; root `data-carry-at`. Keep the bridge in one shot or match its endpoint in the next. |
 | `letter-swap` | Letters exit then replacements enter without overlap. | `old-word`, `new-word` (`text`, `at`); unequal lengths supported. |
 | `beat-showreel` | Hook in bar 1, beat events, final bar returns to opening. | `hook`, `events` array; root `data-bpm`, `data-bars`, `data-beats-per-bar`. Duration = bars * beats per bar * 60 / bpm. |
-| `phone` | Scrolls supplied screens and taps through them. | `title`, `screens` array of `{ src, at }`, `tap.at`; per-screen `data-scroll` in pixels. |
+| `phone` | Scrolls supplied screens and taps through them. | `title`, `screens` array of `{ src, at }`, `tap.at`; per-screen `data-scroll` in pixels; `data-header-height` (screen or root, default 150px) pins the header above the scrolling body. Scroll clamps to available content. |
 | `chart` | Labelled bars build from supplied nonnegative data. | `title`, `source`, `data` array of `{ text: "Label\|value", at }`. Replace zero placeholders with verified plan data. |
 | `diagram` | Ordered process boxes and arrows draw step by step. | `title`, `steps` array of `{ text, at }`; allow reading time. |
 | `film-look` | Frame-indexed grain, light bloom, vignette and optional mono. | `plate.src`, `title`; root `data-fps`, `data-mono`, `data-enabled`; CSS `--film-grain`; mono needs `presets.css`. |

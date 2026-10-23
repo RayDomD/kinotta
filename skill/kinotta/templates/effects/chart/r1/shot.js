@@ -20,7 +20,7 @@ const maximum = Math.max(1, ...rows.map((r) => r.value));
 export function seek(local) {
   rows.forEach(({el, bar, value}) => {
     const k = rise(span(local, Number(el.dataset.at || 0), .45));
-    el.style.opacity = String(k);
+    el.style.opacity = local >= Number(el.dataset.at || 0) ? '1' : '0';
     bar.style.transform = `scaleX(${value / maximum * k})`;
   });
 }

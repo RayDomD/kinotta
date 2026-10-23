@@ -2,6 +2,10 @@
 [data-scene="phone"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
 [data-scene="phone"] .title { position:absolute; left:200px; top:330px; width:700px; font-size:100px; line-height:1.05; }
 [data-scene="phone"] .phone { position:absolute; left:1130px; top:100px; width:420px; height:850px; border:14px solid var(--fx-panel); border-radius:64px; overflow:hidden; box-shadow:0 0 0 2px var(--fx-panel-edge); }
-[data-scene="phone"] .screens { position:absolute; inset:0; overflow:hidden; background:var(--fx-panel); }
+/* Fixed screen/header layers keep rounded clipping identical after backward seeks. */
+[data-scene="phone"] .screens { transform:translateZ(0); clip-path:inset(0 round 50px); position:absolute; inset:0; overflow:hidden; background:var(--fx-panel); }
+[data-scene="phone"] .screen-item { position:absolute; inset:0; overflow:hidden; }
+[data-scene="phone"] .screen-header { transform:translateZ(0); position:absolute; left:0; right:0; top:0; overflow:hidden; }
+[data-scene="phone"] .screen-body { position:absolute; left:0; right:0; bottom:0; overflow:hidden; }
 [data-scene="phone"] .screens :is(img, video) { position:absolute; left:0; top:0; width:100%; height:auto; }
 [data-scene="phone"] .tap { position:absolute; left:260px; top:390px; width:60px; height:60px; border:5px solid var(--fx-accent); border-radius:50%; }
