@@ -39,7 +39,39 @@ Use the AskUserQuestion tool; keep it to one round. You need:
   - Or their brand: colours, and optionally a font. Ask them to drop a logo, screenshots or brand colours into `motion/inputs/`, and read those.
 - **Anything to avoid or include.** Lines to leave on their face, real numbers or names to show, product screenshots to recreate.
 
-Skip any question the user already answered.
+Skip any question the user already answered. Before building a new reel, write its concept
+line in the reel's notes: what the viewer understands or feels and how the shots serve it.
+Collect missing inputs by type: explainer audience, ordered steps, length (about 5 s per idea
+as a starting estimate), style and a fact check; launch product and promise, 3 to 5 ordered
+moments, brand hex and font, tempo and ending; showreel concept, tempo and bars, techniques.
+Ask the format (for example 9:16) when absent. On music-led reels derive a tempo grid;
+speech-led reels keep speech and reading time in control even with music.
+
+### Reference analysis and choice sheets
+
+When given a reference video, inspect it before building. Use the existing inspection script
+for metadata, then extract 12 fps frames and a contact sheet with ffmpeg. Example (write into
+the reel's work folder; use numbered pages for a long reference):
+
+```bash
+python3 $SKILL/scripts/inspect_video.py reference.mp4 motion/work/reference
+ffmpeg -i reference.mp4 -vf fps=12 motion/work/reference/frame-%05d.png
+ffmpeg -i reference.mp4 -vf "fps=12,scale=320:-1,tile=4x6" motion/work/reference/sheet-%03d.png
+```
+
+Inspect every sheet. Write cut times, approximate motion curves with measured positions at
+sample times, main colours, and a device map to optional effect templates (or mark a device
+new) in the reel's notes. Name what was measured and what was inferred; 12 fps bounds cut
+precision to about 83 ms. Take technique from the reference and story from the brand.
+Create original implementation and assets; the reference is not a source of reusable code,
+copy or media without permission.
+
+For an open font or palette, render a choice sheet of six to eight numbered candidates using
+the actual title, scale and background treatment, with brand fonts locally available. Use
+`engine/beats.js` on a seek-driven candidate page (one candidate at each sampled time), then
+ask the owner to pick a number. Save the sheet, candidate mapping and answer in the notes;
+apply the answer before the full build. Unattended jobs record supplied choices or defaults.
+
 
 ## 3. Inspect the footage
 
@@ -90,12 +122,14 @@ python3 $SKILL/engine/build.py motion/dist motion/clips/*.html
 
 Put each state change on its word: clip-local time = word time − clip in-point.
 
-## 6. Check stills on the key words
+## 6. Check stills on the key words and every beat
 
 ```bash
 NODE_PATH=./motion/node_modules node $SKILL/engine/beats.js motion/dist/NN-name.html motion/work/NN.png 0.4 1.2 2.1 …
 ```
 
+Before a full render, sample one still per music beat on music-led reels, or per spoken beat
+on speech-led reels. Derive music samples from the track tempo; preserve reading holds.
 Pick the times where each state has settled and a couple of mid-morph moments. Look at every sheet yourself. Fix anything cramped, clipped, unreadable or off-word, or where the cursor leaves the frame. Then check once more. Panel clips render on black in the sheet so you can judge them.
 
 ## 7. Render
@@ -110,6 +144,13 @@ NODE_PATH=./motion/node_modules node $SKILL/engine/render.js motion/dist/NN-name
 - Rendering takes 4 subframes per frame, so it is slower than real time. Run two clips in parallel on a multi-core machine.
 
 ## 8. Deliver
+
+Before hand-over, measure readable intervals: tags at least 0.8 s, titles at least 1.5 s.
+Check that inserts and captions cover neither the speaker nor key words; document intentional
+full-frame cutaways separately. Run a short sample on light and dark grounds before the full
+render and inspect contrast, clipping and grain. Record intervals, samples and corrections in
+the reel's notes. Use the optional effects only when they serve the concept.
+
 
 Write `motion/plan.json` (schema in `reference/engine-api.md`). The preview is a Draft render of the reel's version,
 made by Kinotta (`kinotta render <reel> v<n> --preset draft` prints the file's path); copy it to
@@ -136,7 +177,7 @@ The user's brand overrides these.
 - **Type and icons:** Geist for UI text, Geist Mono for code, file names and terminals. One icon set with one stroke weight (`M.icon`).
 - **Motion:** the engine's rise/state/sink curves and bounded state presets, sourced in `docs/research/2026-10-20-engine-defaults.md`. The signature entrance settles from 1.07 scale, 26px down and 20px blur over .5s. Brand curves override these; explicit spring pairs remain available for authored motion.
 - **Type scale:** display/headline/title/body/label/figure are 80/36/20/16/13/72px, exposed as `--type-*` tokens and `.type-*` classes. Video title/row/minimum tokens are 12.6/5.2/4.8vw. Geist remains the bundled OFL default; a plan's brand fonts override it.
-- **Banned:** bouncy easing, particles, glows, gradients on UI chrome, mixed icon strokes, dead time, made-up data. Vary the shared effect templates across shots as section 5 of the Kinotta skill requires.
+- **Banned:** unmotivated bouncy easing (playful drop-ins may use three steps and one small settle), particles, glows, gradients on UI chrome, mixed icon strokes, dead time, made-up data. Vary the shared effect templates across shots as section 5 of the Kinotta skill requires.
 
 ## Gotchas
 

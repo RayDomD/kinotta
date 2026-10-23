@@ -21,6 +21,34 @@ When adding sound effects, voiceover or a generated music bed, read `reference/s
 for bundled effects, optional generators and their placement workflow. A comment that asks for
 a sound ("add pulse sound") is answered the same way: see "Sound requests in comments" there.
 
+## Direction before building
+
+For a new reel, collect only missing inputs in one round, then record the answers and one
+concept line in the reel's notes: what the viewer understands or feels, and how every shot
+serves it. Ask the format (such as 9:16) when absent; a reference does not decide the format.
+
+| Reel type | Brief inputs |
+|---|---|
+| Explainer | Audience, ordered steps with a clear start and result, length (start near 5 s per idea), style, and sources for a fact check. |
+| Launch | Product and promise, 3 to 5 moments in order, brand hex and font, tempo, and ending. |
+| Showreel | Concept, tempo and bars, and techniques to demonstrate. |
+
+On music-led reels, derive event times from tempo and align changes to the beat grid.
+Speech-led reels retain speech and reading time even with music. The nine new effects in
+`templates/effects/README.md` are optional starting points, never a requirement.
+
+When a reference video is supplied, or a font or palette remains open, use **Reference analysis
+and choice sheets** in `reference/motion-broll.md` before building. The reference supplies
+technique; the brand supplies the story. For a choice sheet, show six to eight numbered
+candidates in the real title treatment and ask the owner to pick a number. Unattended jobs
+use supplied choices or brand defaults and record that decision instead of waiting.
+
+Before a full render, follow **Check stills** in that reference: inspect one still per beat
+(music beats for music-led reels, spoken beats for speech-led reels), plus mid-move frames.
+Before hand-over, verify tags remain readable on screen at least 0.8 s and titles at least
+1.5 s; nothing covers the speaker or key words. Check a short sample on light and dark grounds.
+Record the measured intervals and any intentional full-frame cutaways in the reel's notes.
+
 ## Unattended add b-roll
 
 When the prompt names an unattended job and `request.json`, use this path instead of the
