@@ -1,0 +1,6 @@
+[data-scene="beat-showreel"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="beat-showreel"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="beat-showreel"] .hook { position:absolute; left:240px; top:240px; font-size:130px; line-height:1.02; font-weight:700; }
+[data-scene="beat-showreel"] .motif { position:absolute; left:1340px; top:350px; width:200px; height:200px; background:var(--fx-accent); border-radius:100px; }
+[data-scene="beat-showreel"] .events { position:absolute; left:240px; bottom:180px; font-size:64px; }
+[data-scene="beat-showreel"] .events span { position:absolute; white-space:nowrap; }

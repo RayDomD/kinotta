@@ -39,6 +39,17 @@ See `reference/engine-api.md` for the full plan shape.
 | `annotate` | Labels enter; a red X strikes one, a hand-drawn loop circles a word. | Labels and word with `data-at`; `.strike` and `.loop` with their own `data-at` |
 | `arc-flow` | A thumbnail rides a dotted arc between two devices; the receiver's bar fills, then ticks. | `data-send-at`, `data-arrive-at`; device labels |
 
+
+| `shape-morph` | Circle becomes bar then open frame with continuous position. | `title`; root `data-bar-at`, `data-frame-at` (local seconds). Match terminal geometry to the next shot. |
+| `motif-carry` | Outgoing underline travels into the next scene's spine. | `outgoing`, `incoming`; root `data-carry-at`. Keep the bridge in one shot or match its endpoint in the next. |
+| `letter-swap` | Letters exit then replacements enter without overlap. | `old-word`, `new-word` (`text`, `at`); unequal lengths supported. |
+| `beat-showreel` | Hook in bar 1, beat events, final bar returns to opening. | `hook`, `events` array; root `data-bpm`, `data-bars`, `data-beats-per-bar`. Duration = bars * beats per bar * 60 / bpm. |
+| `phone` | Scrolls supplied screens and taps through them. | `title`, `screens` array of `{ src, at }`, `tap.at`; per-screen `data-scroll` in pixels. |
+| `chart` | Labelled bars build from supplied nonnegative data. | `title`, `source`, `data` array of `{ text: "Label\|value", at }`. Replace zero placeholders with verified plan data. |
+| `diagram` | Ordered process boxes and arrows draw step by step. | `title`, `steps` array of `{ text, at }`; allow reading time. |
+| `film-look` | Frame-indexed grain, light bloom, vignette and optional mono. | `plate.src`, `title`; root `data-fps`, `data-mono`, `data-enabled`; CSS `--film-grain`; mono needs `presets.css`. |
+| `presenter-split` | Insert enters while speaker is re-cropped at constant scale. | `plate.src`, `screen.src`, `title`, `insert.at`; root `data-side`, normalized `data-focus-x`. |
+
 Any `<img>` layer may be a `<video>` instead; the media templates seek every video in the scene to the shot's local time (plus `data-offset`).
 
 Templates use the engine/brand rise, state and sink curves when present, with standalone easing
@@ -46,3 +57,19 @@ fallbacks. Their authored effect-specific timing and geometry remain adjustable.
 entrance across a reel and vary devices and placement; never repeat a template in adjacent clips.
 Follow the video-type treatment and taste lists in SKILL.md section 5. Animate `transform`, opacity
 and clip-path, plus `filter` for blur and grades.
+
+These nine additions are optional. Copy a revision to adjust root attributes or geometry;
+plan `fill` changes text, cue times and sources, not arbitrary data attributes. All nine use
+brand/shared `--fx-font`, `--fx-ink` and `--fx-accent`; `--fx-ground` is an optional ground
+override. Film-look also uses the mono preset. Included SVG plates and screens are original
+illustrative fixtures. Replace with supplied assets and record sources before delivery.
+
+Film-look and presenter-split need `keepLayers: ["plate"]` in a footage plan to finish or
+re-crop the supplied picture; they cannot alter the editor's underlying video. For a video
+plate, copy the revision and replace its image with a muted, preload-auto video. Revision seek functions return promises for video seeks. The existing footage composer
+does not await those promises; image-based scratch checks do not prove video-plate seeking. Use matching footage and offset, then check in Review.
+Film-look enlarges a 240 x 135 deterministic noise field with no blur pass; tune opacity first.
+Compare the same Review playback with `data-enabled="true"` and `"false"` using frame intervals
+and video dropped-frame counters. Presenter-split retains a 1920 x 1080 plate, changing only the
+clipping viewport and horizontal crop. Choose focus from the actual speaker and verify the
+face stays clear. Choice sheets use the actual title treatment, not fixture colours.

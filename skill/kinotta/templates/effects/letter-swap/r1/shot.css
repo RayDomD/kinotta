@@ -1,0 +1,5 @@
+[data-scene="letter-swap"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="letter-swap"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="letter-swap"] .words { position:absolute; inset:0; display:grid; place-items:center; font-size:180px; font-weight:700; letter-spacing:-.04em; }
+[data-scene="letter-swap"] .word { position:absolute; display:flex; justify-content:center; }
+[data-scene="letter-swap"] .letter { display:inline-block; min-width:.7em; text-align:center; }
