@@ -1,11 +1,11 @@
 import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { extname, join, resolve } from 'node:path';
 import { KinottaError } from './errors.ts';
 import { importMedia } from './media-library.ts';
 import type { SoundEffect } from './types.ts';
 
-const EFFECTS_DIR = resolve(import.meta.dirname, '../../../skill/kinotta/assets/sfx');
+const EFFECTS_DIR = resolve(import.meta.dirname, '../../../skill/kinotta/assets/sfx-synth');
 
 export async function soundEffects(): Promise<SoundEffect[]> {
   const manifest = JSON.parse(await readFile(join(EFFECTS_DIR, 'manifest.json'), 'utf8')) as Record<string, { file: string; duration: number; description: string }>;
@@ -21,5 +21,5 @@ export async function soundEffectFile(id: string): Promise<string> {
 
 export async function importSoundEffect(projectDir: string, id: string) {
   const file = await soundEffectFile(id);
-  return importMedia(projectDir, `${id}.mp3`, createReadStream(file));
+  return importMedia(projectDir, `${id}${extname(file)}`, createReadStream(file));
 }

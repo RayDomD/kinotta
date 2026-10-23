@@ -12,11 +12,11 @@ it('auditions bundled effects without importing, then copies exact reusable cont
     expect(catalogue.status).toBe(200);
     const { effects } = await catalogue.json();
     expect(effects).toHaveLength(17);
-    expect(effects.find((effect: { id: string }) => effect.id === 'pop')).toMatchObject({ name: 'Pop', duration: 0.72, description: expect.stringContaining('Quick pop') });
-    const original = readFileSync(resolve('skill/kinotta/assets/sfx/pop.mp3'));
+    expect(effects.find((effect: { id: string }) => effect.id === 'pop')).toMatchObject({ name: 'Pop', duration: 0.1, description: expect.stringContaining('Quick pop') });
+    const original = readFileSync(resolve('skill/kinotta/assets/sfx-synth/pop.wav'));
     const preview = await fetch(`${server.url}/sound-effects/pop`, { headers: { range: 'bytes=0-99' } });
     expect(preview.status).toBe(206);
-    expect(preview.headers.get('content-type')).toBe('audio/mpeg');
+    expect(preview.headers.get('content-type')).toBe('audio/wav');
     expect(Buffer.from(await preview.arrayBuffer())).toEqual(original.subarray(0, 100));
     expect(await server.project.listMedia()).toEqual([]);
     for (const id of ['unknown', '..%2fmanifest.json']) {
@@ -26,7 +26,7 @@ it('auditions bundled effects without importing, then copies exact reusable cont
     const imported = await fetch(`${server.url}/api/sound-effects/pop`, { method: 'POST' });
     expect(imported.status).toBe(201);
     const entry = await imported.json();
-    expect(entry).toMatchObject({ kind: 'audio', state: 'ready', copied: true });
+    expect(entry).toMatchObject({ kind: 'audio', state: 'ready', copied: true, name: 'pop.wav', path: expect.stringMatching(/\.wav$/) });
     expect(entry.duration).toBeGreaterThan(0);
     expect(readFileSync(join(dir, entry.path))).toEqual(original);
     const repeat = await fetch(`${server.url}/api/sound-effects/pop`, { method: 'POST' });
