@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills vs Kinotta</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=Doto:wght@800&family=Fraunces:ital,opsz,wght@1,9..144,900&family=Cormorant+Garamond:ital,wght@1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);
+  --still:oklch(.13 .006 50);
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif;padding:28px 22px 60px}
+.wrap{max-width:1280px;margin:0 auto}
+h1{font-size:22px;font-weight:500;letter-spacing:-.4px}
+.lede{color:var(--ink-2);max-width:760px;margin-top:6px}
+.num{font:800 12px Doto,monospace;font-feature-settings:"tnum";color:var(--muted)}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:26px}
+@media(max-width:980px){.cols{grid-template-columns:1fr}}
+.col{background:var(--card);border-top:1px solid var(--hairline)}
+.col.home{box-shadow:inset 0 2px 0 var(--light)}
+.head{padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:baseline}
+.head b{font-weight:500}
+.tag{background:var(--light);color:var(--ground);font-size:12px;padding:2px 7px}
+.tag.ghost{background:none;color:var(--muted);border:1px solid var(--rule)}
+.stage{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--still)}
+.cap{padding:10px 16px 14px;color:var(--ink-2);font-size:13px;border-bottom:1px solid var(--rule)}
+dl{padding:6px 16px 16px}
+dt{font-size:12px;color:var(--muted);margin-top:12px;text-transform:uppercase;letter-spacing:.06em}
+dd{font-size:14px;color:var(--ink)}
+dd.no{color:var(--muted)}
+dd.have{color:var(--light)}
+
+/* ---------- speaker silhouette (shared) ---------- */
+.spk{position:absolute;bottom:0;width:34%;height:82%;left:50%;transform:translateX(-50%)}
+.spk i{position:absolute;left:50%;transform:translateX(-50%);border-radius:50%}
+.spk .h{top:0;width:44%;aspect-ratio:1;background:#c9a58c}
+.spk .b{bottom:-30%;width:100%;height:68%;border-radius:46% 46% 0 0;background:#2f3a4a}
+
+/* ---------- Kinotta: clean motion graphics over footage ---------- */
+.k{background:linear-gradient(180deg,#3b4652,#262d35)}
+.k .spk{left:30%}
+.k .card{position:absolute;right:6%;top:18%;width:40%;background:rgba(18,20,22,.86);border:1px solid rgba(255,255,255,.14);padding:10px 12px;animation:kin 4s cubic-bezier(.2,.8,.2,1) infinite}
+.k .card small{display:block;font:800 9px Doto,monospace;color:var(--light);letter-spacing:.08em}
+.k .card strong{display:block;font:500 15px Outfit;margin-top:3px;color:#fff}
+.k .bar{height:4px;background:var(--light);margin-top:8px;transform-origin:left;animation:bar 4s cubic-bezier(.2,.8,.2,1) infinite}
+.k .capline{position:absolute;bottom:8%;left:50%;transform:translateX(-50%);font:500 13px Outfit;background:rgba(0,0,0,.6);padding:3px 8px;color:#fff;white-space:nowrap}
+.k .capline em{font-style:normal;color:var(--light)}
+.k .pin{position:absolute;right:calc(6% + 40% - 6px);top:calc(18% - 6px);width:12px;height:12px;border-radius:50%;background:var(--light);box-shadow:0 0 0 4px var(--light-glow)}
+@keyframes kin{0%,6%{opacity:0;transform:translateY(14px)}18%,82%{opacity:1;transform:none}94%,100%{opacity:0;transform:translateY(-8px)}}
+@keyframes bar{0%,16%{transform:scaleX(0)}40%,100%{transform:scaleX(.72)}}
+
+/* ---------- Editorial film: B&W, grain, split, serif kinetic text ---------- */
+.e{background:#1b1a18;filter:grayscale(1) contrast(1.05)}
+.e .left{position:absolute;inset:0 50% 0 0;background:radial-gradient(120% 90% at 30% 30%,#8d8a84,#2a2927);animation:push 4s ease-in-out infinite}
+.e .left::before{content:"";position:absolute;left:18%;top:22%;width:64%;height:48%;background:#3a3936;border:5px solid #6b6965;border-radius:14px/18px}
+.e .left::after{content:"";position:absolute;left:26%;top:30%;width:48%;height:32%;background:radial-gradient(circle,#d9d6cf 0,#9b988f 70%);filter:blur(1px)}
+.e .right{position:absolute;inset:0 0 0 50%;background:linear-gradient(180deg,#5a5853,#2e2d2a)}
+.e .right .spk{width:66%;left:50%}
+.e .right .spk .h{background:#b0aca4}.e .right .spk .b{background:#3d3c39}
+.e .seam{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.5);animation:seam 4s ease-in-out infinite}
+.e .word{position:absolute;left:5%;bottom:10%;font:italic 500 26px "Cormorant Garamond",serif;color:#f4efe4;text-shadow:0 0 12px rgba(255,250,235,.6);animation:word 4s ease-out infinite}
+.e .grain{position:absolute;inset:-50%;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.55'/></svg>");mix-blend-mode:overlay;animation:grain .5s steps(4) infinite;pointer-events:none}
+.e .bloom{position:absolute;inset:0;background:radial-gradient(60% 50% at 25% 40%,rgba(255,255,255,.18),transparent 70%);pointer-events:none}
+.e .vig{position:absolute;inset:0;box-shadow:inset 0 0 60px 20px rgba(0,0,0,.75);pointer-events:none}
+.e .dust{position:absolute;width:2px;height:22%;background:rgba(255,255,255,.35);left:71%;top:10%;animation:dust 4s steps(1) infinite}
+@keyframes push{0%{transform:translateX(-100%)}12%,100%{transform:none}}
+@keyframes seam{0%{left:0}12%,100%{left:50%}}
+@keyframes word{0%,15%{opacity:0;letter-spacing:.4em}35%,85%{opacity:1;letter-spacing:.02em}100%{opacity:0}}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-7%,4%)}50%{transform:translate(5%,-6%)}75%{transform:translate(-3%,8%)}}
+@keyframes dust{0%,40%,100%{opacity:0}41%,44%{opacity:1}}
+
+/* ---------- Paper collage: torn paper, stop motion on twos ---------- */
+.c{background:linear-gradient(180deg,#9cc7d8 0,#d7e6dc 55%,#e9dcc0 56%)}
+.c .sky{position:absolute;inset:0 0 44% 0;background:radial-gradient(40% 50% at 30% 40%,rgba(255,255,255,.7),transparent),radial-gradient(30% 40% at 75% 30%,rgba(255,255,255,.55),transparent)}
+.c .strip{position:absolute;left:-5%;right:-5%;height:22%;background:#e2582b;clip-path:polygon(0 18%,6% 6%,13% 16%,21% 3%,30% 14%,38% 4%,47% 15%,55% 2%,64% 12%,72% 5%,81% 16%,90% 4%,100% 12%,100% 88%,92% 96%,83% 86%,74% 97%,65% 85%,56% 95%,47% 86%,38% 98%,29% 87%,20% 96%,11% 85%,0 94%);filter:drop-shadow(0 0 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(2px 4px 0 rgba(0,0,0,.25))}
+.c .s1{bottom:24%;transform:rotate(-4deg);animation:boil 1s steps(2) infinite}
+.c .s2{bottom:4%;background:#2f5d4e;transform:rotate(3deg);animation:boil 1s steps(2) infinite reverse}
+.c .s2::after{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(0,0,0,.35) 1px,transparent 1.6px) 0 0/6px 6px}
+.c .cut{position:absolute;left:38%;top:12%;width:24%;aspect-ratio:1;background:#1d1d1f;border-radius:18%;outline:4px solid #fff;box-shadow:4px 6px 0 rgba(0,0,0,.25);animation:drop 2s steps(24) infinite}
+.c .cut::after{content:"";position:absolute;left:38%;top:30%;border-left:26px solid #fff;border-top:16px solid transparent;border-bottom:16px solid transparent}
+.c .title{position:absolute;left:0;right:0;top:58%;text-align:center;font:italic 900 30px Fraunces,serif;color:#fff7e3;text-shadow:2px 2px 0 #fff,3px 3px 0 #b13d17,5px 5px 0 #b13d17,7px 7px 0 rgba(0,0,0,.25);animation:ttl 4s steps(48) infinite}
+@keyframes boil{0%{translate:0 0}50%{translate:1px -1px}}
+@keyframes drop{0%{transform:translateY(-140%) rotate(-8deg)}12%{transform:translateY(-40%) rotate(-8deg)}20%{transform:translateY(0) scale(1.03)}26%,100%{transform:none}}
+@keyframes ttl{0%,40%{opacity:0;transform:translateY(-60%)}55%,92%{opacity:1;transform:none}100%{opacity:0}}
+
+/* ---------- legend + table ---------- */
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;background:var(--light)}
+.legend span.n::before{background:var(--muted)}
+h2{font-size:15px;font-weight:500;margin:40px 0 10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:13px}
+td:first-child{color:var(--ink-2);width:18%}
+td.k1{background:var(--light-wash)}
+.yes{color:var(--light)}.part{color:var(--ink-2)}.none{color:var(--muted)}
+.borrow{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+@media(max-width:980px){.borrow{grid-template-columns:1fr}}
+.b{background:var(--card);padding:14px 16px}
+.b .num{display:block;margin-bottom:6px}
+.b p{color:var(--ink-2);font-size:14px;margin-top:4px}
+.warn{margin-top:22px;padding:12px 16px;border-left:2px solid var(--light);background:var(--ground-deep);color:var(--ink-2);font-size:14px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Kinotta and the two new skills, side by side</h1>
+<p class="lede">The same moment, a speaker introducing a product, shown in each look. Kinotta covers the review loop. Each new skill adds a visual style that Kinotta doesn't have.</p>
+
+<div class="cols">
+
+  <section class="col home">
+    <div class="head"><b>Kinotta</b><span class="tag">ours</span></div>
+    <div class="stage k">
+      <div class="spk"><i class="h"></i><i class="b"></i></div>
+      <div class="card"><small>SECTION 02</small><strong>Ships in a day</strong><div class="bar"></div></div>
+      <div class="pin" title="Pinned comment"></div>
+      <div class="capline">built for <em>reviewers</em></div>
+    </div>
+    <p class="cap">Clean graphic cards over the speaker. Each element has a name, so the owner can pin a comment to it and get the next version back.</p>
+    <dl>
+      <dt>Strength</dt><dd>Review loop: versions, pinned comments, Working edits, render queue</dd>
+      <dt>Look</dt><dd>Brand-led: <code>DESIGN.md</code>, taste lists, 18 effect templates</dd>
+      <dt>Missing</dt><dd class="no">Film texture, moving splits, a stylised standalone look</dd>
+    </dl>
+  </section>
+
+  <section class="col">
+    <div class="head"><b>Editorial film edit</b><span class="tag ghost">new skill</span></div>
+    <div class="stage e">
+      <div class="left"></div>
+      <div class="right"><div class="spk"><i class="h"></i><i class="b"></i></div></div>
+      <div class="seam"></div>
+      <div class="word">the archive</div>
+      <div class="bloom"></div><div class="vig"></div><div class="dust"></div><div class="grain"></div>
+    </div>
+    <p class="cap">Black and white, with grain that changes every frame, bloom and vignette. The insert pushes in from one side and the speaker is re-cropped, not squeezed.</p>
+    <dl>
+      <dt>Strength</dt><dd class="have">Film-look post pass (WebGL) and the split with the presenter</dd>
+      <dt>Look</dt><dd>One fixed archival style, whatever the brand</dd>
+      <dt>Missing</dt><dd class="no">Review loop. The zip also lacks its style guide and reference media</dd>
+    </dl>
+  </section>
+
+  <section class="col">
+    <div class="head"><b>Paper collage film</b><span class="tag ghost">new skill</span></div>
+    <div class="stage c">
+      <div class="sky"></div>
+      <div class="strip s1"></div><div class="strip s2"></div>
+      <div class="cut"></div>
+      <div class="title">KAYE CREATIVES</div>
+    </div>
+    <p class="cap">Torn paper with white edges, animated on twos (12 drawings a second, hence the slight stutter). The cut-out drops in, then the title lands. There's no footage.</p>
+    <dl>
+      <dt>Strength</dt><dd class="have">A whole stylised look, choice sheets, a score written in code</dd>
+      <dt>Look</dt><dd>Collage only, 16:9 only, 5 to 30 s</dd>
+      <dt>Missing</dt><dd class="no">Footage, review loop. Tools need macOS</dd>
+    </dl>
+  </section>
+</div>
+
+<div class="legend"><span>What Kinotta could borrow</span><span class="n">Not relevant or not portable</span></div>
+
+<h2>Feature by feature</h2>
+<table>
+  <tr><th></th><th>Kinotta</th><th>Editorial film edit</th><th>Paper collage film</th></tr>
+  <tr><td>Review and versions</td><td class="k1 yes">Full loop</td><td class="none">None</td><td class="none">Drafts in chat</td></tr>
+  <tr><td>Footage and transcript</td><td class="k1 yes">Sections, b-roll by video type</td><td class="part">Time map, guards against stray frames between takes</td><td class="none">No footage</td></tr>
+  <tr><td>Film texture</td><td class="k1 none">None</td><td class="yes">Grain, bloom, halation, black and white, weave, dust</td><td class="part">Halftone, paper boil</td></tr>
+  <tr><td>Speaker layouts</td><td class="k1 part">Framed speaker, still split</td><td class="yes">Animated split, speaker re-cropped</td><td class="none">n/a</td></tr>
+  <tr><td>Choosing font and colour</td><td class="k1 part">Read from brand file</td><td class="none">Fixed by the style</td><td class="yes">Rendered sheets, pick by number</td></tr>
+  <tr><td>Sound</td><td class="k1 yes">Bundled effects, generators</td><td class="part">Keeps source audio, delivers a version without music</td><td class="yes">Score and paper sounds written in code</td></tr>
+  <tr><td>Platform</td><td class="k1 yes">Windows and Mac</td><td class="yes">Any browser</td><td class="none">macOS only</td></tr>
+</table>
+
+<h2>Recommended to borrow (clean room, our own code)</h2>
+<div class="borrow">
+  <div class="b"><span class="num">01</span><b>Film-look effect template</b><p>Grain that changes every frame, bloom and vignette, as one optional template. The edit skill's notes explain why grain reads as a sticker.</p></div>
+  <div class="b"><span class="num">02</span><b>Split template with the presenter</b><p>The insert slides in and the speaker is re-cropped. It sits next to <code>framed-speaker</code>.</p></div>
+  <div class="b"><span class="num">03</span><b>Choice sheets in the skill</b><p>Render six to eight fonts or palettes in the real treatment and pick one by number. One decision at a time.</p></div>
+</div>
+
+<p class="warn">Neither package states a licence. Kinotta will be open source, so we take techniques only, not code. The collage style is a later option: it's a whole look, and its tools need macOS.</p>
+
+</div></body>
+</html>
