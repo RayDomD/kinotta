@@ -1,0 +1,9 @@
+[data-scene="chart"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="chart"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="chart"] .title { position:absolute; left:230px; top:150px; font-size:84px; }
+[data-scene="chart"] .data { position:absolute; left:230px; right:230px; top:340px; display:grid; gap:36px; }
+[data-scene="chart"] .chart-row { position:relative; display:grid; grid-template-columns:280px 1fr 150px; gap:30px; align-items:center; font-size:40px; }
+[data-scene="chart"] .track { height:62px; border-bottom:1px solid var(--fx-panel-edge); }
+[data-scene="chart"] .bar { height:100%; background:var(--fx-accent); transform-origin:left; }
+[data-scene="chart"] .value { font-variant-numeric:tabular-nums; }
+[data-scene="chart"] .source { position:absolute; left:230px; bottom:150px; font-size:28px; color:var(--fx-ink-soft); }
