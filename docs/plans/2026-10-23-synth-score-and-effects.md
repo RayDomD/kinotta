@@ -1,7 +1,7 @@
 ---
 title: Synthesized score and effects
 date: 2026-10-23
-status: Draft
+status: Approved
 summary: Kinotta writes its own beat-synced music and sound effects in code, as editable stems on audio tracks, and drops the bundled Pixabay effects.
 spec:
 ---
@@ -51,6 +51,15 @@ The catalogue keeps its shape (`id`, `file`, `duration`, `description`), so `sou
 5. Update `sound.md` and `SKILL.md`: synthesized score and effects first, Stable Audio for organic beds, bundled-effects text removed.
 6. Run the checks below and record results here.
 
+## Orchestration
+
+Two herdr lanes in the worktree `.worktrees/synth-score` on branch `feat/synth-score`, with no shared files:
+
+- agy: the generator `skill/kinotta/scripts/synth.py` (steps 2 and 4), catalogue WAVs and manifest staged in `skill/kinotta/assets/sfx-synth/`, and the skill docs (step 5).
+- codex-2: the catalogue swap in code (step 3): the server reads the staged folder, keeps each file's own extension, legacy Pixabay placements in old reels still resolve, and tests.
+- Contract between them: `sfx-synth/manifest.json` keeps the existing shape, `{ "<id>": { "file", "duration", "description" } }`, with WAV files.
+- Deleting `skill/kinotta/assets/sfx/` waits for the owner's by-ear sign-off; Claude does it after.
+
 ## Risks
 
 - Synthesized effects may sound thinner than recordings for paper, keys or footsteps. The by-ear sign-off in step 2 catches this; drop such effects rather than ship weak ones.
@@ -69,3 +78,4 @@ The catalogue keeps its shape (`id`, `file`, `duration`, `description`), so `sou
 - Plan created. Owner chose stems on audio tracks for generated music and to remove the bundled Pixabay effects; Stable Audio stays optional.
 - O1 resolved: committed WAVs.
 - O2 resolved: numpy and scipy, authoring only.
+- Approved by the owner. Split between agy and a second Codex lane in a worktree.
