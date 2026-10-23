@@ -45,10 +45,10 @@ The catalogue keeps its shape (`id`, `file`, `duration`, `description`), so `sou
 ## Steps
 
 1. Open questions resolved (O1, O2).
-2. Write the generator's effect recipes and `effects` mode. Render the catalogue and listen against the Pixabay set; the owner signs off by ear.
+2. [x] Write the generator's effect recipes and `effects` mode. Render the catalogue and listen against the Pixabay set; the owner signs off by ear.
 3. Swap the catalogue: replace the MP3s, manifest, `CREDITS.md` and `NOTICE.md`; update `sound-effects.ts` and tests. Confirm an old reel with a copied Pixabay effect still opens and renders.
-4. Write `score` mode: read cut and hit times from the plan, write the bed stem with `beats` and one effect stem per hit, and print the `placement-add` operations.
-5. Update `sound.md` and `SKILL.md`: synthesized score and effects first, Stable Audio for organic beds, bundled-effects text removed.
+4. [x] Write `score` mode: read cut and hit times from the plan, write the bed stem with `beats` and one effect stem per hit, and print the `placement-add` operations.
+5. [x] Update `sound.md` and `SKILL.md`: synthesized score and effects first, Stable Audio for organic beds, bundled-effects text removed.
 6. Run the checks below and record results here.
 
 ## Orchestration
@@ -92,3 +92,9 @@ Two herdr lanes in the worktree `.worktrees/synth-score` on branch `feat/synth-s
 
 - Follow-up plan: replace the copied legacy audio fixture with an MP3 generated from an 880 Hz sine wave, remove its old fixture and provenance note, and retain the frozen-reel open/render regression using the generated file. Verify the three scoped suites, typecheck, no Pixabay references under tracked tests, and no test file hashes matching the old asset directory. Commit only these follow-up files.
 - Follow-up complete: replaced the copied fixture and its provenance note with a generated mono MP3 and regeneration note. The legacy regression still verifies saved source bytes, open/Working, waveform, timing and gain. All three scoped suites passed (5 tests), typecheck and diff checks passed, tracked test files have no Pixabay references, and none of 248 test files matches the old asset directory by SHA-256. Agy's pre-existing untracked skill files remain untouched.
+
+### 2026-10-23 — agy generator lane
+- Created skill/kinotta/scripts/synth.py with pure numpy/scipy synthesis for beat-synced music beds and sound effects, running deterministically with headroom well below full scale.
+- Rendered 17 catalogue effects in skill/kinotta/assets/sfx-synth/ matching manifest shape, every file peaking below −3 dBFS (measured between −6.00 and −4.00 dBFS), verified byte-identical across multiple runs.
+- Implemented synth.py score mode: parses plan cut and hit times, outputs bed stem with exact `beats` grid (and ducking under the kick) plus one stem per hit starting within one frame of its cut, and prints placement-add operations.
+- Updated sound.md and SKILL.md to prioritize synthesized score and catalogue effects first and Stable Audio for organic beds, removing all Pixabay references.

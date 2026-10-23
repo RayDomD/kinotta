@@ -4,22 +4,43 @@ Read this when adding sound effects, voiceover or a generated bed. Follow
 `native-media.md` for tracks, placement timing and source preservation.
 Ask the owner once per reel before adding sound. Reuse their answer for that reel.
 
-## Bundled effects
+## Synthesized score and effects
 
-Choose an effect from `assets/sfx/manifest.json` by its description. Copy that MP3
-into the project's authoring assets, retaining `CREDITS.md` with copied effects.
-The effects retain Pixabay's terms. `assets/sfx/NOTICE.md` records the upstream
-revision and the manifest's Apache-2.0 notice. The owner's D4 choice is recorded
-in the sound-sourcing plan, including the standalone-distribution risk.
+Kinotta writes its own beat-synced music beds and sound effects in code, with no
+external samples or model weights. All synthesized sound is 48 kHz, 16-bit WAV,
+generated deterministically using numpy and scipy (`skill/kinotta/scripts/synth.py`).
 
-Use the manifest duration for the source and its `out`. Add an `audio` placement
-on an `sfx` track at placement gain 0.35 and track gain 1. `at` is reel time.
-Short effects start on the action. A riser starts its own duration before the
-hit, for example `hit - 10.03` for the bundled riser. If that would be negative,
+### Generating a score for a reel
+
+Run the score generator on the reel's plan:
+
+```text
+python <skill>/scripts/synth.py score <plan.json> <out-dir> [--tempo 120] [--seed 42]
+```
+
+It reads cut and hit times from the plan and writes:
+- A bed stem (`bed.wav`) with an exact `beats` grid, ducking under the kick drum inside the stem, and peak near −6 dBFS.
+- One effect stem per cut or hit (`hit-01.wav`, `hit-02.wav`, etc.), each starting within one frame of its cut, peaked well below full scale.
+- Prints `placement-add` operations to stdout, ready to apply to Working via `kinotta edit`.
+
+### Synthesized effects catalogue
+
+Kinotta bundles 17 synthesized sound effects in `assets/sfx-synth/` with `manifest.json`.
+To re-render the catalogue WAVs from their mathematical recipes:
+
+```text
+python <skill>/scripts/synth.py effects assets/sfx-synth
+```
+
+Choose an effect from `assets/sfx-synth/manifest.json` by its description. Copy that WAV
+into the project's authoring assets. Use the manifest duration for the source and its `out`.
+Add an `audio` placement on an `sfx` track at placement gain 0.35 and track gain 1. `at` is reel time.
+Short effects start on the action. A riser starts its own duration before the hit,
+for example `hit - 6.0` for the synthesized riser. If that would be negative,
 choose a shorter effect or trim its source range to the available lead-in.
 Preserve other sources, tracks and placements. Assign the next unused track order.
 
-This four-second code-only example uses the bundled pop copied to `assets/pop.mp3`,
+This four-second code-only example uses the synthesized pop copied to `assets/pop.wav`,
 relative to the authoring plan. The pop starts at the reveal at one second.
 
 ```json
@@ -29,8 +50,8 @@ relative to the authoring plan. The pop starts at the reveal at one second.
   "media": {
     "schema": 1,
     "tracks": [{ "id": "sfx", "name": "Sound effects", "order": 0, "gain": 1, "mute": false }],
-    "sources": [{ "id": "pop", "kind": "audio", "path": "assets/pop.mp3", "duration": 0.72 }],
-    "placements": [{ "id": "reveal-pop", "role": "audio", "source": "pop", "track": "sfx", "in": 0, "out": 0.72, "at": 1, "gain": 0.35 }],
+    "sources": [{ "id": "pop", "kind": "audio", "path": "assets/pop.wav", "duration": 0.1 }],
+    "placements": [{ "id": "reveal-pop", "role": "audio", "source": "pop", "track": "sfx", "in": 0, "out": 0.1, "at": 1, "gain": 0.35 }],
     "sequence": []
   }
 }
@@ -123,8 +144,9 @@ especially names: Whisper spelled “Kinotta” as “Kinata” in the proof.
 
 ## Stable Audio Open (optional)
 
-Use `stabilityai/stable-audio-open-1.0` for effects outside the bundled set or
-short music beds. The owner handles the gated model's access and licence terms,
+Use `stabilityai/stable-audio-open-1.0` for organic beds, acoustic ambience or
+specialized effects outside the synthesized set. Synthesized score and catalogue
+effects come first; Stable Audio remains optional for organic musical textures. The owner handles the gated model's access and licence terms,
 CUDA-compatible Torch, and `diffusers transformers sentencepiece soundfile`.
 See the [model card](https://huggingface.co/stabilityai/stable-audio-open-1.0).
 The tool check detects Python packages only, not CUDA readiness or model access.
@@ -171,16 +193,17 @@ SentencePiece 0.2.2 and Soundfile 0.14.0. Snapshot revision:
 Browser playback, exact-byte freeze and a Draft render at fixed 0.35 placement gain
 with fades passed. Keep generated FLOAT WAVs unchanged and choose explicit mix
 levels: this source peaked slightly above full scale before placement gain.
-When the tool or local model is unavailable, use bundled effects and ask the
-owner for a music file. Audition generation quality and loop seams before use.
+When the tool or local model is unavailable, use synthesized catalogue effects or
+`synth.py score`, and ask the owner for a music file if an organic recording is preferred.
+Audition generation quality and loop seams before use.
 
 ## Sound requests in comments
 
 A pinned comment such as "add pulse sound" at 00:08 arrives in the `Kinotta
 comments:` batch with its reel time. Answer a sound-only request with named operations on Working:
 
-1. Prefer a bundled effect that fits, since it is instant and its licence is known. Read the manifest descriptions.
-2. Otherwise generate once with `kinotta generate-audio`, naming the sound in the prompt as the comment does, and a length that fits the moment.
+1. Prefer a synthesized catalogue effect that fits, or generate score and hit stems with `synth.py score`. Read the manifest descriptions.
+2. Otherwise generate once with `kinotta generate-audio` for organic beds or custom ambience, naming the sound in the prompt as the comment does, and a length that fits the moment.
 3. Place it at the comment's time on the right track: an effect on `sfx`, a bed on `music`, with the placement settings above. Do not move or retime anything else.
 4. Report which source you used in the hand-over, or in `answers.md` when the batch also includes a picture rebuild. For a generated one, record the prompt, length and seed so the owner can ask for a variation.
-5. If the comment is vague, choose, state the choice in the hand-over, and keep it easy to swap. If generation is unavailable, use the nearest bundled effect and say so.
+5. If the comment is vague, choose, state the choice in the hand-over, and keep it easy to swap. If generation is unavailable, use the nearest synthesized effect and say so.

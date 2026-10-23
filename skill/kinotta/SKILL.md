@@ -17,8 +17,8 @@ When a plan has `media`, or the request adds sound, changes audio tracks or chan
 read `reference/native-media.md` before building or rebuilding. Its native-media rules apply to
 both code-only and footage reels and replace the legacy single-video plan/copy instructions below.
 
-When adding sound effects, voiceover or a generated music bed, read `reference/sound.md`
-for bundled effects, optional generators and their placement workflow. A comment that asks for
+When adding sound effects, voiceover, synthesized score or a generated music bed, read `reference/sound.md`
+for synthesized score and effects, optional generators and their placement workflow. A comment that asks for
 a sound ("add pulse sound") is answered the same way: see "Sound requests in comments" there.
 
 ## Unattended add b-roll
