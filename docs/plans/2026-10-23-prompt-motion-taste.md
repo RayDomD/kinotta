@@ -92,6 +92,26 @@ Phase 1 checks: all eight source pages loaded; the research note has a section f
 - [x] Eight proposals checked against 50 existing taste bullets: zero normalized duplicates; semantic overlaps reviewed above. A sentence search across the fetched source text found no verbatim matches among 89 prose sentences of at least six words in the note and proposed subsection, excluding headings, links and table rows; the table was reviewed separately.
 - [x] Scope checked against the starting workspace: the plan contains only the authorized subsection and Changelog insertions, and the research note is the only new status entry. Hashes for 133 protected files (the skill tree, taste list, dashboard and brief) are unchanged. Existing unrelated changes were left intact. The brief itself remains untouched under its two-file limit.
 
+### Approved taste additions (owner, 2026-10-23)
+
+The owner approved these lines. They replace the draft table above as the set to write in step 3. Wording may be tightened to one line each without changing meaning.
+
+| # | Group | Line |
+|---|---|---|
+| 1 | Shape | For an explainer, lay out the steps in order, with a clear start and end, before designing shots. |
+| 2 | Shape | A looping reel returns every element to its opening position, so the loop has no jump. |
+| 3 | Motion | Between scenes, use a changing shape or a detail that carries into the next scene, never a plain fade. The transition travels through an object. |
+| 4 | Motion | Reels with music time cuts and state changes to the beat. Speech-led reels keep the speech's own pacing. |
+| 5 | Motion | On playful reels only, a drop-in lands in about three steps and settles with one small bounce. |
+| 6 | Motion | A push into a detail accelerates and aims at that detail. |
+| 7 | Motion | No full-frame flicker. Keep any flicker inside a small area. |
+| 8 | Type | When text in a box changes, the old text leaves fully before the new text appears. |
+| 9 | Type | Keep `will-change` off text and its scaled parents; it blurs enlarged letters. |
+| 10 | Refuse | No corner labels that say nothing. A label there carries real information. |
+| 11 | Refuse | Every "don't" names a "do this instead." |
+
+Rule 12 goes into the skill's hand-over checks (step 5a), not the taste list: tags on screen at least 0.8 s, titles at least 1.5 s, and nothing covers the speaker or key words.
+
 ## Steps
 
 1. **Research note.** Write `docs/research/2026-10-23-prompt-motion.md` from these pages: `/`, `/templates`, `/templates/showreel`, `/blog/ai-motion-graphics-prompts`, `/blog/make-ai-motion-graphics-look-less-ai`, `/blog/ai-explainer-video-prompts`, `/blog/ai-launch-video-prompts` and `/blog/remotion-vs-hyperframes`. Paraphrase only. Note dataset size and dates (about 230 prompts, Sep 23 to Oct 10, 2026) and the site's caveats.
@@ -138,6 +158,7 @@ Phase 1 checks: all eight source pages loaded; the research note has a section f
 ## Changelog
 
 ### 2026-10-23
+- Owner approved the taste additions: eleven lines plus one hand-over check (rule 5 limited to playful reels; the object-transition rule merged into rule 3). Steps 3 to 6 may proceed.
 - Generated soundtracks now live in the synthesized score plan.
 - Owner added reference analysis, choice sheets, measurable motion rules and checks, and the `film-look` and `presenter-split` templates, from comparing two outside skills (O3). The new motion rules join step 2's table for approval.
 - Steps 1–2 completed: added the eight-source research note and proposed taste-additions table, checked existing-rule overlaps, and stopped for owner approval without changing taste, skills or templates.
