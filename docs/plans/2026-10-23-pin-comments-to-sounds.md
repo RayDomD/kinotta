@@ -3,7 +3,7 @@ title: Pin comments to sounds
 date: 2026-10-23
 status: Draft
 summary: Pin a review comment to a specific audio clip on the timeline, so the batch names the exact sound and Claude changes that one.
-spec:
+spec: docs/mockups/2026-10-23-sound-pins.html
 ---
 
 ## Intent
@@ -60,3 +60,4 @@ Reuse the existing pin path: the editor sends a frame-kind pin with `placement` 
 ### 2026-10-23
 - Plan created at the owner's request, for finer sound refinement through comments.
 - O1 resolved: separate rows already exist; tracks stay grouped by kind.
+- Owner confirmed the layout in `docs/mockups/2026-10-23-sound-pins.html`.
