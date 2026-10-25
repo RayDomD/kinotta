@@ -336,6 +336,29 @@ export function createHandler(project: Project, webRoot: string) {
         return;
       }
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
+      // Style storage routes stay together so other API lanes can add their own blocks.
+      const styleRoute = /^\/api\/reels\/([^/]+)\/style$/.exec(pathname);
+      if (pathname === '/api/styles' || pathname.startsWith('/api/styles/') || styleRoute) {
+        if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`))) {
+          sendJson(res, 403, { error: 'Style requests must come from this editor.' });
+          return;
+        }
+        if (pathname === '/api/styles' && req.method === 'GET') {
+          sendJson(res, 200, await project.listStyles(searchParams.get('videoType') ?? undefined));
+        } else if (pathname === '/api/styles' && req.method === 'PUT') {
+          const body = await readJsonBody(req) as { scope?: unknown; style?: unknown } | null;
+          sendJson(res, 200, await project.saveStyle(body?.scope, body?.style));
+        } else if (pathname === '/api/styles/default' && req.method === 'PUT') {
+          sendJson(res, 200, await project.saveDefaultStyle(await readJsonBody(req)));
+        } else if (pathname === '/api/styles/migrate-profile' && req.method === 'POST') {
+          sendJson(res, 200, await project.migrateStyleProfile(await readJsonBody(req)));
+        } else if (styleRoute && (req.method === 'GET' || req.method === 'PUT')) {
+          const slug = safeDecode(styleRoute[1]!);
+          if (slug === null) sendNotFound(res);
+          else sendJson(res, 200, req.method === 'GET' ? await project.readReelStyle(slug) : await project.copyStyleToReel(slug, await readJsonBody(req)));
+        } else sendNotFound(res);
+        return;
+      }
       const agentRoute = AGENT_API.exec(pathname);
       const launchesAgent = pathname.startsWith('/api/agent/') || agentRoute || (pathname === '/api/reels' && req.method === 'POST');
       if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`)))) {

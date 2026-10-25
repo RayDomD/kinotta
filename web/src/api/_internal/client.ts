@@ -1,4 +1,12 @@
 import type { CaptionsPlan, ElementOffset, MediaPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
+import type { Style, StyleListing } from '../../../../server/core/index.ts';
+export type { Style, StyleListing } from '../../../../server/core/index.ts';
+export const fetchStyles = (videoType?: string): Promise<StyleListing> => getJson(`/api/styles${videoType ? `?videoType=${encodeURIComponent(videoType)}` : ''}`);
+export const saveStyle = (scope: 'user' | 'project', style: Style): Promise<Style> => requestJson('/api/styles', jsonBody('PUT', { scope, style }));
+export const saveDefaultStyle = (id: string): Promise<Style> => requestJson('/api/styles/default', jsonBody('PUT', { id }));
+export const fetchReelStyle = (slug: string): Promise<Style | null> => getJson(`/api/reels/${encodeURIComponent(slug)}/style`);
+export const copyStyleToReel = (slug: string, id: string): Promise<Style> => requestJson(`/api/reels/${encodeURIComponent(slug)}/style`, jsonBody('PUT', { id }));
+export const migrateStyleProfile = (profile: unknown): Promise<Style> => requestJson('/api/styles/migrate-profile', jsonBody('POST', profile));
 import type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, PartsAlternate, PartsManifest, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {

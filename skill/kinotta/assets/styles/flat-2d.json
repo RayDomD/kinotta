@@ -1,0 +1,14 @@
+{
+  "id": "flat-2d",
+  "name": "Flat 2D",
+  "scope": "builtin",
+  "look": "flat-2d",
+  "settings": {
+    "broll": "medium",
+    "captions": "off",
+    "pace": "normal"
+  },
+  "yours": [],
+  "effects": [],
+  "rules": []
+}
