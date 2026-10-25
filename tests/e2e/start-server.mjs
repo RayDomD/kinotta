@@ -5,6 +5,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { register } from 'tsx/esm/api';
 
+// Isolate saved styles and migrations from the real home and other fixture servers.
+process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-e2e-home-'));
+
 const fixtureName = process.env.KINOTTA_E2E_FIXTURE ?? 'showreel-project';
 const fixture = resolve(import.meta.dirname, '../fixtures/projects', fixtureName);
 const project = mkdtempSync(join(tmpdir(), 'kinotta-e2e-'));

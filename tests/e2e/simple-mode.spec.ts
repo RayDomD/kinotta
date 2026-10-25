@@ -1,11 +1,17 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { SnipOperation } from '../../server/core/model.ts';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
 import type { AgentJob } from '../../web/src/api/_internal/client.ts';
+
+// Inline servers need their own home too; the Playwright fixture launcher is a separate process.
+test.beforeEach(() => {
+  process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-e2e-home-'));
+});
 
 const simpleTime = async (page: Page) => Number(await page.locator('.sm-preview [data-verify-unit="Transport"]').getAttribute('data-verify-time'));
 
@@ -409,7 +415,9 @@ test('Auto starts a real reel from a project video in Simple mode with the usual
   const projectDir = copyFixture('footage-project');
   const server = await startServer({ projectDir, port: 0, transcriber: async () => [{ text: 'Hello', start: 0.5, end: 0.9 }] });
   try {
+    expect((await server.project.listStyles()).defaultId).toBe('clean');
     await page.goto(server.url);
+    expect(await page.evaluate(() => localStorage.getItem('kinotta-simple-options-v1'))).toBeNull();
     await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });

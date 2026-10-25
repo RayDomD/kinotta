@@ -127,7 +127,7 @@ test('Direct at phone width: start from another reel, turn a rule off, and a cod
     await direction.getByRole('button', { name: /^Next: style/ }).click();
     await expect(direction.getByRole('radiogroup', { name: 'Look' }).getByRole('radio')).toHaveText([/^Flat 2D/, /^Layered 2D/, /^Filmed 3D/]);
     await direction.getByRole('button', { name: 'Build now with these' }).click();
-    await expect(page.getByRole('heading', { name: 'Phone launch', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phone launch', level: 1, exact: true })).toBeVisible();
     const brief = (await server.project.listReels()).reels.find((reel) => reel.slug === 'phone-launch')!.brief!;
     expect(brief.text).toBe('Our new app in three steps');
     expect(brief.request).toContain('- Style: layered-2d.');
