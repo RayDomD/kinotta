@@ -23,3 +23,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run check:docs
       - run: npm run check:commits -- "origin/$BASE_REF"
+      # Render and process-heavy suites need ffmpeg and stable timing; they stay local.
+      - run: npx vitest run --project unit
