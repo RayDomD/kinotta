@@ -1,0 +1,6 @@
+# Doc paths that plans and briefs name but that are not in the tree yet.
+# Remove a line when its file lands or the reference is fixed.
+docs/plans/2026-10-18-portrait-reels.md: docs/research/2026-10-18-aspect-ratio-switching.md   # Draft plan; research not written
+docs/plans/2026-10-18-portrait-reels.md: docs/mockups/2026-10-18-portrait-layouts.html        # Draft plan; mockup not saved
+docs/plans/2026-10-20-templates-in-footage-reels.md: docs/notes/2026-10-20-broll-eval-findings.md   # note never committed
+docs/briefs/2026-10-25-direction-storyboard/cloud-built-in-brand.md: docs/adr/0007-pinned-effects-are-comments.md   # lands with feat/built-in-brand

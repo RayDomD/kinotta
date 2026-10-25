@@ -16,6 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:commits": "node scripts/check-commits.mjs",
     "install-skill": "node scripts/install-skill.mjs"
   },
   "dependencies": {

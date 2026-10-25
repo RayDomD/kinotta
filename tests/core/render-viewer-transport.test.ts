@@ -120,7 +120,7 @@ it('saves and edits markers, closes a sound gap in one undo, appends prompt chip
     await expect.poll(() => page.locator('.native-shot-still iframe').count()).toBeGreaterThan(0);
     const dimensions = await page.evaluate(() => { const main = document.querySelector('main[aria-label="Review"]')!.getBoundingClientRect(); const frame = document.querySelector('.rv-frame')!.getBoundingClientRect(); return { main: main.height, frame: frame.height }; });
     expect(dimensions.frame).toBeGreaterThanOrEqual(dimensions.main * 0.55 - 4);
-    const screenshots = resolve('docs/session-summaries/2026-10-15-viewer-transport-clips'); mkdirSync(screenshots, { recursive: true });
+    const screenshots = resolve('tests/artifacts/viewer-transport-clips'); mkdirSync(screenshots, { recursive: true });
     await page.screenshot({ path: join(screenshots, 'dark-1440.png') });
     const measurements = [];
     for (const theme of ['dark', 'light']) {
