@@ -50,4 +50,4 @@ F. **E2e port base (optional, ask first).** `KINOTTA_E2E_PORT_BASE` in `playwrig
 ### 2026-10-26
 - Plan created from the merge-train retro. Waiting for owner approval.
 - Owner approved the plan as written.
-- A done pending merge: #67 rebased onto `origin/main`, gained a `Claude-Session:` trailer check, and was pushed as `chore/ci-unit-tests-attribution-rebased` (owner chose a new branch over a force-push). #67 closed in favour of #73; both CI jobs passed on #73 (`checks` 3m10s). Owner merges.
+- A done: #67 rebased onto `origin/main`, gained a `Claude-Session:` trailer check, and was pushed as `chore/ci-unit-tests-attribution-rebased` (owner chose a new branch over a force-push). #67 closed in favour of #73; both CI jobs passed on #73 (`checks` 3m10s). Owner merged #73.
