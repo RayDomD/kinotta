@@ -250,7 +250,7 @@ export function Library(props: LibraryProps) {
             <div className="library-head">
               <div>
                 <h1>Effects</h1>
-                <p className="library-sub">Every effect plays on a sample shot. Add one to this reel, or copy its request into a note.</p>
+                <p className="library-sub">Every effect plays on a sample shot. Copy its request into a note to ask for it in this reel.</p>
               </div>
               <input
                 className="library-search"
@@ -374,7 +374,7 @@ export function Library(props: LibraryProps) {
                   </button>
                 </div>
                 <p className="library-muted" style={{ marginTop: '8px' }}>
-                  Added effects go to the agent with the brief; it places them on the right words.
+                  Paste the request into a note; the agent places the effect on the right words.
                 </p>
               </div>
             )}
