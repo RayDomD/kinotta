@@ -75,6 +75,7 @@ Checks for 5a: unit tests for the request builder (targets equal the preview's, 
 
 ### Phase 6: Notes become rules
 14. "Always do this?" on a pin note appends it to `~/.kinotta/taste.md`.
+    Changed: rules now go into the reel's style, not `~/.kinotta/taste.md`, per `docs/plans/2026-10-25-direction-and-storyboard.md` answer 4.
 
 ### Phase 7 (later): Cover reading glances
 15. Frame pass flags look-away moments; the build covers them with b-roll.

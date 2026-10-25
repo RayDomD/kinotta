@@ -3,9 +3,9 @@
 ## Status
 
 <!-- Keep this block current. -->
-- State: not started
-- Done:
-- Failed or skipped:
+- State: done, test run pending (see Results)
+- Done: steps 1 to 5
+- Failed or skipped: none
 
 ## Where to work
 
@@ -45,4 +45,11 @@ The point: Kinotta must build for a beginner who has only a video and no `DESIGN
 
 ## Results
 
-<Append a short summary of changes here, including the font choices and licenses.>
+- Built-in brand in `skill/kinotta/assets/brand/`: `brand.md` (Geist for words, Geist Mono for numbers and code; colours are the `shared.css` effect tokens, with `--fx-ground` `#181b1d` from the templates' fallback), `fonts/Geist-Variable.woff2` and `fonts/GeistMono-Medium.woff2` (byte copies of `engine/fonts/`), `fonts/OFL-Geist.txt` and `fonts/OFL-GeistMono.txt`, and `LICENSES.md`.
+- Fonts: `shared.css` names Geist, which is OFL, so no substitute was needed. Geist and Geist Mono are both SIL Open Font License 1.1, Copyright (c) 2023 Vercel, in collaboration with basement.studio, source https://github.com/vercel/geist-font.
+- `skill/kinotta/SKILL.md` section 2: a missing or empty `DESIGN.md` now writes `reels/brand.md` pointing at the built-in brand, already checked, tells the owner it is in use and how to replace it (add a `DESIGN.md` and delete `reels/brand.md`), and continues. Typing their own colours and typefaces stays an option and records answers as before. Step 4 no longer stops on the built-in brand.
+- `CONTEXT.md`: Brand, Built-in brand, Style, Built-in style and Rule under "Brand and taste"; Pinned effect, Instant pin and Agent pin under "Feedback".
+- `docs/adr/0007-pinned-effects-are-comments.md`, in the format of ADR 0006, with both alternatives.
+- `docs/plans/2026-10-20-simple-mode-flow.md` Phase 6: one pointer line.
+- Not covered, left as is: the `CONTEXT.md` "Taste list" entry still describes taste lists as rules for every reel; it should change when section 3 moves to styles.
+- Checks: `npm run typecheck` passes. `npm test`: see the follow-up line below.
