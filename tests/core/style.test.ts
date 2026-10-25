@@ -110,7 +110,7 @@ const profile = { version: 1, videoType: 'short', broll: 'heavy', captions: 'wor
 describe('one-time migrations', () => {
   it.each(['user', 'project'] as const)('copies %s taste list items once and preserves the source bytes', async (scope) => {
     const source = join(scope === 'user' ? home : join(dir, 'reels'), 'taste.md');
-    const original = Buffer.from('# Taste\r\n\r\n- Keep the silence\r\n* Show the product\r\n1. Use real sound\r\nParagraph, not a rule.\r\n');
+    const original = Buffer.from('# Taste\r\n\r\n- Keep the silence\r\n* Show the product\r\n1. Use real sound\r\n-   \r\nParagraph, not a rule.\r\n');
     await writeFile(source, original);
     await Promise.all([migrateStyles(dir), migrateStyles(dir)]);
     await migrateStyles(dir);
