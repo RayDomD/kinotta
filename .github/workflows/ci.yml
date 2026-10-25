@@ -23,3 +23,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run check:docs
       - run: npm run check:commits -- "origin/$BASE_REF"
+      # Unit suites shell out to ffmpeg/ffprobe, the renderer's Chromium and synth.py (numpy, scipy).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg python3-numpy python3-scipy
+      - run: npx playwright install --with-deps chromium
+      # Render and process-heavy suites need stable timing; they stay local.
+      - run: npx vitest run --project unit
