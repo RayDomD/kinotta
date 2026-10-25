@@ -215,6 +215,26 @@ export function serializeSimpleOptions(
 }
 
 export const STORAGE_KEY = 'kinotta-simple-options-v1';
+export const MIGRATED_STORAGE_KEY = 'kinotta-simple-options-migrated';
+let profileMigration: Promise<void> | undefined;
+
+/** Keep the old browser profile; mark it migrated only after the server has saved its copy. */
+export function migrateSimpleOptionsProfile(migrate: (profile: unknown) => Promise<unknown>): Promise<void> {
+  if (profileMigration) return profileMigration;
+  profileMigration = (async () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const storage = window.localStorage;
+      const raw = storage.getItem(STORAGE_KEY);
+      if (raw === null || storage.getItem(MIGRATED_STORAGE_KEY) !== null) return;
+      await migrate(JSON.parse(raw));
+      storage.setItem(MIGRATED_STORAGE_KEY, 'true');
+    } catch {
+      // Keep the source and retry on a later load if storage or the server is unavailable.
+    }
+  })().finally(() => { profileMigration = undefined; });
+  return profileMigration;
+}
 
 export function validateSimpleOptions(value: unknown): SimpleOptionsState {
   const fallback = defaultSimpleOptions();

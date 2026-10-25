@@ -318,6 +318,12 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  listStyles(videoType?: string): Promise<import('./style.ts').StyleListing>;
+  saveStyle(scope: unknown, style: unknown): Promise<import('./style.ts').Style>;
+  saveDefaultStyle(input: unknown): Promise<import('./style.ts').Style>;
+  readReelStyle(slug: string): Promise<import('./style.ts').Style | null>;
+  copyStyleToReel(slug: string, input: unknown): Promise<import('./style.ts').Style>;
+  migrateStyleProfile(input: unknown): Promise<import('./style.ts').Style>;
   agentSettings(): Promise<import('./agent-settings.ts').AgentSettings>;
   saveAgentSettings(input: unknown): Promise<import('./agent-settings.ts').AgentSettings>;
   detectAgents(): ReturnType<typeof import('./agent-settings.ts').detectAgents>;

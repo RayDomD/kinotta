@@ -1,4 +1,7 @@
 import { createAgentJobs, type AgentJobsOptions } from './_internal/agent-jobs.ts';
+import { listStyles, saveStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/style.ts';
+export { validateStyle, readStyle, listStyles, saveStyle, resolveDefaultStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyles, migrateStyleProfile } from './_internal/style.ts';
+export type { Style, StyleListing } from './_internal/style.ts';
 import { readAgentSettings, saveAgentSettings, detectAgents } from './_internal/agent-settings.ts';
 import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
@@ -152,6 +155,12 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    listStyles: (videoType) => listStyles(dir, videoType),
+    saveStyle: (scope, style) => saveStyle(dir, scope, style),
+    saveDefaultStyle: (input) => saveDefaultStyle(dir, input),
+    readReelStyle: (slug) => readReelStyle(dir, slug),
+    copyStyleToReel: (slug, input) => copyStyleToReel(dir, slug, input),
+    migrateStyleProfile: (input) => migrateStyleProfile(dir, input),
     agentSettings: () => readAgentSettings(dir),
     saveAgentSettings: (input) => saveAgentSettings(dir, input),
     detectAgents,
