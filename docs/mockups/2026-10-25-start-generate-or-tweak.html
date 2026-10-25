@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kinotta · New reel</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);--still:oklch(.13 .006 50);
+  --rest:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --lift:7px 7px 0 -1.6px var(--ground),7px 7px 0 0 oklch(.945 .004 106 / .42),14px 14px 0 -1.6px var(--ground),14px 14px 0 0 oklch(.945 .004 106 / .18);
+  --press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.top{height:52px;display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1.4px solid var(--rule)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.14em;font-size:13px}
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 52px)}
+.rail{border-right:1.4px solid var(--rule);padding:16px}
+.label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.rrow{padding:5px 10px;border-left:1.6px solid transparent;color:var(--ink-2);font-size:14px}
+.rrow.cur{border-left-color:var(--ink);color:var(--ink)}
+.main{padding:40px 28px 80px;display:flex;justify-content:center}
+.col{width:min(880px,100%)}
+h1{font-weight:500;font-size:22px;letter-spacing:-.4px;margin:0 0 4px}
+.lede{color:var(--muted);margin:0 0 22px}
+.drop{border:1.4px dashed var(--hairline);padding:40px 24px 54px;text-align:center;position:relative;transition:border-color .18s,background .18s}
+.drop:hover{border-color:var(--ink)}
+.drop b{display:block;font-weight:500;font-size:16px}
+.drop span{color:var(--muted);font-size:13px}
+.drop::after{content:"";position:absolute;left:0;right:0;bottom:0;height:22px;background-image:radial-gradient(circle,oklch(.64 .008 106 / .35) 1px,transparent 1.3px);background-size:9px 9px}
+.or{display:flex;gap:18px;margin:16px 0 0;font-size:13.5px;color:var(--muted);flex-wrap:wrap}
+.or button{background:none;border:0;padding:0;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px}
+.vids{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.vid{background:none;border:1.4px solid var(--hairline);padding:8px;text-align:left;display:flex;gap:10px;align-items:center}
+.vid:hover{border-color:var(--ink);background:var(--card)}
+.thumb{width:76px;aspect-ratio:16/9;background:var(--still);position:relative;overflow:hidden;flex:none}
+.thumb.p{width:36px;aspect-ratio:9/16}
+.person{position:absolute;left:50%;bottom:-6%;width:46%;height:80%;transform:translateX(-50%)}
+.person::before{content:"";position:absolute;left:32%;top:0;width:36%;aspect-ratio:1;border-radius:50%;background:oklch(.38 .008 60)}
+.person::after{content:"";position:absolute;left:0;right:0;top:42%;bottom:0;border-radius:46% 46% 0 0;background:oklch(.31 .008 60)}
+.vid small{display:block;color:var(--muted);font-size:12px}
+/* after a video is in */
+.picked{display:flex;gap:16px;align-items:center;padding:12px;border:1.4px solid var(--rule);margin-bottom:22px}
+.picked .thumb{width:54px}
+.picked .meta{flex:1}
+.picked .meta b{font-weight:500}
+.picked .meta div{color:var(--muted);font-size:12.5px}
+.quiet{background:none;border:1.4px solid var(--hairline);padding:6px 12px;font-size:13px;color:var(--ink-2)}
+.quiet:hover{color:var(--ink);border-color:var(--ink)}
+.paths{display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:start}
+.path{border:1.4px solid var(--hairline);padding:18px 18px 16px;background:none;text-align:left;transition:transform .18s,box-shadow .18s,border-color .18s}
+.path h2{margin:0 0 4px;font-size:18px;font-weight:500}
+.path p{margin:0 0 12px;color:var(--ink-2);font-size:14px}
+.path.now{background:var(--card);border-color:var(--ink);box-shadow:var(--rest)}
+.path.dir:hover{transform:translate(-3px,-3px);box-shadow:var(--lift);border-color:var(--ink);background:var(--card)}
+.steps{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 12px;flex-wrap:wrap}
+.steps i{font-style:normal;color:var(--hairline)}
+.steps .skip{text-decoration:line-through;opacity:.6}
+.using{border-top:1.4px solid var(--rule);padding-top:10px;margin:4px 0 14px}
+.using .label{margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12.5px;border:1.2px solid var(--rule);padding:1px 8px;color:var(--ink-2)}
+.chip.rule{border-style:dashed}
+.from{font-size:12.5px;color:var(--muted);margin-top:8px}
+.from button{background:none;border:0;padding:0;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;font-size:12.5px}
+.note{width:100%;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:8px 10px;font:inherit;font-size:14px;margin:0 0 14px}
+.note:focus{outline:none;border-color:var(--light)}
+.primary{background:var(--ink);color:var(--ground);border:0;font-weight:600;padding:9px 18px;box-shadow:var(--press);transition:transform .15s,box-shadow .15s}
+.primary:hover{transform:translate(-2px,-2px);box-shadow:var(--rest)}
+.row{display:flex;gap:12px;align-items:center}
+.muted{color:var(--muted);font-size:12.5px}
+.first{font-size:13px;color:var(--ink-2);background:var(--light-wash);border-left:1.6px solid var(--light);padding:8px 10px;margin:0 0 14px}
+.sim{margin-top:34px;padding-top:14px;border-top:1.4px dashed var(--rule);font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1.4px solid var(--hairline)}
+.seg button{background:none;border:0;padding:3px 10px;color:var(--ink-2);font-size:12.5px}
+.seg button+button{border-left:1.4px solid var(--hairline)}
+.seg button.on{background:var(--ink);color:var(--ground)}
+[hidden]{display:none!important}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.big{text-align:left;padding:18px 20px;border:1.4px solid var(--hairline);background:none;display:flex;flex-direction:column;gap:2px;transition:transform .15s,box-shadow .15s,border-color .15s}
+.big b{font-size:18px;font-weight:500}
+.big span{color:var(--muted);font-size:13.5px}
+.big:hover{transform:translate(-3px,-3px);box-shadow:var(--lift);border-color:var(--ink);background:var(--card)}
+.big.go{background:var(--ink);border-color:var(--ink);box-shadow:var(--press)}
+.big.go b{color:var(--ground)} .big.go span{color:oklch(.35 .006 106)}
+.big.go:hover{background:var(--ink);box-shadow:var(--rest)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M4.5 8.5L14 14l9.5-5.5M14 14v11" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>KINOTTA</div>
+  <span style="color:var(--ink-2)">New reel</span>
+</header>
+<div class="shell">
+  <aside class="rail">
+    <p class="label">Reels</p>
+    <div class="rrow cur">New reel</div>
+    <div class="rrow">Is a smart ring worth it?</div>
+    <div class="rrow">The pin</div>
+  </aside>
+  <main class="main">
+    <div class="col">
+      <!-- state 1: nothing in yet -->
+      <section id="s1">
+        <h1>Drop a video. Make it yours.</h1>
+        <p class="lede">Generate now, or tweak first.</p>
+        <button class="drop" id="drop" style="width:100%"><b>Drop a video here</b><span>or click to choose a file · MP4, MOV</span></button>
+        <p class="label" style="margin-top:22px">Or use a video already in this project</p>
+        <div class="vids">
+          <button class="vid" data-v="ring"><span class="thumb p"><i class="person"></i></span><span>smart-ring-review.mov<small><span class="num">01:52</span> · portrait</small></span></button>
+          <button class="vid" data-v="vlog"><span class="thumb"><i class="person"></i></span><span>campus-vlog.mp4<small><span class="num">05:38</span> · landscape</small></span></button>
+          <button class="vid" data-v="demo"><span class="thumb"></span><span>app-walkthrough.mp4<small><span class="num">03:10</span> · screen recording</small></span></button>
+        </div>
+        <div class="or"><span>No video?</span><button id="graphics">Start a graphics reel from a short brief</button></div>
+      </section>
+
+      <!-- state 2: a video is in -->
+      <section id="s2" hidden>
+        <div class="picked"><span class="thumb p"><i class="person"></i></span><div class="meta"><b id="vname">smart-ring-review.mov</b><div id="vmeta"><span class="num">01:52</span> · portrait</div></div><button class="quiet" id="change">Change</button></div>
+        <div class="two">
+          <button class="big go"><b>Generate now</b><span id="gohint">Uses your usual style</span></button>
+          <button class="big"><b>Tweak first</b><span>Pick the style and shots yourself</span></button>
+        </div>
+      </section>
+
+      <div class="sim">Mockup only · preview as
+        <span class="seg"><button class="on" data-who="returning">Returning user</button><button data-who="first">First reel</button></span>
+        <button class="quiet" id="reset" style="margin-left:auto">Back to the empty state</button>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+// mockup only
+const V = { ring: ['smart-ring-review.mov', '01:52', '1080×1920 portrait', true], vlog: ['campus-vlog.mp4', '05:38', '1920×1080 landscape', false], demo: ['app-walkthrough.mp4', '03:10', '2560×1440 screen recording', false] };
+const s1 = document.getElementById('s1'), s2 = document.getElementById('s2');
+function pick(k) {
+  const [name, len, frame, portrait] = V[k];
+  document.getElementById('vname').textContent = name;
+  document.getElementById('vmeta').innerHTML = '<span class="num">' + len + '</span> · ' + frame.split(' ').slice(1).join(' ');
+  document.querySelector('.picked .thumb').className = 'thumb' + (portrait ? ' p' : '');
+  s1.hidden = true; s2.hidden = false;
+}
+document.querySelectorAll('.vid').forEach((b) => b.addEventListener('click', () => pick(b.dataset.v)));
+document.getElementById('drop').addEventListener('click', () => pick('ring'));
+document.getElementById('change').addEventListener('click', () => { s2.hidden = true; s1.hidden = false; });
+document.getElementById('reset').addEventListener('click', () => { s2.hidden = true; s1.hidden = false; });
+document.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-who]').forEach((x) => x.classList.toggle('on', x === b));
+  const first = b.dataset.who === 'first';
+  document.getElementById('gohint').textContent = first ? 'Kinotta picks the style for you' : 'Uses your usual style';
+}));
+</script>
+</body>
+</html>

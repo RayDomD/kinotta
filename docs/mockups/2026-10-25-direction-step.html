@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kinotta · Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);
+  --still:oklch(.13 .006 50);
+  --rest:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --lift:7px 7px 0 -1.6px var(--ground),7px 7px 0 0 oklch(.945 .004 106 / .42),14px 14px 0 -1.6px var(--ground),14px 14px 0 0 oklch(.945 .004 106 / .18);
+  --press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+/* shell */
+.top{height:52px;display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1.4px solid var(--rule)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.14em;font-size:13px}
+.reelname{color:var(--ink-2)}
+.steps{margin-left:auto;display:flex;gap:0}
+.step{display:flex;align-items:center;gap:8px;padding:0 16px;height:52px;border-bottom:1.6px solid transparent;color:var(--muted);font-size:14px;background:none;border-top:0;border-left:0;border-right:0}
+.step .n{font-size:12px}
+.step.done{color:var(--ink-2)}
+.step.on{color:var(--ink);border-bottom-color:var(--ink)}
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr) 340px;min-height:calc(100vh - 52px)}
+.rail{border-right:1.4px solid var(--rule);padding:16px}
+.rail .label,.label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.rail .row{padding:6px 10px;border-left:1.6px solid transparent;color:var(--ink-2);font-size:14px}
+.rail .row.cur{border-left-color:var(--ink);color:var(--ink)}
+.rail .brief{margin-top:22px;padding:10px 12px;background:var(--card);font-size:13px;color:var(--ink-2)}
+.rail .brief b{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}
+.main{padding:22px 28px 60px;overflow:auto}
+h1{font-weight:500;font-size:22px;letter-spacing:-.4px;margin:0 0 4px}
+.lede{color:var(--muted);margin:0 0 22px;max-width:70ch}
+section.block{margin:0 0 28px}
+.block-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.block-head h2{font-size:15px;font-weight:500;margin:0}
+.block-head .why{color:var(--muted);font-size:13px}
+/* look cards */
+.looks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.look{background:transparent;border:1.4px solid var(--hairline);padding:0;text-align:left;transition:transform .18s,box-shadow .18s,border-color .18s}
+.look:hover,.look:focus-visible{transform:translate(-3px,-3px);box-shadow:var(--lift);border-color:var(--ink);background:var(--card);outline:none}
+.look.on{border-color:var(--light);box-shadow:0 0 10px var(--light-glow)}
+.look .still{aspect-ratio:16/9;background:var(--still);position:relative;overflow:hidden}
+.look .meta{padding:10px 12px 12px}
+.look b{font-weight:500;display:block}
+.look p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.look .tick{position:absolute;top:8px;left:8px;font-size:11px;padding:1px 6px;background:var(--light);color:var(--ground);display:none}
+.look.on .tick{display:block}
+/* preview animations (mockup only) */
+.flat .bar{position:absolute;left:12%;height:9%;background:var(--ink);animation:slide 3s infinite cubic-bezier(.2,.8,.2,1)}
+.flat .bar:nth-child(2){top:34%;width:46%} .flat .bar:nth-child(3){top:50%;width:30%;background:var(--muted);animation-delay:.15s}
+.flat .chip{position:absolute;left:12%;top:68%;width:16%;height:9%;background:var(--light);animation:slide 3s infinite .3s cubic-bezier(.2,.8,.2,1)}
+@keyframes slide{0%{transform:translateX(-120%);opacity:0}25%,80%{transform:none;opacity:1}100%{opacity:0}}
+.layered .l{position:absolute;border:1.4px solid var(--hairline);background:oklch(.21 .005 90)}
+.layered .l1{left:8%;top:18%;width:44%;height:52%;animation:para 4s infinite ease-in-out}
+.layered .l2{left:34%;top:30%;width:40%;height:46%;background:oklch(.25 .005 90);animation:para 4s infinite ease-in-out -.6s;box-shadow:6px 6px 0 -1px var(--still),6px 6px 0 0 oklch(.945 .004 106 / .3)}
+.layered .l3{left:60%;top:14%;width:26%;height:20%;background:var(--ink);animation:para 4s infinite ease-in-out -1.2s}
+@keyframes para{50%{transform:translate(10px,-6px) rotate(-1.5deg)}}
+.filmed{perspective:220px}
+.filmed .floor{position:absolute;left:-50%;right:-50%;top:52%;height:120%;transform:rotateX(68deg);transform-origin:50% 0;background-image:radial-gradient(circle,oklch(.64 .008 106 / .7) 1.3px,transparent 1.6px);background-size:22px 22px;animation:fly 2.4s linear infinite}
+@keyframes fly{to{background-position:0 22px}}
+.filmed .hex{position:absolute;left:50%;top:34%;width:42px;height:42px;margin-left:-21px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--light);filter:drop-shadow(0 0 8px var(--light));animation:bob 2.4s ease-in-out infinite}
+.filmed .glow{position:absolute;left:30%;right:30%;top:48%;height:30%;background:radial-gradient(ellipse at 50% 0,oklch(.84 .11 225 / .35),transparent 70%)}
+@keyframes bob{50%{transform:translateY(-5px) scale(1.06)}}
+.ref .drop{position:absolute;inset:14%;border:1.4px dashed var(--hairline);display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:6px}
+.ref .terrain{position:absolute;left:0;right:0;bottom:0;height:18%;background-image:radial-gradient(circle,oklch(.64 .008 106 / .35) 1px,transparent 1.3px);background-size:9px 9px}
+/* dials (from Simple mode) */
+.dial{display:grid;grid-template-columns:110px auto 1fr;align-items:center;gap:14px;padding:9px 0;border-bottom:1.4px solid var(--rule)}
+.dial .name{color:var(--ink-2)}
+.seg{display:inline-flex;border:1.4px solid var(--hairline)}
+.seg button{background:none;border:0;padding:6px 14px;color:var(--ink-2);font-size:14px}
+.seg button+button{border-left:1.4px solid var(--hairline)}
+.seg button.on{background:var(--ink);color:var(--ground)}
+.seg button.on.mine{background:var(--ink);box-shadow:inset 0 -3px 0 var(--light)}
+.dial .hint{color:var(--muted);font-size:13px}
+.dial .hint i{font-style:normal;color:var(--light)}
+/* effects */
+.fx-head{display:flex;align-items:center;justify-content:space-between}
+.quiet{background:none;border:1.4px solid var(--hairline);padding:6px 12px;font-size:13px;color:var(--ink-2)}
+.quiet:hover{color:var(--ink);border-color:var(--ink)}
+.fxrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.fx{border:1.4px solid var(--hairline);background:none;text-align:left;padding:0}
+.fx .still{aspect-ratio:16/9;background:var(--still);position:relative;overflow:hidden}
+.fx .meta{padding:9px 11px}
+.fx b{font-weight:500;font-size:14px}
+.fx p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+.fx .add{float:right;font-size:12px;color:var(--muted)}
+.fx.on{border-color:var(--light)} .fx.on .add{color:var(--light)}
+.ck{position:absolute;left:14%;right:30%;top:22%;display:grid;gap:7px}
+.ck span{height:8px;background:var(--ink-2);transform-origin:0 50%;animation:tick 3s infinite}
+.ck span:nth-child(2){animation-delay:.3s;width:80%}.ck span:nth-child(3){animation-delay:.6s;width:60%}
+@keyframes tick{0%{transform:scaleX(0)}30%,100%{transform:scaleX(1)}}
+.bw{position:absolute;inset:0;display:grid;place-items:center;font-weight:600;font-size:30px;letter-spacing:-.04em;animation:pop 1.5s infinite steps(1)}
+@keyframes pop{0%{content:"";opacity:1}50%{opacity:.25}}
+.nb{position:absolute;left:10%;bottom:16%;padding:4px 10px;background:var(--ink);color:var(--ground);font-size:12px;font-weight:600;animation:slide 3s infinite}
+.ph{position:absolute;left:38%;top:12%;width:24%;height:76%;border:1.4px solid var(--ink-2);border-radius:0;animation:para 4s infinite}
+/* video style previews */
+.v-clean .v-tag{position:absolute;left:8%;top:12%;font-size:12px;background:oklch(.12 .003 106 / .8);padding:1px 7px;animation:slide 3s infinite}
+.v-clean .v-tag b{font-size:11px;color:var(--light);margin-right:4px}
+.v-clean .v-cap{position:absolute;left:0;right:0;bottom:10%;text-align:center;font-size:13px;color:var(--ink)}
+.v-creator .person{animation:punch 3s infinite}
+@keyframes punch{0%,40%{transform:translateX(-50%) scale(1)}45%,100%{transform:translateX(-50%) scale(1.25)}}
+.v-creator .v-big{position:absolute;left:0;right:0;top:20%;text-align:center;font-weight:600;font-size:26px;letter-spacing:-.03em;z-index:1;text-shadow:0 2px 0 #000}
+.v-creator .v-big i{font-style:normal;color:var(--light)}
+.v-creator .v-pop{position:absolute;right:8%;bottom:16%;font-size:12px;background:var(--ink);color:var(--ground);padding:2px 8px;font-weight:600;transform:rotate(-4deg);animation:slide 3s infinite .5s;z-index:1}
+.v-edit .v-frame{position:absolute;left:8%;top:14%;width:48%;height:72%;border:2px solid var(--ink-2);border-radius:8px;overflow:hidden;filter:sepia(.25) contrast(1.05)}
+.v-edit .v-frame .person{width:60%}
+.v-edit .v-card{position:absolute;right:8%;top:22%;width:30%;height:52%;background:oklch(.25 .005 90);border:1.4px solid var(--hairline);animation:para 4s infinite ease-in-out}
+.v-edit::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse,transparent 50%,oklch(.08 .003 106 / .7))}
+/* content forms */
+.forms{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.form-card{background:none;border:1.4px solid var(--hairline);padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:2px;transition:transform .18s,box-shadow .18s,border-color .18s}
+.form-card:hover{transform:translate(-3px,-3px);box-shadow:var(--lift);border-color:var(--ink);background:var(--card)}
+.form-card b{font-weight:500}.form-card span{font-size:12.5px;color:var(--muted);line-height:1.35}
+.form-card .src{font-style:normal;font-size:11px;color:var(--ink-2);margin-top:6px}
+.form-card.on{border-color:var(--light);box-shadow:0 0 10px var(--light-glow)}
+.video{display:flex;align-items:center;gap:12px;margin-top:12px;padding:8px;border:1.4px solid var(--rule)}
+.vthumb{width:96px;aspect-ratio:16/9;background:var(--still);position:relative;overflow:hidden}
+.person{position:absolute;left:50%;bottom:-6%;width:34%;height:78%;transform:translateX(-50%)}
+.person::before{content:"";position:absolute;left:32%;top:0;width:36%;aspect-ratio:1;border-radius:50%;background:oklch(.36 .006 60)}
+.person::after{content:"";position:absolute;left:0;right:0;top:42%;bottom:0;border-radius:46% 46% 0 0;background:oklch(.30 .006 60)}
+.video[hidden]{display:none}.looks[hidden]{display:none}.starter{margin:-4px 0 12px;font-size:13px;color:var(--ink-2)}
+.frame-row{margin-top:-14px}
+.foot-only{display:none}.has-video .code-only{display:none}.has-video .foot-only{display:grid}
+/* right column */
+.side{border-left:1.4px solid var(--rule);padding:16px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--card);border:1.4px solid var(--ink);box-shadow:var(--rest);padding:12px 14px}
+.card h3{margin:0 0 6px;font-size:15px;font-weight:500}
+.told{font-size:13.5px;color:var(--ink-2);margin:0}
+.told li{margin:0 0 6px}
+.told code{font-size:12px;color:var(--light)}
+.note{width:100%;min-height:76px;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
+.note:focus{outline:none;border-color:var(--light)}
+.primary{background:var(--ink);color:var(--ground);border:0;font-weight:600;padding:9px 16px;box-shadow:var(--press);transition:transform .15s,box-shadow .15s}
+.primary:hover{transform:translate(-2px,-2px);box-shadow:var(--rest)}
+.foot{display:flex;align-items:center;gap:14px}
+.foot .muted{color:var(--muted);font-size:13px}
+.style-chip{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--ink-2)}
+.style-chip .on{color:var(--light)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M4.5 8.5L14 14l9.5-5.5M14 14v11" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>KINOTTA</div>
+  <div class="reelname">The pin <span class="num" style="color:var(--muted);font-size:12px">00:21</span></div>
+  <nav class="steps" aria-label="New reel">
+    <button class="step done"><span class="num n">01</span>Brief ✓</button>
+    <button class="step on" aria-current="step"><span class="num n">02</span>Direction</button>
+    <button class="step"><span class="num n">03</span>Storyboard</button>
+    <button class="step"><span class="num n">04</span>Review</button>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="rail">
+    <p class="label">Reels</p>
+    <div class="row cur">The pin</div>
+    <div class="row">Showcase</div>
+    <div class="brief"><b>Your brief</b>A 20-second launch reel for Kinotta. Agencies who review client reels. They should feel that one pin replaces a paragraph of feedback.</div>
+  </aside>
+
+  <main class="main">
+    <h1>How should it look?</h1>
+    <p class="lede">Pick a look and Kinotta fills in the rest. Change anything; your changes are marked. The agent builds Storyboard v1 from these, and you can change them later.</p>
+
+    <section class="block" aria-labelledby="form-h">
+      <div class="block-head"><h2 id="form-h">What are you making?</h2><span class="why">Sets the starting look, settings and effects</span></div>
+      <div class="forms" role="radiogroup" aria-label="What are you making">
+        <button class="form-card" data-form="talking"><b>Talking video</b><span>You on camera; graphics and b-roll over it</span><i class="src">Your video</i></button>
+        <button class="form-card" data-form="interview"><b>Interview</b><span>Two or more people; cut between them</span><i class="src">Your video</i></button>
+        <button class="form-card" data-form="tutorial"><b>Tutorial · screen</b><span>The screen stays main; zooms and callouts</span><i class="src">Your video</i></button>
+        <button class="form-card" data-form="demo"><b>Product demo</b><span>Product first, the pitch in 3 seconds</span><i class="src">Your video</i></button>
+        <button class="form-card" data-form="vlog"><b>Vlog</b><span>Sparse graphics; real over polished</span><i class="src">Your video</i></button>
+        <button class="form-card on" data-form="launch"><b>Launch · brand</b><span>A short reel built from graphics</span><i class="src">No footage</i></button>
+        <button class="form-card" data-form="explainer"><b>Explainer</b><span>Steps from a start to a result</span><i class="src">No footage</i></button>
+        <button class="form-card" data-form="showreel"><b>Showreel</b><span>Techniques cut to a beat</span><i class="src">No footage</i></button>
+        <button class="form-card" data-form="decide"><b>Let Kinotta decide</b><span>Guessed from the brief or the video</span><i class="src">Either</i></button>
+      </div>
+      <div class="video" id="video" hidden><div class="vthumb"><i class="person"></i></div><div><b>campus-vlog.mp4</b><div style="color:var(--muted);font-size:12px"><span class="num">05:38</span> · <span class="num">1080×1920</span> · portrait</div></div><button class="quiet" style="margin-left:auto">Change video</button></div>
+    </section>
+
+    <section class="block frame-row" aria-labelledby="frame-h">
+      <div class="dial" style="border-top:1.4px solid var(--rule)"><span class="name" id="frame-h">Frame</span>
+        <span class="seg" data-dial="frame"><button data-shape="p">▯ Portrait 9:16</button><button data-shape="l">▭ Landscape 16:9</button><button data-shape="s">□ Square 1:1</button></span>
+        <span class="hint" id="frame-hint"></span></div>
+    </section>
+
+    <section class="block" aria-labelledby="look-h">
+      <div class="block-head"><h2 id="look-h">Look</h2><span class="why" id="look-why">Each preview plays the look on a sample shot</span>
+      </div>
+      <p class="starter">A starting point, not a lock. Change any setting below, add effects, and describe the shots you want on the right. You can still change every shot in Storyboard.</p>
+      <div style="display:none"></div>
+      <div class="looks" id="looks-code" role="radiogroup" aria-label="Look">
+        <button class="look" data-look="flat" role="radio" aria-checked="false">
+          <div class="still flat"><span class="tick">Chosen</span><i class="bar"></i><i class="bar"></i><i class="chip"></i></div>
+          <div class="meta"><b>Flat 2D</b><p>Type and shapes on a plain ground. Clean, quick to read.</p></div>
+        </button>
+        <button class="look on" data-look="layered" role="radio" aria-checked="true">
+          <div class="still layered"><span class="tick">Chosen</span><i class="l l1"></i><i class="l l2"></i><i class="l l3"></i></div>
+          <div class="meta"><b>Layered 2D</b><p>Cards and panels in layers with gentle parallax.</p></div>
+        </button>
+        <button class="look" data-look="filmed" role="radio" aria-checked="false">
+          <div class="still filmed"><span class="tick">Chosen</span><i class="floor"></i><i class="glow"></i><i class="hex"></i></div>
+          <div class="meta"><b>Filmed 3D</b><p>A world with depth, a moving camera and real light.</p></div>
+        </button>
+        <button class="look" data-look="ref" role="radio" aria-checked="false">
+          <div class="still ref"><span class="tick">Chosen</span><div class="drop">Drop a clip or stills<br>to match their look</div><i class="terrain"></i></div>
+          <div class="meta"><b>Match a reference</b><p>The agent studies your clip and borrows its technique.</p></div>
+        </button>
+      </div>
+      <div class="looks" id="looks-video" role="radiogroup" aria-label="Style" hidden>
+        <button class="look" data-look="clean" role="radio" aria-checked="false">
+          <div class="still v-clean"><span class="tick">Chosen</span><i class="person"></i><span class="v-tag"><b class="num">02</b> The fix</span><span class="v-cap">one pin fixes it</span></div>
+          <div class="meta"><b>Clean</b><p>Small tags and quiet captions. You stay the picture.</p></div>
+        </button>
+        <button class="look" data-look="creator" role="radio" aria-checked="false">
+          <div class="still v-creator"><span class="tick">Chosen</span><i class="person"></i><span class="v-big">ONE <i>PIN</i></span><span class="v-pop">3 steps</span></div>
+          <div class="meta"><b>Creator</b><p>Bold word captions, punch-ins, pop-ups on the beat.</p></div>
+        </button>
+        <button class="look" data-look="editorial" role="radio" aria-checked="false">
+          <div class="still v-edit"><span class="tick">Chosen</span><div class="v-frame"><i class="person"></i></div><span class="v-card"></span></div>
+          <div class="meta"><b>Editorial</b><p>You framed in a card, panels beside you, a film look.</p></div>
+        </button>
+        <button class="look" data-look="vref" role="radio" aria-checked="false">
+          <div class="still ref"><span class="tick">Chosen</span><div class="drop">Drop a video you like<br>to match its edit</div><i class="terrain"></i></div>
+          <div class="meta"><b>Match a reference</b><p>The agent studies the clip's captions, cuts and graphics.</p></div>
+        </button>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="set-h">
+      <div class="block-head"><h2 id="set-h">Settings</h2><span class="why">Filled in by the look · change any</span></div>
+      <div class="dial foot-only"><span class="name">B-roll</span>
+        <span class="seg" data-dial="broll"><button>Light</button><button class="on">Medium</button><button>Heavy</button></span>
+        <span class="hint" data-hint="broll">About a third of the video covered.</span></div>
+      <div class="dial foot-only"><span class="name">Captions</span>
+        <span class="seg" data-dial="captions"><button>Off</button><button class="on">Phrase</button><button>Word by word</button></span>
+        <span class="hint" data-hint="captions">The phrase, with the spoken word lit.</span></div>
+      <div class="dial foot-only"><span class="name">Punch-ins</span>
+        <span class="seg" data-dial="punch"><button>None</button><button>On key words</button><button>Often</button></span>
+        <span class="hint" data-hint="punch"></span></div>
+      <div class="dial foot-only"><span class="name">Grade</span>
+        <span class="seg" data-dial="grade"><button>Natural</button><button>Warm</button><button>Mono</button><button>Cool</button></span>
+        <span class="hint" data-hint="grade"></span></div>
+      <div class="dial foot-only"><span class="name">Cutaways</span>
+        <span class="seg" data-dial="cutaways"><button>Flat 2D</button><button>Layered 2D</button><button>Filmed 3D</button></span>
+        <span class="hint" data-hint="cutaways"></span></div>
+      <div class="dial"><span class="name">Motion</span>
+        <span class="seg" data-dial="motion"><button>Calm</button><button class="on">Lively</button><button>Punchy</button></span>
+        <span class="hint" data-hint="motion">Things move in on the beat, then settle.</span></div>
+      <div class="dial code-only"><span class="name">Camera</span>
+        <span class="seg" data-dial="camera"><button class="on">Still</button><button>Drifting</button><button>Always moving</button></span>
+        <span class="hint" data-hint="camera">The frame stays put; the content moves.</span></div>
+      <div class="dial"><span class="name">Colour</span>
+        <span class="seg" data-dial="colour"><button class="on">One accent</button><button>Brand palette</button><button>Full colour</button></span>
+        <span class="hint" data-hint="colour">Neutral ground, one colour for what matters.</span></div>
+      <div class="dial"><span class="name">Transitions</span>
+        <span class="seg" data-dial="transitions"><button>Cuts</button><button class="on">Soft</button><button>Events</button></span>
+        <span class="hint" data-hint="transitions">Quick fades and slides between shots.</span></div>
+      <div class="dial"><span class="name">Fonts</span>
+        <span class="seg" data-dial="type"><button class="on">Use my brand fonts</button><button>Pick other fonts</button></span>
+        <span class="hint">The fonts for all words on screen. Your brand's: <b style="font-weight:500;color:var(--ink-2)">Outfit</b> for words, <b style="font-family:Doto,monospace;font-weight:800;color:var(--ink-2)">Doto 03.60</b> for numbers. <i style="font-style:normal;color:var(--muted)">Found in your project's design file.</i></span></div>
+    </section>
+
+    <section class="block" aria-labelledby="fx-h">
+      <div class="block-head fx-head"><h2 id="fx-h">Effects to try <span class="why" style="margin-left:10px">Optional · the agent picks the rest</span></h2><button class="quiet">Open the effects library · <span class="num">25</span></button></div>
+      <div class="fxrow">
+        <button class="fx on"><div class="still"><div class="ck"><span></span><span></span><span></span></div></div><div class="meta"><span class="add">Added</span><b>Checklist</b><p>Items tick in as they are said.</p></div></button>
+        <button class="fx"><div class="still"><div class="bw">pin.</div></div><div class="meta"><span class="add">+ Add</span><b>Big word</b><p>One word fills the frame at a time.</p></div></button>
+        <button class="fx"><div class="still"><div class="nb">YOUR NAME</div></div><div class="meta"><span class="add">+ Add</span><b>Title card</b><p>A name or title wipes in and holds.</p></div></button>
+        <button class="fx"><div class="still"><i class="ph"></i></div><div class="meta"><span class="add">+ Add</span><b>Phone</b><p>A phone floats in showing a screen.</p></div></button>
+      </div>
+    </section>
+  </main>
+
+  <aside class="side">
+    <div class="card">
+      <h3>What the agent is told</h3>
+      <ul class="told" id="told"></ul>
+    </div>
+    <div>
+      <p class="label">Shots and details you want</p>
+      <textarea class="note" id="note" style="min-height:120px"></textarea>
+      <p style="margin:4px 0 0;font-size:12.5px;color:var(--muted)">Name moments, shots or things to avoid. The agent plans around them.</p>
+    </div>
+    <div class="style-chip"><span>Save as my style for new reels</span><span class="on">○ off</span></div>
+    <div class="foot"><button class="primary">Build storyboard</button><span class="muted">Copies the request for your agent</span></div>
+  </aside>
+</div>
+
+<script>
+// mockup only: a look fills in the settings; a change you make is marked "yours"
+const PRESETS = {
+  flat: { motion: 'Calm', camera: 'Still', colour: 'One accent', transitions: 'Cuts' },
+  layered: { motion: 'Lively', camera: 'Still', colour: 'One accent', transitions: 'Soft' },
+  filmed: { motion: 'Lively', camera: 'Always moving', colour: 'One accent', transitions: 'Events' },
+  ref: { motion: 'Lively', camera: 'Drifting', colour: 'Brand palette', transitions: 'Soft' },
+  clean: { motion: 'Calm', colour: 'One accent', transitions: 'Cuts', captions: 'Phrase', punch: 'None', grade: 'Natural', cutaways: 'Flat 2D', broll: 'Light' },
+  creator: { motion: 'Punchy', colour: 'Full colour', transitions: 'Cuts', captions: 'Word by word', punch: 'Often', grade: 'Natural', cutaways: 'Layered 2D', broll: 'Medium' },
+  editorial: { motion: 'Lively', colour: 'Brand palette', transitions: 'Soft', captions: 'Phrase', punch: 'On key words', grade: 'Warm', cutaways: 'Filmed 3D', broll: 'Medium' },
+  vref: { motion: 'Lively', colour: 'Brand palette', transitions: 'Soft', captions: 'Phrase', punch: 'On key words', grade: 'Natural', cutaways: 'Layered 2D', broll: 'Medium' },
+};
+const HINTS = {
+  motion: { Calm: 'Slow fades; nothing hurries.', Lively: 'Things move in on the beat, then settle.', Punchy: 'Fast hits, snaps and overshoot.' },
+  camera: { Still: 'The frame stays put; the content moves.', Drifting: 'A slow push or pan under every shot.', 'Always moving': 'The camera travels through the scene; no hold over 1.5 s.' },
+  colour: { 'One accent': 'Neutral ground, one colour for what matters.', 'Brand palette': 'Every colour from the brand file.', 'Full colour': 'Content brings its own colour; the accent still marks state.' },
+  transitions: { Cuts: 'Straight cuts.', Soft: 'Quick fades and slides between shots.', Events: 'Flash, iris and whip pans that join shots.' },
+};
+const TOLD = {
+  flat: ['Look: <code>flat-2d</code>. Keep everything on one plane; no camera moves.', 'Checks: mechanical only.'],
+  layered: ['Look: <code>layered-2d</code>. Cards and panels at two or three depths with gentle parallax.', 'Checks: mechanical only.'],
+  filmed: ['Look: <code>filmed-3d</code>. Read <code>reference/motion-craft.md</code>; write a treatment first.', 'WebGL allowed for light-led shots.', 'Checks: mechanical, plus camera and depth checks.'],
+  clean: ['Style: <code>clean</code>. The speaker stays the picture; tags small and brief.', 'Checks: mechanical only.'],
+  creator: ['Style: <code>creator</code>. Word captions with one accent word; punch-ins and pop-ups on stressed words.', 'Checks: mechanical only.'],
+  editorial: ['Style: <code>editorial</code>. Framed speaker, panels beside, film look on cutaways.', 'Checks: mechanical only.'],
+  vref: ['Style: <code>reference</code>. Study the clip with the reference-analysis steps before planning.', 'Checks: mechanical only.'],
+  ref: ['Look: <code>reference</code>. Study the clip with the reference-analysis steps before planning.', 'Checks: mechanical only.'],
+};
+let look = 'layered', mine = {}, form = 'launch';
+const FOOTAGE = ['talking', 'interview', 'tutorial', 'demo', 'vlog'];
+const FORM_LOOK = { talking: 'creator', interview: 'clean', tutorial: 'clean', demo: 'editorial', vlog: 'clean', launch: 'layered', explainer: 'flat', showreel: 'filmed', decide: 'layered' };
+const FORM_TOLD = { talking: 'Form: <code>talking-video</code>. Keep the speaker primary; cover jump cuts.', interview: 'Form: <code>interview</code>. Cut between speakers; split layouts.', tutorial: 'Form: <code>tutorial</code>. The screen stays main; 5 to 8 word callouts.', demo: 'Form: <code>demo</code>. Show the proposition in the first 3 seconds.', launch: 'Form: <code>launch</code>. Code-built shots; one idea per shot.', explainer: 'Form: <code>explainer</code>. Steps with a clear start and result.', showreel: 'Form: <code>showreel</code>. Cut to tempo; one signature move.', decide: 'Form: decided by the agent from the brief or video.', vlog: 'Form: <code>vlog</code>. Sparse graphics; keep it real over polished.' };
+const told = document.getElementById('told');
+function render() {
+  const p = { ...PRESETS[look], ...mine };
+  document.querySelectorAll('[data-dial]').forEach((seg) => {
+    const k = seg.dataset.dial;
+    seg.querySelectorAll('button').forEach((b) => { const on = b.textContent === p[k] || (!(k in p) && b.classList.contains('on')); b.classList.toggle('on', on); b.classList.toggle('mine', on && k in mine); });
+    const h = document.querySelector('[data-hint="' + k + '"]');
+    if (h && HINTS[k]) h.innerHTML = HINTS[k][p[k]] + (k in mine ? ' <i>· yours</i>' : '');
+  });
+  document.body.classList.toggle('has-video', FOOTAGE.includes(form));
+  document.getElementById('video').hidden = !FOOTAGE.includes(form);
+  const vid = FOOTAGE.includes(form);
+  if (!('frame' in mine)) { const f = vid ? '▯ Portrait 9:16' : '▭ Landscape 16:9'; document.querySelectorAll('[data-dial="frame"] button').forEach((b) => { b.classList.toggle('on', b.textContent === f); b.classList.remove('mine'); }); }
+  document.getElementById('frame-hint').innerHTML = 'frame' in mine ? 'Your choice. <i>· yours</i>' + (vid ? ' The video will be reframed to fit.' : '') : vid ? 'Detected from your video (1080×1920). Change it to reframe the video.' : 'Where will it play? Reels, Shorts and TikTok are portrait; YouTube and decks are landscape.';
+  document.getElementById('note').placeholder = vid ? 'e.g. a split screen when I open the app at 1:20; cut the part where I lose my train of thought; no stock footage' : 'e.g. open on the hex as the hero; a before-and-after of v1 and v2; end on the logo, no stock photos';
+  document.getElementById('looks-code').hidden = vid; document.getElementById('looks-video').hidden = !vid;
+  document.getElementById('look-h').textContent = vid ? 'Style' : 'Look';
+  document.getElementById('look-why').textContent = vid ? 'How the edit treats you and the words; your video stays the picture' : 'Each preview plays the look on a sample shot';
+  told.innerHTML = '<li>' + FORM_TOLD[form] + '</li>' + TOLD[look].map((s) => '<li>' + s + '</li>').join('') + Object.keys(mine).map((k) => '<li>' + k[0].toUpperCase() + k.slice(1) + ': <code>' + mine[k].toLowerCase() + '</code> (your choice)</li>').join('');
+}
+document.querySelectorAll('.look').forEach((el) => el.addEventListener('click', () => {
+  document.querySelectorAll('.look').forEach((x) => { x.classList.toggle('on', x === el); x.setAttribute('aria-checked', x === el); });
+  look = el.dataset.look; render();
+}));
+document.querySelectorAll('[data-dial] button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.parentNode.dataset.dial;
+  if (k === 'frame') { mine.frame = b.textContent; b.parentNode.querySelectorAll('button').forEach((x) => { x.classList.toggle('on', x === b); x.classList.toggle('mine', x === b); }); return render(); }
+  if (k in PRESETS[look] && PRESETS[look][k] === b.textContent) delete mine[k]; else mine[k] = b.textContent;
+  render();
+}));
+document.querySelectorAll('.form-card').forEach((el) => el.addEventListener('click', () => {
+  document.querySelectorAll('.form-card').forEach((x) => x.classList.toggle('on', x === el));
+  form = el.dataset.form; look = FORM_LOOK[form]; mine = {};
+  document.querySelectorAll('.look').forEach((x) => { x.classList.toggle('on', x.dataset.look === look); x.setAttribute('aria-checked', x.dataset.look === look); });
+  render();
+}));
+HINTS.punch = { None: 'The frame stays as shot.', 'On key words': 'A gentle push-in on the words that matter.', Often: 'Punch in on most beats to keep it moving.' };
+HINTS.grade = { Natural: 'As filmed.', Warm: 'The warm preset.', Mono: 'Black and white.', Cool: 'The cool preset.' };
+HINTS.cutaways = { 'Flat 2D': 'Full-frame graphics on a plain ground.', 'Layered 2D': 'Cards and panels with gentle parallax.', 'Filmed 3D': 'A 3D world with a moving camera; reads motion-craft.' };
+HINTS.broll = { Light: 'A few cutaways on the key moments.', Medium: 'About a third of the video covered.', Heavy: 'Graphics on most lines.' };
+HINTS.captions = { Off: 'No captions.', Phrase: 'The phrase, with the spoken word lit.', 'Word by word': 'Each word as it is said.' };
+document.querySelectorAll('.fx').forEach((f) => f.addEventListener('click', () => { f.classList.toggle('on'); f.querySelector('.add').textContent = f.classList.contains('on') ? 'Added' : '+ Add'; }));
+render();
+</script>
+</body>
+</html>

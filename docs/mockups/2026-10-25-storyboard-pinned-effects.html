@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kinotta · Storyboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);--still:oklch(.13 .006 50);
+  --rest:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --lift:7px 7px 0 -1.6px var(--ground),7px 7px 0 0 oklch(.945 .004 106 / .42),14px 14px 0 -1.6px var(--ground),14px 14px 0 0 oklch(.945 .004 106 / .18);
+  --press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.top{height:52px;display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1.4px solid var(--rule)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.14em;font-size:13px}
+.reelname{color:var(--ink-2)}
+.steps{margin-left:auto;display:flex}
+.step{display:flex;align-items:center;gap:8px;padding:0 16px;height:52px;border:0;border-bottom:1.6px solid transparent;color:var(--muted);font-size:14px;background:none}
+.step .n{font-size:12px}.step.done{color:var(--ink-2)}.step.on{color:var(--ink);border-bottom-color:var(--ink)}
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr) 360px;min-height:calc(100vh - 52px)}
+.rail{border-right:1.4px solid var(--rule);padding:16px}
+.label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.rrow{display:flex;justify-content:space-between;padding:5px 10px;border-left:1.6px solid transparent;color:var(--ink-2);font-size:14px}
+.rrow .num{font-size:11px;color:var(--muted)}
+.rrow.cur{border-left-color:var(--light);color:var(--ink)}
+.rail .grp{margin-bottom:20px}
+.main{padding:20px 26px 80px;min-width:0}
+.head{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
+h1{font-weight:500;font-size:22px;letter-spacing:-.4px;margin:0}
+.state{color:var(--light);font-size:13px;margin-left:auto}
+.lede{color:var(--muted);font-size:13px;margin:0 0 18px}
+.sec{margin:0 0 26px}
+.sechead{display:flex;align-items:baseline;gap:12px;margin:0 0 4px}
+.sechead h2{font-size:15px;font-weight:500;margin:0}
+.sechead .span{font-size:12px;color:var(--muted)}
+.said{color:var(--ink-2);font-size:13.5px;margin:0 0 12px;font-style:italic}
+.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 0;align-items:start}
+.slot{display:grid;grid-template-columns:18px 1fr;align-items:stretch}
+.gap{position:relative}
+.gap::after{content:"";position:absolute;left:7px;top:6px;bottom:44px;width:3px;background:transparent}
+.dragging .gap::after{background:oklch(.945 .004 106 / .12)}
+.gap.over::after{background:var(--light);box-shadow:0 0 10px var(--light-glow)}
+.gap.over::before{content:"Insert";position:absolute;left:12px;top:-4px;font-size:11px;background:var(--light);color:var(--ground);padding:0 6px;z-index:3}
+.shot{background:transparent;border:1.4px solid transparent;padding:8px;text-align:left;position:relative;transition:transform .18s,box-shadow .18s,border-color .18s,background .18s}
+.shot:hover{transform:translate(-3px,-3px);box-shadow:var(--lift);border-color:var(--ink);background:var(--card)}
+.shot.sel{border-color:var(--light);box-shadow:0 0 10px var(--light-glow)}
+.shot.over{border-color:var(--light);background:var(--light-wash)}
+.shot.over-alt .cap,.shot.over-alt .altzone{outline:1.6px dashed var(--light);outline-offset:2px}
+.altzone{display:none;font-size:12px;color:var(--light);margin-top:6px;padding:3px 6px}
+.dragging .shot:not(.planned) .altzone{display:block}
+.ghost{position:absolute;border:1.6px dashed var(--light);background:oklch(.84 .11 225 / .12);pointer-events:none;z-index:3;transform:translate(-50%,-50%)}
+.fp{position:absolute;border:1.4px dashed var(--light);background:oklch(.84 .11 225 / .08);transform:translate(-50%,-50%);z-index:2;pointer-events:none}
+.pin{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);z-index:4;display:grid;place-items:center;font-family:Doto,monospace;font-weight:800;font-size:11px;color:var(--ground);background:var(--light);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);filter:drop-shadow(0 0 6px var(--light));border:0;padding:0}
+.wpin{display:inline-grid;place-items:center;width:16px;height:16px;margin-left:3px;font-family:Doto,monospace;font-weight:800;font-size:9px;color:var(--ground);background:var(--light);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);vertical-align:middle}
+.pcard{background:var(--card);border:1.4px solid var(--hairline);padding:8px 10px;margin:0 0 8px}
+.pcard.sel{border-color:var(--ink);box-shadow:var(--rest)}
+.pcard .h{display:flex;gap:8px;align-items:center;font-size:13px}
+.pcard .h .wpin{margin:0}
+.pcard .h b{font-weight:500}
+.pcard .h .where{color:var(--muted);font-size:12px;margin-left:auto}
+.pcard textarea{width:100%;margin-top:6px;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:6px 8px;font:inherit;font-size:13px;min-height:40px;resize:vertical}
+.pcard textarea:focus{outline:none;border-color:var(--light)}
+.pcard .when{font-size:12px;color:var(--ink-2);margin-top:4px}
+.pcard .del{margin-left:8px;background:none;border:1.2px solid transparent;color:var(--muted);font-size:12px;padding:0 6px;line-height:20px}
+.pcard .del:hover,.pcard .del:focus-visible{color:var(--ink);border-color:var(--hairline);outline:none}
+.pin.sel{outline:2px solid var(--ink);outline-offset:2px}
+.pinx{position:absolute;transform:translate(14px,-50%);z-index:5;background:var(--ground);border:1.2px solid var(--ink);color:var(--ink);font-size:11px;padding:0 6px;line-height:18px;white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card-raised);border:1.4px solid var(--ink);box-shadow:var(--rest);padding:8px 14px;font-size:14px;display:flex;gap:14px;align-items:center;z-index:20}
+.toast button{background:none;border:0;color:var(--light);font-weight:600;padding:0}
+.toast kbd,.hintkeys kbd{font:12px Outfit;border:1.2px solid var(--hairline);padding:0 4px;color:var(--ink-2)}
+.hintkeys{font-size:12px;color:var(--muted);margin:6px 0 0}
+.w.fixed{color:var(--ink);border-bottom:1.4px dotted var(--ink-2)}
+.wedit{background:var(--ground-deep);border:1.4px solid var(--light);color:var(--ink);font:inherit;font-size:13.5px;padding:0 4px;width:9ch}
+.pcard .when i{font-style:normal;color:var(--light)}
+.shot.has-alt{background:var(--card);border-color:var(--ink);box-shadow:var(--rest)}
+.still{aspect-ratio:16/9;background:var(--still);position:relative;overflow:hidden}
+.cap{display:flex;justify-content:space-between;margin-top:6px;font-size:14px}
+.cap .t{font-weight:500}.cap .tc{font-size:12px;color:var(--muted)}
+.alts{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;color:var(--ink-2)}
+.dot{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--ink-2);background:none;padding:0}
+.dot.on{background:var(--ink-2);box-shadow:0 0 0 2px var(--ground),0 0 0 3.5px var(--light)}
+.dot.planned{border-style:dashed;border-color:var(--light)}
+.altlabel{margin-left:4px}
+.planned{border:1.6px dashed var(--light)!important;background:var(--light-wash)!important;box-shadow:none!important}
+.planned .still{opacity:.55}
+.pbadge{position:absolute;left:8px;top:8px;font-size:11px;background:var(--light);color:var(--ground);padding:0 6px;z-index:2}
+.needs{font-size:12.5px;color:var(--ink-2);margin-top:4px}
+.needs b{font-weight:500;color:var(--ink)}
+.undo{background:none;border:0;color:var(--muted);font-size:12px;padding:0;text-decoration:underline}
+.secnote{width:100%;margin-top:8px;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:7px 10px;font:inherit;font-size:13.5px}
+.secnote:focus{outline:none;border-color:var(--light)}
+/* overlays on the words (footage) */
+.words{display:flex;flex-wrap:wrap;gap:4px 6px;margin:8px 0 0;font-size:13.5px;color:var(--ink-2)}
+.w{padding:0 2px;border:1.2px solid transparent}
+.dragging .w{border-color:oklch(.945 .004 106 / .08)}
+.w.over{border-color:var(--light);color:var(--ink);box-shadow:0 0 8px var(--light-glow)}
+.w.has{border-bottom:2px solid var(--light)}
+.ov{font-size:11px;color:var(--light);margin-left:2px}
+/* still art (mockup only) */
+.person{position:absolute;left:50%;bottom:-6%;width:30%;height:80%;transform:translateX(-50%)}
+.person::before{content:"";position:absolute;left:32%;top:0;width:36%;aspect-ratio:1;border-radius:50%;background:oklch(.38 .008 60)}
+.person::after{content:"";position:absolute;left:0;right:0;top:42%;bottom:0;border-radius:46% 46% 0 0;background:oklch(.31 .008 60)}
+.ring{position:absolute;left:50%;top:50%;width:26%;aspect-ratio:1;margin:-13% 0 0 -13%;border-radius:50%;border:6px solid oklch(.55 .02 80)}
+.bigcap{position:absolute;left:0;right:0;top:12%;text-align:center;font-weight:600;font-size:20px;z-index:1}
+.bigcap i{font-style:normal;color:var(--light)}
+.cards3{position:absolute;inset:18% 10%;display:flex;gap:6%}.cards3 span{flex:1;background:oklch(.27 .005 90);border:1.2px solid var(--hairline)}
+.frame{position:absolute;left:8%;top:14%;width:46%;height:72%;border:2px solid var(--ink-2);border-radius:6px;overflow:hidden}
+.panel{position:absolute;right:8%;top:22%;width:32%;height:52%;background:oklch(.27 .005 90)}
+.lst{position:absolute;left:14%;top:22%;width:56%;display:grid;gap:6px;padding:8px;background:oklch(.21 .005 90);border:1.2px solid var(--hairline)}
+.lst span{height:7px;background:var(--ink-2)}.lst span:nth-child(2){width:80%}.lst span:nth-child(3){width:60%}
+.bw{position:absolute;inset:0;display:grid;place-items:center;font-weight:600;font-size:30px;letter-spacing:-.04em}
+.end{position:absolute;inset:0;display:grid;place-content:center;text-align:center}.end b{font-size:18px}.end span{font-size:11px;color:var(--muted)}
+/* right column */
+.side{border-left:1.4px solid var(--rule);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;align-self:start}
+.drawer{flex:1;min-height:0}
+.pv{padding:14px 16px;border-bottom:1.4px solid var(--rule)}
+.pv .still{border:1.4px solid var(--hairline)}
+.pvcap{display:flex;justify-content:space-between;font-size:13px;margin-top:6px;color:var(--ink-2)}
+.pvbtns{display:flex;gap:8px;margin-top:8px}
+.tabs{display:flex;border-bottom:1.4px solid var(--rule);padding:0 16px}
+.tab{background:none;border:0;border-bottom:1.6px solid transparent;padding:10px 12px;color:var(--muted);font-size:14px}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tab .num{font-size:11px;margin-left:5px}
+.drawer{padding:12px 16px;overflow:auto}
+.search{width:100%;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:6px 10px;font:inherit;font-size:13.5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chip{background:none;border:1.2px solid var(--rule);padding:1px 8px;font-size:12px;color:var(--ink-2)}
+.chip.on{border-color:var(--ink);color:var(--ink)}
+.hint{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.fxgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fx{border:1.4px solid var(--hairline);background:none;padding:0;text-align:left;cursor:grab}
+.fx:hover{border-color:var(--ink)}
+.fx:active{cursor:grabbing}
+.fx .still{aspect-ratio:16/9}
+.fx .m{padding:5px 8px 7px;font-size:13px}
+.fx .m small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
+.queue{margin-top:auto;border-top:1.4px solid var(--rule);padding:12px 16px;max-height:46vh;overflow:auto}
+.queue .item{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);padding:2px 0}
+.primary{background:var(--ink);color:var(--ground);border:0;font-weight:600;padding:8px 16px;box-shadow:var(--press);transition:transform .15s,box-shadow .15s}
+.primary:hover{transform:translate(-2px,-2px);box-shadow:var(--rest)}
+.primary .num{margin-left:6px}
+.quiet{background:none;border:1.4px solid var(--hairline);padding:6px 12px;font-size:13px;color:var(--ink-2)}
+.muted{color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M4.5 8.5L14 14l9.5-5.5M14 14v11" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>KINOTTA</div>
+  <div class="reelname">Is a smart ring worth it? <span class="num" style="color:var(--muted);font-size:12px">01:52</span></div>
+  <nav class="steps" aria-label="Reel">
+    <button class="step done"><span class="num n">01</span>Direction ✓</button>
+    <button class="step on" aria-current="step"><span class="num n">02</span>Storyboard</button>
+    <button class="step"><span class="num n">03</span>Review</button>
+  </nav>
+</header>
+<div class="shell">
+  <aside class="rail">
+    <div class="grp"><p class="label">Sections</p>
+      <div class="rrow cur">Hook <span class="num">01</span></div>
+      <div class="rrow">Three devices <span class="num">02</span></div>
+      <div class="rrow">Verdict <span class="num">03</span></div>
+    </div>
+    <div class="grp"><p class="label">Versions</p>
+      <div class="rrow cur">v1 · now <span class="num">v01</span></div>
+    </div>
+    <div class="grp"><p class="label">Direction</p>
+      <div class="rrow" style="font-size:13px">Talking video · Creator</div>
+      <div class="rrow" style="font-size:13px">Portrait 9:16 · Medium b-roll</div>
+      <div class="rrow" style="font-size:13px;color:var(--muted)">Edit direction</div>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="head"><h1>Storyboard · v1</h1><span class="state" id="state">1 shot needs a choice</span></div>
+    <p class="lede">Drag an effect onto a shot's frame to pin it to that spot, onto a gap to add a shot, or onto the strip under a frame to try it as an alternate. Each pin takes a note. Exact timing and the words are in Review. Nothing is built until you send the next build.</p>
+    <div id="sections"></div>
+  </main>
+
+  <aside class="side">
+    <div class="pv">
+      <div class="still" id="pvstill"></div>
+      <div class="pvcap"><span id="pvname">01 · Hook</span><span class="num" id="pvtc">00:00–00:03</span></div>
+      <div class="pvbtns" id="pvbtns"></div>
+    </div>
+    <div class="tabs"><button class="tab on">Effects<span class="num">25</span></button><button class="tab">Comments<span class="num">03</span></button></div>
+    <div class="drawer">
+      <input class="search" placeholder="Search effects">
+      <div class="chips"><button class="chip on">For this reel</button><button class="chip">Words</button><button class="chip">Lists</button><button class="chip">Speaker</button><button class="chip">Screens</button><button class="chip">All 25</button></div>
+      <p class="hint">Showing effects that fit a talking video. Drag one onto the storyboard.</p>
+      <div class="fxgrid" id="fx"></div>
+    </div>
+    <div class="queue" id="queue"></div>
+  </aside>
+</div>
+<script>
+// mockup only
+const ART = {
+  talk: '<i class="person"></i>',
+  ring: '<i class="ring"></i>',
+  capA: '<i class="person"></i><div class="bigcap">IS A RING <i>WORTH IT?</i></div>',
+  capB: '<div class="frame"><i class="person"></i></div><div class="panel"></div>',
+  capC: '<i class="ring"></i><div class="bigcap">Smart ring vs strap vs watch</div>',
+  three: '<div class="cards3"><span></span><span></span><span></span></div>',
+  verdict: '<i class="person"></i><div class="bigcap"><i>YES</i>, for sleep</div>',
+  end: '<div class="end"><b>Follow for part 2</b><span>@yourname</span></div>',
+  checklist: '<div class="lst"><span></span><span></span><span></span></div>',
+  'big-word': '<div class="bw">sleep.</div>',
+  phone: '<div style="position:absolute;left:40%;top:8%;width:20%;height:84%;border:2px solid var(--ink-2);border-radius:6px"></div>',
+  'presenter-split': '<i class="person" style="left:30%"></i><div class="panel"></div>',
+  'chip-tally': '<i class="person"></i><div style="position:absolute;left:8%;bottom:12%;display:flex;gap:4px"><span style="font-size:10px;background:var(--ink);color:var(--ground);padding:0 5px">Strap</span><span style="font-size:10px;background:var(--ink);color:var(--ground);padding:0 5px">Watch</span></div>',
+  'section-tag': '<i class="person"></i><div style="position:absolute;left:8%;top:12%;font-size:11px;background:oklch(.12 .003 106 / .8);padding:0 6px"><b class="num" style="color:var(--light)">02</b> Devices</div>',
+};
+const FX = [
+  { id: 'checklist', name: 'Checklist', d: 'Items tick as you say them', needs: 'the items you list', from: 'the agent finds them in your words' },
+  { id: 'big-word', name: 'Big word', d: 'One word fills the frame', needs: 'the word', from: 'taken from the moment you drop it on' },
+  { id: 'chip-tally', name: 'Chip tally', d: 'A chip per item said', needs: 'the items', from: 'the agent finds them in your words' },
+  { id: 'presenter-split', name: 'Presenter split', d: 'You beside an insert', needs: 'an insert (screen or photo)', from: 'add it to the project, or the agent asks' },
+  { id: 'phone', name: 'Phone', d: 'Your app on a phone', needs: 'screenshots', from: 'add them to the project, or the agent asks' },
+  { id: 'section-tag', name: 'Section tag', d: 'Number and label', needs: 'a label', from: 'the section name' },
+];
+let secs = [
+  { id: 'hook', name: 'Hook', span: '00:00–00:03', said: '“Is a smart ring actually worth it? I tested three devices.”', words: ['Is', 'a', 'smart', 'ring', 'actually', 'worth', 'it?', 'I', 'tested', 'three', 'devices.'],
+    shots: [{ n: '01', t: 'Hook', tc: '00:00–00:03', art: 'capA', alts: [{ k: 'A', label: 'Bold caption over you', art: 'capA' }, { k: 'B', label: 'You framed, panel beside', art: 'capB' }, { k: 'C', label: 'The ring, big headline', art: 'capC' }], on: 0, choice: false }] },
+  { id: 'devices', name: 'Three devices', span: '00:03–01:10', said: '“So basically I tested three: a strap, a smartwatch, and this.”', words: ['So', 'basically', 'I', 'tested', 'three:', 'a', 'strap,', 'a', 'smartwatch,', 'and', 'this.'],
+    shots: [{ n: '02', t: 'Three on the desk', tc: '00:03–00:09', art: 'three' }, { n: '03', t: 'The ring', tc: '00:09–00:20', art: 'ring' }, { n: '04', t: 'Talking', tc: '00:20–01:10', art: 'talk' }] },
+  { id: 'verdict', name: 'Verdict', span: '01:10–01:52', said: '“For sleep, yes. For workouts, keep your watch.”', words: ['For', 'sleep,', 'yes.', 'For', 'workouts,', 'keep', 'your', 'watch.'],
+    shots: [{ n: '05', t: 'Verdict', tc: '01:10–01:40', art: 'verdict' }, { n: '06', t: 'End card', tc: '01:40–01:52', art: 'end' }] },
+];
+let sel = ['hook', 0], pins = [], notes = {}, focusPin = null, fixes = {}, lastDeleted = null, toastTimer = null;
+function removePin(k) {
+  const p = pins[k];
+  lastDeleted = { p, k, shotIndex: null, alt: null };
+  if (p.kind === 'shot') { const list = secs[p.si].shots; lastDeleted.shotIndex = list.findIndex((s) => s.pin === p); lastDeleted.shot = list[lastDeleted.shotIndex]; list.splice(lastDeleted.shotIndex, 1); }
+  if (p.kind === 'alt') { const sh = secs[p.si].shots[p.i]; lastDeleted.alts = sh.alts.slice(); lastDeleted.on = sh.on; sh.alts = sh.alts.filter((a) => !(a.planned && a.art === p.fx)); sh.on = 0; if (sh.alts.length === 1 && sh.alts[0].label === 'As it is') delete sh.alts; }
+  pins.splice(k, 1); focusPin = null;
+  showToast('Pin ' + String(k + 1).padStart(2, '0') + ' · ' + fxById(p.fx).name + ' deleted');
+  render();
+}
+function undoDelete() {
+  if (!lastDeleted) return; const d = lastDeleted; lastDeleted = null;
+  if (d.p.kind === 'shot') secs[d.p.si].shots.splice(d.shotIndex, 0, d.shot);
+  if (d.p.kind === 'alt') { const sh = secs[d.p.si].shots[d.p.i]; sh.alts = d.alts; sh.on = d.on; }
+  pins.splice(d.k, 0, d.p); focusPin = d.k; hideToast(); render();
+}
+function showToast(text) { hideToast(); const t = document.createElement('div'); t.className = 'toast'; t.id = 'toast'; t.innerHTML = '<span>' + text + '</span><button data-undo="1">Undo</button><kbd>Ctrl+Z</kbd>'; document.body.appendChild(t); toastTimer = setTimeout(hideToast, 6000); }
+function hideToast() { clearTimeout(toastTimer); const t = document.getElementById('toast'); if (t) t.remove(); }
+// footprint of each effect in the frame, as fractions of the frame
+const FOOT = { checklist: [.42, .34], 'big-word': [.6, .3], phone: [.18, .7], 'presenter-split': [.38, .6], 'chip-tally': [.5, .14], 'section-tag': [.26, .1] };
+const fxById = (id) => FX.find((f) => f.id === id);
+const shotStart = (s) => s.tc.split('–')[0];
+const pinNo = (p) => String(pins.indexOf(p) + 1).padStart(2, '0');
+function whereText(p) {
+  const sec = secs[p.si];
+  if (p.kind === 'frame') return 'Shot ' + sec.shots[p.i].n + ' · ' + Math.round(p.x * 100) + '% ' + Math.round(p.y * 100) + '%';
+  if (p.kind === 'word') return sec.name + ' · on “' + sec.words[p.wi] + '”';
+  if (p.kind === 'alt') return 'Alternate for shot ' + sec.shots[p.i].n;
+  return 'New shot in ' + sec.name;
+}
+function whenText(p) {
+  if (p.kind === 'frame') return 'When: from ' + shotStart(secs[p.si].shots[p.i]) + ' · set an exact moment in Review, or say it in the note';
+  return '';
+}
+function shotHTML(s, si, i) {
+  if (s.planned) {
+    const f = fxById(s.fx), p = s.pin;
+    return '<div class="shot planned" data-sec="' + si + '" data-i="' + i + '"><span class="pbadge">Planned · ' + pinNo(p) + '</span><div class="still">' + ART[s.fx] + '</div><div class="cap"><span class="t">' + f.name + '</span><span class="tc">new shot</span></div><div class="needs">Needs <b>' + f.needs + '</b>: ' + f.from + '.</div><button class="undo" data-unpin="' + pins.indexOf(p) + '">✕ Delete</button></div>';
+  }
+  const alt = s.alts ? s.alts[s.on] : null;
+  const framePins = pins.filter((p) => p.kind === 'frame' && p.si === si && p.i === i);
+  return '<div class="shot' + (s.alts ? ' has-alt' : '') + (sel[0] === secs[si].id && sel[1] === i ? ' sel' : '') + '" data-sec="' + si + '" data-i="' + i + '"><div class="still" data-frame="' + si + ':' + i + '">' + ART[alt ? alt.art : s.art] +
+    framePins.map((p) => { const [w, h] = FOOT[p.fx]; return '<i class="fp" style="left:' + p.x * 100 + '%;top:' + p.y * 100 + '%;width:' + w * 100 + '%;height:' + h * 100 + '%"></i><button class="pin' + (focusPin === pins.indexOf(p) ? ' sel' : '') + '" data-pin="' + pins.indexOf(p) + '" aria-label="Pin ' + pinNo(p) + ', ' + fxById(p.fx).name + '" style="left:' + p.x * 100 + '%;top:' + p.y * 100 + '%">' + pinNo(p) + '</button>' + (focusPin === pins.indexOf(p) ? '<button class="pinx" data-unpin="' + pins.indexOf(p) + '" style="left:' + p.x * 100 + '%;top:' + p.y * 100 + '%">✕ Delete</button>' : ''); }).join('') +
+    '</div><div class="cap"><span class="t">' + s.n + ' · ' + s.t + '</span><span class="tc num">' + s.tc + '</span></div>' +
+    (s.alts ? '<div class="alts">' + s.alts.map((a, k) => '<button class="dot' + (k === s.on ? ' on' : '') + (a.planned ? ' planned' : '') + '" data-dot="' + si + ':' + i + ':' + k + '" aria-label="' + a.k + '"></button>').join('') + '<span class="altlabel">' + alt.k + ' · ' + alt.label + (s.choice ? ' · <span style="color:var(--light)">in the reel</span>' : '') + '</span></div>' : '') +
+    '<div class="altzone" data-altzone="' + si + ':' + i + '">Drop here to try it as an alternate</div></div>';
+}
+function render() {
+  document.getElementById('sections').innerHTML = secs.map((sec, si) => {
+    const cells = [];
+    sec.shots.forEach((s, i) => cells.push('<div class="slot"><div class="gap" data-gap="' + si + ':' + i + '"></div>' + shotHTML(s, si, i) + '</div>'));
+    cells.push('<div class="slot"><div class="gap" data-gap="' + si + ':' + sec.shots.length + '" style="min-height:120px"></div><div></div></div>');
+    const words = sec.words.map((w, wi) => { const here = pins.filter((p) => p.si === si && p.wi === wi); const fixed = fixes[si + ':' + wi]; return '<span class="w' + (here.length ? ' has' : '') + (fixed ? ' fixed' : '') + '" data-word="' + si + ':' + wi + '" title="Double-click to fix a misheard word">' + (fixed || w) + here.map((p) => '<span class="wpin">' + pinNo(p) + '</span>').join('') + '</span>'; }).join(' ');
+    return '<section class="sec"><div class="sechead"><h2>' + sec.name + '</h2><span class="span num">' + sec.span + '</span></div><div class="row">' + cells.join('') + '</div><input class="secnote" placeholder="Note for this section, e.g. ' + (si === 0 ? 'make the hook words bigger' : si === 1 ? 'show each device as I name it' : 'end on the ring, not on me') + '" value="' + (notes[si] || '') + '" data-note="' + si + '"></section>';
+  }).join('');
+  const sec = secs.find((s) => s.id === sel[0]), s = sec.shots[sel[1]];
+  const alt = s.alts ? s.alts[s.on] : null;
+  document.getElementById('pvstill').innerHTML = ART[alt ? alt.art : s.art];
+  document.getElementById('pvname').textContent = s.n + ' · ' + s.t + (alt ? ' · ' + alt.k : '');
+  document.getElementById('pvtc').textContent = s.tc;
+  document.getElementById('pvbtns').innerHTML = alt ? '<button class="primary" data-use="1">Use ' + alt.k + '</button><button class="quiet">Not this</button><span class="muted" style="align-self:center">' + alt.label + '</span>' : '<button class="quiet">Open shot sheet</button>';
+  const n = pins.length + Object.values(notes).filter(Boolean).length;
+  document.getElementById('queue').innerHTML = '<p class="label">Pinned effects · sent with the next build</p>' + (pins.length ? pins.map((p, k) => '<div class="pcard' + (focusPin === k ? ' sel' : '') + '"><div class="h"><span class="wpin">' + pinNo(p) + '</span><b>' + fxById(p.fx).name + '</b><span class="where">' + whereText(p) + '</span><button class="del" data-unpin="' + k + '" aria-label="Delete pin ' + pinNo(p) + '">✕</button></div>' + (whenText(p) ? '<div class="when">' + whenText(p) + '</div>' : '') + '<textarea data-pnote="' + k + '" placeholder="Note, e.g. ' + (p.fx === 'checklist' ? 'list the prices, not the names' : 'keep it small, under my chin') + '">' + (p.note || '') + '</textarea></div>').join('') : '<p class="muted">Drag an effect onto a frame, a word or a gap.</p>') +
+    '<p class="hintkeys">Select a pin and press <kbd>Delete</kbd> · <kbd>Ctrl</kbd>+<kbd>Z</kbd> brings it back</p><div style="display:flex;gap:10px;align-items:center;margin-top:10px"><button class="primary">Build next version<span class="num">' + String(n).padStart(2, '0') + '</span></button><span class="muted">Copies the request</span></div>';
+  document.getElementById('state').textContent = secs[0].shots[0].choice ? 'All choices made' : '1 shot needs a choice';
+  document.getElementById('fx').innerHTML = FX.map((f) => '<div class="fx" draggable="true" data-fx="' + f.id + '"><div class="still">' + ART[f.id] + '</div><div class="m">' + f.name + '<small>' + f.d + '</small></div></div>').join('');
+  if (focusPin != null) { const t = document.querySelector('[data-pnote="' + focusPin + '"]'); if (t) t.scrollIntoView({ block: 'nearest' }); }
+}
+let dragFx = null, ghost = null;
+function clearOver() { document.querySelectorAll('.over,.over-alt').forEach((x) => x.classList.remove('over', 'over-alt')); if (ghost) { ghost.remove(); ghost = null; } }
+document.addEventListener('dragstart', (e) => { const f = e.target.closest('[data-fx]'); if (!f) return; dragFx = f.dataset.fx; e.dataTransfer.setData('text/plain', dragFx); document.body.classList.add('dragging'); });
+document.addEventListener('dragend', () => { document.body.classList.remove('dragging'); clearOver(); });
+document.addEventListener('dragover', (e) => {
+  if (!dragFx) return;
+  const fr = e.target.closest('[data-frame]'), az = e.target.closest('[data-altzone],.cap,.alts'), g = e.target.closest('.gap'), w = e.target.closest('.w');
+  document.querySelectorAll('.over,.over-alt').forEach((x) => x.classList.remove('over', 'over-alt'));
+  if (fr) {
+    e.preventDefault(); const r = fr.getBoundingClientRect(), [fw, fh] = FOOT[dragFx];
+    if (!ghost || ghost.parentNode !== fr) { if (ghost) ghost.remove(); ghost = document.createElement('i'); ghost.className = 'ghost'; fr.appendChild(ghost); }
+    ghost.style.left = ((e.clientX - r.left) / r.width * 100) + '%'; ghost.style.top = ((e.clientY - r.top) / r.height * 100) + '%'; ghost.style.width = fw * 100 + '%'; ghost.style.height = fh * 100 + '%';
+    return;
+  }
+  if (ghost) { ghost.remove(); ghost = null; }
+  if (az) { const sh = az.closest('.shot:not(.planned)'); if (sh) { e.preventDefault(); sh.classList.add('over-alt'); } return; }
+  if (g || w) { e.preventDefault(); (g || w).classList.add('over'); }
+});
+document.addEventListener('drop', (e) => {
+  e.preventDefault(); document.body.classList.remove('dragging');
+  const fr = e.target.closest('[data-frame]'), az = e.target.closest('[data-altzone],.cap,.alts'), g = e.target.closest('.gap'), w = e.target.closest('.w');
+  let p = null;
+  if (fr) { const [si, i] = fr.dataset.frame.split(':').map(Number), r = fr.getBoundingClientRect(); p = { kind: 'frame', si, i, x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)), fx: dragFx }; sel = [secs[si].id, i]; }
+  else if (az) { const sh = az.closest('.shot:not(.planned)'); if (sh) { const si = +sh.dataset.sec, i = +sh.dataset.i, shot = secs[si].shots[i], f = fxById(dragFx);
+    if (!shot.alts) { shot.alts = [{ k: 'A', label: 'As it is', art: shot.art }]; shot.on = 0; }
+    const k = String.fromCharCode(65 + shot.alts.length); shot.alts.push({ k, label: f.name + ' · planned', art: dragFx, planned: true }); shot.on = shot.alts.length - 1; sel = [secs[si].id, i];
+    p = { kind: 'alt', si, i, fx: dragFx }; } }
+  else if (g) { const [si, i] = g.dataset.gap.split(':').map(Number); p = { kind: 'shot', si, fx: dragFx }; secs[si].shots.splice(i, 0, { planned: true, fx: dragFx, pin: p }); }
+  else if (w) { const [si, wi] = w.dataset.word.split(':').map(Number);
+    // a word dropped with the same effect already pinned to a frame in this section sets that pin's moment
+    const framed = pins.find((q) => q.kind === 'frame' && q.si === si && q.fx === dragFx && q.wi == null);
+    if (framed) { framed.wi = wi; focusPin = pins.indexOf(framed); }
+    else p = { kind: 'word', si, wi, fx: dragFx }; }
+  if (p) { pins.push(p); focusPin = pins.length - 1; }
+  dragFx = null; clearOver(); render();
+});
+document.addEventListener('click', (e) => {
+  const pb = e.target.closest('[data-pin]'); if (pb) { focusPin = +pb.dataset.pin; return render(); }
+  const d = e.target.closest('[data-dot]'); if (d) { const [si, i, k] = d.dataset.dot.split(':').map(Number); secs[si].shots[i].on = k; sel = [secs[si].id, i]; return render(); }
+  if (e.target.closest('[data-undo]')) return undoDelete();
+  const u = e.target.closest('[data-unpin]'); if (u) { e.stopPropagation(); return removePin(+u.dataset.unpin); }
+  const pc = e.target.closest('.pcard'); if (pc && !e.target.closest('textarea')) { focusPin = [...document.querySelectorAll('.pcard')].indexOf(pc); return render(); }
+  if (e.target.closest('[data-use]')) { const sec = secs.find((s) => s.id === sel[0]); sec.shots[sel[1]].choice = true; return render(); }
+  const s = e.target.closest('.shot:not(.planned)'); if (s && !e.target.closest('textarea')) { sel = [secs[+s.dataset.sec].id, +s.dataset.i]; focusPin = null; return render(); }
+});
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.closest('textarea,input');
+  if ((e.key === 'Delete' || e.key === 'Backspace') && focusPin != null && !typing) { e.preventDefault(); return removePin(focusPin); }
+  if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey) && !typing && lastDeleted) { e.preventDefault(); return undoDelete(); }
+  if (e.key === 'Escape') { focusPin = null; render(); }
+});
+document.addEventListener('dblclick', (e) => {
+  const w = e.target.closest('.w'); if (!w) return;
+  const [si, wi] = w.dataset.word.split(':').map(Number), input = document.createElement('input');
+  input.className = 'wedit'; input.value = fixes[si + ':' + wi] || secs[si].words[wi]; w.replaceWith(input); input.focus(); input.select();
+  const done = () => { const v = input.value.trim(); if (v && v !== secs[si].words[wi]) fixes[si + ':' + wi] = v; else delete fixes[si + ':' + wi]; render(); };
+  input.addEventListener('keydown', (k) => { if (k.key === 'Enter') done(); if (k.key === 'Escape') render(); }); input.addEventListener('blur', done);
+});
+document.addEventListener('input', (e) => { if (e.target.dataset.pnote !== undefined) pins[+e.target.dataset.pnote].note = e.target.value; });
+document.addEventListener('change', (e) => { if (e.target.dataset.note !== undefined) { notes[e.target.dataset.note] = e.target.value; render(); } });
+render();
+</script>
+</body>
+</html>
