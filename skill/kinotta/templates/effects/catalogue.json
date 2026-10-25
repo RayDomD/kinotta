@@ -1,0 +1,256 @@
+[
+  {
+    "id": "activity-feed",
+    "name": "Activity feed",
+    "category": "speaker",
+    "description": "Notes stack into columns beside the speaker.",
+    "needs": "Short notes with times",
+    "forms": ["talking", "interview", "tutorial", "demo"],
+    "instant": false,
+    "ask": "Stack the comments beside me as an Activity feed."
+  },
+  {
+    "id": "annotate",
+    "name": "Annotate",
+    "category": "speaker",
+    "description": "Labels enter; a red X strikes one, a hand-drawn loop circles a word.",
+    "needs": "Labels and words to highlight",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Circle the pin with Annotate."
+  },
+  {
+    "id": "arc-flow",
+    "name": "Arc flow",
+    "category": "screens",
+    "description": "A thumbnail rides a dotted arc between two devices; a bar fills, then ticks.",
+    "needs": "Two devices, a thumbnail",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Send the reel from laptop to phone with Arc flow."
+  },
+  {
+    "id": "beat-showreel",
+    "name": "Beat showreel",
+    "category": "structure",
+    "description": "Hook in bar 1, events on the beat, the last bar returns to the opening.",
+    "needs": "Tempo, clips, and hook copy",
+    "forms": ["showreel", "launch"],
+    "instant": false,
+    "ask": "Cut a Beat showreel at 120 BPM."
+  },
+  {
+    "id": "before-after",
+    "name": "Before and after",
+    "category": "screens",
+    "description": "Two phone frames; the After time counts down, then a feature row lands.",
+    "needs": "Two screens, times, and features",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Compare v1 and v2 with Before and after."
+  },
+  {
+    "id": "big-word",
+    "name": "Big word",
+    "category": "words",
+    "description": "One spoken word fills the frame at a time.",
+    "needs": "Words with times from the transcript",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Use Big word on \"one pin, one answer\"."
+  },
+  {
+    "id": "captions",
+    "name": "Captions",
+    "category": "words",
+    "description": "One word at a time near the top; key words large, filler small, one accent word.",
+    "needs": "Words with times from the transcript",
+    "forms": ["talking", "interview", "tutorial", "demo"],
+    "instant": false,
+    "ask": "Turn on Captions with the accent on product names."
+  },
+  {
+    "id": "chart",
+    "name": "Chart",
+    "category": "lists",
+    "description": "Labelled bars build from your data.",
+    "needs": "Labelled numbers and source",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Show the review rounds as a Chart."
+  },
+  {
+    "id": "checklist",
+    "name": "Checklist",
+    "category": "lists",
+    "description": "A panel whose items tick as they are said.",
+    "needs": "Items with spoken times",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Put a Checklist when I list my three steps."
+  },
+  {
+    "id": "chip-tally",
+    "name": "Chip tally",
+    "category": "lists",
+    "description": "A row of check chips grows by one per spoken item.",
+    "needs": "Chips with spoken times",
+    "forms": ["talking", "interview", "tutorial", "demo"],
+    "instant": false,
+    "ask": "Add a Chip tally for the three benefits."
+  },
+  {
+    "id": "diagram",
+    "name": "Diagram",
+    "category": "structure",
+    "description": "Process boxes and arrows draw step by step.",
+    "needs": "Ordered steps and titles",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Draw the review loop as a Diagram."
+  },
+  {
+    "id": "film-look",
+    "name": "Film look",
+    "category": "looks",
+    "description": "Grain, light bloom, vignette and optional mono, frame by frame.",
+    "needs": "Plate footage",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": true,
+    "instantFrom": "fixed label",
+    "ask": "Give the whole reel a Film look, light grain."
+  },
+  {
+    "id": "floating-cards",
+    "name": "Floating cards",
+    "category": "speaker",
+    "description": "Tilted cards rise and settle around the subject.",
+    "needs": "Up to three clips or stills",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Float the three screenshots around me."
+  },
+  {
+    "id": "framed-speaker",
+    "name": "Framed speaker",
+    "category": "speaker",
+    "description": "The footage shrinks into a card on a dark ground; shapes draw in.",
+    "needs": "Plate footage and frame cue time",
+    "forms": ["talking", "interview", "tutorial", "demo"],
+    "instant": false,
+    "ask": "Frame me in a card when I say \"here's the thing\"."
+  },
+  {
+    "id": "letter-swap",
+    "name": "Letter swap",
+    "category": "words",
+    "description": "Letters exit, then replacements enter without overlap.",
+    "needs": "Old word and new word",
+    "forms": ["launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Swap \"describe\" to \"pin\" with Letter swap."
+  },
+  {
+    "id": "live-grade",
+    "name": "Live grade",
+    "category": "looks",
+    "description": "The footage changes grade on the word that names it.",
+    "needs": "Grade steps and cue times",
+    "forms": ["talking", "interview", "tutorial", "demo"],
+    "instant": false,
+    "ask": "Warm the grade when I say \"golden hour\"."
+  },
+  {
+    "id": "motif-carry",
+    "name": "Motif carry",
+    "category": "structure",
+    "description": "An underline travels out of one scene into the next.",
+    "needs": "Outgoing and incoming scene copy",
+    "forms": ["launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Carry the underline into the next shot."
+  },
+  {
+    "id": "number-cut",
+    "name": "Number cut",
+    "category": "lists",
+    "description": "The frame punches in and blurs behind the next section number.",
+    "needs": "Section number",
+    "forms": ["talking", "interview", "tutorial", "demo", "explainer"],
+    "instant": true,
+    "instantFrom": "section number",
+    "ask": "Use Number cut between the three parts."
+  },
+  {
+    "id": "phone",
+    "name": "Phone",
+    "category": "screens",
+    "description": "Scrolls your screens and taps through them.",
+    "needs": "Screen captures and scroll targets",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Show the app on a Phone while I talk about it."
+  },
+  {
+    "id": "presenter-split",
+    "name": "Presenter split",
+    "category": "speaker",
+    "description": "An insert enters while the speaker is re-cropped beside it.",
+    "needs": "Plate footage and an insert screen",
+    "forms": ["talking", "interview", "tutorial", "demo"],
+    "instant": false,
+    "ask": "Split the screen when I show the app."
+  },
+  {
+    "id": "prompt",
+    "name": "Prompt",
+    "category": "screens",
+    "description": "A line types into an input, then Send is pressed.",
+    "needs": "Prompt line and type speed",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Type \"make the headline darker\" into a Prompt."
+  },
+  {
+    "id": "section-tag",
+    "name": "Section tag",
+    "category": "words",
+    "description": "A number chip and label wipe in at a corner.",
+    "needs": "Section number and label",
+    "forms": ["talking", "interview", "tutorial", "demo", "explainer"],
+    "instant": true,
+    "instantFrom": "section name",
+    "ask": "Tag each chapter with a Section tag."
+  },
+  {
+    "id": "shape-morph",
+    "name": "Shape morph",
+    "category": "structure",
+    "description": "A circle becomes a bar, then an open frame, in one continuous move.",
+    "needs": "Target geometry for adjacent shot",
+    "forms": ["launch", "explainer", "showreel"],
+    "instant": false,
+    "ask": "Join shots 2 and 3 with a Shape morph."
+  },
+  {
+    "id": "text-behind",
+    "name": "Text behind you",
+    "category": "speaker",
+    "description": "Display text rises between the footage and the person.",
+    "needs": "Headline text and person matte",
+    "forms": ["talking", "interview"],
+    "instant": false,
+    "ask": "Put \"FOCUS\" behind me at the start."
+  },
+  {
+    "id": "title-card",
+    "name": "Title card",
+    "category": "words",
+    "description": "A title arrives word by word, then a subtitle.",
+    "needs": "Title and subtitle",
+    "forms": ["talking", "interview", "tutorial", "demo", "launch", "explainer", "showreel"],
+    "instant": true,
+    "instantFrom": "reel title",
+    "ask": "Open with a Title card: \"The pin\"."
+  }
+]
