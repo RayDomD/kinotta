@@ -34,18 +34,73 @@ spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-1
 
 ## Goal
 
+An owner can make a reel in one click (Auto) or say what they want first in five short steps (Direct), and what they chose is recorded as the reel's style and read by the agent. Kinotta works with no setup: a built-in brand and built-in styles cover a project with only a video. The 25 effect templates are visible in a Library and can be dragged onto Storyboard shots; effects that need nothing from the speech are made instantly and for free, the rest go in one agent run with the next build. Styles are saved by name, reused as copies, and hold the rules the owner chose to keep.
+
 ## Approach
+
+Build from the data outward, so every screen reads one thing:
+
+- **Style is one record.** A style holds the Direction choices (form, look, settings marked "yours", fonts, music, effects to try, shots wanted) and its rules. Saved styles are JSON files: yours under `~/.kinotta/styles/`, a project's under `reels/styles/`. Each reel stores its own copy beside its state. Built-in styles and the built-in brand ship as read-only files with Kinotta. One new server module, `server/core/_internal/style.ts`, reads, validates, saves and copies them, following `agent-settings.ts` and `make-options.ts` (runtime validation at the boundary, atomic writes). The web app reaches it only through `web/src/api/_internal/client.ts`.
+- **Make takes a style.** Today Simple mode's Make sends `MakeOptions` (`videoType`, `broll`, `captions`, `pace`, `notes`) to `POST /api/reels`. Auto sends the default style; Direct sends the style built in Direction. `MakeOptions` stays accepted so nothing breaks; a style maps onto it for the footage build, and the full style goes into the agent request so "What the agent is told" is exactly what the agent receives.
+- **Pinned effects reuse comments.** A comment already has a frame or word pin and goes to the agent in a batch (`batch.ts`). A pinned effect is a comment with an `effect` id. Agent pins ride the existing batch, so Undo, frozen versions, carry-over and the alternates fix keep working. Instant pins take a separate server path that fills the template and runs `engine/build.py`; it never imports the agent runner.
+- **The skill reads styles.** SKILL.md section 2 falls back to the built-in brand instead of stopping when `DESIGN.md` is missing; section 3 reads the reel's style and its rules instead of the taste lists. Existing taste lists are migrated, not deleted.
+- **UI follows the saved mockups** in `spec`, on the existing shell and one light rule. Auto and Export are filled buttons; Direct and Edit use the neutral raised style.
+
+Each phase below is its own branch and PR, shippable alone, in this order because later phases read what earlier ones store.
 
 ## Steps
 
+### Phase 1: Style storage, built-ins and brand fallback
+1. Define the style shape and its validator in `server/core/_internal/style.ts`; export it through `server/core/index.ts`.
+2. Ship built-in styles (Clean, Creator, Editorial; Flat 2D, Layered 2D, Filmed 3D) and a built-in brand with redistributable fonts; record each font's license.
+3. Read, list, save by name (you or project), copy onto a reel, and mark a default. Routes in `server/http/_internal/handler.ts`; calls in the API client.
+4. Migrate once: Simple mode's browser profile (`kinotta-simple-options-v1`) into your default style; `~/.kinotta/taste.md` into your default style's rules; `reels/taste.md` into a project style. Old files stay in place, marked migrated.
+
+### Phase 2: Auto and Direct
+5. Make screen: Auto and Direct, as in `2026-10-25-simple-default-direction.html`. Auto uses the default style, or the built-in that fits the video type.
+6. Simple preview: Export and Edit side by side, Edit opening the full editor.
+7. `POST /api/reels` accepts a style; the reel stores its copy; the agent request includes it.
+
+### Phase 3: Direction
+8. The five steps with stepper, "So far" chips and "Build now with these"; Style step with built-in and saved styles, "Start from another reel" (copy), and "Fine-tune the details".
+9. Fonts and music: brand fonts preselected, own font and music drop with license and rights notes, music fit and ducking options.
+10. Check step: the visual recap, "What the agent is told" including active rules with a per-reel switch, and Save as my style (for you or this project).
+
+### Phase 4: Effects library
+11. A templates listing on the server from `skill/kinotta/templates/effects`, marking each effect instant or agent (instant when its `fill` needs nothing picked from the speech).
+12. Library page: categories, looping previews, what each needs, forms it fits, copyable request, favourites; Sounds tab with the 17 sounds and your music.
+
+### Phase 5: Storyboard pinned effects
+13. Drag an effect onto a frame, a gap or the alternates strip, per `2026-10-25-storyboard-pinned-effects.html`; pins with notes, Delete and Undo.
+14. Instant pins: their own server path fills the template in the reel's style and runs `build.py` locally. Agent pins and any pin with a note: saved as comments with an `effect` id and sent in the next batch. The build button shows the count and "1 agent run", as in `2026-10-25-pinned-effect-instant-or-agent.html`.
+
+### Phase 6: Skill and rules
+15. SKILL.md sections 2 and 3: built-in brand fallback, reel style and rules in place of the taste lists; `direction` and pinned effects read from the request.
+16. "Keep this note in this reel's style?" after a built pin note, with the wording above; rules added to the reel's style. Point the Simple mode flow plan's Phase 6 at this plan.
+17. Update `CONTEXT.md` (glossary: Brand, Style, built-in style, rule, pinned effect, instant pin) and `DESIGN.md`; an ADR for pinned effects as comments with an `effect` id.
+
 ## Risks
 
+- **Migration loses taste.** Moving browser profiles and taste lists could drop a setting. Mitigation: copy, never delete, and a test per source.
+- **A "free" pin quietly costs tokens.** Mitigation: the instant path cannot import the agent runner, and a test fails if an instant pin creates an agent job.
+- **Instant output looks worse than agent output.** Template fill only sets words, font and colours. Mitigation: pins show which kind they are; a note always routes to the agent.
+- **Built-in fonts we may not redistribute.** Mitigation: OFL or similar only, license recorded in Phase 1.
+- **Style drift between the request and the UI.** Mitigation: "What the agent is told" is rendered from the same style record that goes into the request.
+- **Comment batch changes break alternates or carry-over.** Mitigation: run the existing alternates and batch suites in Phase 5.
+
 ## Checks to run
+
+- Per phase: `npm run typecheck`, `npm test`, and the relevant `npm run test:e2e` specs.
+- Phase 1: unit tests for validation, save, copy, default and each migration; a project with no `DESIGN.md` builds with the built-in brand.
+- Phases 2 and 3: browser checks of Auto, Direct, every Direction step, Save as my style, and Start from another reel at desktop and phone width.
+- Phase 5: the instant-pin no-agent test; `tests/core/batch.test.ts` and the `alternates-*` suites; Undo and Delete on pins in the browser.
+- Phase 6: a footage reel and a code-built reel built from a style, with the request showing the style and rules.
 
 ## Changelog
 
 ### 2026-10-25
 - Plan created as Intent only, from the mockup session with the owner. Four mockups saved under `docs/mockups/2026-10-25-*`. Waiting for approval of the Intent before the rest is filled.
+- Intent approved by the owner. Goal, Approach, Steps (six phases), Risks and Checks written; waiting for approval of the plan.
 - Brand and Style: the app shows only Brand (`DESIGN.md`, or a built-in brand when missing) and Style (per reel, saved by name, reused as a copy, one default for Auto, built-in read-only styles). Rules live in a style; the taste lists move into styles. Q2 and Q4 revised to match.
 - Q4 answered: Auto ships with the saved style alone; "Always do this?" gets a fuller prompt (what it does, the note, where to undo) when it ships.
 - Q3 answered: instant and free pins when nothing is needed from the speech and there is no note, otherwise one agent run with the next build; Storyboard only. Mockup `docs/mockups/2026-10-25-pinned-effect-instant-or-agent.html`.
