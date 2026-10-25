@@ -177,9 +177,17 @@ Done when `reels/brand.md` exists with `checked:` set to a date, or you have sto
 
 ## 3. Build storyboard v1
 
-1. **Read the taste lists.** `~/.kinotta/taste.md` (global) and `reels/taste.md` (this project,
-   optional). Every rule applies to every shot. You may suggest a new rule in chat; only the owner
-   adds one. If the global file is missing, say so and carry on.
+1. **Read the reel's style and rules.** Read `reels/.kinotta/<slug>/style.json` (where `readReelStyle`
+   places it) when present. Treat its `rules` as the owner's kept notes for this reel, and treat any
+   `direction` in the request (or fields in the style: `form`, `look`, `settings` like pace/broll/captions,
+   `fonts`, `music`, `effects`, `shots`) as the owner's request. If the reel has no style file yet, use the
+   built-in style from `assets/styles/` that fits the video type (`flat-2d`, `layered-2d` or `filmed-3d` for
+   code-built reels, default `flat-2d`; `clean`, `creator` or `editorial` for footage reels, default `clean`).
+   No style is enforced on every reel: universal checks stay mechanical; style guidance and checks
+   apply only to the chosen style (for example, `reference/motion-craft.md` turns on only for Filmed 3D).
+   Old taste files (`~/.kinotta/taste.md` and `reels/taste.md`) stay readable as a fallback (described as
+   migrated into personal and project styles per `style.ts`, never deleted), but do not treat them as an
+   enforced global rule source.
 2. **Read the brand sources** the brand file points at. `DESIGN.md` decides colour and type.
 3. **Check the effect templates.** `templates/effects/README.md` lists ready-made parts shots
    (section tag, text behind you, floating cards, number cut, big word, checklist, before and
@@ -241,7 +249,7 @@ On a footage reel (its `reel.json` names footage), follow **section 6** instead 
    is `comments-<section>.json` and the batch covers that section only.
 2. **Confirm `v<n>` is the newest version.** If `v<n+1>` already exists, stop and ask.
 3. **Check the brand file as in section 2.** If it says `checked: no`, ask instead of building.
-   Then read the taste lists and the brand sources as in section 3.
+   Then read the reel's style, rules and brand sources as in section 3.
 4. **Copy** `reels/<slug>/v<n>/` to `reels/<slug>/v<n+1>/`, leaving out `shots.json`,
    `answers.md`, `edits.json` and every `comments*.json`. Never write into `v<n>`. The copy keeps
    `kinotta-edits.css` and the `<link>` to it in `index.html`: the owner's moved and scaled elements on a
@@ -329,9 +337,14 @@ built page and the shot list go in the version.
    `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
 6. **Sections.** Split the video by topic into sections of a few minutes each, contiguous from 0 to
    the video's length. A video under about three minutes is one section. Ids are short kebab-case.
-   Read `templates/effects/README.md`, `~/.kinotta/taste.md` and `reels/taste.md` when present,
-   plus the checked brand sources. Use one signature entrance per reel from the brand curves,
-   otherwise the engine's sourced defaults. Apply the treatment for `videoType`:
+   Read the reel's style (`reels/.kinotta/<slug>/style.json`), treating its `rules` as kept notes and
+   `direction` fields (form, look, settings, fonts, music, effects, shots) as the owner's request. When
+   missing, use the built-in style that fits the `videoType` (`clean`, `creator`, or `editorial`, default `clean`).
+   No style is enforced on every reel: universal checks stay mechanical, and style guidance and checks
+   apply only to the chosen style. Old taste files (`~/.kinotta/taste.md` and `reels/taste.md`) stay readable
+   as a fallback (migrated into personal and project styles per `style.ts`, never deleted).
+   Read `templates/effects/README.md` plus the checked brand sources. Use one signature entrance per reel
+   from the brand curves, otherwise the engine's sourced defaults. Apply the treatment for `videoType`:
 
    | `videoType` | Treatment |
    |---|---|
@@ -421,7 +434,9 @@ works out which sections changed by comparing each section's scenes and shots wi
 before, and moves every unsent comment forward by itself, to the same moment of the footage in the new version.
 
 1. **Read the batch file** and confirm `v<n>` is the newest version, as in section 4 steps 1 and 2.
-   The look follows section 5.
+   Read the reel's style (`reels/.kinotta/<slug>/style.json`), treating its `rules` as kept notes and
+   any `direction` in the request as the owner's ask; a missing reel style falls back to the built-in style
+   that fits the video type. The look follows section 5.
 2. **Confirm the sources build `v<n>`.** Compose the plan (see "The plan" below) into a scratch file and compare it
    with `reels/<slug>/v<n>/index.html`. If they differ, the sources changed since `v<n>`: stop and ask.
 3. **Answer each comment in the batch's section only.** Edit only the clips whose `section` is the
@@ -500,8 +515,8 @@ batch's section changed, and `v<n>` is unchanged.
 
 The sample reels in the Kinotta repo's tests show the folder layout and the contract. They are
 **contract, not look**: their colours, type and copy are placeholders. The look comes from the brand
-file and the taste lists. The repo root is two folders above this skill's real folder (follow the
-link); on the owner's machine it is `C:\FIles\Projects\Apps\Kinotta`.
+file and the reel's style (with old taste files migrated into styles). The repo root is two folders above
+this skill's real folder (follow the link); on the owner's machine it is `C:\FIles\Projects\Apps\Kinotta`.
 
 - `tests/fixtures/projects/showreel-project/reels/product-showreel/`: a clean reel with v1 and v2.
 - `tests/fixtures/projects/broken-project/reels/launch-teaser/v1/`: a version that breaks the

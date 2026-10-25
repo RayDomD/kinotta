@@ -211,7 +211,7 @@ A note you chose to keep in a reel's style, which the agent follows on later ver
 _Avoid_: Always-do note, global rule
 
 **Taste list**:
-Rules you apply to every reel, which Claude reads before each build. Claude may suggest a rule; only you add one.
+Legacy rules files (`~/.kinotta/taste.md` and `reels/taste.md`), migrated into personal and project styles. A taste list no longer applies rules to every reel; rules now live in a reel's **Style** as a **Rule**, where they can be turned on or off per reel and reused across reels without global side effects.
 _Avoid_: Style memory, preferences
 
 **Brand file**:
