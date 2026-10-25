@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kinotta · Pinned effect build v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);--still:oklch(.13 .006 50);
+  --rest:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+  /* the two looks being compared */
+  --tpl-bg:oklch(.52 .2 264);--tpl-ink:#fff;
+  --you-bg:oklch(.22 .006 60);--you-ink:oklch(.93 .035 85);--you-accent:oklch(.74 .12 55);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.mock{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 22px;background:var(--ground-deep);border-bottom:1.4px solid var(--rule);font-size:13px;color:var(--muted)}
+.mock .opt{background:none;border:1.4px solid var(--hairline);padding:4px 12px;color:var(--ink-2);font-size:13px}
+.mock .opt.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.mock .reset{margin-left:auto;background:none;border:0;color:var(--muted);text-decoration:underline;font-size:12px}
+.top{height:52px;display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1.4px solid var(--rule)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.14em;font-size:13px}
+.reelname{color:var(--ink-2)}
+.style{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.style b{font-family:Fraunces,serif;font-weight:600;color:var(--you-ink);background:var(--you-bg);padding:1px 8px;margin-left:6px}
+.shell{display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:calc(100vh - 100px)}
+.main{padding:20px 26px 80px;min-width:0}
+h1{font-weight:500;font-size:22px;letter-spacing:-.4px;margin:0}
+.lede{color:var(--muted);font-size:13px;margin:4px 0 18px;max-width:62ch}
+.how{border:1.4px solid var(--hairline);background:var(--card);padding:10px 14px;margin:0 0 20px;font-size:13.5px;color:var(--ink-2);max-width:72ch}
+.how b{color:var(--ink);font-weight:500}
+.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.shot{border:1.4px solid transparent;padding:8px;position:relative;transition:border-color .18s,background .18s}
+.shot.over{border-color:var(--light);background:var(--light-wash)}
+.dragging .shot{border-color:var(--rule)}
+.still{aspect-ratio:9/16;max-height:340px;width:100%;background:var(--still);position:relative;overflow:hidden}
+.person{position:absolute;left:50%;bottom:-4%;width:52%;height:62%;transform:translateX(-50%)}
+.person::before{content:"";position:absolute;left:30%;top:0;width:40%;aspect-ratio:1;border-radius:50%;background:oklch(.38 .008 60)}
+.person::after{content:"";position:absolute;left:0;right:0;top:40%;bottom:0;border-radius:46% 46% 0 0;background:oklch(.31 .008 60)}
+.cap{display:flex;justify-content:space-between;margin-top:6px;font-size:14px}
+.cap .t{font-weight:500}.cap .tc{font-size:12px;color:var(--muted)}
+.status{font-size:12.5px;margin-top:4px;min-height:20px;color:var(--ink-2)}
+.status i{font-style:normal;color:var(--light)}
+/* the effect layer inside a still */
+.fx-layer{position:absolute;left:8%;right:8%;top:14%;padding:10px 12px;transition:opacity .4s}
+.fx-layer.tpl{background:var(--tpl-bg);color:var(--tpl-ink);font-family:Inter,sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:-.02em}
+.fx-layer.you{background:var(--you-bg);color:var(--you-ink);font-family:Fraunces,serif;font-weight:600;border-left:4px solid var(--you-accent)}
+.fx-layer .big{font-size:26px;line-height:1}
+.fx-layer small{display:block;font:500 10px Outfit;opacity:.8;margin-top:6px;text-transform:none;letter-spacing:0}
+.fx-layer.anim .big{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.fx-layer ul{margin:0;padding:0;list-style:none;font-size:14px;line-height:1.5}
+.fx-layer.anim li{animation:rise .5s cubic-bezier(.2,.8,.2,1) both}
+.fx-layer.anim li:nth-child(2){animation-delay:.25s}.fx-layer.anim li:nth-child(3){animation-delay:.5s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.badge{position:absolute;left:8px;top:8px;font-size:11px;padding:0 6px;z-index:3}
+.badge.draft{background:var(--ink);color:var(--ground)}
+.badge.free{background:var(--you-accent);color:var(--ground);font-weight:600}
+.badge.agent{background:none;border:1.2px dashed var(--light);color:var(--light)}
+.tag{font-size:11px;padding:0 6px;margin-left:6px;white-space:nowrap}
+.tag.free{background:var(--you-accent);color:var(--ground);font-weight:600}
+.tag.agent{border:1.2px dashed var(--light);color:var(--light)}
+.badge.wait{background:none;border:1.2px dashed var(--light);color:var(--light)}
+.pin{position:absolute;right:10px;top:8px;width:22px;height:22px;display:grid;place-items:center;font-family:Doto,monospace;font-weight:800;font-size:11px;color:var(--ground);background:var(--light);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);filter:drop-shadow(0 0 6px var(--light));z-index:3}
+.waiting{position:absolute;inset:14% 8% auto;border:1.6px dashed var(--light);background:oklch(.84 .11 225 / .1);height:22%;display:grid;place-items:center;font-size:12px;color:var(--light)}
+.working{position:absolute;inset:0;background:oklch(.12 .003 106 / .55);display:grid;place-items:center;z-index:2}
+.working span{font-size:12px;color:var(--ink);background:var(--ground);border:1.2px solid var(--hairline);padding:2px 10px}
+.bar{position:absolute;left:0;bottom:0;height:3px;background:var(--light);box-shadow:0 0 8px var(--light-glow);transition:width .2s linear;z-index:3}
+/* right */
+.side{border-left:1.4px solid var(--rule);display:flex;flex-direction:column;position:sticky;top:0;height:calc(100vh - 100px);align-self:start}
+.drawer{padding:14px 16px;overflow:auto}
+.label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.hint{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.fxgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fx{border:1.4px solid var(--hairline);background:none;padding:0;text-align:left;cursor:grab}
+.fx:hover{border-color:var(--ink)}
+.fx .prev{aspect-ratio:16/10;position:relative;background:var(--still);overflow:hidden}
+.fx .prev .fx-layer{top:18%;padding:6px 8px}
+.fx .prev .big{font-size:15px}.fx .prev ul{font-size:10px}
+.fx .m{padding:5px 8px 7px;font-size:13px}
+.fx .m small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
+.queue{margin-top:auto;border-top:1.4px solid var(--rule);padding:12px 16px;max-height:52vh;overflow:auto}
+.pcard{background:var(--card);border:1.4px solid var(--hairline);padding:8px 10px;margin:0 0 8px}
+.pcard .h{display:flex;gap:8px;align-items:center;font-size:13px}
+.pcard .h b{font-weight:500}
+.pcard .h .where{color:var(--muted);font-size:12px;margin-left:auto}
+.wpin{display:inline-grid;place-items:center;width:16px;height:16px;font-family:Doto,monospace;font-weight:800;font-size:9px;color:var(--ground);background:var(--light);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.pcard textarea{width:100%;margin-top:6px;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:6px 8px;font:inherit;font-size:13px;min-height:38px;resize:vertical}
+.pcard textarea:focus{outline:none;border-color:var(--light)}
+.pcard .st{font-size:12px;color:var(--ink-2);margin-top:4px}
+.primary{background:var(--ink);color:var(--ground);border:0;font-weight:600;padding:8px 16px;box-shadow:var(--press);transition:transform .15s,box-shadow .15s}
+.primary:hover:not(:disabled){transform:translate(-2px,-2px);box-shadow:var(--rest)}
+.primary:disabled{opacity:.4;cursor:default}
+.primary .num{margin-left:6px}
+.muted{color:var(--muted);font-size:12.5px}
+.cost{font-size:12px;color:var(--muted);margin-top:6px}
+@media (max-width:820px){.shell{grid-template-columns:1fr}.side{position:static;height:auto;border-left:0;border-top:1.4px solid var(--rule)}.row{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="mock"><span>Mockup · proposed: instant and free when it can be, agent when it must</span><button class="reset" id="reset">Reset</button></div>
+<header class="top">
+  <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>KINOTTA</div>
+  <div class="reelname">Weekend out <span class="num" style="color:var(--muted);font-size:12px">00:30</span></div>
+  <div class="style">Your style<b>Fraunces · cream on charcoal</b></div>
+</header>
+<div class="shell">
+  <main class="main">
+    <h1>Storyboard · v1</h1>
+    <p class="lede">Drag effects onto shots. Try Title card first, then Checklist, then type a note on the title card.</p>
+    <div class="how"><b>Instant · free</b> effects are made right away on your computer, in your font and colours. No agent, no tokens. <b>Needs the agent</b> effects wait and all go together in one agent run when you press Build. An effect needs the agent when it must pick words from what you said, or when you write it a note.</div>
+    <div class="row" id="row"></div>
+  </main>
+  <aside class="side">
+    <div class="drawer">
+      <p class="label">Effects</p>
+      <p class="hint">Each card says up front whether it is instant or needs the agent.</p>
+      <div class="fxgrid" id="fx"></div>
+    </div>
+    <div class="queue" id="queue"></div>
+  </aside>
+</div>
+<script>
+// mockup only: timings are compressed; a real agent run takes 1–3 minutes
+const FX = {
+  title: { name: 'Title card', d: 'Uses the reel title', text: 'Weekend out', instant: true },
+  tag: { name: 'Section tag', d: 'Uses the section name', text: '02 · The drive', instant: true },
+  big: { name: 'Big word', d: 'Picks a word you say', text: 'Finally.', why: 'picks a word from what you said' },
+  list: { name: 'Checklist', d: 'Picks the items you list', items: ['Coffee', 'Coast road', 'No phone'], why: 'picks the items from what you said' },
+};
+const SHOTS = [{ n: '01', t: 'Hook', tc: '00:00–00:04' }, { n: '02', t: 'Driving', tc: '00:04–00:15' }, { n: '03', t: 'Beach', tc: '00:15–00:30' }];
+let state = {}, building = false, counter = 0;
+const needsAgent = (p) => !FX[p.fx].instant || !!p.note.trim();
+const why = (p) => !FX[p.fx].instant ? FX[p.fx].why : 'your note needs the agent to read it';
+const pad = (n) => String(n).padStart(2, '0');
+const layer = (fx, anim) => { const f = FX[fx];
+  const body = f.items ? '<ul>' + f.items.map((i) => '<li>— ' + i + '</li>').join('') + '</ul>' : '<div class="big">' + f.text + '</div>';
+  return '<div class="fx-layer you' + (anim ? ' anim' : '') + '">' + body + '</div>'; };
+const planned = (p) => p.made ? layer(p.fx) : '<div class="waiting">' + FX[p.fx].name + ' · planned</div>';
+function shotHTML(s, i) {
+  const p = state[i]; let inner = '<i class="person"></i>', status = '';
+  if (p) {
+    inner += '<span class="pin">' + pad(p.no) + '</span>';
+    if (p.phase === 'filling') { inner += '<div class="working"><span>Making it in your style…</span></div><div class="bar" style="width:' + p.prog + '%"></div>'; status = 'Instant · on your computer'; }
+    if (p.phase === 'done') { inner += layer(p.fx, p.fresh) + (p.byAgent ? '' : '<span class="badge free">Instant · free</span>'); status = p.byAgent ? 'Built by the agent' + (p.note.trim() ? ' · your note followed' : '') : 'Done · your style · no agent, no tokens'; }
+    if (p.phase === 'wait') { inner += planned(p) + '<span class="badge agent">Needs the agent</span>'; status = 'Waiting for Build · ' + why(p); }
+    if (p.phase === 'agent') { inner += planned(p) + '<div class="working"><span>Agent building…</span></div><div class="bar" style="width:' + p.prog + '%"></div>'; status = '<i>Agent working</i> · one run for all waiting pins'; }
+  }
+  return '<div class="shot" data-shot="' + i + '"><div class="still">' + inner + '</div><div class="cap"><span class="t">' + s.n + ' · ' + s.t + '</span><span class="tc num">' + s.tc + '</span></div><div class="status">' + (status || '<span class="muted">Drop an effect here</span>') + '</div></div>';
+}
+function pinTag(p) {
+  if (p.byAgent) return '';
+  return needsAgent(p) ? '<span class="tag agent">Needs the agent</span>' : '<span class="tag free">Instant · free</span>';
+}
+function pinStatus(p) {
+  return ({ filling: 'Making it now…', done: p.byAgent ? 'Built by the agent' : 'Done · no tokens used', wait: 'Waiting · ' + why(p), agent: 'Agent working…' })[p.phase];
+}
+function render() {
+  document.getElementById('row').innerHTML = SHOTS.map(shotHTML).join('');
+  document.getElementById('fx').innerHTML = Object.entries(FX).map(([id, f]) => '<div class="fx" draggable="true" data-fx="' + id + '"><div class="prev">' + layer(id) + '</div><div class="m">' + f.name + (f.instant ? '<span class="tag free">Instant · free</span>' : '<span class="tag agent">Agent</span>') + '<small>' + f.d + '</small></div></div>').join('');
+  const all = Object.entries(state), waiting = all.filter(([, p]) => p.phase === 'wait'), free = all.filter(([, p]) => p.phase === 'done' && !p.byAgent).length;
+  let q = '<p class="label">Pinned effects</p>';
+  q += all.length ? all.map(([i, p]) => '<div class="pcard"><div class="h"><span class="wpin">' + pad(p.no) + '</span><b>' + FX[p.fx].name + '</b>' + pinTag(p) + '<span class="where">Shot ' + SHOTS[i].n + '</span></div><textarea data-note="' + i + '" placeholder="Note (optional). Writing one sends it to the agent."' + (p.phase === 'agent' || p.phase === 'filling' || p.byAgent ? ' disabled' : '') + '>' + p.note + '</textarea><div class="st">' + pinStatus(p) + '</div></div>').join('') : '<p class="muted">Nothing pinned yet.</p>';
+  q += '<div style="display:flex;gap:10px;align-items:center;margin-top:10px"><button class="primary" id="build"' + (waiting.length && !building ? '' : ' disabled') + '>Build next version<span class="num">' + pad(waiting.length) + '</span></button></div><p class="cost">' + (waiting.length ? waiting.length + ' pin' + (waiting.length > 1 ? 's' : '') + ' · 1 agent run' : 'Nothing needs the agent') + (free ? ' · ' + free + ' already done free' : '') + '</p>';
+  document.getElementById('queue').innerHTML = q;
+  Object.values(state).forEach((p) => { p.fresh = false; });
+}
+function tick(i, ms, phase, done) { const p = state[i]; p.phase = phase; p.prog = 0; const t0 = performance.now();
+  const step = () => { if (state[i] !== p) return; p.prog = Math.min(100, (performance.now() - t0) / ms * 100); if (p.prog < 100) { render(); requestAnimationFrame(step); } else done(); };
+  requestAnimationFrame(step); }
+function drop(fx, i) {
+  const p = { fx, no: ++counter, note: '' }; state[i] = p;
+  if (FX[fx].instant) tick(i, 900, 'filling', () => { p.phase = 'done'; p.made = true; p.fresh = true; render(); });
+  else { p.phase = 'wait'; render(); }
+}
+function build() {
+  building = true; const ids = Object.keys(state).filter((i) => state[i].phase === 'wait'); let left = ids.length;
+  ids.forEach((i) => tick(i, 4500, 'agent', () => { const p = state[i]; p.phase = 'done'; p.byAgent = true; p.made = true; p.fresh = true; if (--left === 0) building = false; render(); }));
+}
+let dragFx = null;
+document.addEventListener('dragstart', (e) => { const f = e.target.closest('[data-fx]'); if (!f) return; dragFx = f.dataset.fx; e.dataTransfer.setData('text/plain', dragFx); document.body.classList.add('dragging'); });
+document.addEventListener('dragend', () => { document.body.classList.remove('dragging'); document.querySelectorAll('.over').forEach((x) => x.classList.remove('over')); });
+document.addEventListener('dragover', (e) => { if (!dragFx) return; const s = e.target.closest('[data-shot]'); document.querySelectorAll('.over').forEach((x) => x.classList.remove('over')); if (s) { e.preventDefault(); s.classList.add('over'); } });
+document.addEventListener('drop', (e) => { e.preventDefault(); document.body.classList.remove('dragging'); const s = e.target.closest('[data-shot]'); if (s && dragFx) drop(dragFx, +s.dataset.shot); dragFx = null; });
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#reset')) { state = {}; counter = 0; building = false; return render(); }
+  if (e.target.closest('#build')) build();
+});
+// a note on an instant pin moves it to the agent; clearing the note moves it back
+document.addEventListener('input', (e) => { const k = e.target.dataset.note; if (k === undefined) return; const p = state[k]; p.note = e.target.value;
+  const before = p.phase; if (FX[p.fx].instant && (p.phase === 'done' || p.phase === 'wait')) p.phase = p.note.trim() ? 'wait' : 'done';
+  if (p.phase !== before) { const pos = e.target.selectionStart; render(); const t = document.querySelector('[data-note="' + k + '"]'); t.focus(); t.setSelectionRange(pos, pos); } });
+render();
+</script>
+</body>
+</html>

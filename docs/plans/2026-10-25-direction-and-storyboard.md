@@ -3,7 +3,7 @@ title: Generate or tweak, Direction, effects library and pinned effects
 date: 2026-10-25
 status: Draft
 summary: Start a reel with Auto or Direct; Direct adds a five-step Direction with presets and a Storyboard where effects are dragged and pinned, not built.
-spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-10-25-start-generate-or-tweak.html, docs/mockups/2026-10-25-direction-step.html, docs/mockups/2026-10-25-effects-library.html, docs/mockups/2026-10-25-storyboard-pinned-effects.html
+spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-10-25-pinned-effect-instant-or-agent.html, docs/mockups/2026-10-25-start-generate-or-tweak.html, docs/mockups/2026-10-25-direction-step.html, docs/mockups/2026-10-25-effects-library.html, docs/mockups/2026-10-25-storyboard-pinned-effects.html
 ---
 
 ## Intent
@@ -23,7 +23,7 @@ spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-1
 - Open questions:
   1. Answered 2026-10-25: Simple mode is the default; Direction is a new screen reached from Direct and replaces nothing.
   2. Answered 2026-10-25: both. "Save as my style" asks "for me" or "this project only". Your style is the starting point for every new reel; a project style overrides it there. Your style is a file in the home folder (for example `~/.kinotta/style.json`); a project style is a file in the project, read and saved by a new `server/core/_internal/style.ts` in the pattern of `agent-settings.ts`, through the API client. Simple mode's profile (browser storage, `kinotta-simple-options-v1`) folds into your style, migrated once on first load, so there is one personal style. Reason: browser storage is tied to the port, and Kinotta falls back to a random port when 4317 is busy, so saved defaults appear to vanish. No unmerged branch touches `simple-options.ts`, `SimpleMode.tsx`, `agent-settings.ts` or `requests.ts` (checked 2026-10-25).
-  3. Do pinned effects on footage reels build directly from the template with `fill` (no agent) when nothing is missing, or always go through the agent in the first version?
+  3. Answered 2026-10-25: both, decided per pin. A pin is **Instant · free** when its effect needs nothing picked from the speech (for example Title card from the reel title, Section tag from the section name) and it has no note: Kinotta fills the template with `fill` and the style's `--fx-font`, `--fx-ink` and `--fx-accent` and runs `engine/build.py` locally, with no agent and no tokens (build.py imports only the standard library and local modules, checked 2026-10-25). A pin **Needs the agent** when the effect picks words or items from the speech (Big word, Checklist) or when it has a note; writing a note moves an instant pin to the agent, clearing it moves it back. All agent pins go in one run with the next build. Effect cards and pins show which kind they are, and Build shows the count and "1 agent run". To keep it free: instant pins go through their own server path that never reaches the agent runner, with a test that fails if an instant pin creates an agent job. Storyboard only in the first version; Direction's effects feed the first build, and Simple preview and Review pins carry notes, so they use the agent anyway.
   4. Does Generate now for a returning user need the "Always do this?" rules from the Simple mode plan (Phase 6) first, or start with the saved style alone?
 
 ## Goal
@@ -40,5 +40,6 @@ spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-1
 
 ### 2026-10-25
 - Plan created as Intent only, from the mockup session with the owner. Four mockups saved under `docs/mockups/2026-10-25-*`. Waiting for approval of the Intent before the rest is filled.
+- Q3 answered: instant and free pins when nothing is needed from the speech and there is no note, otherwise one agent run with the next build; Storyboard only. Mockup `docs/mockups/2026-10-25-pinned-effect-instant-or-agent.html`.
 - Q2 answered: personal and project style as files; Simple mode's browser-stored profile folds into the personal style.
 - Second mockup session: Q1 answered; Direction split into five steps with a visual Check; own font and music; entry choices renamed Auto / Direct and Export / Edit with both paths promoted. Saved `docs/mockups/2026-10-25-simple-default-direction.html`.
