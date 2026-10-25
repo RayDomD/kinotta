@@ -136,11 +136,16 @@ them and never copies their values (no hex codes, font sizes or copy lifted from
 
 **If it doesn't exist (first use in this project):**
 
-1. Look for `DESIGN.md` at the project root. If it is missing or empty, stop. Tell the owner the
-   reel needs a design system for colour and type, and suggest `/impeccable init` then
-   `/impeccable document`. Offer one alternative: "proceed without". Only if they choose it, ask
-   for the colours and typefaces and record their answers in the brand file under
-   `## Answers (standing in for a missing DESIGN.md)`.
+1. Look for `DESIGN.md` at the project root. If it is missing or empty, use the **built-in brand**
+   instead of stopping: `assets/brand/brand.md` in this skill (Geist and Geist Mono, the effect
+   templates' default colours; fonts and licenses beside it). Write `reels/brand.md` with
+   `- Colour and type: built-in brand (Kinotta assets/brand/brand.md)` as its colour and type
+   source, set `checked:` to today's date, and tell the owner in one short message: the reel uses
+   Kinotta's built-in brand; to replace it, add a `DESIGN.md` (for example `/impeccable init` then
+   `/impeccable document`) and delete `reels/brand.md`, or type their own colours and typefaces.
+   If they want to type their own, ask for the colours and typefaces, record their answers in the
+   brand file under `## Answers (standing in for a missing DESIGN.md)` in place of the built-in
+   brand, and set `checked:` once they confirm. Then continue with steps 2 to 4.
 2. Find the other sources: logo files, brand guidelines, voice or tone notes, product context,
    imagery, font files. Look at the root and in folders like `brand-guidelines/`, `Assets/`,
    `context/`, `docs/`. Note what you could not find.
@@ -165,7 +170,8 @@ them and never copies their values (no hex codes, font sizes or copy lifted from
    ```
 
 4. Summarise the file in chat (what each source is, what is missing) and **stop without
-   building**. The owner checks it once.
+   building**. The owner checks it once. On the built-in brand, summarise it the same way but
+   don't stop: it is already checked.
 
 Done when `reels/brand.md` exists with `checked:` set to a date, or you have stopped and asked.
 
