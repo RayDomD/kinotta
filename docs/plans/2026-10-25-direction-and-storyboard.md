@@ -22,7 +22,7 @@ spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-1
 - Out of scope: Word editing and exact timing in Storyboard (they stay in Review). A separate Cut step. Building portrait reels (detection only; building depends on `docs/plans/2026-10-18-portrait-reels.md`, Draft). New effect templates. Render-side motion blur.
 - Open questions:
   1. Answered 2026-10-25: Simple mode is the default; Direction is a new screen reached from Direct and replaces nothing.
-  2. Where does "Save as my style" live: per machine like Simple mode's profile, per project, or both?
+  2. Answered 2026-10-25: both. "Save as my style" asks "for me" or "this project only". Your style is the starting point for every new reel; a project style overrides it there. Your style is a file in the home folder (for example `~/.kinotta/style.json`); a project style is a file in the project, read and saved by a new `server/core/_internal/style.ts` in the pattern of `agent-settings.ts`, through the API client. Simple mode's profile (browser storage, `kinotta-simple-options-v1`) folds into your style, migrated once on first load, so there is one personal style. Reason: browser storage is tied to the port, and Kinotta falls back to a random port when 4317 is busy, so saved defaults appear to vanish. No unmerged branch touches `simple-options.ts`, `SimpleMode.tsx`, `agent-settings.ts` or `requests.ts` (checked 2026-10-25).
   3. Do pinned effects on footage reels build directly from the template with `fill` (no agent) when nothing is missing, or always go through the agent in the first version?
   4. Does Generate now for a returning user need the "Always do this?" rules from the Simple mode plan (Phase 6) first, or start with the saved style alone?
 
@@ -40,4 +40,5 @@ spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-1
 
 ### 2026-10-25
 - Plan created as Intent only, from the mockup session with the owner. Four mockups saved under `docs/mockups/2026-10-25-*`. Waiting for approval of the Intent before the rest is filled.
+- Q2 answered: personal and project style as files; Simple mode's browser-stored profile folds into the personal style.
 - Second mockup session: Q1 answered; Direction split into five steps with a visual Check; own font and music; entry choices renamed Auto / Direct and Export / Edit with both paths promoted. Saved `docs/mockups/2026-10-25-simple-default-direction.html`.
