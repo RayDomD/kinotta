@@ -405,7 +405,7 @@ test('Regenerate combines section requests after freezing changed Working and of
   } finally { await server.close(); }
 });
 
-test('Make starts a real reel from a project video in Simple mode with treatment picker and live preview', async ({ page }) => {
+test('Auto starts a real reel from a project video in Simple mode with the usual style', async ({ page }) => {
   const projectDir = copyFixture('footage-project');
   const server = await startServer({ projectDir, port: 0, transcriber: async () => [{ text: 'Hello', start: 0.5, end: 0.9 }] });
   try {
@@ -414,52 +414,23 @@ test('Make starts a real reel from a project video in Simple mode with treatment
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
 
-    // Treatment picker is shown
-    await expect(page.getByText('What are you making?')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Let Kinotta decide/ })).toBeVisible();
+    // Two equal choices named as a process, with the frame found in the video.
+    const choices = page.getByRole('group', { name: 'How to make it' });
+    await expect(choices.getByRole('button', { name: /^Auto/ })).toBeVisible();
+    await expect(choices.getByRole('button', { name: /^Direct/ })).toBeVisible();
+    await expect(page.getByText(/Landscape 16:9 · 640 × 360/)).toBeVisible();
+    await expect(page.getByText(/Your usual style: Kinotta.s Clean/)).toBeVisible();
 
-    // Pick a video type: Explainer
-    await page.getByRole('button', { name: /Explainer/ }).click();
-    await expect(page.getByRole('button', { name: /✓ Explainer/ })).toBeVisible();
-
-    // Override B-roll dial to heavy
-    await page.getByRole('group', { name: 'B-roll' }).getByRole('button', { name: 'heavy' }).click();
-    await expect(page.getByText(/about 60% covered · yours/)).toBeVisible();
-
-    // Override Pace dial to fast
-    await page.getByRole('group', { name: 'Pace' }).getByRole('button', { name: 'fast' }).click();
-    await expect(page.getByText(/shots flash ~1–2 s, rapid cuts · yours/)).toBeVisible();
-
-    // Check Live b-roll plan preview stat line
-    const stat = page.locator('#stat');
-    await expect(stat).toBeVisible();
-    await expect(stat).toContainText('cutaways');
-    await expect(stat).toContainText('60% covered');
-    await expect(page.getByText('Added by Kinotta', { exact: true })).toBeVisible();
-    for (const frame of await page.locator('.sm-preview-frame').all()) {
-      const box = (await frame.boundingBox())!;
-      expect(box.width / box.height).toBeCloseTo(16 / 9, 1);
-    }
-
-    // Optional notes
-    await page.getByPlaceholder(/keep the jokes/).fill('Keep the jokes, hold the lab shot longer');
-
-    // Fill in Reel name and submit
     await page.getByLabel('Reel name', { exact: true }).fill('Simple make');
-    await page.getByRole('button', { name: 'Make', exact: true }).click();
+    await choices.getByRole('button', { name: /^Auto/ }).click();
 
     await expect(page.getByRole('heading', { name: 'Simple make', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Seek timeline' })).toBeVisible();
     expect((await server.project.listReels()).reels.some((reel) => reel.title === 'Simple make')).toBe(true);
 
-    // Verify treatment options persisted in plan.json
+    // The built-in Clean style's settings reach the plan.
     const plan = JSON.parse(readFileSync(join(projectDir, 'reels/simple-make/plan.json'), 'utf8'));
-    expect(plan).toMatchObject({
-      videoType: 'explainer',
-      broll: 'heavy',
-      pace: 'fast',
-      notes: 'Keep the jokes, hold the lab shot longer',
-    });
+    expect(plan).toMatchObject({ broll: 'light', pace: 'normal', captions: { look: 'phrase' } });
   } finally { await server.close(); }
 });
 
@@ -480,7 +451,7 @@ test('Editable dead-air cuts: full recording timeline, restored pause, resized c
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
     await page.getByLabel('Reel name', { exact: true }).fill('Editable dead air');
-    await page.getByRole('button', { name: 'Make', exact: true }).click();
+    await page.getByRole('button', { name: /^Auto/ }).click();
     await expect(page.getByRole('heading', { name: 'Editable dead air', exact: true })).toBeVisible();
 
     const reels = (await server.project.listReels()).reels;

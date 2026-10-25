@@ -747,6 +747,9 @@ export interface VideoEntry {
   codec: string;
   /** Bytes. */
   size: number;
+  /** The picture as shown, when the probe could read it: Direction's Frame is detected from these. */
+  width?: number;
+  height?: number;
 }
 
 export interface NewReel extends MakeOptions {

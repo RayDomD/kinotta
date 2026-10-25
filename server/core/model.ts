@@ -31,3 +31,7 @@ export function brollTargets(broll: BrollAmount, pace: VisualPace, durationSecon
   const duration = Number.isFinite(durationSeconds) ? Math.max(0, durationSeconds) : 0;
   return { coveragePercent, shotSeconds, count: Math.round(duration * coveragePercent / 100 / shotSeconds) };
 }
+
+/** Direction's choices and the agent's style lines, shared so "What the agent is told" is what the agent receives. */
+export { FORMS, FRAMES, LOOKS, agentTold, formById, frameOf, lookById, musicChoice, styleLook, styleMakeOptions } from './_internal/direction.ts';
+export type { FormDefinition, Frame, LookDefinition, MusicChoice, ToldContext } from './_internal/direction.ts';
