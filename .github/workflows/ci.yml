@@ -24,8 +24,7 @@ jobs:
       - run: npm run check:docs
       - run: npm run check:commits -- "origin/$BASE_REF"
       # Unit suites shell out to ffmpeg/ffprobe, the renderer's Chromium and synth.py (numpy).
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg python3-numpy
       - run: npx playwright install --with-deps chromium
-      - run: python3 -m pip install numpy
       # Render and process-heavy suites need stable timing; they stay local.
       - run: npx vitest run --project unit
