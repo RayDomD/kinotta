@@ -1,0 +1,55 @@
+---
+title: Repo guardrails from the 2026-10-25 retro
+date: 2026-10-25
+status: In Progress
+summary: Stop tests dirtying tracked files, check doc paths and commit messages, and run cheap checks on every pull request.
+spec:
+---
+
+## Intent
+
+- Problem: The Direction and Storyboard session lost time to mechanical problems. A viewer test rewrites tracked screenshots on every run. Plans named paths that did not exist. A branch landed without a Conventional Commit prefix. Nothing runs on a pull request, so a stale test stayed red on `main` for about a week.
+- Why: Each of these is deterministic, so a check should catch it. A written rule would only add steering text.
+- Proposed outcome: Running the test suite leaves the worktree clean. A plan or brief that names a missing doc fails a check. Every commit on a pull request is checked for its prefix. Pull requests run the cheap checks.
+- Affected: `tests/core/render-viewer-transport.test.ts`, new `scripts/check-docs.mjs` and `scripts/check-commits.mjs`, `package.json`, new `.github/workflows/ci.yml`.
+- Constraints: No new dependencies. Node 20 or newer, as in `package.json` engines. The committed viewer screenshots and `measurements.json` stay as the record the 2026-10-15 session summary points to.
+- Out of scope: Running the full `npm test` in CI (needs ffmpeg and a browser; prove it on a draft pull request first). The e2e `KINOTTA_HOME` guard (codex is editing those fixtures). The stale `editor-settings` test (own branch). `~/.claude` wording changes.
+- Open questions: Whether the full suite can run stably on the CI runner.
+
+## Goal
+
+A pull request that breaks types, names a missing doc, or uses a commit message without a prefix fails before review. A full local test run leaves `git status` empty.
+
+## Approach
+
+Each fix is a small deterministic check, not a rule in `REVIEW.md`.
+
+- **A. Viewer test output.** The test writes its screenshots and `measurements.json` to `tests/artifacts/viewer-transport-clips/` (already gitignored) instead of the tracked `docs/session-summaries/` folder.
+- **B. Doc paths.** `scripts/check-docs.mjs`, run as `npm run check:docs`. It reads `docs/plans/*.md` and `docs/briefs/**/*.md`, finds backticked `docs/...` paths, and fails if one is missing. For a plan whose frontmatter status is `Done` it also checks code paths under `server/`, `web/`, `skill/`, `tests/`, `scripts/`. Plans still in progress may name files that are not built yet.
+- **C. Commit prefix.** `scripts/check-commits.mjs <base>`, run as `npm run check:commits -- origin/main`. It fails for any commit between the base and HEAD whose subject does not start with `feat:`, `fix:`, `docs:`, `chore:`, `refactor:` or `test:` (an optional scope in parentheses is allowed). Merge commits are skipped.
+- **D. CI.** `.github/workflows/ci.yml` on pull requests: `npm ci`, `npm run typecheck`, `npm run check:docs`, `npm run check:commits`.
+
+## Steps
+
+1. Save this plan; regenerate the dashboard.
+2. A: change the output path in the viewer test; run it and confirm `git status` stays clean.
+3. B: write `check-docs.mjs`; add the script; run it on `main` content and note the existing failures.
+4. C: write `check-commits.mjs`; add the script; run it against this branch.
+5. D: write the workflow.
+
+## Risks
+
+- `check:docs` may flag older plans that already name missing files. Mitigation: run it first, then decide per hit whether to fix the plan or scope the check, without silently skipping.
+- The CI job cannot be run locally. Mitigation: run each of its commands locally; read the first Actions run on the pull request.
+- Pre-existing merge-style commits on older branches may fail `check:commits`. Mitigation: it checks only the range of the pull request.
+
+## Checks to run
+
+- `npm run typecheck`
+- `npm run check:docs` and `npm run check:commits -- origin/main`
+- `npx vitest run tests/core/render-viewer-transport.test.ts`, then `git status --short` is empty.
+
+## Changelog
+
+### 2026-10-25
+- Plan created and approved by the owner after the session retro.
