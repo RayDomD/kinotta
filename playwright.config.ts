@@ -71,7 +71,8 @@ const PICKER_PORT = 4380;
 /** A nineteenth for renders.spec.ts: the showreel sample, where renders are queued, followed from other tabs and cancelled. */
 const RENDERS_PORT = 4379;
 
-const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port) });
+// Servers start through a shell, so they watch the Playwright runner's pid, not their parent's, to exit with it.
+const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: String(process.pid) });
 
 export default defineConfig({
   testDir: 'tests/e2e',
