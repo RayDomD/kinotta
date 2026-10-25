@@ -5,7 +5,7 @@ import { startServer } from '../../server/main.ts';
 import { launchAgent } from '../../server/core/_internal/runner.ts';
 import { copyFixture } from '../helpers/project.ts';
 
-it('Make in Simple plays v1 while a fake agent runs, then loads published v2 as Working', { timeout: 90_000 }, async () => {
+it('Auto in Simple plays v1 while a fake agent runs, then loads published v2 as Working', { timeout: 90_000 }, async () => {
   let release!: () => void;
   const gate = new Promise<void>((done) => { release = done; });
   const server = await startServer({
@@ -22,7 +22,7 @@ it('Make in Simple plays v1 while a fake agent runs, then loads published v2 as 
     await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
     await page.getByLabel('Or use a video in this project').selectOption('media/talk.mp4');
     await page.getByLabel('Reel name', { exact: true }).fill('Fake agent Make');
-    await page.getByRole('button', { name: 'Make', exact: true }).click();
+    await page.getByRole('button', { name: /^Auto/ }).click();
     const slug = 'fake-agent-make';
     await expect.poll(() => server.project.agentJob(slug).then((job) => job?.state).catch(() => undefined), { timeout: 20_000 }).toBe('running');
     expect((await server.project.readWorkingVersion(slug)).number).toBe(1);

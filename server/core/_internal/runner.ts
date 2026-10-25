@@ -535,19 +535,31 @@ export interface VideoProbe {
   codec: string;
   /** Bytes. */
   size: number;
+  /** The picture as shown, after any rotation the file asks for; absent when the stream does not say. */
+  width?: number;
+  height?: number;
 }
 
 /** ffprobe on a file. Throws when it is not a video ffprobe can read. */
 export async function probeVideo(file: string): Promise<VideoProbe> {
-  const args = ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name:format=duration,size', '-of', 'json', file];
+  const args = ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,width,height:stream_tags=rotate:stream_side_data=rotation:format=duration,size', '-of', 'json', file];
   const parsed = JSON.parse(await run('ffprobe', args, PROBE_TIMEOUT_MS)) as {
-    streams?: { codec_name?: string }[];
+    streams?: { codec_name?: string; width?: number; height?: number; tags?: { rotate?: string }; side_data_list?: { rotation?: number }[] }[];
     format?: { duration?: string; size?: string };
   };
-  const codec = parsed.streams?.[0]?.codec_name;
+  const stream = parsed.streams?.[0];
+  const codec = stream?.codec_name;
   const duration = Number(parsed.format?.duration);
   if (!codec || !Number.isFinite(duration)) throw new Error(`ffprobe found no video in ${file}.`);
-  return { duration, codec, size: Number(parsed.format?.size) };
+  const probe: VideoProbe = { duration, codec, size: Number(parsed.format?.size) };
+  if (stream.width && stream.height) {
+    // A phone's portrait clip is often stored landscape with a rotation to apply on playback.
+    const rotation = Number(stream.side_data_list?.find((data) => data.rotation !== undefined)?.rotation ?? stream.tags?.rotate ?? 0);
+    const turned = Math.abs(rotation) % 180 === 90;
+    probe.width = turned ? stream.height : stream.width;
+    probe.height = turned ? stream.width : stream.height;
+  }
+  return probe;
 }
 
 /** Original-sound peaks, with a bounded number of buckets and no automatic level changes. */

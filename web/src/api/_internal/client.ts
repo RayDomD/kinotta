@@ -653,3 +653,7 @@ export const importVideo = (file: File, onProgress?: (sent: number) => void): Pr
 export const fetchWorkingVersion = (slug: string): Promise<Version> => getJson(`/api/reels/${encodeURIComponent(slug)}/working`);
 export const renderWorking = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
   requestJson(`/api/reels/${encodeURIComponent(slug)}/working-render`, { method: 'POST', body: JSON.stringify({ preset, ...settings, remember: true, acceptOverload }) });
+
+// Auto and Direct, Direction (appended block).
+/** The picture as shown, when the server's probe could read it: Direction's Frame is detected from these. */
+export interface VideoEntry { width?: number; height?: number }
