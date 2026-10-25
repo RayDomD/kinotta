@@ -23,7 +23,8 @@ a sound ("add pulse sound") is answered the same way: see "Sound requests in com
 
 For a code-built motion reel that should feel filmed (a moving camera, depth, light), read
 `reference/motion-craft.md` before writing the treatment. It covers the treatment, the camera rig
-that works within the shot rules, and the checks before hand-over.
+that works within the shot rules, WebGL shots with Three.js and bloom (`engine/bundle_shot.js`), and
+the checks before hand-over.
 
 ## Which step am I on?
 

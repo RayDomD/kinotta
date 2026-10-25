@@ -28,16 +28,16 @@ A treatment table looks like this:
 4. **One light.** Only the state colour glows (Kinotta's ice). Everything else is ink and muted greys.
 5. **Transitions are events.** Flash, iris, whip pan, streak. Split each event across the cut: the outgoing shot builds it, the incoming shot resolves it.
 6. **Continuity by matching poses.** Copy shot n's last camera key, exactly, as shot n+1's first key. Shots share no state, so this is the only thing joining them.
-7. **Check stills, then fix what they show** (section 5).
+7. **Check stills, then fix what they show** (section 6).
 
 ## 3. Kinotta's limits and what they mean
 
-- **No imports in shot modules.** Three.js and other libraries are out. Copy the rig in section 4 into each `shot.js`; the duplication is the price of independent, revisable shots.
+- **No imports in shot modules.** Kinotta inlines each `shot.js` into the version page and refuses `import`. Copy the rig in section 4 into each `shot.js`; the duplication is the price of independent, revisable shots. A WebGL shot gets Three.js by bundling (section 5).
 - **The Storyboard still is local time 0.** Parts shots have no still offset. Frame 0 must show the shot's content: start an iris already partly open (a 560 px circle, not 0), start fly-ins already in view, have phrases visible from the first frame.
 - **Inherit visibility; never set `visible`.** The page hides inactive shots with `visibility: hidden` on the section. A descendant set to `visibility: visible` shows through anyway, leaking into every other shot. Hide an element with `'hidden'` and show it with `''`.
 - **`seek` clamps to `DURATION`.** When checking a moved scene, move it inside the reel's length.
 - **Swapping a shot can break the camera line.** An alternate need not end on the same pose; the transition events are what hide the join.
-- **No bloom or motion blur from the render path yet.** Fake glow with CSS `drop-shadow` and canvas gradients; fake a whip with a directional SVG blur (section 4).
+- **No bloom or motion blur from the render path.** In a CSS-rig shot, fake glow with CSS `drop-shadow` and canvas gradients and fake a whip with a directional SVG blur (section 4). A WebGL shot gets real bloom inside the page (section 5); motion blur is still unavailable.
 
 ## 4. The rig
 
@@ -80,7 +80,43 @@ rig.style.transform = 'matrix3d(' + [xc.x, yc.x, zc.x, 0,  xc.y, yc.y, zc.y, 0,
 
 **Stacked depth (layered letters):** copies stepping back with `translateZ`, darkening as they go. Opacity flattens a 3D stack and paints in DOM order, so put the front copy last.
 
-## 5. Checks
+## 5. WebGL shots (Three.js)
+
+Use WebGL for the shots where light is the point: a glowing object, a lit floor, a dive into a light. It gives real bloom, lit 3D solids and thousands of points cheaply. Keep text in DOM planes either way. The CSS rig is lighter, so use it for shots that are mostly type and cards.
+
+**Costs**, measured on a 21.5 s reel with one WebGL shot: the page grows by about 500 KB per WebGL shot (each carries its own copy of Three.js), and the draft render took 2 m 29 s against 1 m 31 s with none.
+
+**Bundling.** Write the shot as `shots/<name>/r<n>/shot.src.js`, an ES module that imports `three` and `three/addons/...` and exports `async function seek(local)`. Then:
+
+```bash
+NODE_PATH=./motion/node_modules node $SKILL/engine/bundle_shot.js shots/<name>/r<n>/shot.src.js shots/<name>/r<n>/shot.js
+```
+
+The script resolves `three` to the vendored r170 in `vendor/three` (see its README for the included add-ons), bundles everything into a module-scoped closure and re-exports `seek`, so `shot.js` contains no `import`. Keep `shot.src.js` in the revision folder **before** the first build: the whole folder is hashed at publication, so a file added later breaks the revision.
+
+**One camera for both layers.** Run the section 4 rig as usual, then point the Three.js camera from the same basis, so DOM planes sit exactly on the WebGL scene. Three.js is y-up, so flip y:
+
+```js
+const R3 = (P) => new THREE.Vector3(P.x, -P.y, P.z);
+glCam.position.copy(R3(cam.C));
+basis.makeBasis(new THREE.Vector3(cam.xc.x, -cam.xc.y, cam.xc.z),    // right
+                new THREE.Vector3(-cam.yc.x, cam.yc.y, -cam.yc.z),   // up = -(screen down)
+                new THREE.Vector3(cam.zc.x, -cam.zc.y, cam.zc.z));   // back
+glCam.quaternion.setFromRotationMatrix(basis);
+glCam.fov = 2 * Math.atan(540 / cam.d) * 180 / Math.PI;
+glCam.updateProjectionMatrix(); glCam.updateMatrixWorld(true);
+```
+
+Avoid naming the Three.js camera `camera` or a mesh `pool`: both clash with the rig's functions in one bundle.
+
+**Renderer and post.** `new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })` at pixel ratio 1 and 1920x1080, an `EffectComposer` with `RenderPass`, `UnrealBloomPass` and `OutputPass`, and `composer.render()` inside `seek`, so the frame is drawn before `seek` resolves. The WebGL canvas carries the `field` element.
+
+- **Colours:** the composer's targets encode to sRGB once more, so give the clear colour and fog pre-linearised (`new THREE.Color(hex).convertSRGBToLinear()`); otherwise the ground renders grey. Measure a pixel of empty ground to confirm it matches the brand ground.
+- **One light:** bloom only what should glow. A threshold around 0.6 with strength 1.0 and radius 0.5 blooms the ice faces and leaves muted greys alone. Too low a threshold, or too many additive layers, washes the frame grey.
+- **Pins:** WebGL content cannot be hit-tested. Give each pinnable 3D object a transparent DOM plane at its position, carrying its `data-el`.
+- **Time:** never use the renderer's clock, `AfterimagePass` or anything that accumulates frames; every frame must come from `seek(local)` alone.
+
+## 6. Checks
 
 During the build, preview each shot alone in a scratch page (`seek` exposed on `window`) and screenshot it:
 
