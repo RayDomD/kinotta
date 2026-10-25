@@ -164,6 +164,18 @@ A hand-off captures Working as an exact version before mapping and writing the b
 On a parts reel the batch groups comments by shot and opens with a `Rebuild:` line naming those shots.
 _Avoid_: Feedback round, export
 
+**Pinned effect**:
+An effect template dragged onto a Storyboard shot: a comment with an `effect` id, pinned to a spot on a frame, a gap between shots, or the alternates strip. It may carry a note. It is a request, not a Working change, until the next build makes it.
+_Avoid_: Effect marker, effect placement
+
+**Instant pin**:
+A pinned effect that needs nothing picked from the speech and has no note. Kinotta fills its template in the reel's style and builds it locally, with no agent and no tokens. Writing a note makes it an agent pin.
+_Avoid_: Free pin, local pin
+
+**Agent pin**:
+A pinned effect that picks words or items from the speech, or has a note. It goes to the agent with the next build, and all agent pins share one run. Clearing the note of an effect that needs nothing from the speech makes it an instant pin.
+_Avoid_: Paid pin, AI pin
+
 **Approval**:
 Your mark that a version is final. It is a label only: rendering doesn't need it. Several versions of a reel can be approved.
 _Avoid_: Sign-off, lock
@@ -178,8 +190,28 @@ _Avoid_: Profile, template
 
 ### Brand and taste
 
+**Brand**:
+The project's colours, fonts and logo, read from `DESIGN.md` through the brand file. One of the two ideas the app shows; Brand and Style own different things, so they never compete.
+_Avoid_: Theme, look
+
+**Built-in brand**:
+Kinotta's plain default fonts and colours, all redistributable, used when a project has no `DESIGN.md`, so a beginner with only a video can build.
+_Avoid_: Default theme, fallback brand
+
+**Style**:
+Everything about a reel's look beyond its brand: look, pace, captions, effects and rules. Every reel has its own style. A style can be saved under a name, for you or with the project, and reused on another reel as a copy, never a link, so editing one reel never changes another. One saved style is the default that Auto uses.
+_Avoid_: Preset, profile, theme
+
+**Built-in style**:
+A read-only style shipped with Kinotta: Clean, Creator and Editorial for video, and Flat 2D, Layered 2D and Filmed 3D for code-built reels. Changing one makes your own copy. Until you save a style, Auto uses the built-in style that fits the video type.
+_Avoid_: Template, default style
+
+**Rule**:
+A note you chose to keep in a reel's style, which the agent follows on later versions of that reel. It reaches other reels only when you reuse the style or save it as yours or the project's, and can be turned off per reel.
+_Avoid_: Always-do note, global rule
+
 **Taste list**:
-Rules you apply to every reel, which Claude reads before each build. Claude may suggest a rule; only you add one.
+Legacy rules files (`~/.kinotta/taste.md` and `reels/taste.md`), migrated into personal and project styles. A taste list no longer applies rules to every reel; rules now live in a reel's **Style** as a **Rule**, where they can be turned on or off per reel and reused across reels without global side effects.
 _Avoid_: Style memory, preferences
 
 **Brand file**:

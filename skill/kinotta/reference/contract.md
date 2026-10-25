@@ -55,7 +55,7 @@ Keep the shot's fixed `name` and retain existing `data-el` names for equivalent 
 ```
 reels/
 ├── brand.md                 brand file (checked once)
-├── taste.md                 optional project taste list
+├── taste.md                 legacy project taste list (fallback, migrated into styles)
 └── <slug>/
     ├── reel.json            { "title": "Brand intro" }
     ├── v1/
