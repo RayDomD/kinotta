@@ -53,3 +53,9 @@ Each fix is a small deterministic check, not a rule in `REVIEW.md`.
 
 ### 2026-10-25
 - Plan created and approved by the owner after the session retro.
+
+### 2026-10-26
+- A, B, C and D built on `chore/repo-guardrails`, one commit each. Viewer test now writes to `tests/artifacts/viewer-transport-clips/`; the test passes and `git status` stays clean after it.
+- B narrowed: the code-path half was dropped after its first run found 12 hits that were all renamed or removed files in Done plans. Four real doc misses are listed with reasons in `scripts/check-docs-known.txt`. A fresh bad reference fails the check.
+- C verified against a real bad commit: it flags `c8fa5bd` ("Add built-in brand...") on `origin/feat/built-in-brand`.
+- D not yet run on GitHub; its three commands pass locally. Full `npm test` in CI is still open (see Out of scope).
