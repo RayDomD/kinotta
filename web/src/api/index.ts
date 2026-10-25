@@ -42,3 +42,7 @@ export { detectMediaBeats, fetchMedia, fetchMediaModel, fetchProjectMedia, fetch
 export type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../server/core/index.ts';
 export { fetchStyles, saveStyle, saveDefaultStyle, fetchReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/client.ts';
 export type { Style, StyleListing } from './_internal/client.ts';
+
+// Effects catalogue (effects-library lane)
+export { fetchEffects, effectPreviewUrl } from './_internal/client.ts';
+export type { EffectCatalogueEntry } from './_internal/client.ts';

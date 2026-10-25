@@ -26,6 +26,7 @@ import type { CommentsState } from './useComments.ts';
 import { useNote } from './useNote.ts';
 import type { NoteState } from './useNote.ts';
 import { SimpleMode, startsInSimpleMode } from './SimpleMode.tsx';
+import { Library } from './Library.tsx';
 
 type Load =
   | { status: 'loading' }
@@ -56,6 +57,7 @@ function topBarVerifyAttrs(choices: number) {
 
 function TopBar(props: {
   onSimple?(): void;
+  onLibrary?(): void;
   reel: ReelSummary | undefined;
   version: Version | undefined;
   commentCount: number;
@@ -94,6 +96,7 @@ function TopBar(props: {
       </nav>
       {renders && <RenderMenu {...renders} />}
       {props.onSimple && <button type="button" className="c-act" onClick={props.onSimple}>Simple mode</button>}
+      {props.onLibrary && <button type="button" className="c-act" onClick={props.onLibrary}>Library</button>}
       {choices > 0 && !creating && <span className="alternate-choice-count" aria-label="Shots needing a choice" role="status"><span className="num">{choices}</span>{` ${choices === 1 ? 'shot needs' : 'shots need'} a choice`}</span>}
       {reel && version && !creating && (
         <CopyButton
@@ -205,6 +208,7 @@ interface RailProps {
   /** The New reel screen is open. */
   creating: boolean;
   onNewReel(): void;
+  onLibrary?(): void;
 }
 
 function Rail(props: RailProps) {
@@ -227,6 +231,7 @@ function Rail(props: RailProps) {
         )}
         <nav className="reels" aria-label="New reel">
           <button type="button" aria-current={creating ? 'true' : undefined} onClick={onNewReel}>New reel</button>
+          {props.onLibrary && <button type="button" onClick={props.onLibrary}>Library</button>}
         </nav>
       </div>
       {sections !== null && !creating && <SectionRail {...sections} />}
@@ -419,6 +424,15 @@ export function App() {
 
 function Studio() {
   const [simple, setSimple] = useState(startsInSimpleMode);
+  const [library, setLibrary] = useState(() => typeof window !== 'undefined' && (window.location.hash === '#library' || new URLSearchParams(window.location.search).get('page') === 'library'));
+
+  useEffect(() => {
+    const onHash = () => {
+      if (window.location.hash === '#library') setLibrary(true);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const changeMode = (next: boolean) => {
     try { sessionStorage.setItem('kinotta-mode', next ? 'simple' : 'editor'); } catch { /* The mode still works for this visit. */ }
     setSimple(next);
@@ -623,6 +637,13 @@ function Studio() {
   const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
   const frozen = openVersion !== undefined && !working;
 
+  if (library) return <Library reelTitle={reel?.title ?? 'The pin'} onBack={() => {
+    setLibrary(false);
+    if (typeof window !== 'undefined' && window.location.hash === '#library') {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }} />;
+
   if (simple) return <SimpleMode listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
     comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted}
     onEditor={() => { setWorking(true); setChosen(newest); setPhase('Review'); changeMode(false); }}
@@ -654,6 +675,7 @@ function Studio() {
     <div className="app">
       <TopBar
         onSimple={() => { setWorking(true); setChosen(newest); changeMode(true); }}
+        onLibrary={() => setLibrary(true)}
         reel={reel}
         version={openVersion}
         commentCount={multiSection ? (pinCounts(comments.comments, openVersion.shots).get(sectionId) ?? 0) : comments.comments.length}
@@ -704,6 +726,7 @@ function Studio() {
           onOpen={openReel}
           creating={creating}
           onNewReel={() => setCreating(true)}
+          onLibrary={() => setLibrary(true)}
         />
         <Main
           working={working}

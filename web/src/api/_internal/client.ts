@@ -669,3 +669,20 @@ export const fetchBrandFonts = (): Promise<import('../../../../server/core/index
 /** Copies a font dropped on Direction into the project's fonts/, with a license note. */
 export const importFont = (file: File): Promise<import('../../../../server/core/index.ts').ImportedFont> =>
   requestJson(`/api/fonts?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+// Effects catalogue (effects-library lane)
+export interface EffectCatalogueEntry {
+  id: string;
+  name: string;
+  category: 'words' | 'lists' | 'speaker' | 'screens' | 'looks' | 'structure';
+  description: string;
+  needs: string;
+  forms: string[];
+  instant: boolean;
+  instantFrom?: string;
+  ask?: string;
+}
+
+export const fetchEffects = async (): Promise<EffectCatalogueEntry[]> => (await getJson<{ effects: EffectCatalogueEntry[] }>('/api/effects')).effects;
+
+export const effectPreviewUrl = (id: string, file: string): string =>
+  `/api/effects/${encodeURIComponent(id)}/preview/${encodeURIComponent(file)}`;
