@@ -89,18 +89,20 @@ export function validateStyle(input: unknown): Style {
   return result;
 }
 
-async function refuseLinks(path: string): Promise<void> {
-  const file = resolve(path);
-  const parent = dirname(file);
-  if (parent !== file) await refuseLinks(parent);
-  try {
-    if ((await lstat(file)).isSymbolicLink()) return invalid('Style storage cannot contain symbolic links or junctions.');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+// Checks every path below the storage root; the root and its ancestors are the user's own setup.
+async function refuseLinks(path: string, root: string): Promise<void> {
+  const top = resolve(root);
+  for (let file = resolve(path); file !== top; file = dirname(file)) {
+    if (dirname(file) === file) return invalid('Style storage must stay inside its folder.');
+    try {
+      if ((await lstat(file)).isSymbolicLink()) return invalid('Style storage cannot contain symbolic links or junctions.');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
   }
 }
-async function readText(file: string): Promise<string | undefined> {
-  await refuseLinks(file);
+async function readText(file: string, root: string): Promise<string | undefined> {
+  await refuseLinks(file, root);
   try {
     const handle = await open(file, 'r');
     try {
@@ -121,8 +123,8 @@ async function readText(file: string): Promise<string | undefined> {
     throw error;
   }
 }
-async function readJson(file: string): Promise<unknown | undefined> {
-  const source = await readText(file);
+async function readJson(file: string, root: string): Promise<unknown | undefined> {
+  const source = await readText(file, root);
   if (source === undefined) return undefined;
   try { return JSON.parse(source); }
   catch (error) {
@@ -130,18 +132,23 @@ async function readJson(file: string): Promise<unknown | undefined> {
     throw error;
   }
 }
-async function write(file: string, value: unknown): Promise<void> {
+async function write(file: string, root: string, value: unknown): Promise<void> {
   await serialized(file, async () => {
-    await refuseLinks(file);
+    await refuseLinks(file, root);
     await mkdir(dirname(file), { recursive: true });
     await writeJsonAtomic(file, value);
   });
+}
+// Where link checks stop: the Kinotta home is the user's own setup and may itself be a link;
+// a project is checked from its folder down, so a linked reels folder is refused.
+function storageRoot(projectDir: string, scope: Style['scope']): string {
+  return scope === 'builtin' ? BUILTINS : scope === 'user' ? homeDir() : projectDir;
 }
 function stylesDir(projectDir: string, scope: Style['scope']): string {
   return scope === 'builtin' ? BUILTINS : scope === 'user' ? join(homeDir(), 'styles') : join(projectDir, 'reels', 'styles');
 }
 async function storedStyle(projectDir: string, id: string, scope: Style['scope']): Promise<Style | undefined> {
-  const raw = await readJson(join(stylesDir(projectDir, scope), `${styleId(id)}.json`));
+  const raw = await readJson(join(stylesDir(projectDir, scope), `${styleId(id)}.json`), storageRoot(projectDir, scope));
   if (raw === undefined) return undefined;
   const style = validateStyle(raw);
   if (style.id !== id || style.scope !== scope) return invalid('Style identity does not match its file.');
@@ -162,11 +169,11 @@ export async function saveStyle(projectDir: string, scope: unknown, input: unkno
   if (scope !== 'user' && scope !== 'project') return invalid('Built-in styles are read-only.');
   const style = validateStyle(input);
   if (style.scope !== scope || BUILTIN_IDS.includes(style.id)) return invalid('Save a copy under your own style id and scope.');
-  await write(join(stylesDir(projectDir, scope), `${style.id}.json`), style);
+  await write(join(stylesDir(projectDir, scope), `${style.id}.json`), storageRoot(projectDir, scope), style);
   return style;
 }
 async function defaultId(): Promise<string | undefined> {
-  const marker = await readJson(join(homeDir(), 'style-default.json'));
+  const marker = await readJson(join(homeDir(), 'style-default.json'), homeDir());
   return marker === undefined ? undefined : styleId(object(marker).id);
 }
 export async function resolveDefaultStyle(projectDir: string, videoType?: string): Promise<Style> {
@@ -181,7 +188,7 @@ export async function resolveDefaultStyle(projectDir: string, videoType?: string
 }
 export async function saveDefaultStyle(projectDir: string, input: unknown): Promise<Style> {
   const style = await readStyle(projectDir, styleId(object(input).id));
-  await write(join(homeDir(), 'style-default.json'), { id: style.id });
+  await write(join(homeDir(), 'style-default.json'), homeDir(), { id: style.id });
   return style;
 }
 export async function listStyles(projectDir: string, videoType?: string): Promise<StyleListing> {
@@ -190,7 +197,7 @@ export async function listStyles(projectDir: string, videoType?: string): Promis
   for (const scope of ['builtin', 'user', 'project'] as const) {
     let files: string[];
     try {
-      await refuseLinks(stylesDir(projectDir, scope));
+      await refuseLinks(stylesDir(projectDir, scope), storageRoot(projectDir, scope));
       files = await readdir(stylesDir(projectDir, scope));
     }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
@@ -206,20 +213,20 @@ function reelStyleFile(projectDir: string, slug: string): string {
 }
 export async function readReelStyle(projectDir: string, slug: string): Promise<Style | null> {
   await requireReelDir(projectDir, slug);
-  const raw = await readJson(reelStyleFile(projectDir, slug));
+  const raw = await readJson(reelStyleFile(projectDir, slug), projectDir);
   return raw === undefined ? null : validateStyle(raw);
 }
 export async function copyStyleToReel(projectDir: string, slug: string, input: unknown): Promise<Style> {
   await requireReelDir(projectDir, slug);
   const source = await readStyle(projectDir, styleId(object(input).id));
   const copy = validateStyle({ ...source, scope: 'project', basedOn: source.id });
-  await write(reelStyleFile(projectDir, slug), copy);
+  await write(reelStyleFile(projectDir, slug), projectDir, copy);
   return copy;
 }
 
 interface Migrations { taste?: string; profile?: string }
-async function migrationRecord(file: string): Promise<Migrations> {
-  return object(await readJson(file) ?? {}) as Migrations;
+async function migrationRecord(file: string, root: string): Promise<Migrations> {
+  return object(await readJson(file, root) ?? {}) as Migrations;
 }
 async function personalStyle(projectDir: string, id = 'my-style'): Promise<Style> {
   return await storedStyle(projectDir, id, 'user') ?? { id, name: 'My style', scope: 'user', settings: {}, yours: [], effects: [], rules: [] };
@@ -227,15 +234,16 @@ async function personalStyle(projectDir: string, id = 'my-style'): Promise<Style
 async function makeDefaultIfMissing(id: string): Promise<void> {
   const file = join(homeDir(), 'style-default.json');
   await serialized(`${file}.default`, async () => {
-    if (await defaultId() === undefined) await write(file, { id });
+    if (await defaultId() === undefined) await write(file, homeDir(), { id });
   });
 }
 async function prepareTasteMigration(projectDir: string, scope: 'user' | 'project'): Promise<(() => Promise<void>) | undefined> {
   const root = scope === 'user' ? homeDir() : join(projectDir, 'reels');
+  const trusted = storageRoot(projectDir, scope);
   const marker = join(scope === 'user' ? root : join(root, 'styles'), 'migrations.json');
-  const record = await migrationRecord(marker);
+  const record = await migrationRecord(marker, trusted);
   if (record.taste) return;
-  const source = await readText(join(root, 'taste.md'));
+  const source = await readText(join(root, 'taste.md'), trusted);
   if (source === undefined) return;
   const rules = source.split(/\r?\n/).flatMap((line) => {
     const match = /^\s*(?:[-*+]|\d+[.)])\s+(.+?)\s*$/.exec(line);
@@ -249,7 +257,7 @@ async function prepareTasteMigration(projectDir: string, scope: 'user' | 'projec
   return async () => {
     await saveStyle(projectDir, scope, style);
     if (scope === 'user') await makeDefaultIfMissing(id);
-    await write(marker, { ...record, taste: id });
+    await write(marker, trusted, { ...record, taste: id });
   };
 }
 export async function migrateStyles(projectDir: string): Promise<void> {
@@ -269,11 +277,11 @@ export async function migrateStyleProfile(projectDir: string, input: unknown): P
   const settings = makeOptions({ ...raw, videoType: raw.videoType === 'decide' ? undefined : raw.videoType, captions: raw.captions === 'word by word' ? 'word-by-word' : raw.captions });
   const { notes: _notes, ...profileSettings } = settings;
   const marker = join(homeDir(), 'migrations.json');
-  const before = await migrationRecord(marker);
+  const before = await migrationRecord(marker, homeDir());
   await personalStyle(projectDir, before.profile ?? before.taste);
   await migrateStyles(projectDir);
   return serialized(`${marker}.migration`, async () => {
-    const record = await migrationRecord(marker);
+    const record = await migrationRecord(marker, homeDir());
     if (record.profile) return findStyle(projectDir, record.profile, 'user');
     const style = await personalStyle(projectDir, record.taste);
     style.settings = { ...style.settings, ...profileSettings };
@@ -281,7 +289,7 @@ export async function migrateStyleProfile(projectDir: string, input: unknown): P
     style.yours = [...new Set([...style.yours, ...SETTING_KEYS.filter((key) => overridden[key] === true && key in profileSettings)])];
     await saveStyle(projectDir, 'user', style);
     await makeDefaultIfMissing(style.id);
-    await write(marker, { ...record, profile: style.id });
+    await write(marker, homeDir(), { ...record, profile: style.id });
     return style;
   });
 }

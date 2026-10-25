@@ -144,13 +144,13 @@ describe('style storage security', () => {
     await writeFile(file, json.padEnd(1024 * 1024 + 1));
     await expect(readStyle(dir, 'custom', 'user')).rejects.toMatchObject({ code: 'invalid' });
   });
-  it.for(['user-folder', 'project-folder', 'taste', 'style', 'marker', 'default', 'reel', 'home', 'reels'] as const)('refuses linked %s paths for reads and writes', async (kind, context) => {
+  it.for(['user-folder', 'project-folder', 'taste', 'style', 'marker', 'default', 'reel', 'reels'] as const)('refuses linked %s paths for reads and writes', async (kind, context) => {
     const target = join(dir, 'link-target');
-    const folder = ['user-folder', 'project-folder', 'home', 'reels'].includes(kind);
+    const folder = ['user-folder', 'project-folder', 'reels'].includes(kind);
     if (folder) await mkdir(target);
     else await writeFile(target, kind === 'taste' ? '- Private rule\n' : kind === 'marker' ? '{}' : kind === 'default' ? '{"id":"clean"}' : JSON.stringify(sample()));
-    const file = kind === 'user-folder' ? join(home, 'styles') : kind === 'project-folder' ? join(dir, 'reels', 'styles') : kind === 'taste' ? join(dir, 'reels', 'taste.md') : kind === 'style' ? join(home, 'styles', 'custom.json') : kind === 'marker' ? join(home, 'migrations.json') : kind === 'default' ? join(home, 'style-default.json') : kind === 'reel' ? join(dir, 'reels', '.kinotta', 'demo', 'style.json') : kind === 'home' ? home : join(dir, 'reels');
-    if (kind === 'home' || kind === 'reels') await rm(file, { recursive: true });
+    const file = kind === 'user-folder' ? join(home, 'styles') : kind === 'project-folder' ? join(dir, 'reels', 'styles') : kind === 'taste' ? join(dir, 'reels', 'taste.md') : kind === 'style' ? join(home, 'styles', 'custom.json') : kind === 'marker' ? join(home, 'migrations.json') : kind === 'default' ? join(home, 'style-default.json') : kind === 'reel' ? join(dir, 'reels', '.kinotta', 'demo', 'style.json') : join(dir, 'reels');
+    if (kind === 'reels') await rm(file, { recursive: true });
     await mkdir(join(file, '..'), { recursive: true });
     try { await symlink(target, file, folder ? (process.platform === 'win32' ? 'junction' : 'dir') : 'file'); }
     catch (error) {
@@ -169,7 +169,7 @@ describe('style storage security', () => {
       await expect(saveStyle(dir, 'user', sample())).rejects.toMatchObject({ code: 'invalid' });
     } else {
       await expect(listStyles(dir)).rejects.toMatchObject({ code: 'invalid' });
-      if (kind === 'user-folder' || kind === 'project-folder' || kind === 'home' || kind === 'reels') {
+      if (kind === 'user-folder' || kind === 'project-folder' || kind === 'reels') {
         const scope = kind === 'project-folder' || kind === 'reels' ? 'project' : 'user';
         await expect(saveStyle(dir, scope, sample('custom', scope))).rejects.toMatchObject({ code: 'invalid' });
       }
@@ -177,6 +177,27 @@ describe('style storage security', () => {
       if (kind === 'default') await expect(saveDefaultStyle(dir, { id: 'clean' })).rejects.toMatchObject({ code: 'invalid' });
     }
     if (!folder) expect(await readFile(target, 'utf8')).toBe(before);
+  });
+  it('works when the Kinotta home or a folder above the project is a link', async (context) => {
+    const realHome = join(dir, 'real-home');
+    const realParent = join(dir, 'real-parent');
+    await mkdir(realHome);
+    await mkdir(join(realParent, 'project', 'reels', 'demo'), { recursive: true });
+    await rm(home, { recursive: true });
+    const linkedParent = join(dir, 'linked-parent');
+    try {
+      for (const [target, link] of [[realHome, home], [realParent, linkedParent]]) await symlink(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (error) {
+      if (['EPERM', 'EACCES', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+        context.skip(`OS refused directory link creation: ${(error as NodeJS.ErrnoException).code}`);
+        return;
+      }
+      throw error;
+    }
+    const project = join(linkedParent, 'project');
+    await saveStyle(project, 'user', sample());
+    await saveStyle(project, 'project', sample('shared', 'project'));
+    expect((await listStyles(project)).styles.map((style) => style.id)).toEqual(expect.arrayContaining(['custom', 'shared']));
   });
 });
 
