@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
@@ -103,6 +103,80 @@ describe('style validation and storage', () => {
     await expect(saveDefaultStyle(dir, { id: 'missing' })).rejects.toMatchObject({ code: 'not-found' });
     await writeFile(join(home, 'style-default.json'), '{"id":"deleted"}');
     expect((await resolveDefaultStyle(dir)).id).toBe('clean');
+  });
+});
+
+
+describe('style storage security', () => {
+  it.each(['con', 'prn', 'aux', 'nul', ...Array.from({ length: 9 }, (_, i) => `com${i + 1}`), ...Array.from({ length: 9 }, (_, i) => `lpt${i + 1}`), 'CON', 'CoM1', 'a'.repeat(101)])('rejects unsafe style id %s', (id) => {
+    expect(() => validateStyle(sample(id))).toThrow(expect.objectContaining({ code: 'invalid' }));
+    expect(() => validateStyle({ ...sample(), basedOn: id })).toThrow(expect.objectContaining({ code: 'invalid' }));
+  });
+  it('accepts the ID length boundary and ordinary names containing device names', () => {
+    for (const id of ['a'.repeat(100), 'console', 'com10', 'lpt10', 'con-style']) expect(validateStyle(sample(id)).id).toBe(id);
+  });
+  it.each(['style', 'taste', 'marker'] as const)('rejects oversized %s input before migration writes', async (kind) => {
+    await writeFile(join(home, 'taste.md'), '- Valid user taste\n');
+    const file = kind === 'taste' ? join(dir, 'reels', 'taste.md') : kind === 'marker' ? join(dir, 'reels', 'styles', 'migrations.json') : join(dir, 'reels', 'styles', 'project-style.json');
+    await mkdir(join(dir, 'reels', 'styles'), { recursive: true });
+    if (kind === 'style') await writeFile(join(dir, 'reels', 'taste.md'), '- Valid project taste\n');
+    const data = kind === 'taste' ? `- ${'x'.repeat(1024 * 1024)}` : kind === 'marker' ? JSON.stringify({ unused: 'x'.repeat(1024 * 1024) }) : JSON.stringify({ ...sample('project-style', 'project'), rules: ['x'.repeat(1024 * 1024)] });
+    await writeFile(file, data);
+    await expect(migrateStyles(dir)).rejects.toMatchObject({ code: 'invalid' });
+    await expect(readFile(join(home, 'migrations.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(home, 'styles', 'my-style.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readFile(file, 'utf8')).toBe(data);
+  });
+  it('rejects an oversized profile destination before migrating project taste', async () => {
+    await mkdir(join(home, 'styles'));
+    await writeFile(join(home, 'styles', 'my-style.json'), JSON.stringify({ ...sample('my-style'), rules: ['x'.repeat(1024 * 1024)] }));
+    await writeFile(join(dir, 'reels', 'taste.md'), '- Project taste\n');
+    await expect(migrateStyleProfile(dir, profile)).rejects.toMatchObject({ code: 'invalid' });
+    await expect(readFile(join(dir, 'reels', 'styles', 'migrations.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(dir, 'reels', 'styles', 'project-style.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+  it('reads a style at the byte limit and rejects one byte more', async () => {
+    const file = join(home, 'styles', 'custom.json');
+    await mkdir(join(home, 'styles'), { recursive: true });
+    const json = JSON.stringify(sample());
+    await writeFile(file, json.padEnd(1024 * 1024));
+    expect(await readStyle(dir, 'custom', 'user')).toEqual(sample());
+    await writeFile(file, json.padEnd(1024 * 1024 + 1));
+    await expect(readStyle(dir, 'custom', 'user')).rejects.toMatchObject({ code: 'invalid' });
+  });
+  it.for(['user-folder', 'project-folder', 'taste', 'style', 'marker', 'default', 'reel', 'home', 'reels'] as const)('refuses linked %s paths for reads and writes', async (kind, context) => {
+    const target = join(dir, 'link-target');
+    const folder = ['user-folder', 'project-folder', 'home', 'reels'].includes(kind);
+    if (folder) await mkdir(target);
+    else await writeFile(target, kind === 'taste' ? '- Private rule\n' : kind === 'marker' ? '{}' : kind === 'default' ? '{"id":"clean"}' : JSON.stringify(sample()));
+    const file = kind === 'user-folder' ? join(home, 'styles') : kind === 'project-folder' ? join(dir, 'reels', 'styles') : kind === 'taste' ? join(dir, 'reels', 'taste.md') : kind === 'style' ? join(home, 'styles', 'custom.json') : kind === 'marker' ? join(home, 'migrations.json') : kind === 'default' ? join(home, 'style-default.json') : kind === 'reel' ? join(dir, 'reels', '.kinotta', 'demo', 'style.json') : kind === 'home' ? home : join(dir, 'reels');
+    if (kind === 'home' || kind === 'reels') await rm(file, { recursive: true });
+    await mkdir(join(file, '..'), { recursive: true });
+    try { await symlink(target, file, folder ? (process.platform === 'win32' ? 'junction' : 'dir') : 'file'); }
+    catch (error) {
+      if (['EPERM', 'EACCES', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+        context.skip(`OS refused ${folder ? 'directory' : 'file'} link creation: ${(error as NodeJS.ErrnoException).code}`);
+        return;
+      }
+      throw error;
+    }
+    const before = folder ? undefined : await readFile(target, 'utf8');
+    if (kind === 'reel') {
+      await expect(readReelStyle(dir, 'demo')).rejects.toMatchObject({ code: 'invalid' });
+      await expect(copyStyleToReel(dir, 'demo', { id: 'clean' })).rejects.toMatchObject({ code: 'invalid' });
+    } else if (kind === 'style') {
+      await expect(readStyle(dir, 'custom', 'user')).rejects.toMatchObject({ code: 'invalid' });
+      await expect(saveStyle(dir, 'user', sample())).rejects.toMatchObject({ code: 'invalid' });
+    } else {
+      await expect(listStyles(dir)).rejects.toMatchObject({ code: 'invalid' });
+      if (kind === 'user-folder' || kind === 'project-folder' || kind === 'home' || kind === 'reels') {
+        const scope = kind === 'project-folder' || kind === 'reels' ? 'project' : 'user';
+        await expect(saveStyle(dir, scope, sample('custom', scope))).rejects.toMatchObject({ code: 'invalid' });
+      }
+      if (kind === 'marker') await expect(migrateStyleProfile(dir, profile)).rejects.toMatchObject({ code: 'invalid' });
+      if (kind === 'default') await expect(saveDefaultStyle(dir, { id: 'clean' })).rejects.toMatchObject({ code: 'invalid' });
+    }
+    if (!folder) expect(await readFile(target, 'utf8')).toBe(before);
   });
 });
 
