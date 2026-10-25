@@ -178,7 +178,7 @@ test('the editor shares element hover feedback and retains its frame pin save fl
   try {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(server.url);
-    await page.getByRole('button', { name: 'Open in editor', exact: true }).click();
+    await page.getByRole('group', { name: 'After the first cut' }).getByRole('button', { name: /^Edit/ }).click();
     const tool = page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true });
     await expect(tool).toBeEnabled();
     await tool.click();
@@ -369,7 +369,7 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     expect(await app.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await expect(page.getByRole('button', { name: /Regenerate \(2 pins\)/ })).toBeInViewport();
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('button', { name: 'Open in editor', exact: true }).click();
+    await page.getByRole('group', { name: 'After the first cut' }).getByRole('button', { name: /^Edit/ }).click();
     await expect(page.getByRole('main', { name: 'Review', exact: true })).toBeVisible();
     await expect(page.locator('.reelname')).toContainText('Product showreel');
     await expect(page.getByRole('navigation', { name: 'Phase' })).toBeVisible();

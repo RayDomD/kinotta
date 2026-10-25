@@ -20,6 +20,7 @@ import type {
   Version,
 } from './api/_internal/client.ts';
 import { migrateSimpleOptionsProfile } from './simple-options.ts';
+import { SimpleExport } from './SimpleExport.tsx';
 import { SimpleMake } from './SimpleMake.tsx';
 import { Review } from './review/index.ts';
 import { EditorIcon } from './review/_internal/EditorIcon.tsx';
@@ -442,7 +443,7 @@ export function SimpleMode({
               <option value="codex">Codex</option>
             </select>
           </label>
-          <button type="button" className="c-act" onClick={onEditor}>Open in editor</button>
+          {(creating || !reel) && <button type="button" className="c-act" onClick={onEditor}>Open in editor</button>}
         </div>
       </header>
 
@@ -466,6 +467,15 @@ export function SimpleMode({
               ))}
             </select>
           </label>
+          {!creating && reel && (
+            <div className="dx-after" role="group" aria-label="After the first cut">
+              <button type="button" className="dx-edit" onClick={onEditor}>
+                <b>Edit <span aria-hidden="true">↗</span></b>
+                <span>Every shot, in the full editor</span>
+              </button>
+              {state === 'ready' && <SimpleExport slug={reel.slug} />}
+            </div>
+          )}
         </div>
       </div>
 
