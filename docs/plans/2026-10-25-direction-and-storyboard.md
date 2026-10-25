@@ -106,3 +106,10 @@ Each phase below is its own branch and PR, shippable alone, in this order becaus
 - Q3 answered: instant and free pins when nothing is needed from the speech and there is no note, otherwise one agent run with the next build; Storyboard only. Mockup `docs/mockups/2026-10-25-pinned-effect-instant-or-agent.html`.
 - Q2 answered: personal and project style as files; Simple mode's browser-stored profile folds into the personal style.
 - Second mockup session: Q1 answered; Direction split into five steps with a visual Check; own font and music; entry choices renamed Auto / Direct and Export / Edit with both paths promoted. Saved `docs/mockups/2026-10-25-simple-default-direction.html`.
+
+### 2026-10-26
+- Phase 1 merged: style storage (#68).
+- Phases 2 and 3 merged: Auto, Direct and Direction (#69). Review nits left open: `server/core/_internal/direction.ts:99` asserts a frame match with `!`, and line 101 prints `undefined` for an unknown settings key.
+- Built-in brand (Phase 1 step 2) and the skill reading styles and rules (Phase 6 steps 15 and 17) merged as one cleaned branch (#70). Both fonts are OFL 1.1.
+- Phase 4 effects library open as #71. On narrow screens a rail Library button pushed Current out of the rail; removed, the top bar Library button is the entry point. The owner deferred "Your music" in the Sounds tab and "Add to this reel"; the Library wording now promises only Copy request.
+- Seven Playwright tests fail on `main` independent of this plan: `brief-reel:59`, `drop-video:19`, `new-reel:21`, `section-batches:62`, `snip-save:55`, `snip-save:271`, `snip-save:379`. Needs its own fix.

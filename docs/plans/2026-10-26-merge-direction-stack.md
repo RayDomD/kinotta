@@ -1,7 +1,7 @@
 ---
 title: Merge the Direction and Storyboard stack
 date: 2026-10-26
-status: Approved
+status: In Progress
 summary: Land style storage, Auto/Direct/Direction, the effects library and the skill styles on main, one pull request at a time.
 spec: docs/plans/2026-10-25-direction-and-storyboard.md
 ---
@@ -46,3 +46,7 @@ The four branches are on `origin/main`, in dependency order, with checks passing
 
 ### 2026-10-26
 - Plan created and approved by the owner.
+- Step 1 done: `feat/style-storage` merged as #68.
+- Step 2 done: `feat/auto-direct-direction` rebased, AI author and trailers removed from 8 commits, merged as #69 from `feat/auto-direct-direction-rebased` (force-push to the old branch was blocked; the stale `origin/feat/auto-direct-direction` can be deleted).
+- Step 4 done before step 3: `feat/skill-styles` rebuilt as `feat/skill-styles-clean` (built-in brand plus the skill change, no scratch merges, `c8fa5bd` reworded and its AI signature removed), merged as #70. It shares no files with the effects library, so order did not matter.
+- Step 3 in review: `feat/effects-library` rebased twice (export, client and stylesheet conflicts kept both sides), rail Library button removed, wording fixed; open as #71. Full Playwright on the final base still to run.
