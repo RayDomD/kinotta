@@ -58,7 +58,7 @@ describe('startReel', () => {
 
     expect(slug).toBe('my-talk');
     const reelDir = join(dir, 'reels', slug);
-    expect(readJson(join(reelDir, 'reel.json'))).toEqual({ title: 'My Talk', footage: VIDEO });
+    expect(readJson(join(reelDir, 'reel.json'))).toEqual({ title: 'My Talk', footage: VIDEO, frame: 'landscape' });
     expect(readJson(join(reelDir, 'transcript.json')).words).toEqual(WORDS);
     const plan = readJson(join(reelDir, 'plan.json'));
     expect(plan).toMatchObject({ clips: [], captions: true, pieces: [{ in: 0, out: expect.closeTo(VIDEO_SECONDS, 0) }] });

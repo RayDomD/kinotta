@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchStyles, listVideos, startReel } from './api/_internal/client.ts';
 import type { Style, VideoEntry } from './api/_internal/client.ts';
-import { FRAMES, frameOf, styleMakeOptions } from '../../server/core/model.ts';
+import { FRAMES, frameOf } from '../../server/core/model.ts';
 import { BriefForm } from './BriefReel.tsx';
 import { Direction } from './Direction.tsx';
 import { DropZone } from './DropZone.tsx';
@@ -68,22 +68,23 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
 
   const video = videos.find((v) => v.path === picked);
 
+  const usualStyle = (): Promise<Style | null> => usual
+    ? Promise.resolve(usual)
+    : fetchStyles().then((listing) => listing.styles.find((style) => style.id === listing.defaultId) ?? null);
+
   const auto = () => {
     if (!picked || busy || !title.trim()) return;
     setBusy(true);
     setError('');
-    void startReel({
-      video: picked,
-      title: title.trim(),
-      deadAir: 'normal',
-      ...(usual ? styleMakeOptions(usual) : {}),
-    }).then(
-      ({ slug }) => onStarted(slug),
-      (err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Could not make the reel. Try again.');
-        setBusy(false);
-      },
-    );
+    void usualStyle()
+      .then((style) => startReel({ video: picked, title: title.trim(), deadAir: 'normal', ...(style ? { style: { id: style.id } } : {}) }))
+      .then(
+        ({ slug }) => onStarted(slug),
+        (err: unknown) => {
+          setError(err instanceof Error ? err.message : 'Could not make the reel. Try again.');
+          setBusy(false);
+        },
+      );
   };
 
   if (directing && video) {

@@ -10,9 +10,12 @@ import { probeVideo, transcribeAudio, waveformPeaks } from './runner.ts';
 import { checkDeadAir, DEAD_AIR_BY, deadAirCuts } from './dead-air.ts';
 import type { Piece } from './pieces.ts';
 import { briefRequest } from './requests.ts';
+import { agentTold, frameOf, styleMakeOptions } from './direction.ts';
+import { stateFilePath } from './state.ts';
+import { copyStyleToReel, readStyle, validateStyle, type Style } from './style.ts';
 import { autoSections } from './transcription.ts';
 import type { Transcriptions } from './transcription.ts';
-import type { NewBriefReel, NewReel, StartedBriefReel, StartedReel, Transcriber } from './types.ts';
+import type { NewBriefReel, NewReel, StartedBriefReel, StartedReel, StyleChoice, Transcriber } from './types.ts';
 import { isVideoFile, posix, titleFromFile } from './videos.ts';
 import { publishVersion, stageVersion } from './version-build.ts';
 
@@ -52,6 +55,27 @@ async function resolveVideo(projectDir: string, video: string): Promise<string> 
 
 const writeJson = (file: string, value: unknown): Promise<void> => writeFile(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 
+interface ChosenStyle { style: Style; saved: boolean }
+
+/** The style a new reel asks for, checked before anything is written: a saved one by id, or Direction's own. */
+async function chosenStyle(projectDir: string, choice: StyleChoice | undefined): Promise<ChosenStyle | undefined> {
+  if (choice === undefined) return undefined;
+  if (!choice || typeof choice !== 'object' || Array.isArray(choice)) throw new KinottaError('invalid', 'Expected a style.');
+  if ('scope' in choice) return { style: validateStyle(choice), saved: false };
+  return { style: await readStyle(projectDir, (choice as { id: string }).id), saved: true };
+}
+
+/** Writes the reel's own copy of its style, so editing the saved style later never changes this reel. */
+async function storeReelStyle(projectDir: string, slug: string, chosen: ChosenStyle): Promise<Style> {
+  if (chosen.saved) return copyStyleToReel(projectDir, slug, { id: chosen.style.id });
+  // Direction's edited style has no saved file to copy from; it goes where copyStyleToReel puts a reel's copy.
+  const copy = validateStyle({ ...chosen.style, scope: 'project', basedOn: chosen.style.basedOn ?? chosen.style.id });
+  const file = join(dirname(stateFilePath(projectDir, slug, 1)), 'style.json');
+  await mkdir(dirname(file), { recursive: true });
+  await writeJsonAtomic(file, copy);
+  return copy;
+}
+
 /** The default transcriber: the skill's audio transcription, through the runner, into a temp file read back. */
 export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) => {
   const temp = join(tmpdir(), `kinotta-transcript-${process.pid}-${Date.now()}.json`);
@@ -71,9 +95,12 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
  * as a tagged snip after v1 is published. A failure leaves the reel without a version and is reported through `jobs`.
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel, afterBuilt?: (slug: string) => Promise<unknown>): Promise<StartedReel> {
-  const options = makeOptions(input);
+  const given = makeOptions(input);
   checkDeadAir(input.deadAir);
   if (typeof input.video !== 'string' || (input.title !== undefined && typeof input.title !== 'string')) throw new KinottaError('invalid', 'Choose a video and a text title.');
+  const chosen = await chosenStyle(projectDir, input.style);
+  // Make options given with the style win over the style's settings, so existing callers keep their meaning.
+  const options = { ...(chosen ? styleMakeOptions(chosen.style) : {}), ...given };
   const file = await resolveVideo(projectDir, input.video);
   const probe = await probeVideo(file);
   // Made before the reel exists, so Review never opens on footage the browser cannot play and a failed copy leaves no reel.
@@ -85,7 +112,9 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   const duration = Math.round(probe.duration * MS_PER_SECOND) / MS_PER_SECOND;
   const planFile = join(reelDir, 'plan.json');
 
-  await writeJson(join(reelDir, 'reel.json'), { title, footage });
+  const frame = frameOf(probe.width, probe.height);
+  await writeJson(join(reelDir, 'reel.json'), { title, footage, ...(frame ? { frame } : {}) });
+  if (chosen) await storeReelStyle(projectDir, slug, chosen);
   const plan = {
     title,
     video: posix(relative(dirname(planFile), file)),
@@ -129,7 +158,9 @@ export async function startReelFromBrief(projectDir: string, input: NewBriefReel
   const brief = typeof input?.brief === 'string' ? input.brief.trim() : '';
   if (title === '') throw new KinottaError('invalid', 'A reel needs a name.');
   if (brief === '') throw new KinottaError('invalid', 'A reel started from a brief needs the brief.');
+  const chosen = await chosenStyle(projectDir, input.style);
   const { slug, dir } = await makeReelDir(join(projectDir, REELS_DIR), title);
   await writeJson(join(dir, 'reel.json'), { title, brief });
-  return { slug, request: briefRequest(slug, title, brief) };
+  const style = chosen ? await storeReelStyle(projectDir, slug, chosen) : undefined;
+  return { slug, request: briefRequest(slug, title, brief, style ? agentTold(style) : undefined) };
 }

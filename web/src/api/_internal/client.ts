@@ -657,3 +657,9 @@ export const renderWorking = (slug: string, preset: RenderPreset, settings: Rend
 // Auto and Direct, Direction (appended block).
 /** The picture as shown, when the server's probe could read it: Direction's Frame is detected from these. */
 export interface VideoEntry { width?: number; height?: number }
+/** A saved or built-in style by id (Auto), or a whole style as Direction left it (Direct); the reel keeps its own copy. */
+export type StyleChoice = { id: string } | Style;
+export interface NewReelInput { style?: StyleChoice }
+/** Starts a code-built reel from a brief in a chosen style. */
+export const startStyledBrief = (input: { title: string; brief: string; style: StyleChoice }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
