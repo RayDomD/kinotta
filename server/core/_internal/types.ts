@@ -596,9 +596,14 @@ export interface MediaEditingModel {
 }
 
 /** A reel started from a brief instead of a video. */
+/** A saved or built-in style named by id (Auto), or a whole style as Direction left it (Direct). */
+export type StyleChoice = { id: string } | import('./style.ts').Style;
+
 export interface NewBriefReel {
   title: string;
   brief: string;
+  /** The reel stores its own copy of this style and the request carries it. */
+  style?: StyleChoice;
 }
 
 export interface StartedBriefReel {
@@ -759,6 +764,8 @@ export interface NewReel extends MakeOptions {
   title?: string;
   /** Cut dead air from v1 at this strength; absent or false leaves the footage whole. Simple mode's Make asks for it. */
   deadAir?: DeadAirStrength | false;
+  /** The reel stores its own copy of this style; its settings fill any Make option not given. */
+  style?: StyleChoice;
 }
 
 export interface StartedReel {
