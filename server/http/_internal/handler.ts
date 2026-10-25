@@ -359,6 +359,11 @@ export function createHandler(project: Project, webRoot: string) {
         } else sendNotFound(res);
         return;
       }
+      // Direction's brand fonts, read-only.
+      if (pathname === '/api/brand/fonts' && req.method === 'GET') {
+        sendJson(res, 200, await project.brandFonts());
+        return;
+      }
       const agentRoute = AGENT_API.exec(pathname);
       const launchesAgent = pathname.startsWith('/api/agent/') || agentRoute || (pathname === '/api/reels' && req.method === 'POST');
       if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`)))) {

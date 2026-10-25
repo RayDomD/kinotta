@@ -318,6 +318,8 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  /** Direction's Fonts row: the brand fonts in plain words, or the built-in brand's. */
+  brandFonts(): Promise<import('./brand-fonts.ts').BrandFonts>;
   listStyles(videoType?: string): Promise<import('./style.ts').StyleListing>;
   saveStyle(scope: unknown, style: unknown): Promise<import('./style.ts').Style>;
   saveDefaultStyle(input: unknown): Promise<import('./style.ts').Style>;
