@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { copyFile, cp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { brollJobPrompt, makeBrollJobRequest, type BrollJobRequest } from './requests.ts';
+import type { Frame } from './direction.ts';
+import { readReelStyle } from './style.ts';
 import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch } from './runner.ts';
 import { readAgentSettings, type AgentProvider } from './agent-settings.ts';
 import { readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
@@ -125,9 +127,13 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const manifest = await json<{ duration: number }>(join(source, 'shots.json'));
       const provider = (await readAgentSettings(projectDir)).provider;
       const id = randomUUID();
+      // The reel's own style copy goes in the request, with the frame found when the reel was started.
+      const style = await readReelStyle(projectDir, reel);
+      const frame = await json<{ frame?: Frame }>(join(reelDir, 'reel.json')).then((file) => file.frame, () => undefined);
+      const context = frame ? { frame, frameFound: true } : {};
       const request = retry && previous
-        ? makeBrollJobRequest(id, reel, baseVersion, { ...(await json<BrollJobRequest>(join(jobDir(previous), 'request.json'))).options, captions: captionMode }, manifest.duration)
-        : makeBrollJobRequest(id, reel, baseVersion, { videoType: plan.videoType, broll: plan.broll, pace: plan.pace, captions: captionMode, notes: plan.notes }, manifest.duration);
+        ? makeBrollJobRequest(id, reel, baseVersion, { ...(await json<BrollJobRequest>(join(jobDir(previous), 'request.json'))).options, captions: captionMode }, manifest.duration, style, context)
+        : makeBrollJobRequest(id, reel, baseVersion, { videoType: plan.videoType, broll: plan.broll, pace: plan.pace, captions: captionMode, notes: plan.notes }, manifest.duration, style, context);
       const at = new Date().toISOString();
       job = { id, reel, provider, state: 'queued', createdAt: at, updatedAt: at, elapsedSeconds: 0, quiet: false, canRetry: false, canCopy: false };
       const dir = jobDir(job);

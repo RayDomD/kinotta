@@ -653,3 +653,19 @@ export const importVideo = (file: File, onProgress?: (sent: number) => void): Pr
 export const fetchWorkingVersion = (slug: string): Promise<Version> => getJson(`/api/reels/${encodeURIComponent(slug)}/working`);
 export const renderWorking = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
   requestJson(`/api/reels/${encodeURIComponent(slug)}/working-render`, { method: 'POST', body: JSON.stringify({ preset, ...settings, remember: true, acceptOverload }) });
+
+// Auto and Direct, Direction (appended block).
+/** The picture as shown, when the server's probe could read it: Direction's Frame is detected from these. */
+export interface VideoEntry { width?: number; height?: number }
+/** A saved or built-in style by id (Auto), or a whole style as Direction left it (Direct); the reel keeps its own copy. */
+export type StyleChoice = { id: string } | Style;
+export interface NewReelInput { style?: StyleChoice }
+/** Starts a code-built reel from a brief in a chosen style. */
+export const startStyledBrief = (input: { title: string; brief: string; style: StyleChoice }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
+export type { BrandFonts } from '../../../../server/core/index.ts';
+/** The brand fonts Direction preselects: the project's, or Kinotta's built-in brand's. */
+export const fetchBrandFonts = (): Promise<import('../../../../server/core/index.ts').BrandFonts> => getJson('/api/brand/fonts');
+/** Copies a font dropped on Direction into the project's fonts/, with a license note. */
+export const importFont = (file: File): Promise<import('../../../../server/core/index.ts').ImportedFont> =>
+  requestJson(`/api/fonts?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });

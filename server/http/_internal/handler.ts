@@ -359,6 +359,19 @@ export function createHandler(project: Project, webRoot: string) {
         } else sendNotFound(res);
         return;
       }
+      // Direction's fonts: the brand's, read-only, and your own dropped into the project's fonts/.
+      if (pathname === '/api/brand/fonts' && req.method === 'GET') {
+        sendJson(res, 200, await project.brandFonts());
+        return;
+      }
+      if (pathname === '/api/fonts' && req.method === 'POST') {
+        if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`))) {
+          sendJson(res, 403, { error: 'Font uploads must come from this editor.' });
+          return;
+        }
+        sendJson(res, 201, await project.importFont(searchParams.get('name') ?? '', req));
+        return;
+      }
       const agentRoute = AGENT_API.exec(pathname);
       const launchesAgent = pathname.startsWith('/api/agent/') || agentRoute || (pathname === '/api/reels' && req.method === 'POST');
       if (launchesAgent && (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`)))) {

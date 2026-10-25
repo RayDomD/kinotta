@@ -3,9 +3,9 @@
 ## Status
 
 <!-- Keep this block current. -->
-- State: not started
-- Done: none
-- Failed or skipped: none
+- State: in progress (verification running)
+- Done: steps 1 to 7 committed on `feat/auto-direct-direction`
+- Failed or skipped: none so far
 
 ## Where to work
 

@@ -1,6 +1,8 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { agentTold } from './direction.ts';
 import { briefRequest } from './requests.ts';
+import { readReelStyle } from './style.ts';
 import type { ReelListing, ReelSummary } from './types.ts';
 
 const REELS_DIR = 'reels';
@@ -64,12 +66,14 @@ async function summarize(reelsDir: string, slug: string): Promise<ReelSummary> {
     .map((m) => Number(m[1]));
   const title = (await readTitle(reelDir)) ?? slug;
   const brief = await readBrief(reelDir);
+  // A brief reel's request carries its style, as when it was started; an unreadable style leaves it out.
+  const style = brief === null ? null : await readReelStyle(dirname(reelsDir), slug).catch(() => null);
   return {
     slug,
     title,
     newestVersion: versions.length ? Math.max(...versions) : null,
     lastChange: await newestMtime(reelDir),
-    ...(brief !== null ? { brief: { text: brief, request: briefRequest(slug, title, brief) } } : {}),
+    ...(brief !== null ? { brief: { text: brief, request: briefRequest(slug, title, brief, style ? agentTold(style) : undefined) } } : {}),
   };
 }
 

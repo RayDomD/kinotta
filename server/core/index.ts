@@ -3,6 +3,11 @@ import { listStyles, saveStyle, saveDefaultStyle, readReelStyle, copyStyleToReel
 export { validateStyle, readStyle, listStyles, saveStyle, resolveDefaultStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyles, migrateStyleProfile } from './_internal/style.ts';
 export type { Style, StyleListing } from './_internal/style.ts';
 import { readAgentSettings, saveAgentSettings, detectAgents } from './_internal/agent-settings.ts';
+import { readBrandFonts } from './_internal/brand-fonts.ts';
+import { importFont } from './_internal/fonts.ts';
+export type { ImportedFont } from './_internal/fonts.ts';
+export type { BrandFonts } from './_internal/brand-fonts.ts';
+export type { StyleChoice } from './_internal/types.ts';
 import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { buildParts } from './_internal/parts-build.ts';
@@ -155,6 +160,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    brandFonts: () => readBrandFonts(dir),
+    importFont: (name, body) => importFont(dir, name, body),
     listStyles: (videoType) => listStyles(dir, videoType),
     saveStyle: (scope, style) => saveStyle(dir, scope, style),
     saveDefaultStyle: (input) => saveDefaultStyle(dir, input),
