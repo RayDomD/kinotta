@@ -1,75 +1,74 @@
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
+import { port as fixturePort, projectFile } from './tests/e2e/ports.ts';
 
-const E2E_PORT = 4399;
+const E2E_PORT = fixturePort('shared');
 /** A second server with its own temp project, for the specs that save comments and so change what it holds. */
-const PINS_PORT = 4398;
+const PINS_PORT = fixturePort('pins');
 
 /** A third one for batch.spec.ts, which also reads the batch file from the temp project's folder. */
-const BATCH_PORT = 4397;
-const BATCH_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-batch-project.txt');
+const BATCH_PORT = fixturePort('batch');
+const BATCH_PROJECT_FILE = projectFile('batch');
 
 /** A fourth for versions.spec.ts, which adds a version folder to the temp project while the editor is open. */
-const VERSIONS_PORT = 4395;
-const VERSIONS_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-versions-project.txt');
+const VERSIONS_PORT = fixturePort('versions');
+const VERSIONS_PROJECT_FILE = projectFile('versions');
 /** A fourth one for footage.spec.ts, started on the footage-project sample (a reel with footage and a transcript). */
-const FOOTAGE_PORT = 4396;
+const FOOTAGE_PORT = fixturePort('footage');
 
 /** A fifth for editing.spec.ts, which edits and deletes comments and writes the reel note. */
-const EDITING_PORT = 4394;
+const EDITING_PORT = fixturePort('editing');
 
 /** A sixth for contract.spec.ts, started on the broken-project sample (versions that break the timing contract). */
-const CONTRACT_PORT = 4393;
-const CONTRACT_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-contract-project.txt');
+const CONTRACT_PORT = fixturePort('contract');
+const CONTRACT_PROJECT_FILE = projectFile('contract');
 
 /** A sixth for section-batches.spec.ts: the footage sample, copies per section and a version added while the editor is open. */
-const SECTION_BATCHES_PORT = 4392;
-const SECTION_BATCHES_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-section-batches-project.txt');
+const SECTION_BATCHES_PORT = fixturePort('sectionBatches');
+const SECTION_BATCHES_PROJECT_FILE = projectFile('section-batches');
 
 /** A seventh for engine.spec.ts: the engine-project sample, its clips built by the motion engine at start. */
-const ENGINE_PORT = 4391;
+const ENGINE_PORT = fixturePort('engine');
 /** An eighth for engine-compose.spec.ts: the broll-project sample, the six-clip example composed over stand-in footage. */
-const BROLL_PORT = 4390;
+const BROLL_PORT = fixturePort('broll');
 
 /** A ninth for new-reel.spec.ts: the footage sample with a fake transcriber, since a reel is started in it. */
-const NEW_REEL_PORT = 4389;
+const NEW_REEL_PORT = fixturePort('newReel');
 
 /** A tenth for review.spec.ts: the footage sample with a fake transcriber, since it starts reels and adds a version to the project. */
-const REVIEW_PORT = 4386;
-const REVIEW_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-review-project.txt');
+const REVIEW_PORT = fixturePort('review');
+const REVIEW_PROJECT_FILE = projectFile('review');
 
 /** An eleventh for snip-save.spec.ts: the footage sample with a fake transcriber, since it starts a reel and saves a version of it. */
-const SNIP_SAVE_PORT = 4385;
-const SNIP_SAVE_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-snip-save-project.txt');
+const SNIP_SAVE_PORT = fixturePort('snipSave');
+const SNIP_SAVE_PROJECT_FILE = projectFile('snip-save');
 
 /** A twelfth for clips.spec.ts: the footage sample as it is (four clips), whose agent-built reel is trimmed, slid and saved. */
-const CLIPS_PORT = 4384;
-const CLIPS_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-clips-project.txt');
+const CLIPS_PORT = fixturePort('clips');
+const CLIPS_PROJECT_FILE = projectFile('clips');
 
 /** A thirteenth for code-only.spec.ts: the showreel sample (code-only reels), whose newest version gets element moves saved. */
-const CODE_ONLY_PORT = 4383;
-const CODE_ONLY_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-code-only-project.txt');
+const CODE_ONLY_PORT = fixturePort('codeOnly');
+const CODE_ONLY_PROJECT_FILE = projectFile('code-only');
 
 /** A fourteenth for handoff.spec.ts: the footage sample as it is, whose agent-built reel has a batch copied and then Save tried. */
-const HANDOFF_PORT = 4382;
-const HANDOFF_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-handoff-project.txt');
+const HANDOFF_PORT = fixturePort('handoff');
+const HANDOFF_PROJECT_FILE = projectFile('handoff');
 
 /** A fifteenth for transcription.spec.ts: the footage sample with a transcriber that holds its words until the spec lets them go. */
-const TRANSCRIPTION_PORT = 4381;
-const TRANSCRIPTION_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-transcription-project.txt');
+const TRANSCRIPTION_PORT = fixturePort('transcription');
+const TRANSCRIPTION_PROJECT_FILE = projectFile('transcription');
 
 /** A sixteenth for drop-video.spec.ts: the footage sample with a fake transcriber; a dropped video is copied into its footage/ folder. */
-const DROP_VIDEO_PORT = 4388;
+const DROP_VIDEO_PORT = fixturePort('dropVideo');
 
 /** A seventeenth for brief-reel.spec.ts: the footage sample with a fake transcriber, where reels are started from a brief and from a video. */
-const BRIEF_REEL_PORT = 4387;
-const BRIEF_REEL_PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-brief-reel-project.txt');
+const BRIEF_REEL_PORT = fixturePort('briefReel');
+const BRIEF_REEL_PROJECT_FILE = projectFile('brief-reel');
 
 /** An eighteenth for picker.spec.ts: the showreel sample, whose versions are approved and rendered. */
-const PICKER_PORT = 4380;
+const PICKER_PORT = fixturePort('picker');
 /** A nineteenth for renders.spec.ts: the showreel sample, where renders are queued, followed from other tabs and cancelled. */
-const RENDERS_PORT = 4379;
+const RENDERS_PORT = fixturePort('renders');
 
 // Servers start through a shell, so they watch the Playwright runner's pid, not their parent's, to exit with it.
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: String(process.pid) });

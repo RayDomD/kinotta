@@ -1,9 +1,10 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // These tests save comments, so they run against their own server on the footage sample project
 // (playwright.config.ts) and in order.
-const FOOTAGE_SERVER = 'http://localhost:4396';
+const FOOTAGE_SERVER = serverUrl('footage');
 const COMMENTS_API = `${FOOTAGE_SERVER}/api/reels/founder-talk/versions/1/comments`;
 const TIME_TOLERANCE = 0.1;
 

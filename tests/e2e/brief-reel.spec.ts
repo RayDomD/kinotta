@@ -1,16 +1,16 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 import type { Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Starts reels in the footage sample with a fake transcriber (playwright.config.ts), so this has its own server and runs in order.
 const BUILD_WAIT_MS = 30_000;
-const PROJECT_PATH_FILE = join(tmpdir(), 'kinotta-e2e-brief-reel-project.txt');
+const PROJECT_PATH_FILE = projectFile('brief-reel');
 const BRIEF = 'A 20 second teaser for the spring launch.';
 
-test.use({ baseURL: 'http://localhost:4387', permissions: ['clipboard-read', 'clipboard-write'] });
+test.use({ baseURL: serverUrl('briefReel'), permissions: ['clipboard-read', 'clipboard-write'] });
 test.describe.configure({ mode: 'serial' });
 
 const reelsRail = (page: Page) => page.getByRole('navigation', { name: 'Reels' });

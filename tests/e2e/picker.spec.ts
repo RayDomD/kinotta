@@ -1,13 +1,14 @@
 import { revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 /** A Draft of the showreel's v2 runs in parallel segments, but still takes a while. */
 const RENDER_WAIT_MS = 120_000;
 
 // The showreel sample: two code-only versions. Its own server (playwright.config.ts), since versions are approved and rendered.
 // Approving and rendering are part of Review (docs/mockups/2026-10-06-review-picker-merge.html, option C).
-test.use({ baseURL: 'http://localhost:4380' });
+test.use({ baseURL: serverUrl('picker') });
 test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });

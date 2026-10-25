@@ -1,14 +1,14 @@
 import { reviewClockText, focusReview, waitForEditSave } from '../helpers/review-clock.ts';
 import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Starting a reel runs the real build, and so does Save.
 const BUILD_WAIT_MS = 30_000;
-const PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-snip-save-project.txt');
+const PROJECT_FILE = projectFile('snip-save');
 /** Pixels up from the bottom of the lane column: the axis row, which no button covers. */
 const AXIS_INSET = 10;
 /** The sample video is 12 s and the lanes open on all of it; a drag from a quarter to a half selects about 3 s. */
@@ -18,7 +18,7 @@ const DRAG_TO = 0.5;
 const NOT_MOVED = /^(none|0px)$/;
 
 // The footage sample with a fake transcriber, its own server (playwright.config.ts).
-test.use({ baseURL: 'http://localhost:4385' });
+test.use({ baseURL: serverUrl('snipSave') });
 // Each check creates a differently named reel. A failure must not hide the other editing regressions.
 test.describe.configure({ mode: 'default' });
 

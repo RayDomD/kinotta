@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Opens versions that break the timing contract. Saves a comment and a batch, so it has its own server on the
 // broken-project sample (playwright.config.ts) and runs in order.
-const CONTRACT_SERVER = 'http://localhost:4393';
-const PROJECT_PATH_FILE = join(tmpdir(), 'kinotta-e2e-contract-project.txt');
+const CONTRACT_SERVER = serverUrl('contract');
+const PROJECT_PATH_FILE = projectFile('contract');
 const BATCH_FILE = 'reels/launch-teaser/v1/comments.json';
 const SEEK_MISSING = 'The page has no global seek(seconds) function.';
 const LAUNCH_TEASER_ISSUES = [
@@ -100,7 +100,7 @@ test('pinning an unnamed area records position only, and the batch can include t
 
 test('a version that keeps the contract shows no issue list and offers no issue checkbox', async ({ page }) => {
   // The read-only sample server (product-showreel v2 is good).
-  await page.goto('http://localhost:4399/');
+  await page.goto(`${serverUrl('shared')}/`);
   await expect(page.locator('.grid .shot')).toHaveCount(6);
   await expect(page.locator('.issues')).toHaveCount(0);
   await expect(page.getByLabel('Include contract issues')).toHaveCount(0);

@@ -1,12 +1,13 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
+import { serverUrl } from './ports.ts';
 
 /** Two Drafts of the showreel, one after the other. */
 const RENDER_WAIT_MS = 150_000;
 
 // The showreel sample on its own server (playwright.config.ts), since renders are queued and cancelled on it.
-test.use({ baseURL: 'http://localhost:4379' });
+test.use({ baseURL: serverUrl('renders') });
 
 const phases = (page: Page): Locator => page.getByRole('navigation', { name: 'Phase' });
 const menuButton = (page: Page): Locator => page.getByRole('banner').getByRole('button', { name: 'Renders' });

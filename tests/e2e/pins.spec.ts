@@ -1,9 +1,10 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // These tests save comments, so they run against their own server and temp project (playwright.config.ts)
 // and in order: each one builds on the pins the ones before it saved.
-const PINS_SERVER = 'http://localhost:4398';
+const PINS_SERVER = serverUrl('pins');
 const PAGE_WIDTH = 1920;
 const COMMENTS_API = `${PINS_SERVER}/api/reels/product-showreel/versions/2/comments`;
 

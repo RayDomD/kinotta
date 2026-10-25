@@ -1,5 +1,6 @@
 import { revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // Building v1 runs the real build, so the first wait after Start is longer than the default.
 const BUILD_WAIT_MS = 30_000;
@@ -7,7 +8,7 @@ const BUILD_WAIT_MS = 30_000;
 const TOOL_CHECK_WAIT_MS = 20_000;
 
 // The footage-project sample with a fake transcriber (playwright.config.ts); a reel is started in it.
-test.use({ baseURL: 'http://localhost:4389' });
+test.use({ baseURL: serverUrl('newReel') });
 
 test('the Needs row names what a start from video needs, and not the render browser', async ({ page }) => {
   await page.goto('/');
