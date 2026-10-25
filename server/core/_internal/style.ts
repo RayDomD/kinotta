@@ -199,7 +199,8 @@ async function migrateTaste(projectDir: string, scope: 'user' | 'project'): Prom
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
     const rules = source.split(/\r?\n/).flatMap((line) => {
       const match = /^\s*(?:[-*+]|\d+[.)])\s+(.+?)\s*$/.exec(line);
-      return match ? [match[1]!] : [];
+      const rule = match?.[1]?.trim();
+      return rule ? [rule] : [];
     });
     const id = scope === 'user' ? record.profile ?? 'my-style' : 'project-style';
     const existing = await storedStyle(projectDir, id, scope);
