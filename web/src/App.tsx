@@ -208,7 +208,6 @@ interface RailProps {
   /** The New reel screen is open. */
   creating: boolean;
   onNewReel(): void;
-  onLibrary?(): void;
 }
 
 function Rail(props: RailProps) {
@@ -231,7 +230,6 @@ function Rail(props: RailProps) {
         )}
         <nav className="reels" aria-label="New reel">
           <button type="button" aria-current={creating ? 'true' : undefined} onClick={onNewReel}>New reel</button>
-          {props.onLibrary && <button type="button" onClick={props.onLibrary}>Library</button>}
         </nav>
       </div>
       {sections !== null && !creating && <SectionRail {...sections} />}
@@ -726,7 +724,6 @@ function Studio() {
           onOpen={openReel}
           creating={creating}
           onNewReel={() => setCreating(true)}
-          onLibrary={() => setLibrary(true)}
         />
         <Main
           working={working}
