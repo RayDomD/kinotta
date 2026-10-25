@@ -1,7 +1,7 @@
 ---
 title: Generate or tweak, Direction, effects library and pinned effects
 date: 2026-10-25
-status: Draft
+status: In Progress
 summary: Start a reel with Auto or Direct; Direct adds a five-step Direction with presets and a Storyboard where effects are dragged and pinned, not built.
 spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-10-25-pinned-effect-instant-or-agent.html, docs/mockups/2026-10-25-start-generate-or-tweak.html, docs/mockups/2026-10-25-direction-step.html, docs/mockups/2026-10-25-effects-library.html, docs/mockups/2026-10-25-storyboard-pinned-effects.html
 ---
