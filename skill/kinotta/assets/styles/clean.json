@@ -1,0 +1,14 @@
+{
+  "id": "clean",
+  "name": "Clean",
+  "scope": "builtin",
+  "look": "clean",
+  "settings": {
+    "broll": "light",
+    "captions": "phrases",
+    "pace": "normal"
+  },
+  "yours": [],
+  "effects": [],
+  "rules": []
+}

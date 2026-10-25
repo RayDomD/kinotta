@@ -7,6 +7,7 @@ import {
   fetchReelAgentJob,
   fetchWorkingVersion,
   listVideos,
+  migrateStyleProfile,
   retryReelAgentJob,
   saveAgentSettings,
   startReel,
@@ -27,6 +28,7 @@ import {
   CAPTIONS_MODES,
   DIAL_DESCRIPTIONS,
   loadSimpleOptions,
+  migrateSimpleOptionsProfile,
   PACE_LEVELS,
   saveSimpleOptions,
   serializeSimpleOptions,
@@ -545,6 +547,7 @@ export function SimpleMode({
   const [editText, setEditText] = useState('');
 
   useEffect(() => {
+    void migrateSimpleOptionsProfile(migrateStyleProfile);
     void fetchAgentSettings().then((settings) => {
       if (settings?.provider) setAgentProvider(settings.provider);
     }).catch(() => {});

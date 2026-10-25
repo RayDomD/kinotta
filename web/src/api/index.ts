@@ -40,3 +40,5 @@ export { fetchSoundEffects, soundEffectUrl, importSoundEffect, generateAudio } f
 export type { SoundEffect } from '../../../server/core/index.ts';
 export { detectMediaBeats, fetchMedia, fetchMediaModel, fetchProjectMedia, fetchSpeech, fetchWaveform, importMedia, mediaAudioBytes, mediaAudioUrl, mediaBytes, mediaFileUrl, mediaUrl, referenceMedia, relinkMedia, transcribeMedia } from './_internal/client.ts';
 export type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../server/core/index.ts';
+export { fetchStyles, saveStyle, saveDefaultStyle, fetchReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/client.ts';
+export type { Style, StyleListing } from './_internal/client.ts';
