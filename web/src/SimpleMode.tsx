@@ -20,6 +20,7 @@ import type {
   Version,
 } from './api/_internal/client.ts';
 import { migrateSimpleOptionsProfile } from './simple-options.ts';
+import { BriefWaiting } from './BriefReel.tsx';
 import { SimpleExport } from './SimpleExport.tsx';
 import { SimpleMake } from './SimpleMake.tsx';
 import { Review } from './review/index.ts';
@@ -481,6 +482,9 @@ export function SimpleMode({
 
       {creating || !reel ? (
         <SimpleMake onStarted={onStarted} />
+      ) : reel.brief !== undefined && reel.newestVersion === null ? (
+        // A reel started from a brief has nothing to play until its first version is written.
+        <BriefWaiting reel={{ ...reel, brief: reel.brief }} />
       ) : (
         <div className="sm-studio">
           <div className="sm-preview">
