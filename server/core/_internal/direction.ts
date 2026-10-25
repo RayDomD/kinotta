@@ -104,7 +104,7 @@ export function agentTold(style: Style, context: ToldContext = {}): string[] {
     ? `Fonts: ${[fonts.words && `${fonts.words} for words`, fonts.numbers && `${fonts.numbers} for numbers`].filter(Boolean).join(', ')}.`
     : 'Fonts: the brand fonts.');
   const music = musicChoice(style);
-  if (music === 'none') lines.push('Music: none; only the sound in the video.');
+  if (music === 'none') lines.push(form?.footage === false ? 'Music: none.' : 'Music: none; only the sound in the video.');
   else if (music === 'kinotta') lines.push('Music: make a score that fits the cut.');
   else {
     const fit = style.music?.fit === 'under' ? 'play it under the cut' : 'cut on its beat';

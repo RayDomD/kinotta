@@ -663,3 +663,6 @@ export interface NewReelInput { style?: StyleChoice }
 /** Starts a code-built reel from a brief in a chosen style. */
 export const startStyledBrief = (input: { title: string; brief: string; style: StyleChoice }): Promise<{ slug: string; request: string }> =>
   requestJson('/api/reels/brief', jsonBody('POST', input));
+export type { BrandFonts } from '../../../../server/core/index.ts';
+/** The brand fonts Direction preselects: the project's, or Kinotta's built-in brand's. */
+export const fetchBrandFonts = (): Promise<import('../../../../server/core/index.ts').BrandFonts> => getJson('/api/brand/fonts');
