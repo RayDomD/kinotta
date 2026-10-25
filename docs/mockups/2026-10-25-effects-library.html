@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kinotta · Effects library</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--still:oklch(.13 .006 50);
+  --rest:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18);
+  --lift:7px 7px 0 -1.6px var(--ground),7px 7px 0 0 oklch(.945 .004 106 / .42),14px 14px 0 -1.6px var(--ground),14px 14px 0 0 oklch(.945 .004 106 / .18);
+  --press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.top{height:52px;display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1.4px solid var(--rule)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.14em;font-size:13px}
+.crumb{color:var(--ink-2)} .crumb b{color:var(--ink);font-weight:500}
+.tabs{margin-left:28px;display:flex}
+.tab{background:none;border:0;border-bottom:1.6px solid transparent;height:52px;padding:0 14px;color:var(--muted);font-size:14px}
+.tab .num{font-size:11px;margin-left:6px;color:var(--muted)}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.back{margin-left:auto;background:none;border:1.4px solid var(--hairline);padding:6px 12px;font-size:13px;color:var(--ink-2)}
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr) 360px;min-height:calc(100vh - 52px)}
+.rail{border-right:1.4px solid var(--rule);padding:16px}
+.label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.cat{display:flex;justify-content:space-between;width:100%;background:none;border:0;border-left:1.6px solid transparent;padding:6px 10px;color:var(--ink-2);font-size:14px;text-align:left}
+.cat .num{font-size:11px;color:var(--muted)}
+.cat.on{border-left-color:var(--light);color:var(--ink)}
+.cat:hover{color:var(--ink)}
+.rail hr{border:0;border-top:1.4px solid var(--rule);margin:14px 0}
+.main{padding:20px 26px 60px}
+.head{display:flex;align-items:flex-end;gap:16px;margin-bottom:14px}
+h1{font-weight:500;font-size:22px;letter-spacing:-.4px;margin:0}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.search{margin-left:auto;width:260px;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:7px 10px;font:inherit;font-size:14px}
+.search:focus{outline:none;border-color:var(--light)}
+.forms{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.form{background:none;border:1.4px solid var(--hairline);padding:5px 12px;font-size:13px;color:var(--ink-2)}
+.form.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+h2{font-size:15px;font-weight:500;margin:22px 0 10px;display:flex;gap:10px;align-items:baseline}
+h2 .num{font-size:11px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.fx{background:transparent;border:1.4px solid var(--hairline);padding:0;text-align:left;transition:transform .18s,box-shadow .18s,border-color .18s;position:relative}
+.fx:hover,.fx:focus-visible{transform:translate(-3px,-3px);box-shadow:var(--lift);border-color:var(--ink);background:var(--card);outline:none}
+.fx.sel{border-color:var(--light);box-shadow:0 0 10px var(--light-glow)}
+.fx .meta{padding:9px 11px 11px}
+.fx b{font-weight:500;font-size:14.5px}
+.fx p{margin:2px 0 6px;color:var(--muted);font-size:12.5px;line-height:1.4}
+.fx .tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11px;color:var(--ink-2);border:1.2px solid var(--rule);padding:0 6px}
+.fav{position:absolute;right:8px;top:8px;width:22px;height:22px;display:grid;place-items:center;color:var(--ink-2);font-size:13px;z-index:2}
+.fav.on{color:var(--light)}
+.dim{opacity:.32}
+/* previews */
+.still{aspect-ratio:16/9;background:var(--still);position:relative;overflow:hidden}
+.person{position:absolute;left:50%;bottom:-6%;width:34%;height:78%;transform:translateX(-50%)}
+.person::before{content:"";position:absolute;left:32%;top:0;width:36%;aspect-ratio:1;border-radius:50%;background:oklch(.36 .006 60)}
+.person::after{content:"";position:absolute;left:0;right:0;top:42%;bottom:0;border-radius:46% 46% 0 0;background:oklch(.30 .006 60)}
+.p-big{position:absolute;inset:0;display:grid;place-items:center;font-weight:600;font-size:34px;letter-spacing:-.04em;animation:blink 1.6s infinite}
+@keyframes blink{0%,45%{opacity:1}50%,95%{opacity:.15}}
+.p-cap{position:absolute;left:0;right:0;top:16%;text-align:center;font-weight:600;font-size:18px;z-index:1}
+.p-cap i{font-style:normal;color:var(--light)}
+.p-tag{position:absolute;left:8%;top:12%;display:flex;gap:4px;align-items:center;animation:wipe 3s infinite;z-index:1}
+.p-tag .n{background:var(--ink);color:var(--ground);font-size:11px;padding:0 5px}
+.p-tag .t{font-size:12px;background:oklch(.12 .003 106 / .8);padding:0 6px}
+@keyframes wipe{0%{clip-path:inset(0 100% 0 0)}25%,85%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 0 0);opacity:0}}
+.p-title{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.p-title b{font-size:20px;animation:wipe 3s infinite}.p-title span{font-size:11px;color:var(--muted);animation:wipe 3s infinite .4s}
+.p-list{position:absolute;left:12%;top:18%;display:grid;gap:6px;width:60%;padding:8px;background:oklch(.21 .005 90);border:1.2px solid var(--hairline);z-index:1}
+.p-list span{height:7px;background:var(--ink-2);transform-origin:0 50%;animation:grow 3s infinite}
+.p-list span:nth-child(2){width:80%;animation-delay:.35s}.p-list span:nth-child(3){width:64%;animation-delay:.7s}
+@keyframes grow{0%{transform:scaleX(0)}30%,100%{transform:scaleX(1)}}
+.p-chips{position:absolute;left:8%;bottom:14%;display:flex;gap:5px;z-index:1}
+.p-chips span{font-size:10px;background:var(--ink);color:var(--ground);padding:0 5px;animation:wipe 3s infinite}
+.p-chips span:nth-child(2){animation-delay:.4s}.p-chips span:nth-child(3){animation-delay:.8s}
+.p-num{position:absolute;inset:0;display:grid;place-items:center;font-family:Doto,monospace;font-weight:800;font-size:46px;animation:punch 2s infinite}
+@keyframes punch{0%{transform:scale(1.4);filter:blur(4px);opacity:0}25%,100%{transform:none;filter:none;opacity:1}}
+.p-chart{position:absolute;left:14%;right:14%;bottom:14%;top:20%;display:flex;align-items:flex-end;gap:8%}
+.p-chart span{flex:1;background:var(--ink-2);transform-origin:50% 100%;animation:grow2 3s infinite}
+.p-chart span:nth-child(1){height:40%}.p-chart span:nth-child(2){height:70%;animation-delay:.2s}.p-chart span:nth-child(3){height:55%;animation-delay:.4s}.p-chart span:nth-child(4){height:90%;background:var(--light);animation-delay:.6s}
+@keyframes grow2{0%{transform:scaleY(0)}35%,100%{transform:scaleY(1)}}
+.p-behind{position:absolute;left:0;right:0;top:22%;text-align:center;font-weight:600;font-size:34px;letter-spacing:-.04em;color:var(--ink-2);animation:rise 3s infinite}
+@keyframes rise{0%{transform:translateY(30px);opacity:0}35%,100%{transform:none;opacity:1}}
+.p-frame{position:absolute;inset:14% 22%;border:2px solid var(--ink-2);border-radius:10px;overflow:hidden;animation:shrink 3s infinite}
+@keyframes shrink{0%{inset:0}35%,100%{inset:14% 22%}}
+.p-cards{position:absolute;inset:0}
+.p-cards span{position:absolute;width:26%;aspect-ratio:16/10;background:oklch(.27 .005 90);border:1.2px solid var(--hairline);animation:para 4s infinite ease-in-out}
+.p-cards span:nth-child(1){left:6%;top:16%;transform:rotate(-6deg)}.p-cards span:nth-child(2){right:6%;top:24%;transform:rotate(5deg);animation-delay:-1s}
+@keyframes para{50%{translate:4px -6px}}
+.p-feed{position:absolute;right:6%;top:10%;bottom:10%;width:34%;display:grid;gap:5px;align-content:start}
+.p-feed span{height:14px;background:oklch(.25 .005 90);border:1.2px solid var(--hairline);animation:rise 3s infinite}
+.p-feed span:nth-child(2){animation-delay:.3s}.p-feed span:nth-child(3){animation-delay:.6s}
+.p-split .person{left:30%}.p-split::after{content:"";position:absolute;right:6%;top:14%;width:36%;height:72%;background:oklch(.25 .005 90);border:1.2px solid var(--hairline);animation:rise 3s infinite}
+.p-loop{position:absolute;left:30%;top:34%;width:40%;height:30%;border:2px solid oklch(.68 .2 25);border-radius:50%;animation:wipe 3s infinite}
+.p-phone{position:absolute;left:40%;top:8%;width:20%;height:84%;border:2px solid var(--ink-2);border-radius:8px;overflow:hidden}
+.p-phone::after{content:"";position:absolute;left:10%;right:10%;top:10%;height:200%;background:repeating-linear-gradient(var(--ink-2) 0 6px,transparent 6px 16px);opacity:.5;animation:scroll 3s infinite linear}
+@keyframes scroll{to{transform:translateY(-50%)}}
+.p-prompt{position:absolute;left:12%;right:12%;top:40%;height:22%;border:1.4px solid var(--ink-2);display:flex;align-items:center;padding:0 8px;font-size:12px}
+.p-prompt span{overflow:hidden;white-space:nowrap;animation:type 3s steps(18) infinite;width:0}
+@keyframes type{60%,100%{width:72%}}
+.p-ba{position:absolute;inset:16% 18%;display:flex;gap:12%}.p-ba span{flex:1;border:1.6px solid var(--ink-2);border-radius:6px}.p-ba span+span{border-color:var(--light)}
+.p-arc{position:absolute;left:14%;right:14%;top:30%;height:50%;border-top:2px dotted var(--muted);border-radius:50% 50% 0 0}
+.p-arc::after{content:"";position:absolute;width:14%;aspect-ratio:1;background:var(--light);top:-8%;left:0;animation:ride 3s infinite}
+@keyframes ride{to{left:86%}}
+.p-diag{position:absolute;inset:30% 10%;display:flex;align-items:center;gap:6%}
+.p-diag span{flex:1;height:60%;border:1.4px solid var(--ink-2);animation:wipe 3s infinite}
+.p-diag span:nth-child(2){animation-delay:.4s}.p-diag span:nth-child(3){animation-delay:.8s;border-color:var(--light)}
+.p-morph{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px;background:var(--ink-2);animation:morph 3s infinite}
+@keyframes morph{0%{border-radius:50%}40%{border-radius:0;width:120px;margin-left:-60px;height:12px;margin-top:-6px}80%,100%{width:90px;height:56px;margin:-28px -45px;background:transparent;outline:2px solid var(--ink-2)}}
+.p-grain::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse,transparent 40%,oklch(.08 .003 106 / .8));mix-blend-mode:multiply}
+.p-grade .person{animation:grade 3s infinite}
+@keyframes grade{0%,45%{filter:none}55%,100%{filter:sepia(.8) saturate(1.6) hue-rotate(-12deg)}}
+.p-reel{position:absolute;inset:30% 10%;display:flex;gap:4%;align-items:center}
+.p-reel span{flex:1;height:30%;background:var(--ink-2);animation:beat .5s infinite alternate}
+.p-reel span:nth-child(odd){animation-delay:.25s}
+@keyframes beat{to{height:90%}}
+/* detail */
+.side{border-left:1.4px solid var(--rule);padding:16px;display:flex;flex-direction:column;gap:14px}
+.detail .still{border:1.4px solid var(--hairline)}
+.detail h3{margin:10px 0 2px;font-size:18px;font-weight:500}
+.detail .desc{color:var(--ink-2);margin:0 0 10px}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:6px 10px;font-size:13px;margin:0 0 12px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;color:var(--ink-2)}
+.ask{background:var(--card);border:1.4px solid var(--ink);box-shadow:var(--rest);padding:10px 12px;font-size:14px}
+.ask .label{margin-bottom:4px}
+.row{display:flex;gap:10px;align-items:center}
+.primary{background:var(--ink);color:var(--ground);border:0;font-weight:600;padding:8px 16px;box-shadow:var(--press);transition:transform .15s,box-shadow .15s}
+.primary:hover{transform:translate(-2px,-2px);box-shadow:var(--rest)}
+.quiet{background:none;border:1.4px solid var(--hairline);padding:7px 12px;font-size:13px;color:var(--ink-2)}
+.quiet.done{color:var(--light);border-color:var(--light)}
+.muted{color:var(--muted);font-size:13px}
+.pick{border-top:1.4px solid var(--rule);padding-top:12px}
+.pick .item{display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M4.5 8.5L14 14l9.5-5.5M14 14v11" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>KINOTTA</div>
+  <div class="crumb">The pin · <b>Library</b></div>
+  <nav class="tabs" aria-label="Library">
+    <button class="tab on">Effects<span class="num">25</span></button>
+    <button class="tab">Looks<span class="num">04</span></button>
+    <button class="tab">Camera moves<span class="num">08</span></button>
+    <button class="tab">Transitions<span class="num">06</span></button>
+    <button class="tab">Sounds<span class="num">17</span></button>
+  </nav>
+  <button class="back">Back to Direction</button>
+</header>
+<div class="shell">
+  <aside class="rail">
+    <p class="label">Categories</p>
+    <div id="cats"></div>
+    <hr>
+    <button class="cat" data-cat="fav">♥ Favourites <span class="num" id="favn">02</span></button>
+    <button class="cat" data-cat="mine">Added to this reel <span class="num" id="minen">01</span></button>
+  </aside>
+  <main class="main">
+    <div class="head">
+      <div><h1>Effects</h1><p class="sub">Every effect plays on a sample shot. Add one to this reel, or copy its request into a note.</p></div>
+      <input class="search" placeholder="Search effects" aria-label="Search effects">
+    </div>
+    <div class="forms" role="group" aria-label="Works with">
+      <span class="muted" style="align-self:center;margin-right:4px">Works with</span>
+      <button class="form on" data-form="all">Everything</button>
+      <button class="form" data-form="talking">Talking video</button>
+      <button class="form" data-form="interview">Interview</button>
+      <button class="form" data-form="tutorial">Tutorial · screen</button>
+      <button class="form" data-form="demo">Product demo</button>
+      <button class="form" data-form="launch">Launch · brand</button>
+      <button class="form" data-form="explainer">Explainer</button>
+      <button class="form" data-form="showreel">Showreel</button>
+    </div>
+    <div id="sections"></div>
+  </main>
+  <aside class="side" id="detail"></aside>
+</div>
+<script>
+// mockup only. The effects and their descriptions are Kinotta's 25 templates in skill/kinotta/templates/effects.
+const F = ['talking', 'interview', 'tutorial', 'demo'], C = ['launch', 'explainer', 'showreel'], ALL = [...F, ...C];
+const CATS = [
+  ['words', 'Words on screen'], ['lists', 'Lists and numbers'], ['speaker', 'Around the speaker'],
+  ['product', 'Products and screens'], ['diagram', 'Diagrams and shapes'], ['look', 'Looks and grade'], ['reel', 'Whole reels'],
+];
+const FX = [
+  { id: 'big-word', name: 'Big word', cat: 'words', p: '<div class="p-big">pin.</div>', d: 'One spoken word fills the frame at a time.', needs: 'Words with times (from the transcript)', ask: 'Use Big word on "one pin, one answer".', forms: ALL },
+  { id: 'captions', name: 'Captions', cat: 'words', p: '<i class="person"></i><div class="p-cap">one <i>pin</i> fixes it</div>', d: 'One word at a time near the top; key words large, filler small, one accent word.', needs: 'A transcript', ask: 'Turn on Captions with the accent on product names.', forms: F },
+  { id: 'title-card', name: 'Title card', cat: 'words', p: '<div class="p-title"><b>The pin</b><span>Kinotta · 2026</span></div>', d: 'A title arrives word by word, then a subtitle.', needs: 'Title, subtitle', ask: 'Open with a Title card: "The pin".', forms: ALL },
+  { id: 'section-tag', name: 'Section tag', cat: 'words', p: '<i class="person"></i><div class="p-tag"><span class="n num">02</span><span class="t">The fix</span></div>', d: 'A number chip and label wipe in at a corner.', needs: 'Number, label', ask: 'Tag each chapter with a Section tag.', forms: [...F, 'explainer'] },
+  { id: 'letter-swap', name: 'Letter swap', cat: 'words', p: '<div class="p-big" style="animation-duration:2s">flat → lit</div>', d: 'Letters exit, then replacements enter without overlap.', needs: 'Two words', ask: 'Swap "describe" to "pin" with Letter swap.', forms: C },
+  { id: 'checklist', name: 'Checklist', cat: 'lists', p: '<div class="p-list"><span></span><span></span><span></span></div>', d: 'A panel whose items tick as they are said.', needs: 'Items with times', ask: 'Put a Checklist when I list my three steps.', forms: ALL },
+  { id: 'chip-tally', name: 'Chip tally', cat: 'lists', p: '<i class="person"></i><div class="p-chips"><span>Fast</span><span>Clear</span><span>Pinned</span></div>', d: 'A row of check chips grows by one per spoken item.', needs: 'Items with times', ask: 'Add a Chip tally for the three benefits.', forms: F },
+  { id: 'number-cut', name: 'Number cut', cat: 'lists', p: '<div class="p-num">03</div>', d: 'The frame punches in and blurs behind the next section number.', needs: 'Plate, number', ask: 'Use Number cut between the three parts.', forms: [...F, 'explainer'] },
+  { id: 'chart', name: 'Chart', cat: 'lists', p: '<div class="p-chart"><span></span><span></span><span></span><span></span></div>', d: 'Labelled bars build from your data.', needs: 'Real numbers only', ask: 'Show the review rounds as a Chart.', forms: ALL },
+  { id: 'text-behind', name: 'Text behind you', cat: 'speaker', p: '<div class="p-behind">FOCUS</div><i class="person"></i>', d: 'Display text rises between the footage and the person.', needs: 'A cut-out of the person (supplied)', ask: 'Put "FOCUS" behind me at the start.', forms: ['talking', 'interview'] },
+  { id: 'framed-speaker', name: 'Framed speaker', cat: 'speaker', p: '<div class="p-frame"><i class="person"></i></div>', d: 'The footage shrinks into a card on a dark ground; shapes draw in.', needs: 'Footage', ask: 'Frame me in a card when I say "here\'s the thing".', forms: F },
+  { id: 'presenter-split', name: 'Presenter split', cat: 'speaker', p: '<div class="still p-split" style="position:absolute;inset:0"><i class="person"></i></div>', d: 'An insert enters while the speaker is re-cropped beside it.', needs: 'Footage, an insert', ask: 'Split the screen when I show the app.', forms: ['talking', 'interview', 'tutorial', 'demo'] },
+  { id: 'floating-cards', name: 'Floating cards', cat: 'speaker', p: '<i class="person"></i><div class="p-cards"><span></span><span></span></div>', d: 'Tilted cards rise and settle around the subject.', needs: 'Up to three clips or stills', ask: 'Float the three screenshots around me.', forms: ALL },
+  { id: 'activity-feed', name: 'Activity feed', cat: 'speaker', p: '<i class="person" style="left:32%"></i><div class="p-feed"><span></span><span></span><span></span></div>', d: 'Notes stack into columns beside the speaker.', needs: 'Short notes', ask: 'Stack the comments beside me as an Activity feed.', forms: F },
+  { id: 'annotate', name: 'Annotate', cat: 'speaker', p: '<i class="person"></i><div class="p-loop"></div>', d: 'Labels enter; a red X strikes one, a hand-drawn loop circles a word.', needs: 'Labels', ask: 'Circle the pin with Annotate.', forms: ALL },
+  { id: 'phone', name: 'Phone', cat: 'product', p: '<div class="p-phone"></div>', d: 'Scrolls your screens and taps through them.', needs: 'Screens', ask: 'Show the app on a Phone while I talk about it.', forms: ALL },
+  { id: 'prompt', name: 'Prompt', cat: 'product', p: '<div class="p-prompt"><span>pin the headline…</span></div>', d: 'A line types into an input, then Send is pressed.', needs: 'The line', ask: 'Type "make the headline darker" into a Prompt.', forms: ALL },
+  { id: 'before-after', name: 'Before and after', cat: 'product', p: '<div class="p-ba"><span></span><span></span></div>', d: 'Two phone frames; the After time counts down, then a feature row lands.', needs: 'Two screens, times', ask: 'Compare v1 and v2 with Before and after.', forms: ALL },
+  { id: 'arc-flow', name: 'Arc flow', cat: 'product', p: '<div class="p-arc"></div>', d: 'A thumbnail rides a dotted arc between two devices; a bar fills, then ticks.', needs: 'Two devices, a thumbnail', ask: 'Send the reel from laptop to phone with Arc flow.', forms: ALL },
+  { id: 'diagram', name: 'Diagram', cat: 'diagram', p: '<div class="p-diag"><span></span><span></span><span></span></div>', d: 'Process boxes and arrows draw step by step.', needs: 'Ordered steps', ask: 'Draw the review loop as a Diagram.', forms: ALL },
+  { id: 'shape-morph', name: 'Shape morph', cat: 'diagram', p: '<div class="p-morph"></div>', d: 'A circle becomes a bar, then an open frame, in one continuous move.', needs: 'Nothing', ask: 'Join shots 2 and 3 with a Shape morph.', forms: C },
+  { id: 'motif-carry', name: 'Motif carry', cat: 'diagram', p: '<div class="p-title"><b style="border-bottom:2px solid var(--light)">One line</b><span>carries on</span></div>', d: 'An underline travels out of one scene into the next.', needs: 'Nothing', ask: 'Carry the underline into the next shot.', forms: C },
+  { id: 'film-look', name: 'Film look', cat: 'look', p: '<div class="still p-grain" style="position:absolute;inset:0"><i class="person"></i></div>', d: 'Grain, light bloom, vignette and optional mono, frame by frame.', needs: 'Nothing', ask: 'Give the whole reel a Film look, light grain.', forms: ALL },
+  { id: 'live-grade', name: 'Live grade', cat: 'look', p: '<div class="still p-grade" style="position:absolute;inset:0"><i class="person"></i></div>', d: 'The footage changes grade on the word that names it.', needs: 'Footage', ask: 'Warm the grade when I say "golden hour".', forms: F },
+  { id: 'beat-showreel', name: 'Beat showreel', cat: 'reel', p: '<div class="p-reel"><span></span><span></span><span></span><span></span><span></span></div>', d: 'Hook in bar 1, events on the beat, the last bar returns to the opening.', needs: 'Tempo, clips', ask: 'Cut a Beat showreel at 120 BPM.', forms: ['showreel', 'launch'] },
+];
+let form = 'all', cat = null, sel = 'checklist';
+const fav = new Set(['checklist', 'phone']), mine = new Set(['checklist']);
+const pad = (n) => String(n).padStart(2, '0');
+const fits = (f) => form === 'all' || f.forms.includes(form);
+const FORM_NAME = { talking: 'Talking video', interview: 'Interview', tutorial: 'Tutorial', demo: 'Product demo', launch: 'Launch', explainer: 'Explainer', showreel: 'Showreel' };
+function card(f) {
+  return '<button class="fx' + (f.id === sel ? ' sel' : '') + (fits(f) ? '' : ' dim') + '" data-id="' + f.id + '"><span class="fav' + (fav.has(f.id) ? ' on' : '') + '" data-fav="' + f.id + '">' + (fav.has(f.id) ? '♥' : '♡') + '</span><div class="still">' + f.p + '</div><div class="meta"><b>' + f.name + '</b><p>' + f.d + '</p><div class="tags">' +
+    (mine.has(f.id) ? '<span class="tag" style="color:var(--light);border-color:var(--light)">In this reel</span>' : '') + (f.forms.length === ALL.length ? '<span class="tag">Any reel</span>' : f.forms.every((x) => C.includes(x)) ? '<span class="tag">No footage needed</span>' : f.forms.every((x) => F.includes(x)) ? '<span class="tag">Over your video</span>' : '<span class="tag">' + f.forms.map((x) => FORM_NAME[x]).slice(0, 2).join(', ') + '</span>') + '</div></div></button>';
+}
+function render() {
+  document.getElementById('cats').innerHTML = '<button class="cat' + (cat ? '' : ' on') + '" data-cat="">All <span class="num">' + pad(FX.filter(fits).length) + '</span></button>' + CATS.map(([id, name]) => '<button class="cat' + (cat === id ? ' on' : '') + '" data-cat="' + id + '">' + name + ' <span class="num">' + pad(FX.filter((f) => f.cat === id && fits(f)).length) + '</span></button>').join('');
+  document.getElementById('sections').innerHTML = CATS.filter(([id]) => !cat || cat === id).map(([id, name]) => {
+    const list = FX.filter((f) => f.cat === id).sort((a, b) => fits(b) - fits(a));
+    return '<h2>' + name + '<span class="num">' + pad(list.filter(fits).length) + '</span></h2><div class="grid">' + list.map(card).join('') + '</div>';
+  }).join('');
+  const f = FX.find((x) => x.id === sel);
+  document.getElementById('detail').innerHTML = '<div class="detail"><div class="still">' + f.p + '</div><h3>' + f.name + '</h3><p class="desc">' + f.d + '</p><dl class="kv"><dt>Needs</dt><dd>' + f.needs + '</dd><dt>Works with</dt><dd>' + f.forms.map((x) => FORM_NAME[x]).join(', ') + '</dd><dt>Template</dt><dd><code>' + f.id + '</code></dd></dl>' +
+    '<div class="ask"><p class="label">Ask for it</p>"' + f.ask + '"</div><div class="row" style="margin-top:14px"><button class="primary" id="add">' + (mine.has(f.id) ? 'Remove from this reel' : 'Add to this reel') + '</button><button class="quiet" id="copy">Copy request</button></div>' +
+    '<p class="muted" style="margin-top:8px">Added effects go to the agent with the brief; it places them on the right words.</p></div>' +
+    '<div class="pick"><p class="label">Added to this reel</p>' + ([...mine].map((id) => '<div class="item"><span>' + FX.find((x) => x.id === id).name + '</span><span class="muted">agent places it</span></div>').join('') || '<p class="muted">Nothing yet. The agent chooses.</p>') + '</div>';
+  document.getElementById('favn').textContent = pad(fav.size); document.getElementById('minen').textContent = pad(mine.size);
+}
+document.addEventListener('click', (e) => {
+  const fv = e.target.closest('[data-fav]'); if (fv) { const id = fv.dataset.fav; fav.has(id) ? fav.delete(id) : fav.add(id); e.stopPropagation(); return render(); }
+  const c = e.target.closest('.fx'); if (c) { sel = c.dataset.id; return render(); }
+  const k = e.target.closest('#cats .cat'); if (k) { cat = k.dataset.cat || null; return render(); }
+  const fm = e.target.closest('.form'); if (fm) { form = fm.dataset.form; document.querySelectorAll('.form').forEach((x) => x.classList.toggle('on', x === fm)); return render(); }
+  if (e.target.id === 'add') { mine.has(sel) ? mine.delete(sel) : mine.add(sel); return render(); }
+  if (e.target.id === 'copy') { e.target.textContent = 'Copied'; e.target.classList.add('done'); }
+});
+render();
+</script>
+</body>
+</html>
