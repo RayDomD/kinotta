@@ -8,7 +8,8 @@ describe('viewer editor settings', () => {
     expect(keyConflicts(DEFAULT_SETTINGS.keys)).toEqual([]);
     expect(actionForKey(DEFAULT_SETTINGS.keys, 's')).toBe('snip');
     expect(actionForKey(DEFAULT_SETTINGS.keys, 'Control+k')).toBe('split');
-    expect(actionForKey(DEFAULT_SETTINGS.keys, 'M')).toBe('rail');
+    expect(actionForKey(DEFAULT_SETTINGS.keys, 'M')).toBe('marker');
+    expect(actionForKey(DEFAULT_SETTINGS.keys, 'R')).toBe('rail');
     expect(actionForKey(DEFAULT_SETTINGS.keys, '[')).toBe('trimStart');
     expect(normalizeKey('shift+ctrl+x')).toBe('Ctrl+Shift+X');
     expect(normalizeKey('Ctrl++')).toBe('Ctrl++');
