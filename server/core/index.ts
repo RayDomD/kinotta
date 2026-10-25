@@ -292,3 +292,7 @@ export type { MakeOptions } from './_internal/make-options.ts';
 
 export type { AgentJob, AgentJobState } from './_internal/agent-jobs.ts';
 export type { AgentSettings, AgentProvider } from './_internal/agent-settings.ts';
+
+// Effects catalogue (effects-library lane)
+export { effectsCatalogue, effectPreviewFile } from './_internal/effects-catalogue.ts';
+export type { EffectCatalogueEntry, EffectCategory } from './_internal/effects-catalogue.ts';

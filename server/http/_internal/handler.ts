@@ -556,6 +556,20 @@ export function createHandler(project: Project, webRoot: string) {
         const id = safeDecode(SOUND_EFFECT_ROUTE.exec(pathname)![1]!);
         if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');
         await sendRanged(req, res, await project.soundEffectFile(id));
+      // Effects catalogue routes (effects-library lane)
+      } else if (pathname === '/api/effects') {
+        const { effectsCatalogue } = await import('../../core/index.ts');
+        sendJson(res, 200, { effects: await effectsCatalogue() });
+      } else if (/^\/api\/effects\/([^/]+)\/preview\/(.+)$/.test(pathname)) {
+        const match = /^\/api\/effects\/([^/]+)\/preview\/(.+)$/.exec(pathname)!;
+        const id = safeDecode(match[1]!);
+        const file = safeDecode(match[2]!);
+        if (id === null || file === null) sendNotFound(res);
+        else {
+          const { effectPreviewFile } = await import('../../core/index.ts');
+          const filePath = await effectPreviewFile(id, file);
+          sendFile(req, res, filePath);
+        }
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
       } else if (mediaRoute || versionMediaRoute) {
