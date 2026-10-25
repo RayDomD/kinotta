@@ -666,3 +666,6 @@ export const startStyledBrief = (input: { title: string; brief: string; style: S
 export type { BrandFonts } from '../../../../server/core/index.ts';
 /** The brand fonts Direction preselects: the project's, or Kinotta's built-in brand's. */
 export const fetchBrandFonts = (): Promise<import('../../../../server/core/index.ts').BrandFonts> => getJson('/api/brand/fonts');
+/** Copies a font dropped on Direction into the project's fonts/, with a license note. */
+export const importFont = (file: File): Promise<import('../../../../server/core/index.ts').ImportedFont> =>
+  requestJson(`/api/fonts?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });

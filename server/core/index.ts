@@ -4,6 +4,8 @@ export { validateStyle, readStyle, listStyles, saveStyle, resolveDefaultStyle, s
 export type { Style, StyleListing } from './_internal/style.ts';
 import { readAgentSettings, saveAgentSettings, detectAgents } from './_internal/agent-settings.ts';
 import { readBrandFonts } from './_internal/brand-fonts.ts';
+import { importFont } from './_internal/fonts.ts';
+export type { ImportedFont } from './_internal/fonts.ts';
 export type { BrandFonts } from './_internal/brand-fonts.ts';
 export type { StyleChoice } from './_internal/types.ts';
 import { rm } from 'node:fs/promises';
@@ -159,6 +161,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   };
   return {
     brandFonts: () => readBrandFonts(dir),
+    importFont: (name, body) => importFont(dir, name, body),
     listStyles: (videoType) => listStyles(dir, videoType),
     saveStyle: (scope, style) => saveStyle(dir, scope, style),
     saveDefaultStyle: (input) => saveDefaultStyle(dir, input),

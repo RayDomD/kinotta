@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { agentTold } from '../../server/core/_internal/direction.ts';
 import { copyFixture } from '../helpers/project.ts';
@@ -12,7 +12,8 @@ const WORDS = [{ text: 'Hello', start: 0.5, end: 0.9 }];
 async function serve() {
   // Saved styles for you live in the home folder; each test gets its own.
   process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-home-'));
-  return startServer({ projectDir: copyFixture('footage-project'), port: 0, transcriber: async () => WORDS });
+  const dir = copyFixture('footage-project');
+  return Object.assign(await startServer({ projectDir: dir, port: 0, transcriber: async () => WORDS }), { dir });
 }
 
 async function openDirection(page: Page, url: string, title: string) {
@@ -131,5 +132,56 @@ test('Direct at phone width: start from another reel, turn a rule off, and a cod
     expect(brief.text).toBe('Our new app in three steps');
     expect(brief.request).toContain('- Style: layered-2d.');
     expect(await server.project.readReelStyle('phone-launch')).toMatchObject({ form: 'launch', look: 'layered-2d', settings: {} });
+  } finally { await server.close(); }
+});
+
+test('Direct: your own font and music, chosen or dropped anywhere on Direction, are copied in and named in the style', async ({ page }) => {
+  const server = await serve();
+  try {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const direction = await openDirection(page, server.url, 'Own files');
+    await direction.getByRole('list', { name: 'Direction steps' }).getByRole('button', { name: /Fonts and music/ }).click();
+
+    // A font from the card: a sample line, what it is for, and the license note.
+    await direction.getByLabel('Drop your own font').last().setInputFiles(resolve('node_modules/@fontsource/outfit/files/outfit-latin-700-normal.woff2'));
+    const font = direction.getByLabel('Your font');
+    await expect(font).toContainText('Take the long way home.');
+    await expect(font).toContainText(/Use a font you.re licensed to use\./);
+    await font.getByRole('group', { name: 'Use it for' }).getByRole('button', { name: 'Numbers' }).click();
+    await expect(font).toContainText('Geist stays for words.');
+
+    // Music dropped on the page itself is routed to the Music row.
+    const wav = readFileSync(resolve('tests/fixtures/legacy-effect.mp3')).toString('base64');
+    const drop = async (name: string, base64: string) => {
+      const transfer = await page.evaluateHandle(([file, data]) => {
+        const bytes = Uint8Array.from(atob(data!), (c) => c.charCodeAt(0));
+        const t = new DataTransfer();
+        t.items.add(new File([bytes], file!));
+        return t;
+      }, [name, base64]);
+      await direction.locator('h1').dispatchEvent('drop', { dataTransfer: transfer });
+    };
+    await drop('theme.mp3', wav);
+    const music = direction.getByLabel('Your music');
+    await expect(music.getByRole('button', { name: 'Waveform; click to seek' }).locator('span').first()).toBeVisible({ timeout: 20_000 });
+    await music.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(music.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+    await music.getByRole('button', { name: 'Pause', exact: true }).click();
+    await music.getByRole('group', { name: 'Fit' }).getByRole('button', { name: 'Play under the cut' }).click();
+    await expect(music).toContainText('Use music you have the rights to.');
+    await drop('notes.txt', btoa('x'));
+    await expect(direction.getByRole('alert')).toHaveText('notes.txt is not a font or a music file.');
+
+    await direction.getByRole('list', { name: 'Direction steps' }).getByRole('button', { name: /Check/ }).click();
+    const told = await direction.locator('.dx-told li').allInnerTexts();
+    expect(told).toContain('Fonts: Geist for words, outfit latin 700 normal (fonts/outfit-latin-700-normal.woff2) for numbers.');
+    expect(told).toContain('Music: footage/theme.mp3; play it under the cut; lower it under the voice.');
+    await direction.getByRole('button', { name: /Build the first cut/ }).click();
+    await expect(page.getByRole('heading', { name: 'Own files', exact: true })).toBeVisible();
+    expect(await server.project.readReelStyle('own-files')).toMatchObject({
+      fonts: { numbers: 'outfit latin 700 normal (fonts/outfit-latin-700-normal.woff2)' },
+      music: { file: 'footage/theme.mp3', fit: 'under', duck: true },
+    });
+    expect(existsSync(join(server.dir, 'fonts', 'outfit-latin-700-normal.woff2'))).toBe(true);
   } finally { await server.close(); }
 });
