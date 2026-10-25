@@ -13,6 +13,8 @@ import type { BrandFonts, ReelSummary, Style, VideoEntry } from './api/_internal
 import { FORMS, FRAMES, LOOKS, agentTold, formById, frameOf, lookById, musicChoice, styleLook } from '../../server/core/model.ts';
 import type { Frame, MusicChoice } from '../../server/core/model.ts';
 import { VideoCard } from './SimpleMake.tsx';
+import { DropCard, FONT_FILE, MUSIC_FILE, OwnFontPanel, OwnMusicPanel, takeFont, takeMusic } from './DirectionOwnFiles.tsx';
+import type { OwnFont, OwnMusic } from './DirectionOwnFiles.tsx';
 import { formatClock } from './timecode.ts';
 
 export interface DirectionProps {
@@ -52,6 +54,9 @@ const MUSIC: { id: Exclude<MusicChoice, 'file'>; label: string; description: str
   { id: 'none', label: 'No music', description: 'Only the sound in your video.', mark: '∅' },
 ];
 const EFFECT_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Your own font as the style records it, so the agent finds the file: `Brand Sans (fonts/BrandSans.woff2)`. */
+const OWN_FONT = /^(.*) \((fonts\/[^)]+)\)$/;
+const ownFontName = (font: OwnFont): string => `${font.family} (${font.path})`;
 const slugify = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /** A look's still: a small drawing of what the style does to a frame, in the editor's own neutral marks. */
@@ -84,7 +89,11 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
   const [about, setAbout] = useState('');
   const [mine, setMine] = useState<Partial<Record<Setting, string>>>({});
   const [font, setFont] = useState<string>('brand');
-  const [music, setMusic] = useState<Exclude<MusicChoice, 'file'>>('kinotta');
+  const [music, setMusic] = useState<MusicChoice>('kinotta');
+  const [ownFont, setOwnFont] = useState<OwnFont | null>(null);
+  const [ownMusic, setOwnMusic] = useState<OwnMusic | null>(null);
+  const [copying, setCopying] = useState<'font' | 'music' | null>(null);
+  const [dropProblem, setDropProblem] = useState('');
   const [effects, setEffects] = useState<string[]>([]);
   const [effectDraft, setEffectDraft] = useState('');
   const [shots, setShots] = useState('');
@@ -128,8 +137,16 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
   };
   /** A style brings its fonts, music, effects and shots; settings you changed stay yours. */
   const takeExtras = (style: Style) => {
-    setFont(OTHER_FONTS.find((f) => f.words === style.fonts?.words)?.id ?? 'brand');
-    setMusic(musicChoice(style) === 'none' ? 'none' : 'kinotta');
+    const own = OWN_FONT.exec(style.fonts?.words ?? '') ?? OWN_FONT.exec(style.fonts?.numbers ?? '');
+    if (own) {
+      const words = OWN_FONT.test(style.fonts?.words ?? '');
+      const numbers = OWN_FONT.test(style.fonts?.numbers ?? '');
+      setOwnFont({ family: own[1]!, path: own[2]!, use: words && numbers ? 'both' : words ? 'words' : 'numbers' });
+      setFont('own');
+    } else setFont(OTHER_FONTS.find((f) => f.words === style.fonts?.words)?.id ?? 'brand');
+    const choice = musicChoice(style);
+    setMusic(choice);
+    if (choice === 'file') setOwnMusic({ path: style.music!.file!, name: style.music!.file!.split('/').pop()!, fit: style.music!.fit ?? 'beat', duck: style.music!.duck ?? true });
     setEffects(style.effects);
     setShots(style.shots ?? '');
   };
@@ -149,8 +166,10 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
     ...(lookId ? { look: lookId } : {}),
     settings: footage ? settings : {},
     yours: footage ? [...new Set([...base.yours.filter((key) => !(key in mine)), ...Object.keys(mine)])] : [],
-    ...(fontPick ? { fonts: { words: fontPick.words, numbers: brand?.numbers ?? 'Geist Mono' } } : { fonts: undefined }),
-    ...(music === 'none' ? { music: {} } : { music: undefined }),
+    fonts: font === 'own' && ownFont
+      ? { words: ownFont.use === 'numbers' ? brand?.words ?? 'Geist' : ownFontName(ownFont), numbers: ownFont.use === 'words' ? brand?.numbers ?? 'Geist Mono' : ownFontName(ownFont) }
+      : fontPick ? { words: fontPick.words, numbers: brand?.numbers ?? 'Geist Mono' } : undefined,
+    music: music === 'none' ? {} : music === 'file' && ownMusic ? { file: ownMusic.path, fit: ownMusic.fit, duck: ownMusic.duck } : undefined,
     effects,
     ...(shots.trim() ? { shots: shots.trim() } : { shots: undefined }),
     rules: base.rules.filter((rule) => !rulesOff.includes(rule)),
@@ -212,8 +231,24 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
   const otherReels = reels.filter((reel) => reel.newestVersion !== null || reel.brief);
   const brandWords = brand?.words ?? 'Geist';
   const brandNumbers = brand?.numbers ?? 'Geist Mono';
-  const fontName = fontPick ? fontPick.words : `${brand?.source === 'brand' ? 'Brand' : 'Built-in'} fonts`;
-  const musicName = MUSIC.find((m) => m.id === music)!.label;
+  const fontName = font === 'own' && ownFont ? ownFont.family : fontPick ? fontPick.words : `${brand?.source === 'brand' ? 'Brand' : 'Built-in'} fonts`;
+  const musicName = music === 'file' && ownMusic ? ownMusic.name : MUSIC.find((m) => m.id === music)?.label ?? 'Kinotta picks';
+  const fontLine = font === 'own' && ownFont
+    ? ownFont.use === 'words' ? `${ownFont.family} for words, ${brandNumbers} for numbers` : ownFont.use === 'numbers' ? `${brandWords} for words, ${ownFont.family} for numbers` : `${ownFont.family} for words and numbers`
+    : `${fontPick ? fontPick.words : brandWords} for words, ${brandNumbers} for numbers`;
+
+  /** Files dropped anywhere on Direction go to the row their type belongs to. */
+  const takeFile = (file: File) => {
+    setDropProblem('');
+    const kind = FONT_FILE.test(file.name) ? 'font' : MUSIC_FILE.test(file.name) ? 'music' : null;
+    if (!kind) { setDropProblem(`${file.name} is not a font or a music file.`); return; }
+    setStep(3);
+    setCopying(kind);
+    const done = kind === 'font'
+      ? takeFont(file).then((taken) => { setOwnFont(taken); setFont('own'); })
+      : takeMusic(file).then((taken) => { setOwnMusic(taken); setMusic('file'); });
+    done.catch((err: unknown) => setDropProblem(err instanceof Error ? err.message : 'Could not copy that file.')).finally(() => setCopying(null));
+  };
   const changed = Object.keys(mine).length;
 
   const chips: [Step, string, boolean][] = [
@@ -240,7 +275,12 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
   );
 
   return (
-    <main className="dx-wiz" aria-label="Direction">
+    <main
+      className="dx-wiz"
+      aria-label="Direction"
+      onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }}
+      onDrop={(event) => { const file = event.dataTransfer.files[0]; if (file) { event.preventDefault(); takeFile(file); } }}
+    >
       <p className="dx-eyebrow">Direction · step <span className="dx-num">{step}</span> of <span className="dx-num">5</span></p>
       <ol className="dx-stepper" aria-label="Direction steps">
         {STEPS.map((name, i) => {
@@ -369,7 +409,7 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
       {step === 3 && (
         <section className="dx-step" aria-labelledby="dx-h3">
           <h1 id="dx-h3">Fonts and music</h1>
-          <p className="dx-lede">Use your brand&rsquo;s or pick another.</p>
+          <p className="dx-lede">Use ours, or drop your own files anywhere on this page.</p>
           <div className="dx-block-head"><h2>Fonts</h2><span>The fonts for all words on screen</span></div>
           <div className="dx-picks" role="radiogroup" aria-label="Fonts">
             <Choice on={font === 'brand'} onClick={() => setFont('brand')}>
@@ -384,7 +424,17 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
                 <span>{f.description}</span>
               </Choice>
             ))}
+            {ownFont
+              ? <Choice on={font === 'own'} onClick={() => setFont('own')}>
+                  <span className="dx-aa" style={ownFont.face ? { fontFamily: `"${ownFont.face}"` } : undefined}>Aa</span>
+                  <b>{ownFont.family}</b>
+                  <span>Your font</span>
+                </Choice>
+              : <DropCard label="Drop your own font" accept=".ttf,.otf,.woff,.woff2" hint=".ttf .otf .woff .woff2" busy={copying === 'font'} onFile={takeFile} />}
           </div>
+          {ownFont && font === 'own' && (
+            <OwnFontPanel font={ownFont} brandWords={brandWords} brandNumbers={brandNumbers} onUse={(use) => setOwnFont({ ...ownFont, use })} onRemove={() => { setOwnFont(null); setFont('brand'); }} />
+          )}
           <div className="dx-block-head"><h2>Music</h2><span>{footage ? 'Lowered under your voice unless you say otherwise' : 'The reel is cut to it'}</span></div>
           <div className="dx-picks" role="radiogroup" aria-label="Music">
             {MUSIC.map((m) => (
@@ -394,7 +444,18 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
                 <span>{m.description}</span>
               </Choice>
             ))}
+            {ownMusic
+              ? <Choice on={music === 'file'} onClick={() => setMusic('file')}>
+                  <span className="dx-mark" aria-hidden="true">♪</span>
+                  <b>{ownMusic.name}</b>
+                  <span>Your music</span>
+                </Choice>
+              : <DropCard label="Drop your own music" accept=".mp3,.wav,.m4a,.ogg,.aac,.flac" hint=".mp3 .wav .m4a .ogg" busy={copying === 'music'} onFile={takeFile} />}
           </div>
+          {ownMusic && music === 'file' && (
+            <OwnMusicPanel music={ownMusic} footage={footage} onChange={setOwnMusic} onRemove={() => { setOwnMusic(null); setMusic('kinotta'); }} />
+          )}
+          {dropProblem && <p className="dx-need" role="alert">{dropProblem}</p>}
         </section>
       )}
 
@@ -430,8 +491,8 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
               <Recap step={1} label="Making" title={formDef.label} sub={footage ? <>{video.name} · <span className="dx-num">{formatClock(video.duration)}</span></> : 'No footage'} onChange={setStep} visual={<span className="dx-mark" aria-hidden="true">{footage ? '▶' : '⬡'}</span>} />
               <Recap step={1} label="Frame" title={FRAMES.find((f) => f.id === frame)?.label ?? 'As filmed'} sub={footage && detected ? 'Found in your video' : footage ? 'Kept as filmed' : 'Code-built'} onChange={setStep} visual={<span className={`dx-video-shape ${frame ?? 'landscape'}`} />} />
               <Recap step={2} label={footage ? 'Style' : 'Look'} title={base?.name ?? ''} sub={changed ? `${changed} setting${changed === 1 ? '' : 's'} changed by you` : fromReel ? 'A copy of that reel\'s style' : 'Settings as the style sets them'} onChange={setStep} visual={<LookStill look={lookId} />} />
-              <Recap step={3} label="Fonts" title={fontPick ? fontPick.words : brand?.source === 'brand' ? 'Your brand fonts' : 'Kinotta\'s fonts'} sub={fontPick ? `${fontPick.words} for words, ${brandNumbers} for numbers` : `${brandWords} for words, ${brandNumbers} for numbers`} onChange={setStep} visual={<span className="dx-aa" style={fontPick ? { fontFamily: fontPick.face } : undefined}>Aa</span>} />
-              <Recap step={3} label="Music" title={musicName} sub={MUSIC.find((m) => m.id === music)!.description} onChange={setStep} visual={<span className="dx-mark" aria-hidden="true">{MUSIC.find((m) => m.id === music)!.mark}</span>} />
+              <Recap step={3} label="Fonts" title={font === 'own' && ownFont ? ownFont.family : fontPick ? fontPick.words : brand?.source === 'brand' ? 'Your brand fonts' : 'Kinotta\'s fonts'} sub={fontLine} onChange={setStep} visual={<span className="dx-aa" style={font === 'own' && ownFont?.face ? { fontFamily: `"${ownFont.face}"` } : fontPick ? { fontFamily: fontPick.face } : undefined}>Aa</span>} />
+              <Recap step={3} label="Music" title={musicName} sub={music === 'file' && ownMusic ? `${ownMusic.fit === 'beat' ? 'Cut on its beat' : 'Plays under the cut'}${footage ? ownMusic.duck ? ', lowered under your voice' : ', at full level' : ''}` : MUSIC.find((m) => m.id === music)?.description} onChange={setStep} visual={<span className="dx-mark" aria-hidden="true">{music === 'file' ? '♪' : MUSIC.find((m) => m.id === music)?.mark}</span>} />
               <Recap step={4} label="Effects" title={effects.length ? effects.join(', ') : 'The agent picks'} sub={effects.length ? 'The agent places them on the right words' : 'None named'} onChange={setStep} visual={<span className="dx-mark" aria-hidden="true">✦</span>} />
               <Recap step={4} label="Shots you want" title={shots.trim() ? shots.trim() : 'None named'} onChange={setStep} visual={<span className="dx-mark" aria-hidden="true">▤</span>} />
               <Recap step={1} label="About" title={about.trim() || (footage ? 'From the video' : 'Needed: there is no footage')} onChange={setStep} visual={<span className="dx-mark" aria-hidden="true">❝</span>} />

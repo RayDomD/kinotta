@@ -22,3 +22,16 @@ it('follows reels/brand.md to the type source, falls back to DESIGN.md, then to 
   writeFileSync(join(dir, 'reels', 'brand.md'), '- Colour and type: `../../etc/type.md`\n');
   expect((await readBrandFonts(dir)).file).toBe('DESIGN.md');
 });
+
+it('copies a dropped font into fonts/ under a free name with a license note, and refuses anything else', async () => {
+  const { importFont } = await import('../../server/core/_internal/fonts.ts');
+  const dir = mkdtempSync(join(tmpdir(), 'kinotta-fonts-'));
+  const body = async function* () { yield new TextEncoder().encode('font bytes'); };
+  expect(await importFont(dir, 'Brand_Sans-Bold.woff2', body())).toEqual({ path: 'fonts/Brand_Sans-Bold.woff2', family: 'Brand Sans Bold' });
+  expect(await importFont(dir, '../../Brand_Sans-Bold.woff2', body())).toEqual({ path: 'fonts/Brand_Sans-Bold-2.woff2', family: 'Brand Sans Bold' });
+  const notes = readFileSync(join(dir, 'fonts', 'LICENSES.md'), 'utf8');
+  expect(notes).toContain('`Brand_Sans-Bold-2.woff2`: added from Direction');
+  expect(notes).toContain('use a font you are licensed to use');
+  await expect(importFont(dir, 'clip.mp4', body())).rejects.toMatchObject({ code: 'invalid' });
+  await expect(importFont(dir, 'empty.ttf', (async function* () {})())).rejects.toMatchObject({ code: 'invalid' });
+});
