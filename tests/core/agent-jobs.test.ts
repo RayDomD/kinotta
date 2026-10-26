@@ -16,7 +16,7 @@ async function until(check: () => boolean | Promise<boolean>): Promise<void> {
   const end = Date.now() + 15_000;
   while (!(await check())) { if (Date.now() > end) throw new Error('Condition did not arrive'); await delay(); }
 }
-async function setup(mode = 'success', ceilingMs = 60_000) {
+async function setup(mode = 'success', ceilingMs = 60_000, confirmed = true) {
   const dir = mkdtempSync(join(tmpdir(), 'Kinotta space \u65e5\u672c\u8a9e '));
   cpSync(copyFixture('footage-project'), dir, { recursive: true });
   const fake = join(dir, 'fake agent.mjs');
@@ -32,7 +32,7 @@ async function setup(mode = 'success', ceilingMs = 60_000) {
     } },
   });
   projects.push(project);
-  await project.saveAgentSettings({ provider: 'claude' });
+  await project.saveAgentSettings({ provider: 'claude', ...(confirmed ? { confirmed: true } : {}) });
   return { dir, project, setMode: (value: string) => { nextMode = value; }, hold: () => { gate = new Promise<void>((done) => { release = done; }); }, release: () => release?.() };
 }
 const make = async (project: Project) => {
@@ -182,10 +182,11 @@ describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, ()
       expect(existsSync(join(test.dir, 'reels', slug, 'v2'))).toBe(false);
     } finally { stop(); }
   });
-  it('defaults to Copy request without selecting or launching a detected CLI', async () => {
+  it('honors an explicit Copy request without launching an installed CLI', async () => {
     const dir = copyFixture('footage-project');
     const project = openProject(dir, { transcriber: async () => [], agent: { launch: async () => { throw new Error('must not launch'); } } });
     projects.push(project);
+    await project.saveAgentSettings({ provider: 'copy' });
     expect(await project.agentSettings()).toEqual({ provider: 'copy' });
     const slug = await make(project); await project.whenAgentDone(slug);
     expect(await project.agentJob(slug)).toMatchObject({ state: 'copy-ready' });
@@ -202,5 +203,33 @@ describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, ()
       expect(command.command).toBe(process.execPath);
       expect(command.prefix[0]).toMatch(/codex[\\/]bin[\\/]codex.js$/);
     }
+  });
+});
+
+
+describe('new reel agent confirmation', { timeout: 90_000 }, () => {
+  it.each([
+    ['claude', false, false, false], ['codex', false, false, false],
+    ['claude', true, false, true], ['codex', true, false, true],
+    ['claude', false, true, true], ['codex', false, true, true],
+    ['copy', false, false, true],
+  ] as const)('%s with project yes %s and build yes %s starts job %s', async (provider, confirmed, agentConfirmed, starts) => {
+    const fixture = await setup(provider === 'codex' ? 'codex-success' : 'success', 60_000, confirmed);
+    await fixture.project.saveAgentSettings({ provider });
+    const { slug } = await fixture.project.startReel({ video: 'media/talk.mp4', agentConfirmed });
+    await fixture.project.whenTranscribed(slug);
+    expect(fixture.project.transcriptionProgress(slug)?.state).toBe('done');
+    expect((await fixture.project.readVersion(slug, 1)).issues).toEqual([]);
+    if (starts) {
+      await fixture.project.whenAgentDone(slug);
+      expect(await fixture.project.agentJob(slug)).toMatchObject({ provider, state: provider === 'copy' ? 'copy-ready' : 'succeeded' });
+    } else {
+      expect(await fixture.project.agentJob(slug)).toBeNull();
+      // Add b-roll is an explicit request and does not require the automatic-build confirmation.
+      await fixture.project.startAgentJob(slug);
+      await fixture.project.whenAgentDone(slug);
+      expect(await fixture.project.agentJob(slug)).toMatchObject({ provider, state: 'succeeded' });
+    }
+    expect((await fixture.project.agentSettings()).confirmed).toBe(confirmed ? true : undefined);
   });
 });

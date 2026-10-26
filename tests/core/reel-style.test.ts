@@ -26,6 +26,7 @@ async function serve() {
   const dir = copyFixture('footage-project');
   const server = await startServer({ projectDir: dir, port: 0, transcriber: async () => [{ text: 'hello', start: 0, end: 1 }] });
   running.push(server);
+  await server.project.saveAgentSettings({ provider: 'copy' });
   const call = async (path: string, method = 'GET', body?: unknown) => fetch(`${server.url}${path}`, {
     method, headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });

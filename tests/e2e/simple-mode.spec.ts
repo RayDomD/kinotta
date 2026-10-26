@@ -311,6 +311,7 @@ test('Regenerate is blocked while a background run is active', async ({ page }) 
 test('Simple is the default: required-note pins, navigation, persistence, copy request and same-reel editor', async ({ page, context }) => {
   const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
   try {
+    await server.project.saveAgentSettings({ provider: 'copy' });
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto(server.url);
     await expect(page.getByRole('heading', { name: 'Product showreel', exact: true })).toBeVisible();
@@ -430,6 +431,7 @@ test('Auto starts a real reel from a project video in Simple mode with the usual
     await expect(page.getByText(/Your usual style: Kinotta.s Clean/)).toBeVisible();
 
     await page.getByLabel('Reel name', { exact: true }).fill('Simple make');
+    await server.project.saveAgentSettings({ provider: 'copy' });
     await choices.getByRole('button', { name: /^Auto/ }).click();
 
     await expect(page.getByRole('heading', { name: 'Simple make', exact: true })).toBeVisible();
@@ -459,6 +461,7 @@ test('Editable dead-air cuts: full recording timeline, restored pause, resized c
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
     await page.getByLabel('Reel name', { exact: true }).fill('Editable dead air');
+    await server.project.saveAgentSettings({ provider: 'copy' });
     await page.getByRole('button', { name: /^Auto/ }).click();
     await expect(page.getByRole('heading', { name: 'Editable dead air', exact: true })).toBeVisible();
 

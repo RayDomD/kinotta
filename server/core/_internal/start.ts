@@ -1,3 +1,4 @@
+import { readAgentSettings } from './agent-settings.ts';
 import { engineCaptions, makeOptions } from './make-options.ts';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -144,7 +145,10 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
         await addOperation(projectDir, slug, { kind: 'snip', from: cut.from, to: cut.to, by: DEAD_AIR_BY });
       }
     }
-    await afterBuilt?.(slug);
+    const settings = await readAgentSettings(projectDir);
+    if (settings.provider === 'copy' || settings.confirmed === true || input.agentConfirmed === true) {
+      await afterBuilt?.(slug);
+    }
   });
   return { slug };
 }
