@@ -482,11 +482,11 @@ test('Editable dead-air cuts: full recording timeline, restored pause, resized c
     expect(initialEdits.operations).toHaveLength(2);
     const [op0, op1] = initialEdits.operations as SnipOperation[];
     expect(op0).toMatchObject({ kind: 'snip', by: 'dead-air' });
-    expect(op0.from).toBeCloseTo(0.98, 2);
-    expect(op0.to).toBeCloseTo(3.0, 2);
+    expect(op0.from).toBeCloseTo(1.05, 2);
+    expect(op0.to).toBeCloseTo(2.9, 2);
     expect(op1).toMatchObject({ kind: 'snip', by: 'dead-air' });
-    expect(op1.from).toBeCloseTo(3.48, 2);
-    expect(op1.to).toBeCloseTo(6.5, 2);
+    expect(op1.from).toBeCloseTo(3.55, 2);
+    expect(op1.to).toBeCloseTo(6.4, 2);
 
     // Restore: click the first cut block, click 'Keep this pause'
     const firstCutBlock = page.locator('.sm-cut').first().getByRole('button', { name: /^Cut pause/ });
@@ -500,8 +500,8 @@ test('Editable dead-air cuts: full recording timeline, restored pause, resized c
     const restoredEdits = await server.project.readEditList(slug);
     const [restoredOp] = restoredEdits.operations as SnipOperation[];
     expect(restoredOp).toMatchObject({ kind: 'snip', by: 'dead-air' });
-    expect(restoredOp.from).toBeCloseTo(3.48, 2);
-    expect(restoredOp.to).toBeCloseTo(6.5, 2);
+    expect(restoredOp.from).toBeCloseTo(3.55, 2);
+    expect(restoredOp.to).toBeCloseTo(6.4, 2);
 
     // Resize: drag the start handle of the remaining cut to the right (~1s later)
     const startHandle = page.locator('.sm-cut-handle-start');
@@ -527,8 +527,8 @@ test('Editable dead-air cuts: full recording timeline, restored pause, resized c
     expect(resizedEdits.operations).toHaveLength(1);
     const resizedOp = resizedEdits.operations[0] as SnipOperation;
     expect(resizedOp.by).toBe('dead-air');
-    expect(resizedOp.from).toBeGreaterThan(3.5);
-    expect(resizedOp.to).toBeCloseTo(6.5, 2);
+    expect(resizedOp.from).toBeGreaterThan(3.6);
+    expect(resizedOp.to).toBeCloseTo(6.4, 2);
 
     // Play across a cut: seek playhead to just before remaining cut in reel time, press Play, poll clock passes cutStart
     const cutStart = resizedOp.from;

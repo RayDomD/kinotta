@@ -55,7 +55,8 @@ export {
   GENTLE_GAP_SECONDS,
   NORMAL_GAP_SECONDS,
   TIGHT_GAP_SECONDS,
-  WORD_PAD_SECONDS,
+  WORD_LEAD_IN_SECONDS,
+  WORD_TAIL_SECONDS,
   cutDeadAir,
   isDeadAirStrength,
 } from './_internal/transcription.ts';
