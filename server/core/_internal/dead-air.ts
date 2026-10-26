@@ -12,8 +12,11 @@ export const NORMAL_GAP_SECONDS = 0.7;
 /** Pauses longer than 0.35s slow down fast-paced social and short-form video momentum. */
 export const TIGHT_GAP_SECONDS = 0.35;
 
-/** Buffer kept after word endings to avoid clipping trailing syllables and natural acoustic decay. */
-export const WORD_PAD_SECONDS = 0.08;
+/** Room kept after the last word before a cut, so trailing sounds aren't clipped. */
+export const WORD_TAIL_SECONDS = 0.15;
+
+/** Room kept before the next word, so its first sound isn't clipped. */
+export const WORD_LEAD_IN_SECONDS = 0.1;
 
 /** Normal only trims a breath with room for a full inhale, so short natural catches between words stay. */
 export const NORMAL_BREATH_GAP_SECONDS = 0.4;
@@ -104,8 +107,8 @@ export function deadAirCuts(
     const prev = sorted[i]!;
     const next = sorted[i + 1]!;
     const gap = next.start - prev.end;
-    const cutFrom = Math.max(0, round3(prev.end + WORD_PAD_SECONDS));
-    const cutTo = Math.min(total, round3(next.start));
+    const cutFrom = Math.min(total, Math.max(0, round3(prev.end + WORD_TAIL_SECONDS)));
+    const cutTo = Math.min(total, Math.max(0, round3(next.start - WORD_LEAD_IN_SECONDS)));
     if (cutTo - cutFrom <= 0.005) continue;
 
     const isPause = gap > GAP_SECONDS[strength];
@@ -119,7 +122,7 @@ export function deadAirCuts(
  * Cut dead air automatically from the transcript's word timings.
  *
  * Removes gaps between consecutive words longer than the threshold for the chosen strength,
- * keeping WORD_PAD_SECONDS after each word so trailing speech sounds are preserved.
+ * keeping WORD_TAIL_SECONDS after the last word and WORD_LEAD_IN_SECONDS before the next word so speech sounds aren't clipped.
  * Normal and tight also trim shorter wordless gaps whose audio peaks show a breath.
  */
 export function cutDeadAir(words: readonly TranscriptWord[], duration: number, options: DeadAirStrength | DeadAirOptions = {}): Piece[] {
