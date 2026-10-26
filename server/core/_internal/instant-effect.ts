@@ -1,5 +1,5 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { buildPage } from './build-runner.ts';
+import { KinottaError } from './errors.ts';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -9,8 +9,6 @@ import { readTitle } from './reels.ts';
 import type { FramePin, Version } from './types.ts';
 
 const SKILL = resolve(import.meta.dirname, '../../../skill/kinotta');
-const exec = promisify(execFile);
-const BUILD_TIMEOUT_MS = 120_000;
 
 /** Accept explicit Brand token tables or CSS declarations; unspecified tokens keep built-in values. */
 function tokensFromBrand(text: string): Record<string, string> {
@@ -27,9 +25,10 @@ export async function makeInstantEffect(projectDir: string, slug: string, effect
   const builtIn = await readFile(join(SKILL, 'assets/brand/brand.md'), 'utf8');
   const brand = await readFile(join(projectDir, 'reels/brand.md'), 'utf8').catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return ''; throw error; });
   const tokens = { ...tokensFromBrand(builtIn), ...tokensFromBrand(brand), 'fx-font': JSON.stringify(style?.fonts?.words ?? fonts.words) };
-  const shot = version.shots.find((shot) => shot.number === pin.shot)!;
+  const shot = version.shots.find((shot) => shot.number === pin.shot);
+  if (!shot) throw new KinottaError('invalid', 'Choose an existing shot for this effect.');
   const section = version.sections.find((section) => section.id === pin.section) ?? version.sections[0];
-  const sectionNumber = Math.max(1, version.sections.indexOf(section!) + 1);
+  const sectionNumber = section ? version.sections.indexOf(section) + 1 : 1;
   const fill = effect === 'title-card' ? { title: await readTitle(join(projectDir, 'reels', slug)) ?? slug, subtitle: '' }
     : effect === 'section-tag' ? { number: String(sectionNumber), label: section?.name ?? shot.title }
     : { number: String(sectionNumber) };
@@ -38,7 +37,7 @@ export async function makeInstantEffect(projectDir: string, slug: string, effect
   try {
     const plan = join(dir, 'plan.json'), page = join(dir, 'index.html');
     await writeFile(plan, JSON.stringify({ duration, brand: { tokens }, clips: [{ id: 'pinned-effect', template: effect, in: 0, out: duration, fill }] }));
-    await exec(process.platform === 'win32' ? 'python' : 'python3', [join(SKILL, 'engine/build.py'), '--plan', plan, page], { windowsHide: true, timeout: BUILD_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 });
+    await buildPage(plan, page);
     return await readFile(page, 'utf8');
   } finally { await rm(dir, { recursive: true, force: true }); }
 }
