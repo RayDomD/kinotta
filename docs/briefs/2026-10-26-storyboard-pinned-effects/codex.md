@@ -3,10 +3,10 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: blocked
+- State: working
 - Done: all eight review fixes applied and committed. Steps 13, 14 and 16 implemented; typecheck, build, docs and commit checks pass. Full unit project: 112 files, 976 passed, 6 environment-dependent skips. Alternate core checks (26), alternate browser checks (15), pin browser checks (4) and isolated compatibility checks pass.
 - Failed or skipped: full two-worker Playwright finished with 160 passed, 1 failed (exit 1): drop-video.spec.ts:76 could not load reels because an agent state.json.tmp disappeared during newestMtime stat. Log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-playwright-verified.log. The test passed alone with the same Chrome/fixture settings. The previous full run also had 160 passed, 1 failed (parts-page initial Loading); that case passed in the latest full run and 10 diagnostic repetitions. Six existing environment-dependent unit skips remain. Full browser completion is not claimed.
-- Waiting on owner: may I extend scope to fix the unchanged reel-listing newestMtime scan so a file disappearing between readdir and stat does not prevent the entire reel list loading, then rerun full Playwright? This is the new out-of-plan app failure required to stop under Scope; the earlier runner guard remains answered. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
+- Waiting on owner: none. Owner approved (2026-10-26) fixing the reel-listing race on this branch: make the newestMtime scan skip a file that disappears between readdir and stat (ENOENT only; other errors still throw), add a unit test that reproduces a vanishing file, run the unit project and `drop-video.spec.ts` alone, commit as its own `fix:` commit and note it in the plan Changelog as found during this work. Do not rerun the full Playwright suite: Claude runs it next through the verify gate, so leave that box unticked and set State to `done` when everything else is ticked.
 
 
 ## Goal
