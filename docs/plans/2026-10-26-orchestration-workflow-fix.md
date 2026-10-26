@@ -1,7 +1,7 @@
 ---
 title: Orchestration workflow fix
 date: 2026-10-26
-status: In Progress
+status: Done
 summary: Turn the slowdowns of the last /goal run into hooks, a verify script, a brief template, and herdr-dispatch rules
 spec: C:\Users\ryand\AppData\Local\Temp\2026-10-26-orchestration-workflow-fix-handoff.md
 ---
@@ -74,3 +74,4 @@ Findings from checking the handoff:
 - Out of scope, recorded only: the global `commit-msg` hook has the same `--git-dir` worktree gap; `herdr-dispatch` still says not to answer a blocked lane, which conflicts with the answer-within-plan memory.
 - Owner asked to fix both. Global `commit-msg` now uses `--git-common-dir`; a scratch repo's own hook blocked a marked message from a worktree and allowed a clean one. `herdr-dispatch` now answers a blocked lane when the plan, brief, or code settles it (skills `9cdafa4`).
 - Code review fixes: git path quoting off in both scripts; `--brief` or `--base` without a value fails; a Touch line that does not parse fails the scope check with a clear note; an added line starting `++ ` is no longer read as a file header; literals named. D6 as built: the memory floor gates the Playwright shards only, because typecheck and unit tests are light. `docs/plans/index.html` restored to `main`'s copy; regenerate it after merge, since a regeneration in a worktree rewrites every link to that worktree.
+- Step 7 done: first real `verify-lane` run on `feat/storyboard-pinned-effects` (`8da1907`), forced at 3.5 GB free. Typecheck ok; Playwright 85 + 76 passed in two halves (161, none failed); mojibake ok. Unit failed 2 of 1,235, both in the `render` project under full-suite load (`render-media-preview` timed out, `render-queue` stale port file); both passed alone (23 of 23). Scope flagged the docs commits the orchestrator made on that branch (`CONTEXT.md`, ADR 0007, the mockup, the plan), which the diff explains. Finding: `npm test` includes the `render` project, so the unit step took 21 minutes; lane briefs ask for `--project unit`.
