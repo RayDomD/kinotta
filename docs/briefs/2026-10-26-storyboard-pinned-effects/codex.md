@@ -3,9 +3,9 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: working
-- Done: all eight review fixes applied and committed. Steps 13, 14 and 16 implemented; typecheck, build, docs and commit checks pass. Full unit project: 112 files, 976 passed, 6 environment-dependent skips. Alternate core checks (26), alternate browser checks (15), pin browser checks (4) and isolated compatibility checks pass.
-- Failed or skipped: full two-worker Playwright finished with 160 passed, 1 failed (exit 1): drop-video.spec.ts:76 could not load reels because an agent state.json.tmp disappeared during newestMtime stat. Log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-playwright-verified.log. The test passed alone with the same Chrome/fixture settings. The previous full run also had 160 passed, 1 failed (parts-page initial Loading); that case passed in the latest full run and 10 diagnostic repetitions. Six existing environment-dependent unit skips remain. Full browser completion is not claimed.
+- State: done
+- Done: all eight review fixes and steps 13, 14 and 16 implemented and committed. The owner-approved reel-listing fix skips only file-stat ENOENT, preserves other errors and the folder timestamp fallback, with two new regressions. Final unit project: 112 files, 978 passed, 6 existing environment-dependent skips; drop-video.spec.ts alone: 3 passed with --workers=2. Typecheck, build, docs and commit checks pass; dated plan Changelog records the listing fix.
+- Failed or skipped: six existing environment-dependent unit skips. The first unit run hit a Windows EBUSY deleting a generated WAV (977 passed, 1 failed); its audio suite passed alone (15 tests), then the complete unit rerun passed. Full Playwright was not rerun, per the owner decision below; its checkbox remains unticked for Claude's verify gate. Earlier full-run failures remain documented under Results and are not represented as a passing full suite.
 - Waiting on owner: none. Owner approved (2026-10-26) fixing the reel-listing race on this branch: make the newestMtime scan skip a file that disappears between readdir and stat (ENOENT only; other errors still throw), add a unit test that reproduces a vanishing file, run the unit project and `drop-video.spec.ts` alone, commit as its own `fix:` commit and note it in the plan Changelog as found during this work. Do not rerun the full Playwright suite: Claude runs it next through the verify gate, so leave that box unticked and set State to `done` when everything else is ticked.
 
 
@@ -167,3 +167,21 @@ The direct isolated rerun with all default fixture servers crashed during setup 
 The concrete error is in server/core/_internal/reels.ts:24-39: newestMtime enumerates files recursively, then stats each entry without handling ENOENT when an atomic writer has already renamed its temporary file. That module and agent-jobs.ts are unchanged from origin/main; the state.ts change only adds comment fields. This explains the captured reel-list API error, but does not establish the cause of earlier initial-Loading failures. Fixing the listing race is outside the pinned-effect interactions specified by the plan. Per the brief's stop condition, no listing/loading implementation was changed; State is blocked on the focused scope question above. The full-browser Done checkbox remains unchecked.
 
 No push or PR was made, and node_modules remains untouched.
+
+
+### 2026-10-26: approved reel-listing fix execution plan
+
+The owner approved only the vanishing-file race: test through openProject.listReels while deleting a real temporary file between enumeration and stat, then skip ENOENT from that file stat and keep all other errors visible. Verify the empty-directory mtime fallback and a non-ENOENT failure. Run the focused reel tests, full unit project, typecheck/build and drop-video.spec.ts alone with two workers and file logs. Record the fix as found during this work in the plan Changelog and commit it separately with a fix prefix. Per the new Status decision, do not rerun full Playwright; leave its checkbox unticked for Claude's verify gate and mark State done after the other checks pass.
+
+
+### 2026-10-26: approved reel-listing fix complete
+
+newestMtime now skips ENOENT only around a file stat, so an atomic rename between readdir and stat does not prevent the entire reel list loading. It marks a file as seen only after stat succeeds, preserving the directory timestamp fallback when every file has disappeared. Other stat errors still throw. Directory traversal and unrelated loading behavior are unchanged.
+
+The regression deletes a real state.json.tmp just before its stat and checks the public openProject.listReels result and exact folder timestamp. It failed with the captured ENOENT before the production fix (kinotta-reel-listing-red.log), then passed after it (kinotta-reel-listing-green.log). A second regression verifies that EACCES is propagated. All 10 reel tests pass (kinotta-reel-listing-focused.log), and typecheck, build, docs, encoding and whitespace checks pass. The dated plan Changelog records the race as found during this work.
+
+The first full unit run had 977 passed, 6 skipped and one EBUSY unlink error in the generated-audio test (kinotta-reel-listing-unit.log). No audio implementation or assertions were changed. The audio suite passed all 15 tests alone (kinotta-reel-listing-audio-isolated.log), and the full unit rerun passed: 112 files, 978 passed, 6 skipped, exit 0 (kinotta-reel-listing-unit-final.log). The six skips remain the existing optional librosa, opt-in real Whisper and Windows symlink-permission cases.
+
+Ran npx playwright test tests/e2e/drop-video.spec.ts --workers=2 alone with the default Chrome/fixture configuration: all 3 passed, exit 0, including the original reel-list failure (kinotta-reel-listing-drop-video.log). All logs above are in C:/Users/ryand/AppData/Local/Temp/. Build/typecheck logs are kinotta-reel-listing-build.log and kinotta-reel-listing-types.log; final docs/commit logs are kinotta-reel-listing-docs-final.log and kinotta-reel-listing-commits-final.log.
+
+Per the owner's explicit Status decision, State is done with every other Done item ticked; full Playwright remains unticked for Claude to run through the verify gate. It was not rerun after this fix. No push or PR was made; node_modules was left untouched.
