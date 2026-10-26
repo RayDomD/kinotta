@@ -14,6 +14,8 @@ import { PagePlayer, PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 import type { EditsState } from './review/index.ts';
 
+import { EFFECT_DRAG_TYPE } from './PinnedEffects.tsx';
+
 const FROZEN_NOTE = 'Open Working to add or change comments.';
 
 function storyboardVerifyAttrs(count: number, duration: number, workingParts: boolean) {
@@ -72,6 +74,7 @@ function CardPlayer({ pageUrl, start, duration, title }: { pageUrl: string; star
 }
 
 interface ShotCardProps {
+  saveEffect?(input: NewComment): Promise<void>;
   shot: Shot;
   pageUrl: string;
   alternatePage?(shot: string, revision: string): string;
@@ -90,7 +93,9 @@ interface ShotCardProps {
 }
 
 /** A non-interactive card (still and labels) with one real button stretched over it to open the shot. */
-function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, playing, onPlayingChange, open, buttonRef, edits }: ShotCardProps) {
+function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavailable, playing, onPlayingChange, open, buttonRef, edits, saveEffect }: ShotCardProps) {
+  const [dropPoint, setDropPoint] = useState<{ x: number; y: number } | null>(null);
+  const [dropProblem, setDropProblem] = useState('');
   const timecode = formatTimecode(shot.start);
   const alternates = shot.alternates?.filter((alternate) => !alternate.dismissed) ?? [];
   const inReelAlternate = alternates.find((a) => a.inReel);
@@ -131,8 +136,23 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
     if (next) setShownRevision(next.revision);
   }
 
+  function framePoint(event: React.DragEvent<HTMLDivElement>) {
+    if (!saveEffect || !event.dataTransfer.types.includes(EFFECT_DRAG_TYPE) || window.matchMedia('(max-width: 600px), (pointer: coarse)').matches) return null;
+    const bounds = event.currentTarget.querySelector('.still')?.getBoundingClientRect();
+    if (!bounds || event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) return null;
+    return { x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height };
+  }
+  const effectPins = pins.filter((comment) => comment.effect && comment.pin.kind === 'frame' && (!comment.pin.alternate || comment.pin.alternate === activeRevision));
+  const effectMarks = <>{effectPins.map((comment) => comment.pin.kind === 'frame' && <button key={comment.id} type="button" className="fx-anchor" aria-label={`Select pin ${comment.number}`} style={{ left: `${comment.pin.x * 100}%`, top: `${comment.pin.y * 100}%` }}
+    onClick={(event) => { event.stopPropagation(); document.querySelector<HTMLElement>(`[data-pin-card="${comment.id}"]`)?.focus(); }}><span className="num">{comment.number}</span></button>)}
+    {effectPins.filter((comment) => !comment.instant).map((comment) => comment.pin.kind === 'frame' && <span key={comment.id} className="fx-footprint planned" style={{ left: `${comment.pin.x * 100}%`, top: `${comment.pin.y * 100}%` }}>{comment.effectName} - planned</span>)}
+    {dropPoint && <span className="fx-footprint" style={{ left: `${dropPoint.x * 100}%`, top: `${dropPoint.y * 100}%` }}>Pin effect here</span>}</>;
+
   return (
     <div
+      onDragOver={(event) => { const point = framePoint(event); setDropPoint(point); if (point) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }}
+      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPoint(null); }}
+      onDrop={(event) => { const point = framePoint(event); setDropPoint(null); if (!point) return; event.preventDefault(); const effect = event.dataTransfer.getData(EFFECT_DRAG_TYPE); void saveEffect!({ effect, text: '', pin: { shot: shot.number, x: point.x, y: point.y, element: null, ...(shown ? { alternate: shown.revision } : {}) } }).catch((error: Error) => setDropProblem(error.message)); }}
       className={['shot', alternates.length > 1 ? 'has-alternates' : '', dismissing && !shown?.inReel ? 'dismissing' : ''].filter(Boolean).join(' ')}
       {...shotVerifyAttrs(shot, alternates.length, shown?.revision)}
       onMouseEnter={() => {
@@ -155,13 +175,16 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
       {isPlaying ? (
         <div className="still playing" data-card-player="true">
           <CardPlayer key={stillPageUrl} pageUrl={stillPageUrl} start={shot.start} duration={duration} title={`Shot ${shot.number} player`} />
-          {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+          {framePins.filter((pin) => !effectPins.some((comment) => comment.id === pin.id)).map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+          {effectMarks}
         </div>
       ) : (
-        <PageStill pageUrl={stillPageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
-          {framePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+        <PageStill key={stillPageUrl} pageUrl={stillPageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
+          {framePins.filter((pin) => !effectPins.some((comment) => comment.id === pin.id)).map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+          {effectMarks}
         </PageStill>
       )}
+      {dropProblem && <p role="alert">{dropProblem}</p>}
       <div className="lbl">
         <span>
           <span className="dot">{shot.number}</span>
@@ -311,13 +334,17 @@ export interface StoryboardProps {
 export function Storyboard({ slug, version: baseVersion, newest, comments, sectionId, onSection, save, reveal, issues, edits }: StoryboardProps) {
   const version = baseVersion.workingParts ? { ...baseVersion, duration: baseVersion.workingParts.duration, shots: baseVersion.workingParts.shots } : baseVersion;
   const readOnly = !version.isNewest;
-  const pageUrl = version.workingParts ? workingPartsPageUrl(slug, version.workingParts.key) : versionPageUrl(slug, version.workingBase ?? version.number);
+  const pageUrl = version.workingEffectKey ? workingPartsPageUrl(slug, version.workingEffectKey) : version.workingParts ? workingPartsPageUrl(slug, version.workingParts.key) : versionPageUrl(slug, version.workingBase ?? version.number);
   const footage = version.footage ? footageUrl(slug) : undefined;
   const multi = hasSections(version.sections);
   const sectionIndex = Math.max(0, version.sections.findIndex((s) => s.id === sectionId));
   const section = version.sections[sectionIndex]!;
   /** What the grid and the enlarged shot step through: the current section's shots (all of them on a one-section reel). */
   const shots = multi ? version.shots.filter((shot) => shot.section === section.id) : version.shots;
+  const [inserting, setInserting] = useState<Shot | null>(null);
+  const [insertText, setInsertText] = useState('');
+  const [insertProblem, setInsertProblem] = useState('');
+  const [insertBusy, setInsertBusy] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [openRevision, setOpenRevision] = useState<string | null>(null);
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -402,10 +429,16 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
       {readOnly && <p className="readonly-note">{FROZEN_NOTE}</p>}
       <IssueList issues={issues.messages} />
       {version.shots.length === 0 && <EmptyStoryboard version={version} comments={comments} readOnly={readOnly} save={save} />}
+      {inserting && <form className="fx-insert-form" aria-label="Insert shot" onSubmit={(event) => {
+        event.preventDefault(); setInsertBusy(true); setInsertProblem('');
+        void save({ insertShot: true, text: insertText, pin: { shot: inserting.number, x: .5, y: .5, element: null } }).then(() => { setInserting(null); setInsertText(''); }, (error: Error) => setInsertProblem(error.message)).finally(() => setInsertBusy(false));
+      }}><label>Describe the new shot after Shot {inserting.number}<textarea autoFocus aria-label="Describe the new shot" value={insertText} onChange={(event) => setInsertText(event.target.value)} /></label>
+        <button type="submit" className="btn" disabled={insertBusy || !insertText.trim()}>Add to next Build</button><button type="button" className="c-act" onClick={() => setInserting(null)}>Cancel</button>{insertProblem && <p role="alert">{insertProblem}</p>}
+      </form>}
       <div className="grid" {...storyboardVerifyAttrs(shots.length, version.duration, !!version.workingParts)}>
         {shots.map((shot, i) => (
-          <ShotCard
-            key={`${pageUrl}/${shot.number}`}
+          <div key={`${slug}/${version.workingBase ?? version.number}/${shot.number}`} className="fx-shot-slot"><ShotCard
+            saveEffect={readOnly ? undefined : save}
             shot={shot}
             pageUrl={pageUrl}
             alternatePage={(shotName, revision) => alternatePageUrl(slug, version.number, shotName, revision, version.workingParts?.key)}
@@ -425,7 +458,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
               else buttons.current.delete(shot.number);
             }}
             edits={readOnly ? undefined : edits}
-          />
+          />{!readOnly && i < shots.length - 1 && <div className="fx-gap" data-after-shot={shot.number}><button type="button" aria-label={`Insert shot after Shot ${shot.number}`} onClick={() => { setInserting(shot); setInsertText(''); }}>Insert shot</button></div>}</div>
         ))}
       </div>
       <Lanes

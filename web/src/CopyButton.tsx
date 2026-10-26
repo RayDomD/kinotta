@@ -13,6 +13,7 @@ type Outcome =
 
 /** Top bar button (disabled on a version that is read-only): saves the version's comment batch for your agent and puts the pasteable text on the clipboard. */
 export function CopyButton(props: {
+  build?: boolean;
   slug: string;
   version: number;
   count: number;
@@ -28,7 +29,7 @@ export function CopyButton(props: {
   /** Runs once the batch is saved, so the version can show what the copy changed (a section now waiting). */
   onSaved?(): void;
 }) {
-  const { slug, version, count, hasNote = false, beforeCopy, frozen = false, issues, section = null, onSaved } = props;
+  const { build = false, slug, version, count, hasNote = false, beforeCopy, frozen = false, issues, section = null, onSaved } = props;
   const includeId = useId();
   const [includeIssues, setIncludeIssues] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
@@ -43,6 +44,7 @@ export function CopyButton(props: {
   // C copies from anywhere on the storyboard, except while typing or with the enlarged shot open over the top bar.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (build) return;
       // The physical key too, so the shortcut works on keyboard layouts that type another letter there.
       if ((e.key.toLowerCase() !== COPY_KEY && e.code !== COPY_CODE) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
       const target = e.target;
@@ -53,7 +55,7 @@ export function CopyButton(props: {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [build]);
 
   const batchKey = `${slug}/${version}/${section?.id ?? ''}`;
 
@@ -62,9 +64,9 @@ export function CopyButton(props: {
     if (busy) return;
     window.clearTimeout(timer.current);
     setBusy(true);
-    await beforeCopy?.();
     let saved: Awaited<ReturnType<typeof copyBatch>>;
     try {
+      await beforeCopy?.();
       saved = await copyBatch(slug, version, {
         section: section?.id,
         ...(includeIssues && issues ? { includeIssues: true, runtimeIssues: issues.runtime } : {}),
@@ -110,7 +112,7 @@ export function CopyButton(props: {
         className={lit ? 'btn sent' : 'btn'}
         disabled={frozen || empty}
         aria-disabled={busy || undefined}
-        aria-label={frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : lit ? `Copy ${what} again, sent at ${sentAt}, ${count}${withNote}` : `Copy ${what}, ${count}${withNote}`}
+        aria-label={build ? `Build next version, ${count} waiting, 1 agent run` : frozen ? `Copy ${what}, unavailable because v${version} is read-only` : empty ? `Copy ${what}, none yet` : copied ? 'Copied' : lit ? `Copy ${what} again, sent at ${sentAt}, ${count}${withNote}` : `Copy ${what}, ${count}${withNote}`}
         onClick={copy}
       >
         {lit ? (
@@ -126,7 +128,7 @@ export function CopyButton(props: {
           </>
         ) : (
           <>
-            {copied ? 'Copied' : `Copy ${what}`}
+            {copied ? 'Copied' : build ? 'Build next version' : `Copy ${what}`}
             {!copied && <span className="count">{count}</span>}
           </>
         )}
