@@ -107,3 +107,15 @@ it('the agent prompt lists the same told lines as the request, after the owner n
   for (const line of request.told!) expect(prompt).toContain(`- ${line}`);
   expect(brollJobPrompt(makeBrollJobRequest('id', 'talk', 1, {}, 30))).not.toContain('What the agent is told');
 });
+
+it('agentTold omits an unknown frame without throwing', () => {
+  const context = { frame: 'unknown' } as unknown as Parameters<typeof agentTold>[1];
+  expect(() => agentTold(direction(), context)).not.toThrow();
+  expect(agentTold(direction(), context).some((line) => line.startsWith('Frame:'))).toBe(false);
+});
+it('agentTold prints an unknown setting key instead of undefined', () => {
+  const style = direction({ settings: { futureSetting: 'enabled' } as unknown as Style['settings'] });
+  const lines = agentTold(style);
+  expect(lines).toContain('Settings: futureSetting enabled.');
+  expect(lines.join('\n')).not.toContain('undefined');
+});
