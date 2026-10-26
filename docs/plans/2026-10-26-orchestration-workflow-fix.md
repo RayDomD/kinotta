@@ -72,3 +72,4 @@ Findings from checking the handoff:
 - W4 and W5 done in `~/.claude/templates/brief.md` and `herdr-dispatch` (65 lines).
 - Step 7 waits: codex is still working in the pinned-effects worktree (ports would collide) and free memory was 1.0 GB.
 - Out of scope, recorded only: the global `commit-msg` hook has the same `--git-dir` worktree gap; `herdr-dispatch` still says not to answer a blocked lane, which conflicts with the answer-within-plan memory.
+- Owner asked to fix both. Global `commit-msg` now uses `--git-common-dir`; a scratch repo's own hook blocked a marked message from a worktree and allowed a clean one. `herdr-dispatch` now answers a blocked lane when the plan, brief, or code settles it (skills `9cdafa4`).
