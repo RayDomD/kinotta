@@ -1,7 +1,7 @@
 ---
 title: Merge the Direction and Storyboard stack
 date: 2026-10-26
-status: In Progress
+status: Done
 summary: Land style storage, Auto/Direct/Direction, the effects library and the skill styles on main, one pull request at a time.
 spec: docs/plans/2026-10-25-direction-and-storyboard.md
 ---
@@ -42,6 +42,10 @@ The four branches are on `origin/main`, in dependency order, with checks passing
 - `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main`
 - Unit tests, and the Playwright suite where a branch touches the web app.
 
+## Result
+
+All four branches landed on `origin/main` in dependency order: style storage (#68), Auto, Direct and Direction (#69), the skill styles as a cleaned branch (#70) and the effects library (#71). Phase 5 then merged as #77 and the Direction and Storyboard plan closed in #79, so later work starts from `main`. Deviations: the skill styles branch was rebuilt rather than merged as is, and #71 merged before its full Playwright run, which ran on the pinned-effects branch instead (162 passed on #77).
+
 ## Changelog
 
 ### 2026-10-26
@@ -51,3 +55,4 @@ The four branches are on `origin/main`, in dependency order, with checks passing
 - Step 4 done before step 3: `feat/skill-styles` rebuilt as `feat/skill-styles-clean` (built-in brand plus the skill change, no scratch merges, `c8fa5bd` reworded and its AI signature removed), merged as #70. It shares no files with the effects library, so order did not matter.
 - Step 3 in review: `feat/effects-library` rebased twice (export, client and stylesheet conflicts kept both sides), rail Library button removed, wording fixed; open as #71. Full Playwright on the final base still to run.
 - Step 3 done: #71 merged by the owner before its full Playwright run. The test fixes (#74) and two-worker local runs (#75) merged after it, so the full suite now runs once on the pinned-effects branch from `main` instead.
+- Plan closed as Done: Phase 5 merged as #77 and the Direction and Storyboard plan closed in #79.
