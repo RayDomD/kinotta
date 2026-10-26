@@ -95,6 +95,11 @@ test('agent cuts: shows in the Editor with its reason, can be resized, and can b
       return ops.length === 1 ? ops[0]!.from : 0;
     }).toBeGreaterThan(1.6);
 
+    // The reason must survive the resize when the owner returns to the Editor.
+    await page.getByRole('button', { name: /Edit.*Every shot, in the full editor/ }).click();
+    await expect(page.getByRole('list', { name: 'Edits' }).locator('.c')).toContainText('Long pause before the answer');
+    await page.getByRole('button', { name: 'Simple mode', exact: true }).click();
+
     // Restore: click the cut, click 'Keep this cut'
     const cutBlock = page.locator('.sm-cut').first().getByRole('button', { name: /^Cut/ });
     await cutBlock.click();
