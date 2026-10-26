@@ -3,10 +3,10 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: blocked
+- State: working
 - Done: implemented comment-backed Working pin edits, isolated instant template builds with Style fonts and Brand colours, batch routing, frame-only drops, alternate identity, note/Delete/Undo cards, Insert shot, phone controls, Build counts and built-note decisions. Focused Playwright: 4 passed. Pin/batch integration: 12 passed. Typecheck, build and check:docs passed before the final scoped note-flush/footprint changes; typecheck passed after them.
 - Failed or skipped: full unit project: 973 passed, 6 skipped, 1 failed (runner architecture guard, confirmed alone). Logs: C:/Users/ryand/AppData/Local/Temp/kinotta-pinned-unit.log and kinotta-pinned-runner-guard.log. Final browser rerun after note-flush/footprint changes, alternates suites, full Playwright and commit checks not run because the brief requires stopping on this uncovered boundary conflict. The reference mockup's instant/note/keep flow was clicked through with Playwright; its Insert shot click-through was not completed.
-- Waiting on owner: The existing guard in tests/core/start-reel.test.ts:130 requires runner.ts to be the only module that names engine scripts or starts Python. The new instant-effect.ts violates that guard, but runner.ts also contains launchAgent, and the brief forbids importing the agent runner. May this branch extract the local build invocation into an agent-free build-runner.ts shared by runner.ts and instant-effect.ts, and update the architecture guard to allow that single build service? This preserves one process boundary and keeps instant pins independent of the agent launcher. Alternatively, explicitly permit importing runner.ts's existing buildPage from the instant path. The guard has not been weakened.
+- Waiting on owner: none. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
 
 
 ## Goal
@@ -40,6 +40,19 @@ What the mockup shows and the plan keeps:
 - Tests: Playwright with `--workers=2`, one run at a time, never alongside a vitest render run (port 4399). Write test logs to a file and check the exit code; do not pipe a run through `tail`. Check free memory before a full run.
 - Commit your Status and Results edits to this file with your work. Keep this file UTF-8.
 - Stop and write the question under "Waiting on owner", then set State to `blocked`, when: the plan and code disagree in a way this brief does not cover; the interaction (where, trigger, what changes, whether it changes Working) is ambiguous; a test shows the app is wrong in a way the plan does not cover. Do not guess.
+
+## Review fixes (from an early read-only review, checked by Claude)
+
+Fix each, then note it under Results. Rerun the affected checks.
+
+1. Agent pins and inserted shots must not be Working edits. `comments.ts` `addCommentNow` sends every `effect` or `insertShot` comment to `savePinComment`, which appends a `pin-comment` operation to the edit list, so an agent pin dirties Working and a batch hand-off freezes it. Per ADR 0007, store agent pins and inserted shots as ordinary comments (with `effect` id or `insertShot`) that use the existing comment Delete and undo (`deleteComment`, `CommentsPanel`'s undo) and ride the batch. Only instant pins are Working edits. A note on an instant pin moves it from Working to a comment; clearing it moves it back.
+2. Instant pins must not be written into `state.comments` at hand-off (`batch.ts:148` `copyBatchNow` via `commentsForVersion`); an undone instant pin must not come back later.
+3. `pin-notes.ts:32` `builtPinNotes` must only pick comments with an `effect` id. Ordinary review comments never get "Keep this note".
+4. `pin-notes.ts:12` writes `pin-note-decisions.json` into the `v1/` version folder. Store reel-wide decisions at the reel level, never inside a version folder.
+5. Mojibake: restore UTF-8 `·`, `…`, `–`, `✓` in `web/src/App.tsx`, `web/src/styles.css`, `web/src/review/_internal/EditsPanel.tsx` and any other file you saved. Check with `git diff origin/main | grep -n -E "Â|â€"` (must print nothing).
+6. The Review edits (`Review.tsx`, `MediaEditor.tsx` `workingEffectKey`, `EditsPanel.tsx` `pin-comment`) are allowed only because instant pins are in Working and Review shows Working. Keep them minimal, say why under Results, and prove the alternates fix still holds with the `alternates-*` suites.
+7. Nits: `instant-effect.ts:30` unchecked `!` on the shot (throw a typed `KinottaError`); `Storyboard.tsx:177,182` stack offsets index a filtered list; `PinnedEffects.tsx:53` inserted shot placeholder should ask what the new shot shows.
+8. Plan Changelog: a dated entry per step (13, 14, 16).
 
 ## Done when
 
