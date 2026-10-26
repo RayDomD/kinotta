@@ -253,7 +253,7 @@ describe('edit-list reason validation on operations', () => {
       } as any)
     ).rejects.toMatchObject({
       code: 'invalid',
-      message: 'Only snip edits can carry a reason.',
+      message: 'That kind of edit cannot carry a reason.',
     });
   });
 
