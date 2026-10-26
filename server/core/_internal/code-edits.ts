@@ -1,3 +1,4 @@
+import { readPinRecord } from './pin-files.ts';
 import { cp, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { CLIP_ROOT } from './edit-model.ts';
@@ -76,7 +77,7 @@ export async function codeSources(versionDir: string): Promise<{ sources: Source
   const clips = scenes.map((s) => ({ id: s.name, title: storyboard.find((shot) => sceneForShot(shot, scenes)?.name === s.name)?.title ?? s.name, in: s.start, out: Number((s.start + s.duration).toFixed(6)), ...(saved[s.name] ? { offsets: saved[s.name] } : {}) }));
   const sidecar = await readFile(join(versionDir, MEDIA_SIDECAR_FILE), 'utf8').catch(() => null);
   const media = sidecar ? (JSON.parse(sidecar) as { media: MediaPlan }).media : undefined;
-  const pinComments = JSON.parse(await readFile(join(versionDir, 'pin-comments.json'), 'utf8').catch(() => '{}'));
+  const pinComments = await readPinRecord<import('./state.ts').StoredComment | null>(join(versionDir, 'pin-comments.json'), 'pin comments');
   const parts = shots.contract === 2 ? checkPartsManifest(shots as unknown as Record<string, unknown>).manifest : null;
   return { sources: { plan: { clips, ...(Object.keys(pinComments).length ? { pinComments } : {}), codeTiming: true, duration: shots.duration, ...(parts ? { parts } : {}), ...(media ? { media } : {}) }, words: [] }, scenes };
 }

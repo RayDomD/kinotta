@@ -1,3 +1,4 @@
+import { effectsCatalogue } from './effects-catalogue.ts';
 import { buildPage } from './build-runner.ts';
 import { KinottaError } from './errors.ts';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -29,8 +30,10 @@ export async function makeInstantEffect(projectDir: string, slug: string, effect
   if (!shot) throw new KinottaError('invalid', 'Choose an existing shot for this effect.');
   const section = version.sections.find((section) => section.id === pin.section) ?? version.sections[0];
   const sectionNumber = section ? version.sections.indexOf(section) + 1 : 1;
-  const fill = effect === 'title-card' ? { title: await readTitle(join(projectDir, 'reels', slug)) ?? slug, subtitle: '' }
-    : effect === 'section-tag' ? { number: String(sectionNumber), label: section?.name ?? shot.title }
+  const entry = (await effectsCatalogue()).find((entry) => entry.id === effect && entry.instant);
+  if (!entry) throw new KinottaError('invalid', 'Choose an instant effect from the catalogue.');
+  const fill = entry.instantFrom === 'reel title' ? { title: await readTitle(join(projectDir, 'reels', slug)) ?? slug, subtitle: '' }
+    : entry.instantFrom === 'section name' ? { number: String(sectionNumber), label: section?.name ?? shot.title }
     : { number: String(sectionNumber) };
   const duration = pin.alternate ? shot.alternates?.find((alt) => alt.revision === pin.alternate)?.duration ?? shot.duration : shot.duration;
   const dir = await mkdtemp(join(tmpdir(), 'kinotta-instant-'));

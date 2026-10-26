@@ -1,3 +1,4 @@
+import { readPinRecord } from './pin-files.ts';
 import { pinnedEffectPage } from './pinned-effect-page.ts';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -32,7 +33,7 @@ export async function workingEffectSnapshot(projectDir: string, slug: string) {
   const reelDir = await requireReelDir(projectDir, slug);
   const list = await readEditListNow(projectDir, slug);
   const history = await workingState(reelDir);
-  const captured = JSON.parse(await readFile(join(reelDir, `v${list.base}`, 'pin-comments.json'), 'utf8').catch(() => '{}'));
+  const captured = await readPinRecord<import('./state.ts').StoredComment | null>(join(reelDir, `v${list.base}`, 'pin-comments.json'), 'pin comments');
   if (!list.operations.some((op) => op.kind === 'pin-comment') && !Object.keys(captured).length && !history.anchor?.sources.plan.pinComments) return null;
   const edited = applyOperations(await workingSources(projectDir, reelDir), list.operations.filter((op) => !list.flagged?.[op.id]));
   if (!edited.plan.pinComments) return null;

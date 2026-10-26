@@ -1,3 +1,4 @@
+import { readPinRecord } from './pin-files.ts';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -11,7 +12,7 @@ import { KinottaError } from './errors.ts';
 export interface BuiltPinNote { id: string; text: string }
 const decisionFile = async (projectDir: string, slug: string) => join(await requireReelDir(projectDir, slug), 'pin-note-decisions.json');
 async function decisions(projectDir: string, slug: string): Promise<Record<string, true>> {
-  return JSON.parse(await readFile(await decisionFile(projectDir, slug), 'utf8').catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return '{}'; throw error; }));
+  return readPinRecord<true>(await decisionFile(projectDir, slug), 'pin note decisions');
 }
 
 /** A frozen hand-off is not a built answer. Only the newest authored build can offer its batch notes. */

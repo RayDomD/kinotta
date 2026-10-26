@@ -1,3 +1,4 @@
+import { KinottaError } from './errors.ts';
 import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -17,8 +18,8 @@ export async function buildPage(planFile: string, pageFile: string): Promise<voi
     });
   } catch (error) {
     const failure = error as NodeJS.ErrnoException & { stderr?: string };
-    if (failure.code === 'ENOENT') throw new Error(`${python} is not installed or not on the PATH.`);
+    if (failure.code === 'ENOENT') throw new KinottaError('invalid', `${python} is not installed or not on the PATH.`);
     const detail = (failure.stderr ?? '').trim().split('\n').slice(-3).join(' ') || failure.message;
-    throw new Error(`${python} failed: ${detail}`);
+    throw new KinottaError('invalid', `${python} failed: ${detail}`);
   }
 }

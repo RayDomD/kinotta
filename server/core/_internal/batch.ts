@@ -147,7 +147,6 @@ async function copyBatchNow(projectDir: string, slug: string, number: number, op
     await writeFileAtomic(path, `${JSON.stringify(batch, null, 2)}\n`);
     await writeState(stateFile, {
       ...state,
-      comments: state.comments.filter((comment) => !comment.instant),
       handedOff: { ...state.handedOff, [section.id]: { copiedAt, commentIds: comments.map((c) => c.id) } },
     });
     await recordHandoff(join(projectDir, REELS_DIR, slug), number, copiedAt);

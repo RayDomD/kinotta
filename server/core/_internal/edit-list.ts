@@ -1,4 +1,3 @@
-import { writeFileAtomic } from './state.ts';
 /**
  * Working state lives in edit-list.json, outside immutable version folders.
  * `base` names the authored inputs to which operations and history entries apply.
@@ -11,8 +10,9 @@ import { writeFileAtomic } from './state.ts';
  * The publication journal keeps the whole state before rename. Recovery records
  * a committed snapshot with its original history instead of clearing the list.
  */
+import { writeFileAtomic } from './state.ts';
 import { randomUUID } from 'node:crypto';
-import { readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { applyOperation, applyOperations, describeOperation, mediaEditingPlan } from './edit-model.ts';
 import type { NewOperation, Operation, Sources } from './edit-model.ts';
@@ -41,9 +41,7 @@ export function withReelLock<T>(reelDir: string, task: () => Promise<T>): Promis
 }
 
 export async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
-  const staged = `${file}.tmp`;
-  await writeFile(staged, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await rename(staged, file);
+  await writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 /** What the file holds: the list, and the lists Undo and Redo step through (each entry is a whole list). */
@@ -110,7 +108,7 @@ function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditLis
 async function writeStored(reelDir: string, stored: Stored): Promise<void> {
   const file = join(reelDir, EDIT_LIST_FILE);
   if (stored.anchor === undefined && stored.frozen === undefined && stored.operations.length === 0 && stored.undo.length === 0 && stored.redo.length === 0) await rm(file, { force: true });
-  else await writeFileAtomic(file, `${JSON.stringify(stored, null, 2)}\n`);
+  else await writeJsonAtomic(file, stored);
 }
 
 /** The reel's sources as the newest version has them: what an edit list applies to. */
