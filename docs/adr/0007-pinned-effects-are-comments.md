@@ -6,7 +6,7 @@ An effect dragged onto a Storyboard shot is stored as a comment with an `effect`
 
 Agent pins (an effect that picks words or items from the speech, or any pin with a note) travel in the next comment batch like any other comment. They therefore reuse the hand-off that freezes Working, Undo and Delete, frozen versions, carry-over of unsent comments, parts grouping by shot with its `Rebuild:` line, and the alternates fix that makes Review load the chosen Working revision. All agent pins go to the agent in one run with the next build.
 
-Instant pins (no note, and an effect that needs nothing picked from the speech, such as a title card from the reel title) take a separate server path and are made at once, without waiting for Build. It fills the template with `fill` and the reel style's `--fx-font`, `--fx-ink` and `--fx-accent`, then runs `engine/build.py` locally. That path never imports the agent runner, and a test fails if an instant pin creates an agent job. Writing a note moves an instant pin to the agent path; clearing it moves the pin back.
+Instant pins (no note, and an effect that needs nothing picked from the speech, such as a title card from the reel title) take a separate server path and are made at once, without waiting for Build. It fills the template with `fill`, `--fx-font` from the reel style and `--fx-ink`, `--fx-accent` from the Brand (the built-in brand when the project has none), then runs `engine/build.py` locally. That path never imports the agent runner, and a test fails if an instant pin creates an agent job. Writing a note moves an instant pin to the agent path; clearing it moves the pin back.
 
 Alternatives considered:
 

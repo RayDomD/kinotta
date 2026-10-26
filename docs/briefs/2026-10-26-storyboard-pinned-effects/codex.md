@@ -3,10 +3,10 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: blocked
+- State: working
 - Done: read the required project documents, plan, ADR, mockup sources and relevant implementation; verified the branch is feat/storyboard-pinned-effects and the working tree was clean.
 - Failed or skipped: implementation and tests not started because the required instant-pin colour source is absent from the Style model; interactive mockup review not completed (the in-app browser is unavailable).
-- Waiting on owner: Should instant pins resolve --fx-font from the reel style (falling back to Brand), and --fx-ink / --fx-accent from the project Brand with built-in Brand defaults, or should this branch add persisted colour tokens to each reel Style? The brief requires the reel style's tokens, but Style currently stores fonts only and the plan says Brand owns colours. Please confirm the source and fallback for the instant build.
+- Waiting on owner: none. Answered by Claude from the plan (Brand owns colours, Style owns the rest): `--fx-font` from the reel style's fonts, falling back to the Brand font; `--fx-ink`, `--fx-accent` and the other `--fx-*` colour tokens from the project Brand (`reels/brand.md`), falling back to the built-in brand (`skill/kinotta/assets/brand/brand.md`). Do not add colour tokens to Style.
 
 ## Goal
 
@@ -33,7 +33,7 @@ What the mockup shows and the plan keeps:
 
 - Touch: what steps 13, 14 and 16 need in `server/`, `web/src/`, `tests/`, and a dated entry per step in the plan's Changelog.
 - Do not touch: the effects library page beyond what pinning needs; the inline alternates card behaviour (preview, switch, Use, Not this, animated playback) beyond adding the drop target; the fix that makes Review load the chosen Working revision; the Direction steps; `skill/kinotta/` (steps 15 and 17 are merged).
-- Instant pins: their own server path that fills the template with `fill` and the reel style's `--fx-font`, `--fx-ink`, `--fx-accent`, then runs `skill/kinotta/engine/build.py`. It must not import the agent runner.
+- Instant pins: their own server path that fills the template with `fill`, the reel style's font as `--fx-font` and the Brand's colour tokens (see Status), then runs `skill/kinotta/engine/build.py`. It must not import the agent runner.
 - Web calls go only through `web/src/api/_internal/client.ts`.
 - Commits: on `feat/storyboard-pinned-effects` only, author `Ryan Dela CRyz <sourcrempie@gmail.com>`, Conventional prefix, one commit per logical step. No `Co-Authored-By` or `Claude-Session` trailers. Do not push and do not open a PR; Claude reviews and opens it.
 - Tests: Playwright with `--workers=2`, one run at a time, never alongside a vitest render run (port 4399). Write test logs to a file and check the exit code; do not pipe a run through `tail`. Check free memory before a full run.
