@@ -106,7 +106,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
                 <li key={op.id} className={op.kind === 'clip-slide' || gone !== undefined ? 'c flag' : 'c'}>
                   <div className="where">
                     <span className="dot">{i + 1}</span>
-                    {`${codeOnly ? target.replace(/^Clip/, 'Scene') : target}${pieces && gone === undefined ? ` Â· ${whereOn(pieces, applied, applied.indexOf(op), clips)}` : ''}`}
+                    {`${codeOnly ? target.replace(/^Clip/, 'Scene') : target}${pieces && gone === undefined ? ` · ${whereOn(pieces, applied, applied.indexOf(op), clips)}` : ''}`}
                   </div>
                   <p>{text}</p><span className="rv-edit-author">{op.by}</span>
                   {gone !== undefined && <div className="note">{`No longer applies to v${edits?.list?.base ?? ''}: ${gone} Remove it, or make the edit again.`}</div>}

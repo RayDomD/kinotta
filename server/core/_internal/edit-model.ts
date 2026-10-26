@@ -1132,7 +1132,7 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
   if (!sources.plan.media && (op.kind.startsWith('track-') || op.kind.startsWith('placement-') || op.kind === 'clip-attachment' || op.kind === 'clip-split' || ('placement' in op && typeof op.placement === 'string'))) sources = { ...sources, plan: mediaEditingPlan(sources) };
   switch (op.kind) {
     case 'pin-comment': {
-      if (!op.commentId || op.comment && (op.comment.id !== op.commentId || (!op.comment.effect && !op.comment.insertShot))) throw new KinottaError('invalid', 'A pin edit needs its comment identity.');
+      if (!op.commentId || op.comment && (op.comment.id !== op.commentId || (!op.comment.effect || !op.comment.instant || !!op.comment.text.trim()))) throw new KinottaError('invalid', 'A pin edit needs its comment identity.');
       return { ...sources, plan: { ...sources.plan, pinComments: { ...sources.plan.pinComments, [op.commentId]: op.comment } } };
     }
     case 'shot-alternate':

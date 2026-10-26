@@ -178,7 +178,7 @@ function SectionRail({ version, comments, selected, onSelect }: SectionRailProps
   const pins = pinCounts(comments, version.shots);
   return (
     <div>
-      <div className="label">{`Sections Â· ${version.sections.length}`}</div>
+      <div className="label">{`Sections · ${version.sections.length}`}</div>
       <nav className="secs" aria-label="Sections">
         {version.sections.map((section, i) => (
           <button key={section.id} type="button" aria-current={section.id === selected ? 'true' : undefined} onClick={() => onSelect(section.id)}>
@@ -359,7 +359,7 @@ function Main(props: MainProps) {
           issues={issues}
         />
       ) : version.status === 'loading' ? (
-        <div className="state">Loadingâ€¦</div>
+        <div className="state">Loading…</div>
       ) : version.status === 'error' ? (
         <Empty>{`Could not read the storyboard. ${version.message}`}</Empty>
       ) : (
@@ -626,7 +626,7 @@ function Studio() {
     return (
       <div className="app">
         <TopBar reel={undefined} version={undefined} commentCount={0} frozen={false} />
-        <div className="state">{load.status === 'loading' ? 'Loadingâ€¦' : `Could not load reels. ${load.message}`}</div>
+        <div className="state">{load.status === 'loading' ? 'Loading…' : `Could not load reels. ${load.message}`}</div>
       </div>
     );
   }

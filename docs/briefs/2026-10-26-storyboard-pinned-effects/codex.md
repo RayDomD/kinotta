@@ -5,7 +5,7 @@
 <!-- Keep this block current. Claude reads only this block and the diff. -->
 - State: working
 - Done: implemented comment-backed Working pin edits, isolated instant template builds with Style fonts and Brand colours, batch routing, frame-only drops, alternate identity, note/Delete/Undo cards, Insert shot, phone controls, Build counts and built-note decisions. Focused Playwright: 4 passed. Pin/batch integration: 12 passed. Typecheck, build and check:docs passed before the final scoped note-flush/footprint changes; typecheck passed after them.
-- Failed or skipped: full unit project: 973 passed, 6 skipped, 1 failed (runner architecture guard, confirmed alone). Logs: C:/Users/ryand/AppData/Local/Temp/kinotta-pinned-unit.log and kinotta-pinned-runner-guard.log. Final browser rerun after note-flush/footprint changes, alternates suites, full Playwright and commit checks not run because the brief requires stopping on this uncovered boundary conflict. The reference mockup's instant/note/keep flow was clicked through with Playwright; its Insert shot click-through was not completed.
+- Failed or skipped: none in the affected checks after the review fixes (31 core checks and 4 focused browser checks passed). Full unit, alternate suites and full two-worker Playwright verification are pending. The earlier runner-guard failure is resolved by the approved extraction.
 - Waiting on owner: none. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
 
 
@@ -109,3 +109,22 @@ Verified before the stop condition:
 - Impeccable detector reported advisory findings only (existing styles plus typography-size reports against the stale sidecar); no ignores added. The broader design-sidecar repair remains outside scope.
 
 All Done checkboxes remain unchecked until the remaining required verification is complete. Do not mark this branch ready. No push or PR was made; node_modules was left untouched.
+
+### 2026-10-26: saved review-fix execution plan
+
+The Status decision authorizes an agent-free build-runner shared with runner.ts. Apply the eight review fixes in tested slices: first keep agent/insert comments outside Working and correct instant-note transitions, hand-off storage and comment undo; then extract the local builder, restrict built-note prompts and move decisions to the reel; finally repair encoding and the listed UI nits. Keep the Review integration limited to showing instant Working content, verify the alternate suites, complete the reference click-through and run all required checks with two-worker Playwright logs. Record every review fix and final results here, then commit logical fixes without pushing or opening a PR.
+
+### 2026-10-26: review fixes applied
+
+1. Agent effects and inserted shots now use ordinary state.comments, not Working operations. Adding/deleting/editing those requests leaves Working content unchanged; the comment deletion toast and Ctrl+Z restore them with their effect/insertShot metadata. Adding a note removes the instant Working content and saves an ordinary request; clearing it makes a local instant edit again. Regression checks prove agent-only batches do not create frozen versions.
+2. Hand-offs retain ordinary comments only. Instant output never enters state.comments; the regression test undoes an instant after a hand-off and verifies it does not reappear after a later authored build.
+3. The keep-note query requires an effect id. The mixed batch test includes an ordinary review comment and an inserted-shot description and offers only the effect note.
+4. Reel-wide note decisions now live at reels/<slug>/pin-note-decisions.json. The test checks that path and verifies that no version folder gets the file.
+5. Repaired UTF-8 punctuation in App.tsx, styles.css and EditsPanel.tsx. A scan of every changed text file found no reviewed mojibake sequences; git diff --check passes.
+6. Review changes stay limited to loading instant Working output through workingEffectKey and describing its pin operation. They are needed because Review must display the same Working content as Storyboard. No alternate selection, dismissal or chosen-revision logic changed; the alternate suites are next.
+7. Missing instant target shots throw KinottaError instead of relying on an assertion. Ordinary pin markers and stack offsets now share the exact rendered list. Inserted-shot fields ask what the new shot shows.
+8. The plan already has dated entries for steps 13, 14 and 16; their final verification wording will be updated after the remaining suites.
+
+The approved builder extraction moves the local page invocation to build-runner.ts. runner.ts re-exports it for existing callers; instant-effect.ts imports only the agent-free service. The architecture guard allows exactly those two service paths and checks that the local builder does not import or call the agent launcher.
+
+Affected checks: 31 core checks passed (pin lifecycle, batch, note decisions and runner); typecheck and build passed; all 4 focused Playwright checks passed, including ordinary pin Ctrl+Z and unchanged Working counts. Logs: C:/Users/ryand/AppData/Local/Temp/kinotta-review-core.log and kinotta-review-pins-e2e.log.

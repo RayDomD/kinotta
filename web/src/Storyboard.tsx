@@ -119,7 +119,8 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
   const activeRevision = shown?.revision ?? shot.revision;
   const stillPageUrl = shown && shown.revision !== shot.revision && shot.name && alternatePage ? alternatePage(shot.name, shown.revision) : pageUrl;
   const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === activeRevision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
-  const stacks = tagStacks(framePins);
+  const ordinaryFramePins = framePins.filter((pin) => !pins.find((comment) => comment.id === pin.id)?.effect);
+  const stacks = tagStacks(ordinaryFramePins);
   const part = states.indexOf(shot) + 1;
   const partOf = part > 0 ? `${part} of ${states.length}` : null;
   const inReelLabel = inReelAlternate?.label ?? shot.revision;
@@ -175,12 +176,12 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
       {isPlaying ? (
         <div className="still playing" data-card-player="true">
           <CardPlayer key={stillPageUrl} pageUrl={stillPageUrl} start={shot.start} duration={duration} title={`Shot ${shot.number} player`} />
-          {framePins.filter((pin) => !effectPins.some((comment) => comment.id === pin.id)).map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+          {ordinaryFramePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
           {effectMarks}
         </div>
       ) : (
         <PageStill key={stillPageUrl} pageUrl={stillPageUrl} time={shot.start} title={`Shot ${shot.number} still`} footageUrl={shot.type === 'panel' ? footage : undefined} unavailable={unavailable}>
-          {framePins.filter((pin) => !effectPins.some((comment) => comment.id === pin.id)).map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
+          {ordinaryFramePins.map((p, i) => <HexPin key={p.id} number={p.number} x={p.x} y={p.y} stack={stacks[i]} />)}
           {effectMarks}
         </PageStill>
       )}

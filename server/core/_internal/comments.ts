@@ -1,4 +1,4 @@
-import { addOperationNow, readEditListNow, workingSources, workingInputs, workingState, withReelLock } from './edit-list.ts';
+import { addOperationNow, removeInstantPinNow, readEditListNow, workingSources, workingInputs, workingState, withReelLock } from './edit-list.ts';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { readCapturedVersion, requireReelDir } from './version.ts';
@@ -126,7 +126,7 @@ function buildPin(input: NewComment, version: Version): FramePin | WordPin {
   return { ...pin, placement: placement.id, offset: pin.time - placement.at, ...(placement.role === 'gap' ? {} : { sourceTime: word?.sourceStart ?? (placement.in + pin.time - placement.at) }) };
 }
 
-/** Effect pins remain comments; their mutations use the same persistent Working undo journal. */
+/** Only instant output lives in Working; agent requests retain the ordinary comment lifecycle. */
 export async function commentsForVersion(projectDir: string, slug: string, number: number, ordinary: StoredComment[]): Promise<StoredComment[]> {
   const reelDir = await requireReelDir(projectDir, slug);
   let pinComments: Record<string, StoredComment | null>;
@@ -136,15 +136,16 @@ export async function commentsForVersion(projectDir: string, slug: string, numbe
     const history = await workingState(reelDir);
     for (const op of [...history.operations, ...history.undo.flat(), ...history.redo.flat()]) if (op.kind === 'pin-comment') managed.add(op.commentId);
     const captured = JSON.parse(await readFile(join(reelDir, `v${list.base}`, 'pin-comments.json'), 'utf8').catch(() => '{}'));
-    if (!managed.size && !Object.keys(captured).length && !history.anchor?.sources.plan.pinComments) return ordinary;
+    if (!managed.size && !Object.keys(captured).length && !history.anchor?.sources.plan.pinComments) return ordinary.filter((comment) => !comment.instant);
     pinComments = applyOperations(await workingSources(projectDir, reelDir), list.operations.filter((op) => !list.flagged?.[op.id])).plan.pinComments ?? {};
   } else {
     const captured = await readFile(join(reelDir, `v${number}`, 'pin-comments.json'), 'utf8').catch(() => '{}');
     pinComments = JSON.parse(captured);
   }
   for (const id of Object.keys(pinComments)) managed.add(id);
-  const pins = Object.values(pinComments).filter((pin): pin is StoredComment => pin !== null).map((comment) => ({ ...comment, pin: { ...comment.pin, version: number } }));
-  return [...ordinary.filter((comment) => !managed.has(comment.id)), ...pins];
+  const pins = Object.values(pinComments).filter((pin): pin is StoredComment => pin?.instant === true).map((comment) => ({ ...comment, pin: { ...comment.pin, version: number } }));
+  const instantIds = new Set(pins.map((comment) => comment.id));
+  return [...ordinary.filter((comment) => !comment.instant && !instantIds.has(comment.id)), ...pins];
 }
 
 async function pinComment(projectDir: string, slug: string, number: number, id: string): Promise<StoredComment | undefined> {
@@ -154,8 +155,25 @@ async function pinComment(projectDir: string, slug: string, number: number, id: 
 
 async function savePinComment(projectDir: string, slug: string, number: number, comment: StoredComment): Promise<AddedComment> {
   await addOperationNow(projectDir, slug, { kind: 'pin-comment', commentId: comment.id, comment });
+  const file = stateFilePath(projectDir, slug, number);
+  await serialized(file, async () => {
+    const state = await readState(file, number);
+    if (state.comments.some((saved) => saved.id === comment.id)) await writeState(file, { ...state, comments: state.comments.filter((saved) => saved.id !== comment.id) });
+  });
   const comments = await listComments(projectDir, slug, number);
   return { comment: comments.find((item) => item.id === comment.id)!, comments };
+}
+
+async function saveAgentPinComment(projectDir: string, slug: string, number: number, comment: StoredComment): Promise<AddedComment> {
+  const file = stateFilePath(projectDir, slug, number);
+  await serialized(file, async () => {
+    const state = await readState(file, number);
+    const index = state.comments.findIndex((saved) => saved.id === comment.id);
+    const comments = index < 0 ? [...state.comments, comment] : state.comments.map((saved) => saved.id === comment.id ? comment : saved);
+    await writeState(file, { ...state, comments });
+  });
+  const comments = await listComments(projectDir, slug, number);
+  return { comment: comments.find((saved) => saved.id === comment.id)!, comments };
 }
 
 export async function listComments(projectDir: string, slug: string, number: number): Promise<Comment[]> {
@@ -182,7 +200,8 @@ async function addCommentNow(projectDir: string, slug: string, number: number, i
     if (input.effect !== undefined && !effect) throw new KinottaError('invalid', 'Unknown effect.');
     const instant = effect?.instant && !text;
     const effectHtml = instant ? await makeInstantEffect(projectDir, slug, effect.id, pin, version) : undefined;
-    return savePinComment(projectDir, slug, number, { id: randomUUID(), pin, text, createdAt: new Date().toISOString(), ...(effect ? { effect: effect.id, effectName: effect.name } : {}), ...(input.insertShot ? { insertShot: true } : {}), ...(instant ? { instant: true, effectHtml } : {}) });
+    const saved: StoredComment = { id: randomUUID(), pin, text, createdAt: new Date().toISOString(), ...(effect ? { effect: effect.id, effectName: effect.name } : {}), ...(input.insertShot ? { insertShot: true } : {}), ...(instant ? { instant: true, effectHtml } : {}) };
+    return instant ? savePinComment(projectDir, slug, number, saved) : saveAgentPinComment(projectDir, slug, number, saved);
   }
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
   // A code-built single-page reel may ask too: the agent converts it to parts in its next version to answer.
@@ -214,8 +233,17 @@ async function editCommentNow(projectDir: string, slug: string, number: number, 
     const effect = pinned.effect ? (await effectsCatalogue()).find((entry) => entry.id === pinned.effect) : undefined;
     const { instant: _instant, effectHtml: oldHtml, ...base } = pinned;
     const instant = effect?.instant && !text;
-    const effectHtml = instant ? oldHtml ?? await makeInstantEffect(projectDir, slug, effect.id, pinned.pin as FramePin, await commentVersion(projectDir, slug, number)) : oldHtml;
-    return savePinComment(projectDir, slug, number, { ...base, text, ...(effectHtml ? { effectHtml } : {}), ...(instant ? { instant: true } : {}) });
+    if (instant) {
+      if (pinned.instant) { const comments = await listComments(projectDir, slug, number); return { comment: comments.find((comment) => comment.id === id)!, comments }; }
+      const effectHtml = oldHtml ?? await makeInstantEffect(projectDir, slug, effect.id, pinned.pin as FramePin, await commentVersion(projectDir, slug, number));
+      return savePinComment(projectDir, slug, number, { ...base, text, effectHtml, instant: true });
+    }
+    const ordinary = { ...base, text };
+    // Persist the request first. The reel lock keeps readers from seeing a half-completed transition.
+    await saveAgentPinComment(projectDir, slug, number, ordinary);
+    if (pinned.instant) await removeInstantPinNow(projectDir, slug, id);
+    const comments = await listComments(projectDir, slug, number);
+    return { comment: comments.find((comment) => comment.id === id)!, comments };
   }
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
 
@@ -232,8 +260,8 @@ async function editCommentNow(projectDir: string, slug: string, number: number, 
 
 async function deleteCommentNow(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {
   await takesComments(projectDir, slug, number);
-  if (await pinComment(projectDir, slug, number, id)) {
-    await addOperationNow(projectDir, slug, { kind: 'pin-comment', commentId: id, comment: null });
+  if ((await pinComment(projectDir, slug, number, id))?.instant) {
+    await removeInstantPinNow(projectDir, slug, id);
     return { comments: await listComments(projectDir, slug, number) };
   }
   const file = stateFilePath(projectDir, slug, number);

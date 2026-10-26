@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
 import { alternatesFixture, partsFixture } from '../helpers/parts.ts';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const pin = { shot: '01', x: 0.5, y: 0.5, element: null };
@@ -51,6 +51,40 @@ describe('Storyboard pinned effects', () => {
       expect(JSON.stringify(saved)).not.toContain('effectHtml');
     } finally { await project.close(); }
   });
+  it('keeps agent pins and inserted shots in comments without changing or freezing Working', async () => {
+    const { dir } = partsFixture(3, false); const project = openProject(dir);
+    try {
+      await project.buildParts('parts');
+      const before = await project.readEditList('parts');
+      await project.addComment('parts', 1, { pin, effect: 'big-word', text: '' });
+      await project.addComment('parts', 1, { pin, insertShot: true, text: 'Show the room' });
+      await project.addComment('parts', 1, { pin, effect: 'title-card', text: 'Use a small title' });
+      expect(await project.readEditList('parts')).toEqual(before);
+      expect((await project.copyBatch('parts', 1)).file).toBe('reels/parts/v1/comments.json');
+      expect((await project.listVersions('parts')).map((version) => version.number)).toEqual([1]);
+    } finally { await project.close(); }
+  });
+  it('moves instant notes into ordinary comments and back, and never stores an instant at hand-off', async () => {
+    const { dir } = partsFixture(3, false); const project = openProject(dir);
+    try {
+      await project.buildParts('parts');
+      const title = (await project.addComment('parts', 1, { pin, effect: 'title-card', text: '' })).comment;
+      await project.editComment('parts', 1, title.id, 'Make the title small');
+      expect((await project.readEditList('parts')).operations).toEqual([]);
+      expect((await project.listComments('parts', 1))[0]).toMatchObject({ effect: 'title-card', text: 'Make the title small' });
+      await project.editComment('parts', 1, title.id, '');
+      expect((await project.readEditList('parts')).operations).toHaveLength(1);
+      await project.addComment('parts', 1, { pin, effect: 'big-word', text: '' });
+      const batch = await project.copyBatch('parts', 1);
+      const number = Number(/v(\d+)\//.exec(batch.file)![1]);
+      const state = JSON.parse(await readFile(join(dir, 'reels/.kinotta/parts', `v${number}.json`), 'utf8'));
+      expect(state.comments.some((comment: { instant?: boolean }) => comment.instant)).toBe(false);
+      await project.undoEdit('parts');
+      expect((await project.listComments('parts', number)).some((comment) => comment.instant)).toBe(false);
+      await project.buildParts('parts', 'Test agent');
+      expect((await project.listComments('parts', number + 1)).some((comment) => comment.instant)).toBe(false);
+    } finally { await project.close(); }
+  });
   it('pins the shown alternate without selecting it, and preserves deletion undo through freeze', async () => {
     const { dir, reelDir } = alternatesFixture(); const project = openProject(dir);
     try {
@@ -74,12 +108,15 @@ describe('Storyboard pinned effects', () => {
       await project.copyStyleToReel('parts', { id: 'clean' });
       await project.addComment('parts', 1, { pin, effect: 'title-card', text: 'Keep captions low' });
       await project.addComment('parts', 1, { pin, insertShot: true, text: 'A shot of the door' });
+      await project.addComment('parts', 1, { pin, text: 'An ordinary review comment' });
       expect(await project.builtPinNotes('parts')).toEqual([]);
       await project.copyBatch('parts', 1);
       await project.buildParts('parts', 'Test agent');
       const notes = await project.builtPinNotes('parts');
       expect(notes).toHaveLength(1); expect(notes[0].text).toBe('Keep captions low');
       await project.decidePinNote('parts', notes[0].id, true);
+      expect(JSON.parse(await readFile(join(dir, 'reels/parts/pin-note-decisions.json'), 'utf8'))[notes[0].id]).toBe(true);
+      for (const version of await project.listVersions('parts')) expect(await readdir(join(dir, 'reels/parts', `v${version.number}`))).not.toContain('pin-note-decisions.json');
       expect((await project.readReelStyle('parts'))?.rules).toEqual(['Keep captions low']);
       expect((await project.listStyles()).styles.find((style) => style.id === 'clean')?.rules).toEqual([]);
       expect(await project.builtPinNotes('parts')).toEqual([]);

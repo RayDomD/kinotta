@@ -209,6 +209,19 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
     if (undo) undoButton.current?.focus();
   }, [undo]);
 
+  useEffect(() => {
+    if (!undo) return;
+    const onUndo = (event: globalThis.KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault(); event.stopImmediatePropagation(); void restore();
+      }
+    };
+    window.addEventListener('keydown', onUndo, true);
+    return () => window.removeEventListener('keydown', onUndo, true);
+  }, [undo, edits, state]);
+
   async function remove(comment: Comment): Promise<void> {
     setProblem(null);
     try {
@@ -224,7 +237,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
 
   async function restore(): Promise<void> {
     if (!undo) return;
-    if ((undo.comment.effect || undo.comment.insertShot) && edits) {
+    if (undo.comment.instant && edits) {
       window.clearTimeout(undoTimer.current); setUndo(null);
       await edits.undo(); return;
     }
@@ -236,6 +249,8 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
         pin: pin.kind === 'word' ? { kind: 'word', placement: pin.placement, shot: pin.shot, time: pin.time, word: pin.word } : { kind: 'frame', placement: pin.placement, time: pin.time, shot: pin.shot, x: pin.x, y: pin.y, element: pin.element, ...(pin.alternate ? { alternate: pin.alternate } : {}) },
         text,
         ...(options !== undefined ? { options } : {}),
+        ...(undo.comment.effect ? { effect: undo.comment.effect } : {}),
+        ...(undo.comment.insertShot ? { insertShot: true } : {}),
       });
     } catch (err) {
       setProblem(failure(err, 'Could not restore the comment.'));

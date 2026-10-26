@@ -59,7 +59,7 @@ export function PinnedCommentCard({ comment, state, editable, remove }: { commen
     <p className="fx-pin-status">{comment.sent ? 'Sent to your agent' : instant ? 'Instant · free · Done' : 'Needs the agent · Waiting for Build'}</p>
     <label> {comment.insertShot ? 'Describe the new shot' : 'Note (optional)'}
       <textarea aria-label={`${comment.insertShot ? 'New shot description' : 'Note for'} ${comment.effectName ?? 'inserted shot'} ${comment.number}`} value={text} readOnly={!editable || comment.sent}
-        placeholder="Writing a note sends this pin to the agent."
+        placeholder={comment.insertShot ? "Describe what the new shot shows." : "Writing a note sends this pin to the agent."}
         onChange={(event) => { setText(event.target.value); latest.current = event.target.value; clearTimeout(timer.current); timer.current = setTimeout(() => { void persist().catch(() => {}); }, NOTE_SAVE_MS); }}
         onBlur={() => { void persist().catch(() => {}); }} />
     </label>

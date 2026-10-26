@@ -287,6 +287,20 @@ export async function addOperationNow(projectDir: string, slug: string, input: N
   return shown(await commit(reelDir, stored, operations), false, await readHandoff(reelDir, stored.frozen ?? stored.base));
 }
 
+/** Remove instant content while already holding the reel lock; an agent request adds no operation. */
+export async function removeInstantPinNow(projectDir: string, slug: string, commentId: string): Promise<void> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const stored = await loadForChange(projectDir, reelDir, slug);
+  const sources = await currentSources(projectDir, reelDir);
+  let operations = stored.operations.filter((op) => op.kind !== 'pin-comment' || op.commentId !== commentId);
+  // An instant inherited from an authored base needs a removal, rather than removal of its original add operation.
+  if (applyOperations(sources, operations).plan.pinComments?.[commentId]?.instant) {
+    operations = [...operations, { id: randomUUID(), by: 'you', kind: 'pin-comment', commentId, comment: null }];
+  }
+  await checkApplies(projectDir, reelDir, operations, stored.flagged);
+  await commit(reelDir, stored, operations);
+}
+
 /**
  * Drops one operation and keeps the ones after it. Each operation names things in source time, so the result is
  * worked out again from what remains; if the rest no longer applies, it is refused and the list is unchanged.
