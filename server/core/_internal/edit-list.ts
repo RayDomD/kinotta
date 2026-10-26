@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { applyOperation, applyOperations, describeOperation, mediaEditingPlan } from './edit-model.ts';
-import type { NewOperation, Operation, Sources } from './edit-model.ts';
+import type { NewOperation, Operation, SnipOperation, Sources } from './edit-model.ts';
 import type { MediaPlan } from './media-model.ts';
 import { KinottaError } from './errors.ts';
 import type { EditList, MediaEditingModel } from './types.ts';
@@ -266,6 +266,51 @@ async function checkApplies(projectDir: string, reelDir: string, operations: rea
   applyOperations(await currentSources(projectDir, reelDir), live);
 }
 
+/** Shared payload rules for owner edits and unattended output. */
+export function validateOperationInput(input: NewOperation): void {
+  if ('reversal' in input) throw new KinottaError('invalid', 'Undo reversals are recorded by Kinotta. Use Undo to reverse an edit.');
+  if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
+  if (input.by !== undefined && (typeof input.by !== 'string' || !input.by.trim())) throw new KinottaError('invalid', 'An edit needs the name of who made it.');
+  if ('reason' in input && (input as any).reason !== undefined) {
+    if (input.kind !== 'snip' && input.kind !== 'shot-alternate-dismiss') throw new KinottaError('invalid', 'That kind of edit cannot carry a reason.');
+    if (input.kind === 'snip' && (typeof (input as any).reason !== 'string' || !(input as any).reason.trim() || (input as any).reason.length > 120)) throw new KinottaError('invalid', 'A snip reason must be a non-empty string of at most 120 characters.');
+  }
+}
+
+/** Caller holds the reel lock. A recovered agent batch is one durable, undoable append. */
+export async function appendAgentCutsNow(projectDir: string, slug: string, cuts: readonly SnipOperation[]): Promise<void> {
+  if (!cuts.length) return;
+  const reelDir = await requireReelDir(projectDir, slug);
+  const stored = await loadForChange(projectDir, reelDir, slug);
+  const seen = new Set([...stored.operations, ...stored.undo.flat(), ...stored.redo.flat()].map((op) => op.id));
+  for (const id of stored.frozenOperations ?? []) seen.add(id);
+  const operations = [...stored.operations];
+  const base = await currentSources(projectDir, reelDir);
+  let sources = applyOperations(base, operations.filter((op) => stored.flagged[op.id] === undefined));
+  for (const cut of cuts) {
+    validateOperationInput(cut);
+    if (seen.has(cut.id)) continue;
+    try {
+      sources = applyOperations(sources, [cut]);
+    } catch (error) {
+      // The batch passed against authored inputs. Only a conflicting owner edit can supersede it.
+      if (error instanceof KinottaError && error.code === 'invalid') {
+        const agentOnly = operations.filter((op) => op.by === cut.by && stored.flagged[op.id] === undefined);
+        // If the cut also fails without owner operations, it was not superseded by the owner.
+        applyOperations(base, [...agentOnly, cut]);
+        continue;
+      }
+      throw error;
+    }
+    operations.push(cut);
+  }
+  // Storage errors propagate; success means the complete accepted batch is durable.
+  if (operations.length !== stored.operations.length) {
+    await checkApplies(projectDir, reelDir, operations, stored.flagged);
+    await commit(reelDir, stored, operations);
+  }
+}
+
 /** Adds an operation to the list, after checking it applies on top of the ones already there. */
 export async function addOperation(projectDir: string, slug: string, input: NewOperation): Promise<EditList> {
   const reelDir = await requireReelDir(projectDir, slug);
@@ -276,13 +321,7 @@ export async function addOperation(projectDir: string, slug: string, input: NewO
 export async function addOperationNow(projectDir: string, slug: string, input: NewOperation): Promise<EditList> {
   const reelDir = await requireReelDir(projectDir, slug);
   const stored = await loadForChange(projectDir, reelDir, slug);
-  if ('reversal' in input) throw new KinottaError('invalid', 'Undo reversals are recorded by Kinotta. Use Undo to reverse an edit.');
-  if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
-  if (input.by !== undefined && (typeof input.by !== 'string' || !input.by.trim())) throw new KinottaError('invalid', 'An edit needs the name of who made it.');
-  if ('reason' in input && (input as any).reason !== undefined) {
-    if (input.kind !== 'snip' && input.kind !== 'shot-alternate-dismiss') throw new KinottaError('invalid', 'That kind of edit cannot carry a reason.');
-    if (input.kind === 'snip' && (typeof (input as any).reason !== 'string' || !(input as any).reason.trim() || (input as any).reason.length > 120)) throw new KinottaError('invalid', 'A snip reason must be a non-empty string of at most 120 characters.');
-  }
+  validateOperationInput(input);
   const operation = { ...input, by: input.by?.trim() ?? 'you', id: randomUUID() } as Operation;
   const operations = [...stored.operations, operation];
   await checkApplies(projectDir, reelDir, operations, stored.flagged);

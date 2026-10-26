@@ -1,3 +1,6 @@
+import { applyOperations, type Plan, type SnipOperation } from './edit-model.ts';
+import { AGENT_CUT_BY } from './dead-air.ts';
+import { validateOperationInput } from './edit-list.ts';
 import { pieceMap, type Piece } from './pieces.ts';
 import { lstat, readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -83,7 +86,7 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
       ) {
         throw new Error('Agent output cut times must be finite numbers with 0 <= from < to <= plan duration.');
       }
-      if (typeof cut.reason !== 'string' || cut.reason.length === 0 || cut.reason.length > 120) {
+      if (typeof cut.reason !== 'string' || !cut.reason.trim() || cut.reason.length > 120) {
         throw new Error('Agent output cut reason must be a non-empty string of at most 120 characters.');
       }
     }
@@ -112,6 +115,9 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
         }
       }
     }
+    const operations: SnipOperation[] = cuts.map((cut: { from: number; to: number; reason: string }, index: number) => ({ kind: 'snip', from: cut.from, to: cut.to, reason: cut.reason, by: AGENT_CUT_BY, id: `validation:${index}` }));
+    for (const operation of operations) validateOperationInput(operation);
+    applyOperations({ plan: plan as Plan, words: [] }, operations);
   }
   const manifest = JSON.parse(await readFile(join(root, 'shots.json'), 'utf8'));
   const shots = checkShotsFile(manifest, null);
