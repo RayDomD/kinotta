@@ -6,7 +6,7 @@ Before editing an interaction, read the relevant design decision or plan, inspec
 
 State the intended behavior in concrete terms: where the interaction happens, what action triggers it, what visibly changes, and whether it changes Working. Distinguish verified existing behavior, documented design, and a proposed change. A screenshot establishes appearance, but does not establish playback, gestures, navigation, or selection behavior.
 
-When those details are materially ambiguous, ask one focused question before making dependent edits. Once the user has answered, continue without asking again. If the requested behavior is clear, proceed directly.
+When those details are materially ambiguous, ask one focused question before making dependent edits. Once the user has answered, continue without asking again. If the requested behavior is clear, proceed directly. While a question waits, carry on with any work that does not depend on it. When a test shows the app is wrong and no answer has come, mark the test `test.fixme` with the reason, open an issue for the fix, and continue.
 
 Match the work to the requested outcome. Animating reel assets, changing editor controls, and updating authoring guidance are different changes. Completing one does not complete the others. Record an out-of-scope finding separately instead of silently expanding the task.
 
