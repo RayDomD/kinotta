@@ -3,9 +3,9 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: not started
-- Done:
-- Failed or skipped:
+- State: done
+- Done: both #69 nits reproduced and fixed; request-only Phase 6 check passes for footage and brief reels from one saved project style; Changelog updated; all required checks pass (113 unit files, 986 tests passed).
+- Failed or skipped: no failures; full unit suite reports 6 skipped tests. Real agent builds, render and Playwright excluded by scope.
 - Waiting on owner: none
 
 ## Goal
@@ -42,10 +42,10 @@ Owner decision (2026-10-26): the Phase 6 check is request-only. Start one footag
 
 ## Done when
 
-- [ ] A test fails before and passes after each nit fix: `agentTold` with an unknown frame does not throw and has no `Frame:` line; an unknown setting key prints the key, never `undefined`. `npx vitest run --project unit tests/core/reel-style.test.ts` (or the direction test file) passes.
-- [ ] A test starts a footage reel and a brief reel from one saved project style that has a rule, and asserts each request contains every `agentTold` line for that reel's copy, including `Rule: "<the rule>".`. Same command passes.
-- [ ] The plan Changelog has a dated entry: Phase 6 check run as request-only (owner decision), with the test name and a short excerpt of each request's style lines and rule; and the two #69 nits fixed.
-- [ ] `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main` and `npx vitest run --project unit` pass.
+- [x] A test fails before and passes after each nit fix: `agentTold` with an unknown frame does not throw and has no `Frame:` line; an unknown setting key prints the key, never `undefined`. `npx vitest run --project unit tests/core/reel-style.test.ts` (or the direction test file) passes.
+- [x] A test starts a footage reel and a brief reel from one saved project style that has a rule, and asserts each request contains every `agentTold` line for that reel's copy, including `Rule: "<the rule>".`. Same command passes.
+- [x] The plan Changelog has a dated entry: Phase 6 check run as request-only (owner decision), with the test name and a short excerpt of each request's style lines and rule; and the two #69 nits fixed.
+- [x] `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main` and `npx vitest run --project unit` pass.
 
 Mojibake: the pre-commit hook enforces it.
 
@@ -54,3 +54,21 @@ Tick an item only after its check passes. State is `done` only when every box is
 ## Results
 
 <Append a short summary of changes here. Newest heading last.>
+
+### Saved execution plan (2026-10-26)
+
+1. Reproduce each #69 nit through agentTold in reel-style.test.ts, then apply its minimal fallback and verify green.
+2. Save one project style with a rule; start footage and brief reels by its id and verify every agentTold line in both requests without running an agent.
+3. Record request excerpts in the plan Changelog only; run the scoped suite and all four required checks with file logs, then commit the scoped changes.
+
+The supplied brief is the approved plan. Its scope overrides the general plan-summary/dashboard workflow: no new planning files, status changes or dashboard edits.
+
+### Verification (2026-10-26)
+
+- Frame regression: exit 1 before the fix (undefined label access); exit 0 after it.
+- Setting regression: exit 1 before the fix (missing key fallback); exit 0 after it. Both nits together: 2 passed.
+- Scoped suite: 8 passed, exit 0. Phase 6 uses one saved project style, summit-style, with Keep captions low as its rule. Footage verifies persisted told lines and the copied prompt; brief verifies its returned request. Copy provider and copy-ready status keep the check request-only.
+- Typecheck, docs and commit checks: exit 0. Full unit suite: exit 0, 113 files passed, 986 tests passed and 6 skipped (251.24 seconds).
+- Logs: tests/artifacts/close-direction-storyboard/ (ignored local files): frame-red.log, frame-green.log, setting-red.log, nits-green.log, reel-style.log, typecheck.log, docs.log, commits.log, unit.log.
+- Commits so far: a75833c (fix), a1a2a4f (test), both authored by Ryan Dela CRyz <sourcrempie@gmail.com>.
+- Plan frontmatter status unchanged. No push or PR.
