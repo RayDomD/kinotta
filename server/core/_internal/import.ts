@@ -182,6 +182,38 @@ export async function importVideo(projectDir: string, name: string, body: AsyncI
   return { path: `${FOOTAGE_DIR}/${basename(file)}`, copied, playbackCopy: needsCopy };
 }
 
+const REELS_DIR = 'reels';
+
+/** True when any reel's files name this footage file: its reel.json, plans and versions. Dot folders (agent jobs) are skipped. */
+async function usedByAReel(projectDir: string, name: string): Promise<boolean> {
+  // Names are matched as they appear inside JSON strings, so a reel that points at the file by any relative path counts.
+  const needle = JSON.stringify(name).slice(1, -1);
+  const search = async (dir: string): Promise<boolean> => {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory() ? await search(path) : entry.name.endsWith('.json') && (await readFile(path, 'utf8')).includes(needle)) return true;
+    }
+    return false;
+  };
+  return search(join(projectDir, REELS_DIR));
+}
+
+/**
+ * Takes back a video dropped into footage/: deletes it and its playback copy, unless a reel uses it. The content-named
+ * proxy and audio stay as a cache. Throws `KinottaError` `invalid` for a path that is not a video directly in footage/.
+ */
+export async function removeVideo(projectDir: string, path: string): Promise<{ removed: boolean }> {
+  const footageDir = resolve(projectDir, FOOTAGE_DIR);
+  const file = resolve(projectDir, path);
+  if (dirname(file) !== footageDir || !isVideoFile(file)) throw new KinottaError('invalid', `${path} is not a video in footage/.`);
+  if (!(await exists(file)) || (await usedByAReel(projectDir, basename(file)))) return { removed: false };
+  await rm(file, { force: true });
+  await rm(playbackPath(projectDir, file), { force: true });
+  return { removed: true };
+}
+
 /** Where the playback copy of a saved version's video lives: named by content, so every version holding the same bytes shares it. */
 export function contentPlaybackPath(projectDir: string, hash: string): string {
   return join(resolve(projectDir, FOOTAGE_DIR), PLAYBACK_DIR, `sha256-${hash}${PLAYBACK_EXT}`);

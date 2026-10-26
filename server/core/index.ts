@@ -20,7 +20,7 @@ import { captureWorking, freezeEdits } from './_internal/save.ts';
 import { markWaiting, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageAudioFile, footageFile } from './_internal/footage.ts';
-import { importVideo } from './_internal/import.ts';
+import { importVideo, removeVideo } from './_internal/import.ts';
 import { ensureProjectProxies, importMedia, listMedia, listProjectMedia, mediaAudioFile, mediaFile, mediaWaveform, referenceMedia, relinkMedia } from './_internal/media-library.ts';
 import { createMediaSpeech } from './_internal/media-speech.ts';
 import { createMediaBeats } from './_internal/media-beats.ts';
@@ -240,6 +240,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),
     listVideos: () => listVideos(dir),
     importVideo: (name, body) => importVideo(dir, name, body),
+    removeVideo: (path) => removeVideo(dir, path),
     startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input, (slug) => agents.start(slug)),
     transcriptionProgress: (slug) => transcriptions.progress(slug),
     whenTranscribed: (slug) => transcriptions.whenDone(slug),

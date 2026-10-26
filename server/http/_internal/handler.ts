@@ -522,6 +522,10 @@ export function createHandler(project: Project, webRoot: string) {
         const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
         const imported = await project.importVideo(name, req);
         sendJson(res, imported.copied ? 201 : 200, imported);
+      } else if (pathname === '/api/footage' && req.method === 'DELETE') {
+        if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`))) {
+          sendJson(res, 403, { error: 'Removing a video must come from this editor.' });
+        } else sendJson(res, 200, await project.removeVideo(searchParams.get('path') ?? ''));
       } else if (SOUND_EFFECT_API.test(pathname) && req.method === 'POST') {
         const id = safeDecode(SOUND_EFFECT_API.exec(pathname)![1]!);
         if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');

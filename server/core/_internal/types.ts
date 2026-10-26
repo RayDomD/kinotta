@@ -466,6 +466,12 @@ export interface Project {
    */
   importVideo(name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedVideo>;
   /**
+   * Takes back a video dropped into footage/: deletes it and its playback copy and returns `removed: true`, or leaves
+   * it and returns `removed: false` when a reel uses it or it is gone. Throws `KinottaError` `invalid` for a path that
+   * is not a video directly in footage/.
+   */
+  removeVideo(path: string): Promise<{ removed: boolean }>;
+  /**
    * Starts a reel from a short brief: writes `reel.json` with the title and the brief, and returns the request to give
    * whoever builds it. The reel has no version (it is waiting) until a version with a shots.json appears. Throws
    * `KinottaError` `invalid` for an empty title or brief.
