@@ -233,7 +233,7 @@ export function ShotSheet({ pageUrl, footage, shots, reelShots, index, comments,
   const framePins = useMemo<FramePin[]>(
     () =>
       comments.flatMap((c) =>
-        c.pin.kind === 'frame' && (c.pin.shotName && shot.name ? c.pin.shotName === shot.name : c.pin.shot === shot.number) && (!c.pin.alternate || c.pin.alternate === viewed?.revision || c.pin.alternate === shot.revision && !viewed)
+        !c.insertShot && c.pin.kind === 'frame' && (c.pin.shotName && shot.name ? c.pin.shotName === shot.name : c.pin.shot === shot.number) && (!c.pin.alternate || c.pin.alternate === viewed?.revision || c.pin.alternate === shot.revision && !viewed)
           ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y, element: c.pin.element, text: c.text, marked: c.id === markedId }]
           : [],
       ),

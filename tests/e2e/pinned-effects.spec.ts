@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from '../helpers/editor-test.ts';
 import { startServer } from '../../server/main.ts';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { alternatesFixture } from '../helpers/parts.ts';
+import { alternatesFixture, partsFixture } from '../helpers/parts.ts';
 
 async function drop(page: Page, effect: string, card: Locator) {
   const source = page.locator(`[data-effect="${effect}"]`);
@@ -85,6 +85,12 @@ test('only frames accept drops; the shown alternate owns its pin and Insert shot
     await page.getByRole('button', { name: 'Insert shot after Shot 01', exact: true }).click();
     await page.getByRole('textbox', { name: 'Describe the new shot', exact: true }).fill('Show the cup beside the window');
     await page.getByRole('button', { name: 'Add to next Build', exact: true }).click();
+    await expect(page.locator('.shot .hexpin')).toHaveCount(0);
+    await expect(page.locator('.fx-gap-request')).toHaveText('New shot requested');
+    await page.locator('.shot').first().getByRole('button', { name: /^Shot 01,/ }).click();
+    await expect(page.getByRole('dialog').locator('.still .hexpin')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.screenshot({ path: join(tmpdir(), 'kinotta-round2-insert.png'), fullPage: true });
     await expect(page.getByRole('button', { name: 'Build next version, 1 waiting, 1 agent run' })).toBeEnabled();
     // Build uses the existing batch hand-off; clipboard availability does not affect the saved batch.
     await page.getByRole('button', { name: 'Build next version, 1 waiting, 1 agent run' }).click();
@@ -108,6 +114,7 @@ test('phone pins and cards can be deleted and undone, while adding effects is un
     await expect(page.getByRole('button', { name: 'Select pin 1' })).toBeVisible();
     await expect(page.locator('.fx-pin-card')).toBeVisible();
     await expect(page.getByRole('region', { name: 'Effects to pin' })).toBeHidden();
+    await expect(page.getByText('Adding effects needs a computer.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Insert shot after Shot 01', exact: true })).toBeHidden();
     await page.getByRole('button', { name: 'Delete pin 1' }).click();
     await expect(page.locator('.fx-pin-card')).toHaveCount(0);
@@ -139,5 +146,40 @@ test('built note prompt quotes the note and keeps it only in this reel style', a
     expect((await server.project.readReelStyle('parts'))?.rules).toEqual(['Keep captions low, under my chin']);
     expect((await server.project.listStyles()).styles.find((style) => style.id === 'clean')?.rules).toEqual([]);
     await page.reload(); await expect(prompt).toHaveCount(0);
+  } finally { await server.close(); }
+});
+
+
+test('a note survives a section switch that unmounts its card before blur or debounce', async ({ page }) => {
+  const { dir, reelDir, manifest } = partsFixture();
+  const sections = [{ id: 'opening', name: 'Opening', start: 0, end: 1 }, { id: 'closing', name: 'Closing', start: 1, end: 3 }];
+  const shots = { ...manifest, sections };
+  await writeFile(join(reelDir, 'shots.json'), JSON.stringify(shots));
+  await writeFile(join(reelDir, 'v1/shots.json'), JSON.stringify(shots));
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    const comment = (await server.project.addComment('parts', 1, { pin: { shot: '01', x: .5, y: .5, element: null }, effect: 'big-word', text: '' })).comment;
+    await page.goto(server.url);
+    const note = page.getByRole('textbox', { name: 'Note for Big word 1' });
+    await expect(note).toBeVisible();
+    await note.evaluate((field) => {
+      field.focus();
+      (window as Window & { noteBlurred?: boolean }).noteBlurred = false;
+      // Suppress React's blur path: only unmount cleanup can save this same-tick draft.
+      document.addEventListener('focusout', (event) => {
+        if (event.target === field) { event.stopImmediatePropagation(); (window as Window & { noteBlurred?: boolean }).noteBlurred = true; }
+      }, { capture: true, once: true });
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(field, 'Keep the typed draft');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      const next = [...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Sections"] button')].find((button) => button.textContent?.includes('Closing'))!;
+      next.click();
+    });
+    await expect(note).toHaveCount(0);
+    expect(await page.evaluate(() => (window as Window & { noteBlurred?: boolean }).noteBlurred)).toBe(true);
+    await expect.poll(async () => (await server.project.listComments('parts', 1)).find((saved) => saved.id === comment.id)?.text).toBe('Keep the typed draft');
+    await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /Opening/ }).click();
+    await expect(note).toHaveValue('Keep the typed draft');
+    await page.reload();
+    await expect(note).toHaveValue('Keep the typed draft');
   } finally { await server.close(); }
 });

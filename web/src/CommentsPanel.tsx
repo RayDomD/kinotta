@@ -192,6 +192,7 @@ interface PanelProps {
 export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false, shots = [], slug, storyboard = false, edits, onBuilt }: PanelProps) {
   const { error } = state;
   const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
+  const waitingCount = comments.filter((comment) => !comment.instant && !comment.sent).length;
   const readOnly = frozen || version !== undefined && newest !== undefined && version !== newest;
   const [undo, setUndo] = useState<{ comment: Comment; number: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -298,8 +299,8 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
       ) : (
         <Empty>{empty}</Empty>
       )}
-      {storyboard && slug && version !== undefined && !readOnly && comments.some((comment) => comment.effect || comment.insertShot) && <div className="fx-build"><CopyButton slug={slug} version={version} count={comments.filter((comment) => !comment.instant && !comment.sent).length} build beforeCopy={async () => { await flushPinnedNotes(); await note.flush(); }} hasNote={!!note.text.trim()} section={section?.id ? { id: section.id, number: section.number } : null} onSaved={onBuilt} />
-        <p className="meta">{comments.some((comment) => !comment.instant && !comment.sent) ? `${comments.filter((comment) => !comment.instant && !comment.sent).length} waiting · 1 agent run · Copies the request` : 'Nothing needs the agent'}</p></div>}
+      {storyboard && slug && version !== undefined && !readOnly && comments.some((comment) => comment.effect || comment.insertShot) && <div className="fx-build"><CopyButton slug={slug} version={version} count={waitingCount} build beforeCopy={async () => { await flushPinnedNotes(); await note.flush(); }} hasNote={!!note.text.trim()} section={section?.id ? { id: section.id, number: section.number } : null} onSaved={onBuilt} />
+        <p className="meta">{waitingCount > 0 ? `${waitingCount} waiting · 1 agent run · Copies the request` : 'Nothing needs the agent'}</p></div>}
       {storyboard && slug && version !== undefined && newest !== undefined && !readOnly && <KeepPinNotes slug={slug} version={newest} />}
       {version !== undefined && <NoteBox note={note} readOnly={readOnly} />}
     </aside>

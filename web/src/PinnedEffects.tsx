@@ -4,6 +4,7 @@ import type { Comment, EffectCatalogueEntry } from './api/index.ts';
 import { PREVIEW_HTML } from './Library.tsx';
 import type { CommentsState } from './useComments.ts';
 
+export const EFFECTS_COMPUTER_QUERY = '(max-width: 600px), (pointer: coarse)';
 export const EFFECT_DRAG_TYPE = 'application/x-kinotta-effect';
 const NOTE_SAVE_MS = 350;
 const noteFlushers = new Set<() => Promise<void>>();
@@ -14,21 +15,22 @@ export function EffectsDrawer() {
   const [effects, setEffects] = useState<EffectCatalogueEntry[]>([]);
   const [error, setError] = useState('');
   useEffect(() => { let active = true; fetchEffects().then((entries) => { if (active) setEffects(entries); }, (error: Error) => { if (active) setError(error.message); }); return () => { active = false; }; }, []);
-  return <section className="fx-drawer" aria-label="Effects to pin">
-    <h2>Effects</h2><p className="meta">Drag an effect onto a frame. Adding effects needs a computer.</p>
+  return <><p className="fx-phone-note meta">Adding effects needs a computer.</p><section className="fx-drawer" aria-label="Effects to pin">
+    <h2>Effects</h2><p className="meta">Drag an effect onto a frame.</p>
     {error && <p role="alert">{error}</p>}
     <div className="fx-choices">{effects.map((effect) => <div key={effect.id} className="fx-choice" draggable data-effect={effect.id}
       onDragStart={(event) => { event.dataTransfer.setData(EFFECT_DRAG_TYPE, effect.id); event.dataTransfer.effectAllowed = 'copy'; }}>
       <div className="still" aria-hidden="true" dangerouslySetInnerHTML={{ __html: PREVIEW_HTML[effect.id] ?? '' }} />
       <strong>{effect.name}</strong><span>{effect.instant ? 'Instant · free' : 'Needs the agent'}</span><small>{effect.needs}</small>
     </div>)}</div>
-  </section>;
+  </section></>;
 }
 
 export function PinnedCommentCard({ comment, state, editable, remove }: { comment: Comment; state: CommentsState; editable: boolean; remove(): void }) {
   const [text, setText] = useState(comment.text);
   const [problem, setProblem] = useState('');
   const [saving, setSaving] = useState(false);
+  const mounted = useRef(true);
   const saved = useRef(comment.text);
   const pending = useRef<Promise<void>>(Promise.resolve());
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -38,18 +40,23 @@ export function PinnedCommentCard({ comment, state, editable, remove }: { commen
     clearTimeout(timer.current);
     const value = latest.current;
     pending.current = pending.current.catch(() => {}).then(async () => {
-      setSaving(true);
-      try { if (value !== saved.current) { await state.edit(comment.id, value); saved.current = value; } setProblem(''); }
-      catch (error) { setProblem(error instanceof Error ? error.message : 'Could not save this note.'); throw error; }
-      finally { setSaving(false); }
+      if (mounted.current) setSaving(true);
+      try { if (value !== saved.current) { await state.edit(comment.id, value); saved.current = value; } if (mounted.current) setProblem(''); }
+      catch (error) { if (mounted.current) setProblem(error instanceof Error ? error.message : 'Could not save this note.'); throw error; }
+      finally { if (mounted.current) setSaving(false); }
     });
     return pending.current;
   };
   const persistRef = useRef(persist);
   persistRef.current = persist;
   useEffect(() => {
+    mounted.current = true;
     const flush = () => persistRef.current(); noteFlushers.add(flush);
-    return () => { clearTimeout(timer.current); noteFlushers.delete(flush); };
+    return () => {
+      mounted.current = false;
+      clearTimeout(timer.current);
+      void flush().catch(() => {}).finally(() => noteFlushers.delete(flush));
+    };
   }, []);
   useEffect(() => { if (latest.current === saved.current) { setText(comment.text); saved.current = comment.text; } }, [comment.text]);
   const instant = !!comment.instant && !text.trim();

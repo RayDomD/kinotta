@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addComment, deleteComment, editComment, fetchComments } from './api/index.ts';
 import type { Comment, NewComment } from './api/index.ts';
 
@@ -26,6 +26,8 @@ interface Loaded {
  */
 export function useComments(slug: string | undefined, number: number | undefined, refresh = 0): CommentsState {
   const key = slug === undefined || number === undefined ? null : `${slug}/${number}`;
+  const activeKey = useRef(key);
+  activeKey.current = key;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export function useComments(slug: string | undefined, number: number | undefined
   /** A save answers with the version's comments. */
   const replaceComments = useCallback(
     (forKey: string, comments: Comment[]) =>
-      setLoaded({ key: forKey, comments, error: null }),
+      { if (activeKey.current === forKey) setLoaded({ key: forKey, comments, error: null }); },
     [],
   );
 

@@ -14,8 +14,9 @@ import { PagePlayer, PageStill } from './stage/index.ts';
 import { formatTimecode } from './timecode.ts';
 import type { EditsState } from './review/index.ts';
 
-import { EFFECT_DRAG_TYPE } from './PinnedEffects.tsx';
+import { EFFECT_DRAG_TYPE, EFFECTS_COMPUTER_QUERY } from './PinnedEffects.tsx';
 
+const INSERT_REQUEST_POSITION = { x: 0.5, y: 0.5 };
 const FROZEN_NOTE = 'Open Working to add or change comments.';
 
 function storyboardVerifyAttrs(count: number, duration: number, workingParts: boolean) {
@@ -118,7 +119,7 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
 
   const activeRevision = shown?.revision ?? shot.revision;
   const stillPageUrl = shown && shown.revision !== shot.revision && shot.name && alternatePage ? alternatePage(shot.name, shown.revision) : pageUrl;
-  const framePins = pins.flatMap((c) => (c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === activeRevision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
+  const framePins = pins.flatMap((c) => (!c.insertShot && c.pin.kind === 'frame' && (!c.pin.alternate || c.pin.alternate === activeRevision) ? [{ id: c.id, number: c.number, x: c.pin.x, y: c.pin.y }] : []));
   const ordinaryFramePins = framePins.filter((pin) => !pins.find((comment) => comment.id === pin.id)?.effect);
   const stacks = tagStacks(ordinaryFramePins);
   const part = states.indexOf(shot) + 1;
@@ -138,7 +139,7 @@ function ShotCard({ shot, pageUrl, alternatePage, footage, pins, states, unavail
   }
 
   function framePoint(event: React.DragEvent<HTMLDivElement>) {
-    if (!saveEffect || !event.dataTransfer.types.includes(EFFECT_DRAG_TYPE) || window.matchMedia('(max-width: 600px), (pointer: coarse)').matches) return null;
+    if (!saveEffect || !event.dataTransfer.types.includes(EFFECT_DRAG_TYPE) || window.matchMedia(EFFECTS_COMPUTER_QUERY).matches) return null;
     const bounds = event.currentTarget.querySelector('.still')?.getBoundingClientRect();
     if (!bounds || event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) return null;
     return { x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height };
@@ -432,7 +433,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
       {version.shots.length === 0 && <EmptyStoryboard version={version} comments={comments} readOnly={readOnly} save={save} />}
       {inserting && <form className="fx-insert-form" aria-label="Insert shot" onSubmit={(event) => {
         event.preventDefault(); setInsertBusy(true); setInsertProblem('');
-        void save({ insertShot: true, text: insertText, pin: { shot: inserting.number, x: .5, y: .5, element: null } }).then(() => { setInserting(null); setInsertText(''); }, (error: Error) => setInsertProblem(error.message)).finally(() => setInsertBusy(false));
+        void save({ insertShot: true, text: insertText, pin: { shot: inserting.number, ...INSERT_REQUEST_POSITION, element: null } }).then(() => { setInserting(null); setInsertText(''); }, (error: Error) => setInsertProblem(error.message)).finally(() => setInsertBusy(false));
       }}><label>Describe the new shot after Shot {inserting.number}<textarea autoFocus aria-label="Describe the new shot" value={insertText} onChange={(event) => setInsertText(event.target.value)} /></label>
         <button type="submit" className="btn" disabled={insertBusy || !insertText.trim()}>Add to next Build</button><button type="button" className="c-act" onClick={() => setInserting(null)}>Cancel</button>{insertProblem && <p role="alert">{insertProblem}</p>}
       </form>}
@@ -459,7 +460,7 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
               else buttons.current.delete(shot.number);
             }}
             edits={readOnly ? undefined : edits}
-          />{!readOnly && i < shots.length - 1 && <div className="fx-gap" data-after-shot={shot.number}><button type="button" aria-label={`Insert shot after Shot ${shot.number}`} onClick={() => { setInserting(shot); setInsertText(''); }}>Insert shot</button></div>}</div>
+          />{!readOnly && i < shots.length - 1 && <div className="fx-gap" data-after-shot={shot.number}><button type="button" aria-label={`Insert shot after Shot ${shot.number}`} onClick={() => { setInserting(shot); setInsertText(''); }}>Insert shot</button>{comments.filter((comment) => comment.insertShot && comment.pin.shot === shot.number).map((comment) => <span className="fx-gap-request meta" key={comment.id}>New shot requested</span>)}</div>}</div>
         ))}
       </div>
       <Lanes
