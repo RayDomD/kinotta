@@ -18,6 +18,8 @@ import {
   DEAD_AIR_BY,
   NORMAL_BREATH_GAP_SECONDS,
   TIGHT_BREATH_GAP_SECONDS,
+  WORD_LEAD_IN_SECONDS,
+  WORD_TAIL_SECONDS,
   deadAirCuts,
 } from '../../server/core/_internal/dead-air.ts';
 import { applyOperations, planPieces, snipPieces } from '../../server/core/model.ts';
@@ -83,7 +85,9 @@ describe('dead air constants', () => {
     expect(GENTLE_GAP_SECONDS).toBe(1.2);
     expect(NORMAL_GAP_SECONDS).toBe(0.7);
     expect(TIGHT_GAP_SECONDS).toBe(0.35);
-    expect(WORD_PAD_SECONDS).toBe(0.08);
+    expect(WORD_TAIL_SECONDS).toBe(0.15);
+    expect(WORD_LEAD_IN_SECONDS).toBe(0.1);
+    expect(WORD_PAD_SECONDS).toBe(0.15);
     expect(NORMAL_BREATH_GAP_SECONDS).toBe(0.4);
     expect(TIGHT_BREATH_GAP_SECONDS).toBe(0.25);
     expect(NORMAL_BREATH_GAP_SECONDS).toBeGreaterThan(TIGHT_BREATH_GAP_SECONDS);
@@ -96,9 +100,9 @@ describe('dead air constants', () => {
 describe('threshold and pad cutting across strengths', () => {
   // Deterministic 10s clip:
   // - 0.2s gap (1.4..1.6) -> kept by all strengths (0.2 <= 0.35)
-  // - 0.5s gap (2.5..3.0) -> cut only by 'tight' (0.5 > 0.35, <= 0.7), pad 0.08 -> cuts 2.58..3.0
-  // - 0.9s gap (4.0..4.9) -> cut by 'normal' and 'tight' (0.9 > 0.7, <= 1.2), pad 0.08 -> cuts 4.08..4.9
-  // - 1.5s gap (6.0..7.5) -> cut by 'gentle', 'normal', 'tight' (1.5 > 1.2), pad 0.08 -> cuts 6.08..7.5
+  // - 0.5s gap (2.5..3.0) -> cut only by 'tight' (0.5 > 0.35, <= 0.7), tail 0.15, lead-in 0.1 -> cuts 2.65..2.9
+  // - 0.9s gap (4.0..4.9) -> cut by 'normal' and 'tight' (0.9 > 0.7, <= 1.2), tail 0.15, lead-in 0.1 -> cuts 4.15..4.8
+  // - 1.5s gap (6.0..7.5) -> cut by 'gentle', 'normal', 'tight' (1.5 > 1.2), tail 0.15, lead-in 0.1 -> cuts 6.15..7.4
   // - Leading silence (0..1.0) and trailing silence (8.0..10.0) remain intact.
   const WORDS_10S: TranscriptWord[] = [
     { text: 'one', start: 1.0, end: 1.4 },
@@ -112,16 +116,16 @@ describe('threshold and pad cutting across strengths', () => {
   it('cuts only the 1.5s gap for gentle strength', () => {
     const pieces = cutDeadAir(WORDS_10S, DURATION_10S, 'gentle');
     expect(pieces).toEqual([
-      { in: 0, out: 6.08 },
-      { in: 7.5, out: 10 },
+      { in: 0, out: 6.15 },
+      { in: 7.4, out: 10 },
     ]);
   });
 
   it('cuts 0.9s and 1.5s gaps for normal strength and when strength is omitted', () => {
     const expectedPieces: Piece[] = [
-      { in: 0, out: 4.08 },
-      { in: 4.9, out: 6.08 },
-      { in: 7.5, out: 10 },
+      { in: 0, out: 4.15 },
+      { in: 4.8, out: 6.15 },
+      { in: 7.4, out: 10 },
     ];
     expect(cutDeadAir(WORDS_10S, DURATION_10S, 'normal')).toEqual(expectedPieces);
     expect(cutDeadAir(WORDS_10S, DURATION_10S)).toEqual(expectedPieces);
@@ -130,10 +134,10 @@ describe('threshold and pad cutting across strengths', () => {
   it('cuts 0.5s, 0.9s and 1.5s gaps for tight strength', () => {
     const pieces = cutDeadAir(WORDS_10S, DURATION_10S, 'tight');
     expect(pieces).toEqual([
-      { in: 0, out: 2.58 },
-      { in: 3.0, out: 4.08 },
-      { in: 4.9, out: 6.08 },
-      { in: 7.5, out: 10 },
+      { in: 0, out: 2.65 },
+      { in: 2.9, out: 4.15 },
+      { in: 4.8, out: 6.15 },
+      { in: 7.4, out: 10 },
     ]);
   });
 
@@ -184,12 +188,13 @@ describe('a talk with no long gaps stays one piece', () => {
 
 describe('audible breath trimming in wordless gaps', () => {
   // Gap of 0.45s from 2.0 to 2.45 (< NORMAL_GAP_SECONDS 0.7, >= NORMAL_BREATH_GAP_SECONDS 0.4).
-  // With WORD_PAD_SECONDS 0.08, candidate breath region is [2.08, 2.45].
+  // With WORD_TAIL_SECONDS 0.15 and WORD_LEAD_IN_SECONDS 0.1, candidate breath region is [2.15, 2.35].
   const BREATH_WORDS: TranscriptWord[] = [
     { text: 'speaking', start: 1.0, end: 2.0 },
     { text: 'again', start: 2.45, end: 4.0 },
   ];
   // Shorter breath gap of 0.3s from 2.0 to 2.3 (>= TIGHT_BREATH_GAP_SECONDS 0.25, < NORMAL_BREATH_GAP_SECONDS 0.4).
+  // Candidate breath region is [2.15, 2.2].
   const SHORT_BREATH_WORDS: TranscriptWord[] = [
     { text: 'speaking', start: 1.0, end: 2.0 },
     { text: 'again', start: 2.3, end: 4.0 },
@@ -197,29 +202,29 @@ describe('audible breath trimming in wordless gaps', () => {
   const DURATION_5S = 5;
 
   it('keeps a breath gap under gentle strength', () => {
-    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.08 }]);
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.15, end: 2.35, level: 0.08 }]);
     const pieces = cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'gentle', peaks: breathPeaks });
     expect(pieces).toEqual([{ in: 0, out: 5 }]);
   });
 
   it('trims a breath gap under normal and tight strengths', () => {
-    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.08 }]);
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.15, end: 2.35, level: 0.08 }]);
     const expected: Piece[] = [
-      { in: 0, out: 2.08 },
-      { in: 2.45, out: 5 },
+      { in: 0, out: 2.15 },
+      { in: 2.35, out: 5 },
     ];
     expect(cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: breathPeaks })).toEqual(expected);
     expect(cutDeadAir(BREATH_WORDS, DURATION_5S, { strength: 'tight', peaks: breathPeaks })).toEqual(expected);
   });
 
   it('requires a longer minimum breath gap for normal than tight', () => {
-    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.3, level: 0.08 }]);
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.15, end: 2.2, level: 0.08 }]);
     expect(cutDeadAir(SHORT_BREATH_WORDS, DURATION_5S, { strength: 'normal', peaks: breathPeaks })).toEqual([
       { in: 0, out: 5 },
     ]);
     expect(cutDeadAir(SHORT_BREATH_WORDS, DURATION_5S, { strength: 'tight', peaks: breathPeaks })).toEqual([
-      { in: 0, out: 2.08 },
-      { in: 2.3, out: 5 },
+      { in: 0, out: 2.15 },
+      { in: 2.2, out: 5 },
     ]);
   });
 
@@ -235,7 +240,7 @@ describe('audible breath trimming in wordless gaps', () => {
   });
 
   it('does not trim when peaks have loud audio above BREATH_MAX_PEAK', () => {
-    const loudPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.6 }]);
+    const loudPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.15, end: 2.35, level: 0.6 }]);
     for (const strength of ['gentle', 'normal', 'tight'] as const) {
       expect(cutDeadAir(UNDER_PAUSE[strength], DURATION_5S, { strength, peaks: loudPeaks })).toEqual([{ in: 0, out: 5 }]);
     }
@@ -281,7 +286,7 @@ describe('deadAirCuts', () => {
   });
 
   it('matches cutDeadAir with breath peaks', () => {
-    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.08, end: 2.45, level: 0.08 }]);
+    const breathPeaks = makePeaks(DURATION_5S, 500, 0.005, [{ start: 2.15, end: 2.35, level: 0.08 }]);
     for (const strength of ['gentle', 'normal', 'tight'] as const) {
       const cuts = deadAirCuts(BREATH_WORDS, DURATION_5S, { strength, peaks: breathPeaks });
       for (let i = 0; i + 1 < cuts.length; i++) {
@@ -365,17 +370,17 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
 
     // Working edit list has one snip matching deadAirCuts
     const expectedCuts = deadAirCuts(FAKE_WORDS, 12, 'normal');
-    expect(expectedCuts).toEqual([{ from: 1.08, to: 2 }]);
+    expect(expectedCuts).toEqual([{ from: 1.15, to: 1.9 }]);
     const editList = await project.readEditList(slug);
     expect(editList.operations).toMatchObject([
-      { kind: 'snip', from: 1.08, to: 2, by: DEAD_AIR_BY },
+      { kind: 'snip', from: 1.15, to: 1.9, by: DEAD_AIR_BY },
     ]);
 
     // Working pieces show the cut stretch is absent
     const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
     expect(workingPieces).toEqual([
-      { in: 0, out: 1.08 },
-      { in: 2, out: 12 },
+      { in: 0, out: 1.15 },
+      { in: 1.9, out: 12 },
     ]);
   });
 
@@ -394,21 +399,21 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
     // Edit list has two snips matching deadAirCuts, each tagged with DEAD_AIR_BY
     const expectedCuts = deadAirCuts(FAKE_WORDS, 12, 'tight');
     expect(expectedCuts).toEqual([
-      { from: 1.08, to: 2 },
-      { from: 3.08, to: 3.5 },
+      { from: 1.15, to: 1.9 },
+      { from: 3.15, to: 3.4 },
     ]);
     const editList = await project.readEditList(slug);
     expect(editList.operations).toMatchObject([
-      { kind: 'snip', from: 1.08, to: 2, by: DEAD_AIR_BY },
-      { kind: 'snip', from: 3.08, to: 3.5, by: DEAD_AIR_BY },
+      { kind: 'snip', from: 1.15, to: 1.9, by: DEAD_AIR_BY },
+      { kind: 'snip', from: 3.15, to: 3.4, by: DEAD_AIR_BY },
     ]);
 
     // Working pieces have both cuts absent
     const initialPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, editList.operations).plan);
     expect(initialPieces).toEqual([
-      { in: 0, out: 1.08 },
-      { in: 2, out: 3.08 },
-      { in: 3.5, out: 12 },
+      { in: 0, out: 1.15 },
+      { in: 1.9, out: 3.15 },
+      { in: 3.4, out: 12 },
     ]);
 
     // Removing the first cut restores that stretch while the other snip remains
@@ -420,11 +425,11 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
     expect(updatedList.operations).toHaveLength(1);
     expect(updatedList.operations[0]!.id).toBe(editList.operations[1]!.id);
 
-    // First cut stretch (1.08..2) is present again, second cut (3.08..3.5) is still applied
+    // First cut stretch (1.15..1.9) is present again, second cut (3.15..3.4) is still applied
     const restoredPieces = planPieces(applyOperations({ plan: v1Plan, words: FAKE_WORDS }, updatedList.operations).plan);
     expect(restoredPieces).toEqual([
-      { in: 0, out: 3.08 },
-      { in: 3.5, out: 12 },
+      { in: 0, out: 3.15 },
+      { in: 3.4, out: 12 },
     ]);
   });
 
@@ -464,12 +469,64 @@ describe('startReel integration', { timeout: SLOW_MS }, () => {
 
     const editList = await project.readEditList(slug);
     expect(editList.operations).toMatchObject([
-      { kind: 'snip', from: 2.08, to: 2.45, by: DEAD_AIR_BY },
+      { kind: 'snip', from: 2.15, to: 2.35, by: DEAD_AIR_BY },
     ]);
     const workingPieces = planPieces(applyOperations({ plan: v1Plan, words: breathWords }, editList.operations).plan);
     expect(workingPieces).toEqual([
-      { in: 0, out: 2.08 },
-      { in: 2.45, out: 5 },
+      { in: 0, out: 2.15 },
+      { in: 2.35, out: 5 },
     ]);
+  });
+});
+
+describe('cut edge padding and clamping', () => {
+  it('moves cut edges by WORD_TAIL_SECONDS after previous word and WORD_LEAD_IN_SECONDS before next word', () => {
+    const words: TranscriptWord[] = [
+      { text: 'start', start: 1.0, end: 2.0 },
+      { text: 'end', start: 4.0, end: 5.0 },
+    ];
+    // Gap: 2.0s (qualifies under all strengths).
+    // Cut runs from 2.0 + 0.15 = 2.15 to 4.0 - 0.1 = 3.9.
+    const cuts = deadAirCuts(words, 10, 'normal');
+    expect(cuts).toEqual([{ from: 2.15, to: 3.9 }]);
+  });
+
+  it('clamps cut edges at 0 and at the duration', () => {
+    // Word ending near or before 0 -> cutFrom clamped at 0
+    const wordsClampZero: TranscriptWord[] = [
+      { text: 'early', start: -1.0, end: -0.2 },
+      { text: 'mid', start: 2.0, end: 3.0 },
+    ];
+    // cutFrom: -0.2 + 0.15 = -0.05 -> clamped to 0
+    // cutTo: 2.0 - 0.1 = 1.9
+    expect(deadAirCuts(wordsClampZero, 10, 'normal')).toEqual([{ from: 0, to: 1.9 }]);
+
+    // Word starting beyond or near duration -> cutTo clamped at duration
+    const wordsClampDuration: TranscriptWord[] = [
+      { text: 'mid', start: 1.0, end: 2.0 },
+      { text: 'late', start: 5.2, end: 6.0 },
+    ];
+    // Duration = 5.0
+    // cutFrom: 2.0 + 0.15 = 2.15
+    // cutTo: 5.2 - 0.1 = 5.1 -> clamped to duration 5.0
+    expect(deadAirCuts(wordsClampDuration, 5.0, 'normal')).toEqual([{ from: 2.15, to: 5 }]);
+  });
+
+  it('skips a gap too short to cut once both pads apply', () => {
+    // Breath gap that qualifies under tight (0.25s >= TIGHT_BREATH_GAP_SECONDS 0.25):
+    // After WORD_TAIL_SECONDS (0.15) and WORD_LEAD_IN_SECONDS (0.1), remaining length is 0 <= 0.005.
+    const breathWords: TranscriptWord[] = [
+      { text: 'word1', start: 1.0, end: 2.0 },
+      { text: 'word2', start: 2.25, end: 3.0 },
+    ];
+    const breathPeaks = makePeaks(5, 500, 0.08);
+    expect(deadAirCuts(breathWords, 5, { strength: 'tight', peaks: breathPeaks })).toEqual([]);
+
+    // Gap with remaining cut length <= 0.005s (e.g. 0.254s gap leaves 0.004s cut):
+    const narrowWords: TranscriptWord[] = [
+      { text: 'word1', start: 1.0, end: 2.0 },
+      { text: 'word2', start: 2.254, end: 3.0 },
+    ];
+    expect(deadAirCuts(narrowWords, 5, { strength: 'tight', peaks: breathPeaks })).toEqual([]);
   });
 });
