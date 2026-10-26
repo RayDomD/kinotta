@@ -303,6 +303,8 @@ test('the Blade cuts the footage in two, a piece is dragged to a new place, and 
   await page.mouse.move(second.x + second.width / 2 - plane.width * 0.6, y, { steps: 5 });
   await page.mouse.up();
   await expect(cards.last()).toContainText('Reordered media');
+  // Undo and Redo bring back the server's id, not the preview's provisional one.
+  await waitForEditSave(page);
   const reorderedId = await pieces.first().getAttribute('data-placement');
   await review(page).getByLabel('Playhead', { exact: true }).fill('0.1');
   await expect.poll(() => review(page).locator('[data-verify-unit="PictureLayer"] video').evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(6);
@@ -416,6 +418,7 @@ test('dragging a caption moves every caption, Alt-drag moves one phrase, and Sav
   expect(after.x).toBeLessThan(before.x - 15);
 
   // Alt-drag moves this phrase alone, on top of that: its own card, and the lane marks the phrase.
+  await waitForEditSave(page);
   await dragBy(0, -40, true);
   await expect(cards).toHaveCount(2);
   await expect(cards.last()).toContainText(/Moved one caption to 0, -\d+/);

@@ -23,6 +23,8 @@ async function startVideoReel(page: Page, title: string): Promise<void> {
   await page.getByLabel('Reel name').fill(title);
   await page.getByRole('button', { name: 'Start reel' }).click();
   await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
+  // Storyboard opens only once v1 follows the transcription in the background.
+  await expect(page.locator('[data-working-row][data-current-version="1"]')).toBeAttached({ timeout: BUILD_WAIT_MS });
 }
 
 test('a reel started from a brief waits in the rail, then opens in Storyboard once built', async ({ page }) => {
