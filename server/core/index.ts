@@ -1,3 +1,4 @@
+import { builtPinNotes, decidePinNote } from './_internal/pin-notes.ts';
 import { createAgentJobs, type AgentJobsOptions } from './_internal/agent-jobs.ts';
 import { listStyles, saveStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/style.ts';
 export { validateStyle, readStyle, listStyles, saveStyle, resolveDefaultStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyles, migrateStyleProfile } from './_internal/style.ts';
@@ -160,6 +161,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    builtPinNotes: (slug) => builtPinNotes(dir, slug),
+    decidePinNote: (slug, id, keep) => decidePinNote(dir, slug, id, keep),
     brandFonts: () => readBrandFonts(dir),
     importFont: (name, body) => importFont(dir, name, body),
     listStyles: (videoType) => listStyles(dir, videoType),

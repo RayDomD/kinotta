@@ -6,6 +6,7 @@ import { dirname, extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts';
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
+const PIN_NOTES_API = /^\/api\/reels\/([^/]+)\/pin-notes(?:\/([a-f0-9]{64}))?$/;
 const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -379,6 +380,7 @@ export function createHandler(project: Project, webRoot: string) {
         return;
       }
       const versionRoute = VERSION_API.exec(pathname);
+      const pinNotesRoute = PIN_NOTES_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
       const noteRoute = NOTE_API.exec(pathname);
@@ -416,6 +418,14 @@ export function createHandler(project: Project, webRoot: string) {
         else if (id && req.method === 'PATCH') sendJson(res, 200, await project.changeMarker(slug, id, await readJsonBody(req) as { time?: number; name?: string }));
         else if (id && req.method === 'DELETE') { await project.removeMarker(slug, id); res.writeHead(204).end(); }
         else res.writeHead(405).end();
+      } else if (pinNotesRoute) {
+        const slug = safeDecode(pinNotesRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else if (req.method === 'GET' && !pinNotesRoute[2]) sendJson(res, 200, await project.builtPinNotes(slug));
+        else if (req.method === 'POST' && pinNotesRoute[2]) {
+          const body = await readJsonBody(req) as { keep?: unknown };
+          await project.decidePinNote(slug, pinNotesRoute[2], body?.keep as boolean); sendJson(res, 200, { saved: true });
+        } else res.writeHead(405).end();
       } else if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {

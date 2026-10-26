@@ -319,6 +319,8 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  builtPinNotes(slug: string): Promise<import('./pin-notes.ts').BuiltPinNote[]>;
+  decidePinNote(slug: string, id: string, keep: boolean): Promise<void>;
   /** Direction's Fonts row: the brand fonts in plain words, or the built-in brand's. */
   brandFonts(): Promise<import('./brand-fonts.ts').BrandFonts>;
   /** A font dropped on Direction, copied into the project's fonts/ with a license note. */

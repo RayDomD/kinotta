@@ -67,4 +67,43 @@ describe('Storyboard pinned effects', () => {
       expect((await project.listComments('parts', frozen.version))[0].pin).toMatchObject({ alternate: 'r2' });
     } finally { await project.close(); }
   });
+  it('offers built effect notes once, keeps accepted rules in this reel only, and never offers inserted shots', async () => {
+    const { dir } = partsFixture(3, false); const project = openProject(dir);
+    try {
+      await project.buildParts('parts');
+      await project.copyStyleToReel('parts', { id: 'clean' });
+      await project.addComment('parts', 1, { pin, effect: 'title-card', text: 'Keep captions low' });
+      await project.addComment('parts', 1, { pin, insertShot: true, text: 'A shot of the door' });
+      expect(await project.builtPinNotes('parts')).toEqual([]);
+      await project.copyBatch('parts', 1);
+      await project.buildParts('parts', 'Test agent');
+      const notes = await project.builtPinNotes('parts');
+      expect(notes).toHaveLength(1); expect(notes[0].text).toBe('Keep captions low');
+      await project.decidePinNote('parts', notes[0].id, true);
+      expect((await project.readReelStyle('parts'))?.rules).toEqual(['Keep captions low']);
+      expect((await project.listStyles()).styles.find((style) => style.id === 'clean')?.rules).toEqual([]);
+      expect(await project.builtPinNotes('parts')).toEqual([]);
+    } finally { await project.close(); }
+  });
+  it('dismisses a note explicitly or by ignoring it through the next Build, without changing style rules', async () => {
+    const { dir } = partsFixture(3, false); const project = openProject(dir);
+    try {
+      await project.buildParts('parts'); await project.copyStyleToReel('parts', { id: 'clean' });
+      await project.addComment('parts', 1, { pin, effect: 'big-word', text: 'Make it quiet' });
+      await project.copyBatch('parts', 1); await project.buildParts('parts', 'Test agent');
+      const first = (await project.builtPinNotes('parts'))[0]; await project.decidePinNote('parts', first.id, false);
+      expect(await project.builtPinNotes('parts')).toEqual([]);
+      let number = (await project.readWorkingVersion('parts')).number;
+      await project.addComment('parts', number, { pin, effect: 'big-word', text: 'Try a smaller word' });
+      await project.copyBatch('parts', number); await project.buildParts('parts', 'Test agent');
+      expect(await project.builtPinNotes('parts')).toHaveLength(1);
+      number = (await project.readWorkingVersion('parts')).number;
+      await project.addComment('parts', number, { pin, insertShot: true, text: 'A wide shot' });
+      await project.copyBatch('parts', number);
+      expect(await project.builtPinNotes('parts')).toEqual([]);
+      await project.buildParts('parts', 'Test agent');
+      expect(await project.builtPinNotes('parts')).toEqual([]);
+      expect((await project.readReelStyle('parts'))?.rules).toEqual([]);
+    } finally { await project.close(); }
+  });
 });

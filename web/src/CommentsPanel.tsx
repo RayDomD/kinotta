@@ -1,3 +1,4 @@
+import { KeepPinNotes } from './KeepPinNotes.tsx';
 import { EffectsDrawer, flushPinnedNotes, PinnedCommentCard } from './PinnedEffects.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import type { EditsState } from './review/index.ts';
@@ -285,6 +286,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
       {storyboard && edits && !readOnly && <div className="fx-history"><button type="button" className="c-act" disabled={!edits.list?.canUndo || edits.busy} onClick={() => void edits.undo()}>Undo edit</button><button type="button" className="c-act" disabled={!edits.list?.canRedo || edits.busy} onClick={() => void edits.redo()}>Redo edit</button></div>}
       {storyboard && slug && version !== undefined && !readOnly && comments.some((comment) => comment.effect || comment.insertShot) && <div className="fx-build"><CopyButton slug={slug} version={version} count={comments.filter((comment) => !comment.instant && !comment.sent).length} build beforeCopy={async () => { await flushPinnedNotes(); await note.flush(); }} hasNote={!!note.text.trim()} section={section?.id ? { id: section.id, number: section.number } : null} onSaved={onBuilt} />
         <p className="meta">{comments.some((comment) => !comment.instant && !comment.sent) ? `${comments.filter((comment) => !comment.instant && !comment.sent).length} waiting · 1 agent run · Copies the request` : 'Nothing needs the agent'}</p></div>}
+      {storyboard && slug && newest !== undefined && !readOnly && <KeepPinNotes slug={slug} version={newest} />}
       {version !== undefined && <NoteBox note={note} readOnly={readOnly} />}
     </aside>
   );

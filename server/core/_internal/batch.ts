@@ -1,3 +1,4 @@
+import { dismissBuiltPinNotes } from './pin-notes.ts';
 import { join } from 'node:path';
 import { carriedComment, isSent, sectionOfComment, settleNewest } from './carry.ts';
 import { commentsForVersion, NO_SHOT, numbered } from './comments.ts';
@@ -166,6 +167,7 @@ export async function copyBatch(projectDir: string, slug: string, number: number
     if (!source.note.trim() && !source.comments.some((comment) => from.sections.length === 1 || sectionOfComment(from, comment) === section.id)) {
       throw new KinottaError('invalid', 'There are no comments or notes to copy yet.');
     }
+    await dismissBuiltPinNotes(projectDir, slug);
     const frozen = await freezeEditsNow(projectDir, slug);
     if (frozen.version !== number) {
       const to = await readVersion(projectDir, slug, frozen.version);

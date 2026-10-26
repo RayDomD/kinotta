@@ -113,3 +113,24 @@ test('phone pins and cards can be deleted and undone, while adding effects is un
     await page.screenshot({ path: join(tmpdir(), 'kinotta-pins-phone.png'), fullPage: true });
   } finally { await server.close(); }
 });
+
+test('built note prompt quotes the note and keeps it only in this reel style', async ({ page }) => {
+  const { dir } = alternatesFixture(); const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts'); await server.project.copyStyleToReel('parts', { id: 'clean' });
+    await server.project.addComment('parts', 1, { pin: { shot: '01', x: .5, y: .5, element: null }, effect: 'title-card', text: 'Keep captions low, under my chin' });
+    await server.project.copyBatch('parts', 1); await server.project.buildParts('parts', 'Test agent');
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    const prompt = page.getByRole('region', { name: 'Keep this note', exact: true });
+    await expect(prompt.getByRole('heading')).toHaveText("Keep this note in this reel's style?");
+    await expect(prompt.locator('blockquote')).toHaveText('Keep captions low, under my chin');
+    await expect(prompt).toContainText('Kinotta will follow it on later versions of this reel. To use it on other reels, reuse this style or save it as yours. You can see or turn off rules in the Check step.');
+    await expect(prompt.getByRole('button', { name: 'Only this version', exact: true })).toBeVisible();
+    await prompt.getByRole('button', { name: 'Always for this reel', exact: true }).click();
+    await expect(prompt).toHaveCount(0);
+    expect((await server.project.readReelStyle('parts'))?.rules).toEqual(['Keep captions low, under my chin']);
+    expect((await server.project.listStyles()).styles.find((style) => style.id === 'clean')?.rules).toEqual([]);
+    await page.reload(); await expect(prompt).toHaveCount(0);
+  } finally { await server.close(); }
+});

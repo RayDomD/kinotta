@@ -3,10 +3,11 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: working
-- Done: read the required project documents, plan, ADR, mockup sources and relevant implementation; verified the branch is feat/storyboard-pinned-effects and the working tree was clean.
-- Failed or skipped: implementation and tests not started because the required instant-pin colour source is absent from the Style model; interactive mockup review not completed (the in-app browser is unavailable).
-- Waiting on owner: none. Answered by Claude from the plan (Brand owns colours, Style owns the rest): `--fx-font` from the reel style's fonts, falling back to the Brand font; `--fx-ink`, `--fx-accent` and the other `--fx-*` colour tokens from the project Brand (`reels/brand.md`), falling back to the built-in brand (`skill/kinotta/assets/brand/brand.md`). Do not add colour tokens to Style.
+- State: blocked
+- Done: implemented comment-backed Working pin edits, isolated instant template builds with Style fonts and Brand colours, batch routing, frame-only drops, alternate identity, note/Delete/Undo cards, Insert shot, phone controls, Build counts and built-note decisions. Focused Playwright: 4 passed. Pin/batch integration: 12 passed. Typecheck, build and check:docs passed before the final scoped note-flush/footprint changes; typecheck passed after them.
+- Failed or skipped: full unit project: 973 passed, 6 skipped, 1 failed (runner architecture guard, confirmed alone). Logs: C:/Users/ryand/AppData/Local/Temp/kinotta-pinned-unit.log and kinotta-pinned-runner-guard.log. Final browser rerun after note-flush/footprint changes, alternates suites, full Playwright and commit checks not run because the brief requires stopping on this uncovered boundary conflict. The reference mockup's instant/note/keep flow was clicked through with Playwright; its Insert shot click-through was not completed.
+- Waiting on owner: The existing guard in tests/core/start-reel.test.ts:130 requires runner.ts to be the only module that names engine scripts or starts Python. The new instant-effect.ts violates that guard, but runner.ts also contains launchAgent, and the brief forbids importing the agent runner. May this branch extract the local build invocation into an agent-free build-runner.ts shared by runner.ts and instant-effect.ts, and update the architecture guard to allow that single build service? This preserves one process boundary and keeps instant pins independent of the agent launcher. Alternatively, explicitly permit importing runner.ts's existing buildPage from the instant path. The guard has not been weakened.
+
 
 ## Goal
 
@@ -69,3 +70,29 @@ No application code changed and no tests ran. The required stop condition is a m
 - The plan's Intent explicitly says Brand owns colours and fonts, with per-reel font changes in Style. Choosing a colour source or adding Style fields without an owner decision would guess beyond the brief.
 
 Resume after the owner resolves the token source and fallback. Steps 13, 14 and 16 and every Done checkbox remain uncompleted. The node_modules junction was left untouched. No push or PR was made.
+
+### 2026-10-26: resumed execution plan
+
+The Status decision resolves the token-source blocker. Implementation sequence within the approved plan:
+
+1. Add comment-backed pin edits to Working history and a local instant-template build service, resolving style fonts and Brand colours without the agent runner. Verify immediate output, no agent jobs, immutable versions, Undo, and batch exclusion/inclusion.
+2. Add the Storyboard effects drawer, frame-only drop targets on the shown revision, pin note/Delete/Undo controls, and Insert shot comments. Verify desktop, alternate identity and phone behaviour without changing alternate selection/playback.
+3. Add post-agent-build note decisions persisted per note; keep rules only in the reel style. Verify accept, dismiss, ignored-through-next-build and inserted-shot exclusion.
+4. Run the requested static checks, build, unit and alternate suites, and full two-worker Playwright run with file logs and exit codes. Record verified results and dated entries for steps 13, 14 and 16; commit logical steps with the required author, without pushing.
+
+### 2026-10-26: implementation and verified boundary blocker
+
+Implemented steps 13/14 and 16 in progress, with no changes to skill/kinotta or Direction. Pin comment snapshots use the existing Working edit journal, including note changes and deletion; immutable captures keep their own comment metadata and generated template page. Instant output is filled with the reel title/section data, the Style font and Brand effect colours, then built locally. The no-agent test verifies both the absence of an agent job and that an injected launcher is never called. Waiting comments carry effect/insertShot metadata in the existing batch; instant output stays out.
+
+The Storyboard drawer reuses the Library artwork. Drops accept only coordinates inside a frame and retain the shown alternate's identity. Gap buttons create inserted-shot comments. Pin cards support note edits, card/Delete-key removal and persistent Undo; phone widths hide adding controls. Generated output is included in Working previews and frozen pages. Built-note decisions persist and only accepted notes enter the reel's private Style copy. Later Build hand-offs dismiss ignored prompts.
+
+Verified before the stop condition:
+
+- Focused Playwright, --workers=2: 4 passed, including actual generated-title seek, desktop Delete/Undo, note routing, rejected gap/strip drops, alternate identity, inserted-shot batching, 390px deletion/Undo, and the exact keep-note prompt. Log: C:/Users/ryand/AppData/Local/Temp/kinotta-pinned-ui-final.log.
+- Pin/batch integration: 12 passed, including accepted, dismissed and ignored notes. Log: C:/Users/ryand/AppData/Local/Temp/kinotta-pinned-notes-final.log.
+- Full unit project: 973 passed, 6 skipped, 1 failed. The existing runner guard rejects instant-effect.ts for naming engine/build.py and starting Python. Isolated rerun confirmed the same failure. This is a new boundary conflict caused by this implementation, not a pre-existing failure.
+- Typecheck passed after the last note-flush/footprint changes. Build and check:docs passed before those final changes; final browser/build reruns remain outstanding.
+- Desktop and phone screenshots inspected. Corrected a still re-seek regression without remounting the card or losing its alternate preview. Also fixed rapid note-save ordering and used the existing retrying atomic writer for Working journal writes after an observed Windows EPERM.
+- Impeccable detector reported advisory findings only (existing styles plus typography-size reports against the stale sidecar); no ignores added. The broader design-sidecar repair remains outside scope.
+
+All Done checkboxes remain unchecked until the remaining required verification is complete. Do not mark this branch ready. No push or PR was made; node_modules was left untouched.

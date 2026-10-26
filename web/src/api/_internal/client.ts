@@ -332,6 +332,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 const getJson = <T>(path: string): Promise<T> => requestJson<T>(path);
 const versionPath = (slug: string, number: number): string => `/api/reels/${encodeURIComponent(slug)}/versions/${number}`;
 
+export interface BuiltPinNote { id: string; text: string }
+export const fetchBuiltPinNotes = (slug: string): Promise<BuiltPinNote[]> => getJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes`);
+export const decidePinNote = (slug: string, id: string, keep: boolean): Promise<void> => requestJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes/${encodeURIComponent(id)}`, jsonBody('POST', { keep }));
 export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
 export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
 /** Whether Python 3, ffmpeg and faster-whisper are installed, which starting a reel from a video needs. */
