@@ -3,7 +3,7 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: done
+- State: working
 - Done: all eight review fixes and steps 13, 14 and 16 implemented and committed. The owner-approved reel-listing fix skips only file-stat ENOENT, preserves other errors and the folder timestamp fallback, with two new regressions. Final unit project: 112 files, 978 passed, 6 existing environment-dependent skips; drop-video.spec.ts alone: 3 passed with --workers=2. Typecheck, build, docs and commit checks pass; dated plan Changelog records the listing fix.
 - Failed or skipped: six existing environment-dependent unit skips. The first unit run hit a Windows EBUSY deleting a generated WAV (977 passed, 1 failed); its audio suite passed alone (15 tests), then the complete unit rerun passed. Full Playwright was not rerun, per the owner decision below; its checkbox remains unticked for Claude's verify gate. Earlier full-run failures remain documented under Results and are not represented as a passing full suite.
 - Waiting on owner: none. Owner approved (2026-10-26) fixing the reel-listing race on this branch: make the newestMtime scan skip a file that disappears between readdir and stat (ENOENT only; other errors still throw), add a unit test that reproduces a vanishing file, run the unit project and `drop-video.spec.ts` alone, commit as its own `fix:` commit and note it in the plan Changelog as found during this work. Do not rerun the full Playwright suite: Claude runs it next through the verify gate, so leave that box unticked and set State to `done` when everything else is ticked.
@@ -53,6 +53,21 @@ Fix each, then note it under Results. Rerun the affected checks.
 6. The Review edits (`Review.tsx`, `MediaEditor.tsx` `workingEffectKey`, `EditsPanel.tsx` `pin-comment`) are allowed only because instant pins are in Working and Review shows Working. Keep them minimal, say why under Results, and prove the alternates fix still holds with the `alternates-*` suites.
 7. Nits: `instant-effect.ts:30` unchecked `!` on the shot (throw a typed `KinottaError`); `Storyboard.tsx:177,182` stack offsets index a filtered list; `PinnedEffects.tsx:53` inserted shot placeholder should ask what the new shot shows.
 8. Plan Changelog: a dated entry per step (13, 14, 16).
+
+## Review fixes, round 2 (from /code-review, checked by Claude)
+
+Fix each, then note it under Results. Do not run the full Playwright suite; Claude reruns the verify gate.
+
+1. Important. `comments.ts:208` builds the instant effect (Python, up to 120s) inside `withReelLock`, and `listComments` (line 181) now takes the same lock, so dropping an instant effect stalls every read and edit on that reel until the build ends. Build the HTML before taking the lock, and keep `listComments` off the lock unless you can show it needs it.
+2. Important. `comments.ts:249-250` `editCommentNow`, instant to agent: `saveAgentPinComment` then `removeInstantPinNow`. If the second throws, both copies exist and the instant copy wins, so the typed note is lost. Make the move safe: reverse the order or roll back on failure, with a unit test that forces the second step to fail.
+3. `PinnedEffects.tsx` note debounce: unmounting before blur (section or version switch) drops the typed note, and `setSaving` runs after unmount. Flush the pending note on unmount.
+4. Insert shot (`Storyboard.tsx:435`) saves a frame pin at the middle of the preceding shot, so a numbered hex is drawn on that frame as if it were a frame comment. Do not draw inserted-shot requests on the frame; they show in the gap and the pin cards.
+5. Phone width: the "Adding effects needs a computer" text sits in the drawer that is hidden at 600px, so a phone user sees no explanation. Show that one line where the drawer would be.
+6. Typed errors: `build-runner.ts` throws plain `Error` (a missing Python becomes a 500 on drop); corrupt `pin-comments.json` or decisions JSON gives a raw `SyntaxError`, and `.catch(() => '{}')` in `commentsForVersion` swallows every read error, not only a missing file. Throw `KinottaError`, and treat only ENOENT as empty.
+7. Small cleanups: remove the dead `state.comments.filter((c) => !c.instant)` in `batch.ts`; compute the unsent-comments filter once in `CommentsPanel.tsx`; name the literals `x: .5, y: .5` and the phone media query; read instant effect ids from the effects catalogue instead of hard-coding `'title-card'` and `'section-tag'` in `instant-effect.ts`; in `edit-list.ts` keep using `writeJsonAtomic` (or say why not) and put the import below the header comment.
+8. ADR 0007 status line: replace "Not yet implemented" with "Implemented on `feat/storyboard-pinned-effects`".
+
+Not in this round, decided separately: a keyboard way to add an effect.
 
 ## Done when
 
