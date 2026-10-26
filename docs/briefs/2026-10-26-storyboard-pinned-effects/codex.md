@@ -3,10 +3,10 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: not started
-- Done: none
-- Failed or skipped: none
-- Waiting on owner: none
+- State: blocked
+- Done: read the required project documents, plan, ADR, mockup sources and relevant implementation; verified the branch is feat/storyboard-pinned-effects and the working tree was clean.
+- Failed or skipped: implementation and tests not started because the required instant-pin colour source is absent from the Style model; interactive mockup review not completed (the in-app browser is unavailable).
+- Waiting on owner: Should instant pins resolve --fx-font from the reel style (falling back to Brand), and --fx-ink / --fx-accent from the project Brand with built-in Brand defaults, or should this branch add persisted colour tokens to each reel Style? The brief requires the reel style's tokens, but Style currently stores fonts only and the plan says Brand owns colours. Please confirm the source and fallback for the instant build.
 
 ## Goal
 
@@ -58,3 +58,14 @@ Tick an item only after its check passes. State is `done` only when every box is
 ## Results
 
 <Append findings and a short summary of changes here. Newest heading last.>
+
+### 2026-10-26: blocked during implementation review
+
+No application code changed and no tests ran. The required stop condition is a mismatch between the specified instant-pin input and the stored model:
+
+- `server/core/_internal/style.ts:11` defines Style with fonts but no colour/token fields. Its validator constructs the saved object explicitly, so adding tokens only at the caller would not preserve them.
+- `server/core/_internal/brand-fonts.ts:52` resolves project/built-in font names, but there is no corresponding server resolver for effect ink/accent. A search across `server/` and `web/src/` found no `fx-ink` or `fx-accent` mapping.
+- `skill/kinotta/engine/brand.py:11` reads effect tokens from the build plan's `brand.tokens`; `skill/kinotta/assets/brand/brand.md` documents built-in defaults. Those are Brand values, whereas the brief and plan answer 3 request the style's tokens.
+- The plan's Intent explicitly says Brand owns colours and fonts, with per-reel font changes in Style. Choosing a colour source or adding Style fields without an owner decision would guess beyond the brief.
+
+Resume after the owner resolves the token source and fallback. Steps 13, 14 and 16 and every Done checkbox remain uncompleted. The node_modules junction was left untouched. No push or PR was made.
