@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { startReelInEditor } from '../helpers/start-reel.ts';
 import { projectFile, serverUrl } from './ports.ts';
 
 // Starting a reel runs the real build, and so does Save.
@@ -27,11 +28,7 @@ const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');
 const versions = (page: Page): Locator => page.getByRole('navigation', { name: 'Current reel', exact: true });
 
 async function startReel(page: Page, title: string): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'New reel' }).click();
-  await page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ }).click();
-  await page.getByLabel('Reel name').fill(title);
-  await page.getByRole('button', { name: 'Start reel' }).click();
+  await startReelInEditor(page, title);
   await expect(review(page).getByRole('heading', { name: title })).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The reel opens at once; v1 follows when the (fake) transcription and the build are done.
   await revealReelRail(page);
@@ -501,18 +498,9 @@ async function tabTo(page: Page, target: Locator): Promise<void> {
   throw new Error('Tab never reached the control');
 }
 
-test('keyboard only: pick a video, play, mark a stretch, snip it and Save', async ({ page }) => {
-  await page.goto('/');
-  // Tab reaches New reel, Enter opens it, and the video, the name and Start are all reachable and work from the keyboard.
-  await tabTo(page, page.getByRole('button', { name: 'New reel' }));
-  await page.keyboard.press('Enter');
-  await tabTo(page, page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ }));
-  await page.keyboard.press('Enter');
-  await tabTo(page, page.getByLabel('Reel name'));
-  await page.keyboard.press('Control+A');
-  await page.keyboard.type('Keys talk');
-  await tabTo(page, page.getByRole('button', { name: 'Start reel' }));
-  await page.keyboard.press('Enter');
+test('keyboard only: play, mark a stretch, snip it and Save', async ({ page }) => {
+  // The start screen's keyboard path is covered in new-reel.spec.ts.
+  await startReelInEditor(page, 'Keys talk');
   await expect(review(page).getByRole('heading', { name: 'Keys talk' })).toBeVisible({ timeout: BUILD_WAIT_MS });
   await page.getByRole('tab', { name: 'Reel rail', exact: true }).press('Enter');
   await expect(versions(page).locator('[data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });

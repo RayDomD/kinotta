@@ -197,6 +197,7 @@ export function SimpleMode({
   onOpen,
   onNew,
   onStarted,
+  onBriefStarted,
   onEditor,
   onRefresh,
 }: {
@@ -211,6 +212,8 @@ export function SimpleMode({
   onOpen(slug: string): void;
   onNew(): void;
   onStarted(slug: string): void;
+  /** Called with the slug of a reel started from a brief, which waits for its first version. */
+  onBriefStarted(slug: string): void;
   onEditor(): void;
   onRefresh(): void;
 }) {
@@ -421,67 +424,80 @@ export function SimpleMode({
   const isJobCopyReady = Boolean(agentJob && agentJob.state === 'copy-ready');
   const showAgentBanner = Boolean(agentJob);
 
+  // The reel picker: in the start page's top bar, and beside the reel's own actions once one is open.
+  const reelMenu = (
+    <label>
+      Reel
+      <select
+        aria-label="Choose reel"
+        value={creating ? '' : reel?.slug ?? ''}
+        disabled={busy}
+        onChange={(event) => (event.target.value ? onOpen(event.target.value) : onNew())}
+      >
+        <option value="">New reel</option>
+        {listing.reels.map((r) => (
+          <option key={r.slug} value={r.slug}>{r.title}</option>
+        ))}
+      </select>
+    </label>
+  );
+  const starting = creating || !reel;
+
   return (
     <div className="app sm-app">
-      <header className="sm-top">
-        <span className="brand">KINOTTA</span>
-        <span>Simple mode</span>
-        <div className="sm-top-actions">
-          <label className="sm-agent-control">
-            Agent
-            <select
-              aria-label="Agent provider"
-              value={agentProvider}
-              disabled={busy}
-              onChange={(event) => {
-                const next = event.target.value as AgentProvider;
-                setAgentProvider(next);
-                void saveAgentSettings(next).catch(problem);
-              }}
-            >
-              <option value="copy">Copy request</option>
-              <option value="claude">Claude Code</option>
-              <option value="codex">Codex</option>
-            </select>
-          </label>
-          {(creating || !reel) && <button type="button" className="c-act" onClick={onEditor}>Open in editor</button>}
-        </div>
-      </header>
-
-      <div className="sm-heading">
-        <div>
-          <h1>{creating || !reel ? 'Your next reel' : reel.title}</h1>
-          <p>{creating || !reel ? 'One video in. A reel you can make your own.' : 'Watch, pin a moment, and say what should change.'}</p>
-        </div>
-        <div className="sm-heading-actions">
-          <label>
-            Reel
-            <select
-              aria-label="Choose reel"
-              value={creating ? '' : reel?.slug ?? ''}
-              disabled={busy}
-              onChange={(event) => (event.target.value ? onOpen(event.target.value) : onNew())}
-            >
-              <option value="">New reel</option>
-              {listing.reels.map((r) => (
-                <option key={r.slug} value={r.slug}>{r.title}</option>
-              ))}
-            </select>
-          </label>
-          {!creating && reel && (
-            <div className="dx-after" role="group" aria-label="After the first cut">
-              <button type="button" className="dx-edit" onClick={onEditor}>
-                <b>Edit <span aria-hidden="true">↗</span></b>
-                <span>Every shot, in the full editor</span>
-              </button>
-              {state === 'ready' && <SimpleExport slug={reel.slug} />}
+      {starting ? (
+        // The start page carries only the name and the reel menu; the agent and the editor come with a reel.
+        <header className="sm-top">
+          <span className="brand">KINOTTA</span>
+          <div className="sm-top-actions">{reelMenu}</div>
+        </header>
+      ) : (
+        <>
+          <header className="sm-top">
+            <span className="brand">KINOTTA</span>
+            <span>Simple mode</span>
+            <div className="sm-top-actions">
+              <label className="sm-agent-control">
+                Agent
+                <select
+                  aria-label="Agent provider"
+                  value={agentProvider}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const next = event.target.value as AgentProvider;
+                    setAgentProvider(next);
+                    void saveAgentSettings(next).catch(problem);
+                  }}
+                >
+                  <option value="copy">Copy request</option>
+                  <option value="claude">Claude Code</option>
+                  <option value="codex">Codex</option>
+                </select>
+              </label>
             </div>
-          )}
-        </div>
-      </div>
+          </header>
 
-      {creating || !reel ? (
-        <SimpleMake onStarted={onStarted} />
+          <div className="sm-heading">
+            <div>
+              <h1>{reel.title}</h1>
+              <p>Watch, pin a moment, and say what should change.</p>
+            </div>
+            <div className="sm-heading-actions">
+              {reelMenu}
+              <div className="dx-after" role="group" aria-label="After the first cut">
+                <button type="button" className="dx-edit" onClick={onEditor}>
+                  <b>Edit <span aria-hidden="true">↗</span></b>
+                  <span>Every shot, in the full editor</span>
+                </button>
+                {state === 'ready' && <SimpleExport slug={reel.slug} />}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {starting ? (
+        <SimpleMake onStarted={onStarted} onBriefStarted={onBriefStarted} />
       ) : reel.brief !== undefined && reel.newestVersion === null ? (
         // A reel started from a brief has nothing to play until its first version is written.
         <BriefWaiting reel={{ ...reel, brief: reel.brief }} />

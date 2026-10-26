@@ -637,6 +637,10 @@ export const discardEdits = (slug: string): Promise<EditList> => requestJson(edi
 export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/handoff`, { method: 'DELETE' });
 /** Builds the next version from the edits. Resolves with its number. */
 
+/** Takes back a video dropped into footage/: the server deletes it unless a reel uses it, and says which it did. */
+export const removeVideo = (path: string): Promise<{ removed: boolean }> =>
+  requestJson(`/api/footage?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+
 /**
  * Sends a dropped video into the project's footage/ folder, reporting the share sent so far (0 to 1). XHR rather than
  * fetch, because fetch reports no upload progress and a video can take a while to send.

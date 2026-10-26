@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 import type { Page } from '../helpers/editor-test.ts';
+import { startReelInEditor } from '../helpers/start-reel.ts';
 import { projectFile, serverUrl } from './ports.ts';
 
 // Starts reels in the footage sample with a fake transcriber (playwright.config.ts), so this has its own server and runs in order.
@@ -18,10 +19,7 @@ const phaseTab = (page: Page, name: string) => page.getByRole('navigation', { na
 const readClipboard = (page: Page): Promise<string> => page.evaluate(() => navigator.clipboard.readText());
 
 async function startVideoReel(page: Page, title: string): Promise<void> {
-  await page.getByRole('button', { name: 'New reel' }).click();
-  await page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ }).click();
-  await page.getByLabel('Reel name').fill(title);
-  await page.getByRole('button', { name: 'Start reel' }).click();
+  await startReelInEditor(page, title);
   await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   // Storyboard opens only once v1 follows the transcription in the background.
   await expect(page.locator('[data-working-row][data-current-version="1"]')).toBeAttached({ timeout: BUILD_WAIT_MS });
@@ -30,6 +28,7 @@ async function startVideoReel(page: Page, title: string): Promise<void> {
 test('a reel started from a brief waits in the rail, then opens in Storyboard once built', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'New reel' }).click();
+  await page.getByRole('button', { name: 'No footage? Start from a short brief' }).click();
   await page.getByLabel('Brief title').fill('Spring teaser');
   await page.getByLabel('Brief', { exact: true }).fill(BRIEF);
   await page.getByRole('button', { name: 'Start from brief' }).click();

@@ -4,6 +4,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { startReelInEditor } from '../helpers/start-reel.ts';
 import { projectFile, serverUrl } from './ports.ts';
 
 // Starting a reel runs the real build, so the first wait after Start is longer than the default.
@@ -29,11 +30,7 @@ async function seconds(page: Page): Promise<number> {
 }
 
 async function startReel(page: Page, title: string): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'New reel' }).click();
-  await page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ }).click();
-  await page.getByLabel('Reel name').fill(title);
-  await page.getByRole('button', { name: 'Start reel' }).click();
+  await startReelInEditor(page, title);
   await expect(review(page).getByRole('heading', { name: title })).toBeVisible({ timeout: BUILD_WAIT_MS });
   // The reel opens at once; v1 follows when the (fake) transcription and the build are done.
   await revealReelRail(page);

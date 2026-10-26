@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { startReelInEditor } from '../helpers/start-reel.ts';
 import { projectFile, serverUrl } from './ports.ts';
 
 // The build after the words arrive runs the real engine.
@@ -22,11 +23,7 @@ const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');
 const versions = (page: Page): Locator => page.getByRole('navigation', { name: 'Current reel', exact: true });
 
 test('a reel plays and is snipped while it transcribes, shows progress, and keeps the snip when v1 arrives', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'New reel' }).click();
-  await page.getByRole('list', { name: 'Videos in the project' }).getByRole('button', { name: /media\/talk\.mp4/ }).click();
-  await page.getByLabel('Reel name').fill('Gated talk');
-  await page.getByRole('button', { name: 'Start reel' }).click();
+  await startReelInEditor(page, 'Gated talk');
 
   // The reel opens at once: the footage plays and the lanes say where the transcription is, with an estimate.
   await expect(review(page).getByRole('heading', { name: 'Gated talk' })).toBeVisible();

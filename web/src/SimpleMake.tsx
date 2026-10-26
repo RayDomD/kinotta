@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { fetchStyles, listVideos, startReel } from './api/_internal/client.ts';
+import { fetchStyles, listVideos, removeVideo, startReel } from './api/_internal/client.ts';
 import type { Style, VideoEntry } from './api/_internal/client.ts';
 import { FRAMES, frameOf } from '../../server/core/model.ts';
 import { BriefForm } from './BriefReel.tsx';
 import { Direction } from './Direction.tsx';
 import { DropZone } from './DropZone.tsx';
+import { MissingTools } from './MissingTools.tsx';
 import { formatClock } from './timecode.ts';
+
+/** Codecs browsers cannot play: starting makes an H.264 copy first, which takes a while on a long video. */
+const NEEDS_PLAYBACK_COPY = new Set(['hevc', 'prores']);
 
 /** "Portrait 9:16 · 1080 × 1920", or nothing when the probe could not read the picture. */
 export function videoFrameText(video: Pick<VideoEntry, 'width' | 'height'>): string {
@@ -32,10 +36,12 @@ export function VideoCard({ video, action }: { video: VideoEntry; action?: React
 }
 
 /**
- * Simple mode's Make: drop or pick a video, name the reel, then Auto (build now in your usual style) or Direct
- * (choose the style, fonts and music first). A reel with no footage starts from a short brief.
+ * The start screen, in Simple mode and for the editor's New reel: drop or pick a video, name the reel, then Auto (build
+ * now in your usual style) or Direct (choose the style, fonts and music first). A picked video can be removed again,
+ * which deletes the copy this screen just made in footage/ unless a reel uses it. A reel with no footage starts from a
+ * short brief.
  */
-export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
+export function SimpleMake({ onStarted, onBriefStarted }: { onStarted(slug: string): void; onBriefStarted(slug: string): void }) {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [picked, setPicked] = useState('');
   const [title, setTitle] = useState('');
@@ -44,6 +50,9 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
   const [usual, setUsual] = useState<Style | null>(null);
   const [directing, setDirecting] = useState(false);
   const [briefing, setBriefing] = useState(false);
+  /** The video this screen just copied into footage/, which Remove may delete; a project video is only unpicked. */
+  const [dropped, setDropped] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
 
   const load = (path?: string) =>
     listVideos().then(
@@ -67,6 +76,24 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
   }, []);
 
   const video = videos.find((v) => v.path === picked);
+
+  const remove = () => {
+    if (!video || busy) return;
+    const copy = dropped === video.path;
+    setPicked('');
+    setTitle('');
+    setDropped(null);
+    setError('');
+    setNotice('');
+    if (!copy) return;
+    void removeVideo(video.path).then(
+      ({ removed }) => {
+        if (removed) setNotice(`Removed ${video.name} and Kinotta’s copy in footage/.`);
+        void load();
+      },
+      (err: unknown) => setError(err instanceof Error ? err.message : 'Could not remove the video.'),
+    );
+  };
 
   const usualStyle = (): Promise<Style | null> => usual
     ? Promise.resolve(usual)
@@ -96,8 +123,17 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
       <p className="dx-eyebrow">Your next reel starts here</p>
       <h1>Drop a video. We&rsquo;ll find the reel.</h1>
       <p>One video in. A first cut you can make your own.</p>
-      <DropZone onImported={(path) => { setError(''); void load(path); }} />
-      {videos.length > 0 && (
+      {!video && (
+        <DropZone
+          onImported={(path, copied) => {
+            setError('');
+            setNotice('');
+            setDropped(copied ? path : null);
+            void load(path);
+          }}
+        />
+      )}
+      {!video && videos.length > 0 && (
         <label>
           Or use a video in this project
           <select
@@ -107,6 +143,7 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
               const next = videos.find((v) => v.path === event.target.value);
               setPicked(next?.path ?? '');
               setTitle(next?.suggestedTitle ?? '');
+              setNotice('');
             }}
           >
             <option value="">Choose a video</option>
@@ -119,7 +156,10 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
 
       {video && (
         <div className="dx-make-panel">
-          <VideoCard video={video} />
+          <VideoCard
+            video={video}
+            action={<button type="button" className="c-act" disabled={busy} aria-label={`Remove ${video.name}`} onClick={remove}>Remove</button>}
+          />
           <label>
             Reel name
             <input required disabled={busy} value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -146,12 +186,20 @@ export function SimpleMake({ onStarted }: { onStarted(slug: string): void }) {
 
       {!video && (
         briefing
-          ? <BriefForm onStarted={onStarted} />
+          ? <BriefForm onStarted={onBriefStarted} />
           : <button type="button" className="dx-quiet dx-brief-open" onClick={() => setBriefing(true)}>No footage? Start from a short brief</button>
       )}
 
-      {busy && <p role="status">Starting your reel. The preview opens while the words are prepared.</p>}
+      {busy && (
+        <p role="status">
+          {video && NEEDS_PLAYBACK_COPY.has(video.codec)
+            ? 'Making a copy the browser can play, then starting your reel.'
+            : 'Starting your reel. The preview opens while the words are prepared.'}
+        </p>
+      )}
+      {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{error}</p>}
+      <MissingTools />
     </main>
   );
 }
