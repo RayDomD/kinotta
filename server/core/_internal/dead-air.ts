@@ -30,6 +30,9 @@ export const BREATH_MAX_PEAK = 0.25;
 /** The by author name tagging snips that Make's dead-air pass added. */
 export const DEAD_AIR_BY = 'dead-air';
 
+/** The by author name tagging snips the b-roll agent decided, each with its reason. */
+export const AGENT_CUT_BY = 'agent-cut';
+
 export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
 
 export const DEAD_AIR_STRENGTHS: readonly DeadAirStrength[] = ['gentle', 'normal', 'tight'];

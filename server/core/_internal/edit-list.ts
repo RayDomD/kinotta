@@ -279,6 +279,10 @@ export async function addOperationNow(projectDir: string, slug: string, input: N
   if ('reversal' in input) throw new KinottaError('invalid', 'Undo reversals are recorded by Kinotta. Use Undo to reverse an edit.');
   if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
   if (input.by !== undefined && (typeof input.by !== 'string' || !input.by.trim())) throw new KinottaError('invalid', 'An edit needs the name of who made it.');
+  if ('reason' in input && (input as any).reason !== undefined) {
+    if (input.kind !== 'snip' && input.kind !== 'shot-alternate-dismiss') throw new KinottaError('invalid', 'That kind of edit cannot carry a reason.');
+    if (input.kind === 'snip' && (typeof (input as any).reason !== 'string' || !(input as any).reason.trim() || (input as any).reason.length > 120)) throw new KinottaError('invalid', 'A snip reason must be a non-empty string of at most 120 characters.');
+  }
   const operation = { ...input, by: input.by?.trim() ?? 'you', id: randomUUID() } as Operation;
   const operations = [...stored.operations, operation];
   await checkApplies(projectDir, reelDir, operations, stored.flagged);

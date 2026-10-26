@@ -6,7 +6,8 @@ import type { Frame } from './direction.ts';
 import { readReelStyle } from './style.ts';
 import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch } from './runner.ts';
 import { readAgentSettings, type AgentProvider } from './agent-settings.ts';
-import { readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { addOperation, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { AGENT_CUT_BY } from './dead-air.ts';
 import { requireReelDir, newestVersionNumber } from './version.ts';
 import { publishVersion } from './version-build.ts';
 import { settleNewest } from './carry.ts';
@@ -157,15 +158,23 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   async function validateAndPublish(job: AgentJob, request: BrollJobRequest, controller: AbortController, frozenPlan: Record<string, unknown>, inputTranscript: string): Promise<void> {
-    await validateAgentOutput(join(jobDir(job), 'output'), controller.signal, frozenPlan, inputTranscript);
+    const output = join(jobDir(job), 'output');
+    await validateAgentOutput(output, controller.signal, frozenPlan, inputTranscript);
+    let agentCuts: { from: number; to: number; reason: string }[] = [];
+    const cutsFile = join(output, 'cuts.json');
+    try {
+      const cutsRaw = await readFile(cutsFile, 'utf8');
+      const parsed = JSON.parse(cutsRaw);
+      if (Array.isArray(parsed?.cuts)) agentCuts = parsed.cuts;
+    } catch {}
     const reelDir = await requireReelDir(projectDir, job.reel);
     await withReelLock(reelDir, async () => {
       if (controller.signal.aborted) throw new Error('Agent cancelled.');
       const newest = await newestVersionNumber(reelDir);
       if (newest !== request.baseVersion) throw new Error('A newer version appeared during this run. Retry against the latest version.');
-      const output = join(jobDir(job), 'output');
       const manifest = await json<Record<string, unknown>>(join(output, 'shots.json'));
       await writeJsonAtomic(join(output, 'shots.json'), { ...manifest, agentJobId: job.id });
+      await rm(cutsFile, { force: true }).catch(() => {});
       await publishVersion(reelDir, { dir: output }, newest + 1);
       // Replay every still-pending owner operation; publication does not consume the owner's journal.
       await readEditListNow(projectDir, job.reel);
@@ -175,6 +184,10 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       job.canCopy = false;
       delete job.error;
     });
+    // The version is published; a cut that no longer applies to it is skipped, not a failed run.
+    for (const cut of agentCuts) {
+      await addOperation(projectDir, job.reel, { kind: 'snip', from: cut.from, to: cut.to, by: AGENT_CUT_BY, reason: cut.reason }).catch(() => {});
+    }
     await settleNewest(projectDir, job.reel);
     emit({ type: 'version-added', reel: job.reel, version: job.version! });
   }

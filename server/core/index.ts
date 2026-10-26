@@ -48,6 +48,7 @@ export { assembleParts } from './_internal/parts-assembler.ts';
 export type { PartsInputs, ShotRevision } from './_internal/parts-assembler.ts';
 export { scanPage, checkShotsAgainstPage } from './_internal/contract.ts';
 export { KinottaError } from './_internal/errors.ts';
+export { AGENT_CUT_BY, DEAD_AIR_BY } from './_internal/dead-air.ts';
 export {
   BREATH_MAX_PEAK,
   BREATH_MIN_PEAK,
