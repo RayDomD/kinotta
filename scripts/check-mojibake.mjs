@@ -9,19 +9,25 @@ import { execFileSync } from 'node:child_process';
 const MOJIBAKE = /\u00C2|\u00E2\u20AC/;
 // Files that name the pattern on purpose.
 const ALLOWED = new Set(['docs/plans/build-plans-index.ps1']);
+const MAX_DIFF_BYTES = 256 * 1024 * 1024;
+const SNIPPET_CHARS = 120;
 
 const base = process.argv[2];
 const range = base ? [base] : ['--cached'];
-const diff = execFileSync('git', ['diff', ...range, '--no-color', '--no-ext-diff', '-U0', '--diff-filter=ACMR'], {
+const diff = execFileSync('git', ['-c', 'core.quotepath=false', 'diff', ...range, '--no-color', '--no-ext-diff', '-U0', '--diff-filter=ACMR'], {
   encoding: 'utf8',
-  maxBuffer: 256 * 1024 * 1024,
+  maxBuffer: MAX_DIFF_BYTES,
 });
 
 const problems = [];
 let file = '';
 let line = 0;
+let previous = '';
 for (const text of diff.split('\n')) {
-  if (text.startsWith('+++ ')) {
+  // A file header follows its '--- ' line; an added line that starts with '++ ' does not.
+  const header = text.startsWith('+++ ') && previous.startsWith('--- ');
+  previous = text;
+  if (header) {
     file = text.replace(/^\+\+\+ (b\/)?/, '');
     continue;
   }
@@ -31,7 +37,7 @@ for (const text of diff.split('\n')) {
     continue;
   }
   if (!text.startsWith('+')) continue;
-  if (MOJIBAKE.test(text) && !ALLOWED.has(file)) problems.push(`${file}:${line}  ${text.slice(1).trim().slice(0, 120)}`);
+  if (MOJIBAKE.test(text) && !ALLOWED.has(file)) problems.push(`${file}:${line}  ${text.slice(1).trim().slice(0, SNIPPET_CHARS)}`);
   line++;
 }
 

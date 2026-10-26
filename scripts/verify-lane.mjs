@@ -17,19 +17,27 @@ const MIN_FREE_GB = 3;
 const SHARDS = 2;
 const WORKERS = 2;
 const GB = 1024 ** 3;
+// Length of an ISO timestamp up to the seconds, used as the log folder name.
+const STAMP_CHARS = 19;
 
 const args = process.argv.slice(2);
 const option = (name) => {
   const at = args.indexOf(name);
-  return at === -1 ? undefined : args[at + 1];
+  if (at === -1) return undefined;
+  const value = args[at + 1];
+  if (value === undefined || value.startsWith('--')) {
+    console.error(`verify-lane: ${name} needs a value`);
+    process.exit(1);
+  }
+  return value;
 };
 const brief = option('--brief');
 const base = option('--base') ?? 'origin/main';
 const force = args.includes('--force');
 
 const root = process.cwd();
-const git = (...gitArgs) => execFileSync('git', gitArgs, { encoding: 'utf8' }).trim();
-const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+const git = (...gitArgs) => execFileSync('git', ['-c', 'core.quotepath=false', ...gitArgs], { encoding: 'utf8' }).trim();
+const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, STAMP_CHARS);
 const logDir = join(root, 'tests/artifacts/verify-lane', stamp);
 mkdirSync(logDir, { recursive: true });
 
@@ -74,15 +82,18 @@ run('mojibake', `node "${checkMojibake}" ${mergeBase}`);
 
 if (brief) {
   // The lane keeps its own brief's Status current, so the brief is always in scope.
-  const touch = [...touchPaths(readFileSync(brief, 'utf8')), relative(root, resolve(brief)).split(sep).join('/')];
+  const paths = touchPaths(readFileSync(brief, 'utf8'));
+  const touch = [...paths, relative(root, resolve(brief)).split(sep).join('/')];
   const changed = [
     ...git('diff', '--name-only', mergeBase).split('\n'),
     ...git('ls-files', '--others', '--exclude-standard').split('\n'),
   ].filter(Boolean);
   const outside = [...new Set(changed)].filter((file) => !touch.some((path) => covers(path, file)));
-  results.push({ name: 'scope', ok: outside.length === 0, note: outside.length ? `outside Touch: ${outside.join(', ')}` : `${changed.length} changed file(s), all inside Touch` });
-  console.log(`${outside.length ? 'FAIL' : 'ok  '} scope (${results.at(-1).note})`);
-  if (touch.length === 1) console.log('warning: no Touch paths found in the brief');
+  // An unreadable Touch line would report every file as outside it, so say so instead.
+  const note = !paths.length ? `no Touch paths found in ${brief}; expected a "- Touch:" line with paths in backticks`
+    : outside.length ? `outside Touch: ${outside.join(', ')}` : `${changed.length} changed file(s), all inside Touch`;
+  results.push({ name: 'scope', ok: paths.length > 0 && outside.length === 0, note });
+  console.log(`${results.at(-1).ok ? 'ok  ' : 'FAIL'} scope (${note})`);
 }
 
 // The brief's "- Touch:" line and the sub-bullets under it, paths in backticks
