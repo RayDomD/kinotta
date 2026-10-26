@@ -18,7 +18,7 @@ spec: C:\Users\ryand\AppData\Local\Temp\2026-10-26-orchestration-workflow-fix-ha
 
 ## Goal
 
-Every Done-when in the spec passes: the variable prints `1`; the hook blocks `Â·` and allows clean text; the verify script runs on `feat/storyboard-pinned-effects`; `herdr-dispatch` carries the W1, W4 and W5 rules; commits sit on branches.
+Every Done-when in the spec passes: the variable prints `1`; the hook blocks a mojibake middle dot (U+00C2 U+00B7) and allows clean text; the verify script runs on `feat/storyboard-pinned-effects`; `herdr-dispatch` carries the W1, W4 and W5 rules; commits sit on branches.
 
 ## Approach
 
@@ -36,7 +36,7 @@ Decisions (owner answers, 2026-10-26):
 Findings from checking the handoff:
 
 - `playwright.config.ts` starts all 19 web servers on every run, whatever specs are selected. `--shard` halves browser work, not server memory.
-- `docs/plans/build-plans-index.ps1:57` contains `â€”` on purpose; the hook allows that file.
+- `docs/plans/build-plans-index.ps1:57` contains mojibake on purpose; the hook allows that file.
 - The brief template lives in the `~/.claude` repo, so three repos change.
 - `~/.claude/skills` has 131 unrelated uncommitted changes; stage only `herdr-dispatch/SKILL.md` (which already carries one uncommitted agy-subagents line, kept).
 
@@ -44,7 +44,7 @@ Findings from checking the handoff:
 
 1. Kinotta worktree `.worktrees/orchestration-workflow`, branch `chore/orchestration-workflow` from `origin/main` (`1e092af`). Save this plan.
 2. W1: set the variable (done, prints `1`).
-3. W2: `scripts/check-mojibake.mjs` scans added lines of `git diff --cached` (text only) for `Â` or `â€`, allowing `build-plans-index.ps1`. Add `.git/hooks/pre-commit` wrapper; switch the global hook to `--git-common-dir`. Test: staged `Â·` blocks, clean file passes, `Â·` blocks from a worktree.
+3. W2: `scripts/check-mojibake.mjs` scans added lines of `git diff --cached` (text only) for U+00C2 or U+00E2 U+20AC, allowing `build-plans-index.ps1`. Add `.git/hooks/pre-commit` wrapper; switch the global hook to `--git-common-dir`. Test: a staged mojibake middle dot blocks, a clean file passes, and the same case blocks from a worktree.
 4. W3: `scripts/verify-lane.mjs [--brief <path>] [--base origin/main] [--force]`. Checks free memory (D6), runs typecheck, vitest, Playwright `--shard=1/2 --workers=2` then `--shard=2/2`, keeps each log in `tests/artifacts/verify-lane/` (git-ignored), checks `git diff <base>` for mojibake, lists changed files outside the brief's `Touch:` paths. Non-zero exit on any failure.
 5. W4: `~/.claude/templates/brief.md` gains an Inputs section, a Lane split line, one `Touch:` path per line, and "mojibake: the hook enforces it".
 6. W5: `herdr-dispatch` rules: live PR/branch check before decisions; watcher restart and memory check; review cap and convergence; herdr quirks; model and effort once per run; ask before heavy checks on throwaway artifacts; point at W3 and W4.
