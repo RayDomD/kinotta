@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
+import { serverUrl } from './ports.ts';
 
 // Building v1 runs the real build, so the first wait after a drop is longer than the default.
 const BUILD_WAIT_MS = 30_000;
@@ -14,7 +15,7 @@ const DROPPED_VIDEO = {
   buffer: readFileSync(resolve(import.meta.dirname, '../fixtures/projects/footage-project/media/talk.mp4')),
 };
 
-test.use({ baseURL: 'http://localhost:4388' });
+test.use({ baseURL: serverUrl('dropVideo') });
 
 test('a video dropped on New reel is copied to footage, named like a picked one, and starts a reel; dropping it again reuses the copy', async ({ page }) => {
   const phases = page.getByRole('navigation', { name: 'Phase' });
@@ -31,7 +32,8 @@ test('a video dropped on New reel is copied to footage, named like a picked one,
   await page.getByRole('button', { name: 'Start reel' }).click();
   await expect(phases.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Launch clip' })).toBeVisible();
-  await expect(page.getByRole('main', { name: 'Review' }).locator('[data-verify-unit="PictureLayer"] video')).toBeVisible();
+  // Before v1 builds, Review shows the plain player; after, the picture layers.
+  await expect(page.getByRole('main', { name: 'Review' }).locator('.rv-frame > video.rv-video, [data-verify-unit="PictureLayer"] video').first()).toBeVisible();
 
   await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();

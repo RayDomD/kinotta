@@ -1,20 +1,20 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Starting a reel runs the real build, so the first wait after Start is longer than the default.
 const BUILD_WAIT_MS = 30_000;
-const PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-review-project.txt');
+const PROJECT_FILE = projectFile('review');
 const FRAME_SECONDS = 1 / 30;
 /** Pixels up from the bottom of the lane column: the axis row, which no button covers. */
 const AXIS_INSET = 10;
 
 // The footage sample with a fake transcriber (words "hello there" at 0.5 s), its own server (playwright.config.ts).
-test.use({ baseURL: 'http://localhost:4386' });
+test.use({ baseURL: serverUrl('review') });
 test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });

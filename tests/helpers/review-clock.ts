@@ -1,4 +1,4 @@
-import type { Page } from 'playwright';
+import type { Page, Request } from 'playwright';
 
 /** Read the displayed clock from either the retained legacy player or the native editor. */
 export async function reviewClockText(page: Page): Promise<string> {
@@ -11,10 +11,29 @@ export async function reviewClockText(page: Page): Promise<string> {
   return `${timestamp(at)} / ${timestamp(duration)}`;
 }
 
+const EDIT_SAVE_WAIT_MS = 10_000;
+const editSaves = new WeakMap<Page, Set<Request>>();
+const isEditSave = (request: Request) => request.method() !== 'GET' && /^\/api\/reels\/[^/]+\/edits/.test(new URL(request.url()).pathname);
+
+/** Count edit requests in flight; the app shows no busy state while an optimistic preview saves. */
+export function trackEditSaves(page: Page): void {
+  const pending = new Set<Request>();
+  editSaves.set(page, pending);
+  page.on('request', (request) => { if (isEditSave(request)) pending.add(request); });
+  page.on('requestfinished', (request) => pending.delete(request));
+  page.on('requestfailed', (request) => pending.delete(request));
+}
+
 /** A preview can appear while edit commands still wait for the server reply. */
 export async function waitForEditSave(page: Page): Promise<void> {
-  const addTrack = page.getByRole('button', { name: 'Add track', exact: true });
-  if (await addTrack.count()) await page.waitForFunction((button) => !!button?.matches(':enabled'), await addTrack.elementHandle());
+  const pending = editSaves.get(page);
+  const deadline = Date.now() + EDIT_SAVE_WAIT_MS;
+  while (pending?.size) {
+    if (Date.now() > deadline) throw new Error(`${pending.size} edit save(s) still in flight after ${EDIT_SAVE_WAIT_MS} ms`);
+    await page.waitForTimeout(50);
+  }
+  // The reply then swaps provisional placement ids for the server's.
+  await page.waitForFunction(() => !document.querySelector('[data-placement*="optimistic:"]'), undefined, { timeout: EDIT_SAVE_WAIT_MS });
 }
 
 /** Keyboard commands belong to the editor while its own control is focused. */

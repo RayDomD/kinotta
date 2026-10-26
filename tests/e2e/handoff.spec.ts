@@ -2,6 +2,7 @@ import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
 import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // Save runs the real build.
 const BUILD_WAIT_MS = 30_000;
@@ -10,7 +11,7 @@ const SECTION = 'cold-open';
 const PIN = { shot: '01', x: 0.3, y: 0.4, element: 'document' };
 
 // The footage sample as it is (its agent-built reel has four clips), its own server (playwright.config.ts).
-test.use({ baseURL: 'http://localhost:4382' });
+test.use({ baseURL: serverUrl('handoff') });
 test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });

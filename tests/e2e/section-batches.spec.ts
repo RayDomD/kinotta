@@ -1,13 +1,13 @@
 import { cpSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Copies section batches and adds a version folder to its temp project while the editor is open, so it has its own
 // server on the footage sample (playwright.config.ts) and runs in order.
-const BATCH_SERVER = 'http://localhost:4392';
-const PROJECT_PATH_FILE = join(tmpdir(), 'kinotta-e2e-section-batches-project.txt');
+const BATCH_SERVER = serverUrl('sectionBatches');
+const PROJECT_PATH_FILE = projectFile('section-batches');
 const REEL = 'founder-talk';
 const SECTION_FILE = `reels/${REEL}/v1/comments-cold-open.json`;
 

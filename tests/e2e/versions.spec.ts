@@ -1,9 +1,9 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import { cpSync, mkdirSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { projectFile, serverUrl } from './ports.ts';
 
-test.use({ baseURL: 'http://localhost:4395' });
+test.use({ baseURL: serverUrl('versions') });
 test.describe.configure({ mode: 'serial' });
 
 test('Current replaces numbered history and retains Undo', async ({ page }) => {
@@ -25,7 +25,7 @@ test('frozen versions remain readable, while the removed approval route has no h
 test('a new build becomes Current without exposing numbered history', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Storyboard, v2');
-  const project = readFileSync(join(tmpdir(), 'kinotta-e2e-versions-project.txt'), 'utf8');
+  const project = readFileSync(projectFile('versions'), 'utf8');
   const reel = join(project, 'reels/product-showreel');
   mkdirSync(join(reel, 'v3'));
   cpSync(join(reel, 'v2/index.html'), join(reel, 'v3/index.html'));

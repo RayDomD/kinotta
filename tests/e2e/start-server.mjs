@@ -5,6 +5,19 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { register } from 'tsx/esm/api';
 
+// Exit when the Playwright runner is gone, so an aborted run does not leave this server holding its port.
+const RUNNER_POLL_MS = 2000;
+const runnerPid = Number(process.env.KINOTTA_E2E_RUNNER_PID);
+if (runnerPid) {
+  setInterval(() => {
+    try {
+      process.kill(runnerPid, 0);
+    } catch {
+      process.exit(0);
+    }
+  }, RUNNER_POLL_MS).unref();
+}
+
 // Isolate saved styles and migrations from the real home and other fixture servers.
 process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-e2e-home-'));
 

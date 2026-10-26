@@ -1,21 +1,21 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
 import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // The build after the words arrive runs the real engine.
 const BUILD_WAIT_MS = 30_000;
-const PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-transcription-project.txt');
+const PROJECT_FILE = projectFile('transcription');
 /** Pixels up from the bottom of the lane column: the axis row, which no button covers. */
 const AXIS_INSET = 10;
 const DRAG_FROM = 0.25;
 const DRAG_TO = 0.5;
 
 // The footage sample with a transcriber that holds its words until this spec lets them go (playwright.config.ts).
-test.use({ baseURL: 'http://localhost:4381' });
+test.use({ baseURL: serverUrl('transcription') });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
 const timecode = (page: Page): Locator => review(page).getByLabel('Timecode');

@@ -5,9 +5,10 @@ import { pathToFileURL } from 'node:url';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
 import { buildClip, composePlan, exampleClip } from '../helpers/engine.ts';
+import { serverUrl } from './ports.ts';
 
 // The broll-project sample: the engine's six-clip example composed into one page over stand-in footage.
-const BROLL_SERVER = 'http://localhost:4390';
+const BROLL_SERVER = serverUrl('broll');
 const VIEWPORT = { width: 1920, height: 1080 };
 
 /** Two full-frame clips back to back that share element ids (shape, icSpark, cursor). */
