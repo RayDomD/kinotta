@@ -3,10 +3,10 @@
 ## Status
 
 <!-- Keep this block current. Claude reads only this block and the diff. -->
-- State: working
-- Done: implemented comment-backed Working pin edits, isolated instant template builds with Style fonts and Brand colours, batch routing, frame-only drops, alternate identity, note/Delete/Undo cards, Insert shot, phone controls, Build counts and built-note decisions. Focused Playwright: 4 passed. Pin/batch integration: 12 passed. Typecheck, build and check:docs passed before the final scoped note-flush/footprint changes; typecheck passed after them.
-- Failed or skipped: none in the final isolated checks: pins 4, alternate browser tests 15, comment/section tests 16, clips 3, render 2 and playback 4 all passed. The earlier full browser failures and their fixes are recorded under Results. Final full unit and two-worker Playwright runs are pending after the guarded comment-read/control fixes. The unit project previously passed with 976 passed and 6 environment-dependent skips.
-- Waiting on owner: none. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
+- State: blocked
+- Done: all eight review fixes applied and committed. Steps 13, 14 and 16 implemented; typecheck, build, docs and commit checks pass. Full unit project: 112 files, 976 passed, 6 environment-dependent skips. Alternate core checks (26), alternate browser checks (15), pin browser checks (4) and isolated compatibility checks pass.
+- Failed or skipped: full two-worker Playwright finished with 160 passed, 1 failed (exit 1): drop-video.spec.ts:76 could not load reels because an agent state.json.tmp disappeared during newestMtime stat. Log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-playwright-verified.log. The test passed alone with the same Chrome/fixture settings. The previous full run also had 160 passed, 1 failed (parts-page initial Loading); that case passed in the latest full run and 10 diagnostic repetitions. Six existing environment-dependent unit skips remain. Full browser completion is not claimed.
+- Waiting on owner: may I extend scope to fix the unchanged reel-listing newestMtime scan so a file disappearing between readdir and stat does not prevent the entire reel list loading, then rerun full Playwright? This is the new out-of-plan app failure required to stop under Scope; the earlier runner guard remains answered. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
 
 
 ## Goal
@@ -62,10 +62,10 @@ Fix each, then note it under Results. Rerun the affected checks.
 - [x] Step 13, phone width (390px): pins and cards show, Delete and Undo work, and no way to add a pin is offered.
 - [x] Step 14: a test fails if an instant pin creates an agent job; an agent pin or any pin with a note is saved as a comment with an `effect` id and goes in the next batch (`tests/core/batch.test.ts` passes); the build button shows the waiting count and "1 agent run".
 - [x] Step 16: after a built pin note, the prompt shows the plan's heading, quoted note and explanation; "Always for this reel" adds a rule to that reel's style only; "Only this version", or ignoring it through the next Build, adds nothing and does not ask again.
-- [ ] `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main` pass.
-- [ ] `npm run build`, then `npx vitest run --project unit` pass.
+- [x] `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main` pass.
+- [x] `npm run build`, then `npx vitest run --project unit` pass.
 - [ ] Full `npx playwright test --workers=2` passes. `main` has no known failures since #74; rerun any failure alone before calling it real, and report it under "Failed or skipped" with the log path if it is not yours.
-- [ ] Plan Changelog has a dated entry per step.
+- [x] Plan Changelog has a dated entry per step.
 
 Tick an item only after its check passes. State is `done` only when every box is ticked.
 
@@ -152,3 +152,18 @@ Pin/browser checks pass using the existing Current history controls (4 tests). A
 Removed the redundant sidebar Working history toolbar; instant edit Undo/Redo uses the existing Current history controls, and ordinary comment deletion keeps its original Undo affordance. Updated only the section test's shot helper to select shot-open buttons, preserving its original shot-count/name assertions while excluding the newly required Insert shot buttons. Derived comment reads now take the reel lock, with a private helper for mutation callers already holding it.
 
 Verified on the rebuilt final controls: pin browser tests 4 passed; alternate browser suite 15 passed; existing editing/section suites 16 passed; clip suite 3 passed; render suite 2 passed; playback suite 4 passed. No existing test expectations were weakened. Logs under C:/Users/ryand/AppData/Local/Temp/: kinotta-review-pins-regression.log, kinotta-review-alternates-ui-ready.log, kinotta-review-comment-sections.log, kinotta-review-isolated-clips.log, kinotta-review-isolated-picker.log and kinotta-review-isolated-playback-stutter.log. Typecheck, the affected pin/batch core tests (14) and the branch-wide mojibake scan passed. Complete unit and browser verification follows this commit.
+
+
+### 2026-10-26: final verification and unrelated reel-listing blocker
+
+All eight review fixes are committed. Final unit verification passed with 112 files, 976 tests passed and 6 environment-dependent skips (optional librosa, opt-in real Whisper and Windows symlink permissions); log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-unit-final.log. Typecheck, build, documentation and commit checks passed. The complete branch diff has no reviewed mojibake sequences, and git diff --check passes. The plan now has verified, dated Changelog entries for steps 13, 14 and 16.
+
+The full browser run in kinotta-review-playwright-complete.log finished with 160 passed and one parts-page initial-Loading failure. That case passed all 10 diagnostic repetitions (kinotta-review-parts-diagnostic.log), and passed in the following full run. Temporary request instrumentation was restored; no diagnostic helper changes remain.
+
+The final full npx playwright test --workers=2 run started with 4.33 GiB free memory and finished with 160 passed, 1 failed, exit 1 (5.5 minutes). Log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-playwright-verified.log. All pin, alternate, parts, playback and Working tests passed. The remaining failure was tests/e2e/drop-video.spec.ts:76, before video selection: the page displayed Could not load reels, ENOENT stat on reels/dropped-clip/.agent/jobs/<job>/state.json.tmp. The saved error context is C:/Users/ryand/AppData/Local/Temp/kinotta-review-drop-video-error-context.md.
+
+The direct isolated rerun with all default fixture servers crashed during setup (exit -1073740791), before any test ran; log: kinotta-review-drop-video-isolated.log. Repeating only the failed test with the same Chrome channel and footage/fake-transcriber server settings passed (1 test, exit 0); log: kinotta-review-drop-video-isolated-single-server.log. No test assertion or timeout was changed.
+
+The concrete error is in server/core/_internal/reels.ts:24-39: newestMtime enumerates files recursively, then stats each entry without handling ENOENT when an atomic writer has already renamed its temporary file. That module and agent-jobs.ts are unchanged from origin/main; the state.ts change only adds comment fields. This explains the captured reel-list API error, but does not establish the cause of earlier initial-Loading failures. Fixing the listing race is outside the pinned-effect interactions specified by the plan. Per the brief's stop condition, no listing/loading implementation was changed; State is blocked on the focused scope question above. The full-browser Done checkbox remains unchecked.
+
+No push or PR was made, and node_modules remains untouched.
