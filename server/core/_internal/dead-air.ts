@@ -18,9 +18,6 @@ export const WORD_TAIL_SECONDS = 0.15;
 /** Room kept before the next word, so its first sound isn't clipped. */
 export const WORD_LEAD_IN_SECONDS = 0.1;
 
-/** @deprecated Replaced by WORD_TAIL_SECONDS and WORD_LEAD_IN_SECONDS */
-export const WORD_PAD_SECONDS = WORD_TAIL_SECONDS;
-
 /** Normal only trims a breath with room for a full inhale, so short natural catches between words stay. */
 export const NORMAL_BREATH_GAP_SECONDS = 0.4;
 

@@ -8,7 +8,6 @@ import {
   GENTLE_GAP_SECONDS,
   NORMAL_GAP_SECONDS,
   TIGHT_GAP_SECONDS,
-  WORD_PAD_SECONDS,
   BREATH_MIN_PEAK,
   BREATH_MAX_PEAK,
   type Piece,
@@ -87,7 +86,6 @@ describe('dead air constants', () => {
     expect(TIGHT_GAP_SECONDS).toBe(0.35);
     expect(WORD_TAIL_SECONDS).toBe(0.15);
     expect(WORD_LEAD_IN_SECONDS).toBe(0.1);
-    expect(WORD_PAD_SECONDS).toBe(0.15);
     expect(NORMAL_BREATH_GAP_SECONDS).toBe(0.4);
     expect(TIGHT_BREATH_GAP_SECONDS).toBe(0.25);
     expect(NORMAL_BREATH_GAP_SECONDS).toBeGreaterThan(TIGHT_BREATH_GAP_SECONDS);
