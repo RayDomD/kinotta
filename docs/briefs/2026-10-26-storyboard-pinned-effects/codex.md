@@ -79,7 +79,7 @@ Not in this round, decided separately: a keyboard way to add an effect.
 - [x] Step 16: after a built pin note, the prompt shows the plan's heading, quoted note and explanation; "Always for this reel" adds a rule to that reel's style only; "Only this version", or ignoring it through the next Build, adds nothing and does not ask again.
 - [x] `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main` pass.
 - [x] `npm run build`, then `npx vitest run --project unit` pass.
-- [ ] Full `npx playwright test --workers=2` passes. `main` has no known failures since #74; rerun any failure alone before calling it real, and report it under "Failed or skipped" with the log path if it is not yours.
+- [x] Full `npx playwright test --workers=2` passes. `main` has no known failures since #74; rerun any failure alone before calling it real, and report it under "Failed or skipped" with the log path if it is not yours.
 - [x] Plan Changelog has a dated entry per step.
 
 Tick an item only after its check passes. State is `done` only when every box is ticked.
@@ -226,3 +226,7 @@ Targeted verification: 19 pin/batch/reliability core tests passed; all seven alt
 Full unit project passed on the final source: 113 files, 983 passed, 6 existing environment-dependent skips, exit 0 (kinotta-round2-unit-final.log). The skips remain optional librosa, opt-in real Whisper and Windows symlink permissions. Typecheck, production build, documentation, encoding and whitespace checks pass. Commit metadata is checked against origin/main after the final documentation commit; log: kinotta-round2-commits-final.log. Final documentation check log: kinotta-round2-docs-final.log. All logs are in C:/Users/ryand/AppData/Local/Temp/.
 
 The round is committed in logical slices: server reliability (84c72df), Storyboard navigation/display (eb2d9c0), then ADR 0007 and this verification record. All eight requested fixes are complete. State is done under the owner's explicit Status exception: full Playwright remains unticked and was not rerun, because Claude owns the next verify gate. No push or PR was made; node_modules remains untouched.
+
+### 2026-10-26: Claude verify gate on 6f2fa55
+
+Verify gate (`scripts/verify-lane.mjs --force`, logs in `tests/artifacts/verify-lane/2026-10-26T09-07-31/`): typecheck ok; full Playwright ok in two shards, 85 and 77 passed (162); mojibake ok. Unit failed one test, `render.test.ts:159` (the Draft render child exited 0xC0000409 under load); `npx vitest run --project render tests/core/render.test.ts` alone passed 9/9, so it is a load flake, not this branch. Scope flagged only docs outside Touch: the plan, the behaviour mockup, CONTEXT.md and ADR 0007, all written by Claude or requested in round two.
