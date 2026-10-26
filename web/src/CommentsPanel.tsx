@@ -260,7 +260,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
   const empty = version === undefined ? 'No comments yet.' : readOnly ? `No comments on v${version}.` : `No comments on v${version} yet. Enlarge a shot and click the frame to pin one.`;
   return (
     <aside className="comments" aria-label="Comments">
-      {storyboard && !readOnly && <EffectsDrawer />}
+      {storyboard && version !== undefined && !readOnly && <EffectsDrawer />}
       <header>
         <h2>Comments</h2>
         {version !== undefined && (
@@ -298,10 +298,9 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
       ) : (
         <Empty>{empty}</Empty>
       )}
-      {storyboard && edits && !readOnly && <div className="fx-history"><button type="button" className="c-act" disabled={!edits.list?.canUndo || edits.busy} onClick={() => void edits.undo()}>Undo edit</button><button type="button" className="c-act" disabled={!edits.list?.canRedo || edits.busy} onClick={() => void edits.redo()}>Redo edit</button></div>}
       {storyboard && slug && version !== undefined && !readOnly && comments.some((comment) => comment.effect || comment.insertShot) && <div className="fx-build"><CopyButton slug={slug} version={version} count={comments.filter((comment) => !comment.instant && !comment.sent).length} build beforeCopy={async () => { await flushPinnedNotes(); await note.flush(); }} hasNote={!!note.text.trim()} section={section?.id ? { id: section.id, number: section.number } : null} onSaved={onBuilt} />
         <p className="meta">{comments.some((comment) => !comment.instant && !comment.sent) ? `${comments.filter((comment) => !comment.instant && !comment.sent).length} waiting · 1 agent run · Copies the request` : 'Nothing needs the agent'}</p></div>}
-      {storyboard && slug && newest !== undefined && !readOnly && <KeepPinNotes slug={slug} version={newest} />}
+      {storyboard && slug && version !== undefined && newest !== undefined && !readOnly && <KeepPinNotes slug={slug} version={newest} />}
       {version !== undefined && <NoteBox note={note} readOnly={readOnly} />}
     </aside>
   );

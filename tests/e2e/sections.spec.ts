@@ -10,7 +10,7 @@ const SHARED_SERVER = serverUrl('shared');
 const heading = (page: Page): Locator => page.getByRole('heading', { level: 1 });
 const railSections = (page: Page): Locator => page.getByRole('navigation', { name: 'Sections' }).getByRole('button');
 const bands = (page: Page): Locator => page.locator('.band-lane .band');
-const gridShots = (page: Page): Locator => page.locator('.grid').getByRole('button');
+const gridShots = (page: Page): Locator => page.locator('.grid .shot').getByRole('button', { name: /^Shot / });
 
 test.describe('two sections', () => {
   test.use({ baseURL: FOOTAGE_SERVER });

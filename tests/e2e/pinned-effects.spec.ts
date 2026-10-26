@@ -30,9 +30,9 @@ test('frame drops make instant Working output, queue speech effects, route notes
     await expect(frame.locator('iframe[data-pinned-effect]')).toHaveCount(1);
     await card.locator('iframe.still-frame').evaluate(async (node) => { await ((node as HTMLIFrameElement).contentWindow as Window & { seek(t: number): Promise<void> }).seek(.6); });
     await expect(frame.frameLocator('iframe[data-pinned-effect]').getByRole('heading', { name: 'Parts fixture' })).toBeVisible();
-    await page.getByRole('button', { name: 'Undo edit', exact: true }).click();
+    await page.getByRole('group', { name: 'Current reel history' }).getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.locator('.fx-pin-card')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Redo edit', exact: true }).click();
+    await page.getByRole('group', { name: 'Current reel history' }).getByRole('button', { name: 'Redo', exact: true }).click();
     await expect(page.locator('.fx-pin-card')).toHaveCount(1);
     const note = page.getByRole('textbox', { name: 'Note for Title card 1' });
     await note.fill('Keep it small'); await note.blur();

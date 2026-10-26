@@ -160,7 +160,7 @@ async function savePinComment(projectDir: string, slug: string, number: number, 
     const state = await readState(file, number);
     if (state.comments.some((saved) => saved.id === comment.id)) await writeState(file, { ...state, comments: state.comments.filter((saved) => saved.id !== comment.id) });
   });
-  const comments = await listComments(projectDir, slug, number);
+  const comments = await listCommentsNow(projectDir, slug, number);
   return { comment: comments.find((item) => item.id === comment.id)!, comments };
 }
 
@@ -172,11 +172,17 @@ async function saveAgentPinComment(projectDir: string, slug: string, number: num
     const comments = index < 0 ? [...state.comments, comment] : state.comments.map((saved) => saved.id === comment.id ? comment : saved);
     await writeState(file, { ...state, comments });
   });
-  const comments = await listComments(projectDir, slug, number);
+  const comments = await listCommentsNow(projectDir, slug, number);
   return { comment: comments.find((saved) => saved.id === comment.id)!, comments };
 }
 
 export async function listComments(projectDir: string, slug: string, number: number): Promise<Comment[]> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => listCommentsNow(projectDir, slug, number));
+}
+
+/** Caller holds the reel lock, including during Working journal recovery. */
+async function listCommentsNow(projectDir: string, slug: string, number: number): Promise<Comment[]> {
   await readVersion(projectDir, slug, number);
   const state = await readState(stateFilePath(projectDir, slug, number), number);
   return numbered(await commentsForVersion(projectDir, slug, number, state.comments), state);
@@ -234,7 +240,7 @@ async function editCommentNow(projectDir: string, slug: string, number: number, 
     const { instant: _instant, effectHtml: oldHtml, ...base } = pinned;
     const instant = effect?.instant && !text;
     if (instant) {
-      if (pinned.instant) { const comments = await listComments(projectDir, slug, number); return { comment: comments.find((comment) => comment.id === id)!, comments }; }
+      if (pinned.instant) { const comments = await listCommentsNow(projectDir, slug, number); return { comment: comments.find((comment) => comment.id === id)!, comments }; }
       const effectHtml = oldHtml ?? await makeInstantEffect(projectDir, slug, effect.id, pinned.pin as FramePin, await commentVersion(projectDir, slug, number));
       return savePinComment(projectDir, slug, number, { ...base, text, effectHtml, instant: true });
     }
@@ -242,7 +248,7 @@ async function editCommentNow(projectDir: string, slug: string, number: number, 
     // Persist the request first. The reel lock keeps readers from seeing a half-completed transition.
     await saveAgentPinComment(projectDir, slug, number, ordinary);
     if (pinned.instant) await removeInstantPinNow(projectDir, slug, id);
-    const comments = await listComments(projectDir, slug, number);
+    const comments = await listCommentsNow(projectDir, slug, number);
     return { comment: comments.find((comment) => comment.id === id)!, comments };
   }
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
@@ -262,7 +268,7 @@ async function deleteCommentNow(projectDir: string, slug: string, number: number
   await takesComments(projectDir, slug, number);
   if ((await pinComment(projectDir, slug, number, id))?.instant) {
     await removeInstantPinNow(projectDir, slug, id);
-    return { comments: await listComments(projectDir, slug, number) };
+    return { comments: await listCommentsNow(projectDir, slug, number) };
   }
   const file = stateFilePath(projectDir, slug, number);
   return serialized(file, async () => {

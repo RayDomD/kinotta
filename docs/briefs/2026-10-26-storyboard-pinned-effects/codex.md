@@ -5,7 +5,7 @@
 <!-- Keep this block current. Claude reads only this block and the diff. -->
 - State: working
 - Done: implemented comment-backed Working pin edits, isolated instant template builds with Style fonts and Brand colours, batch routing, frame-only drops, alternate identity, note/Delete/Undo cards, Insert shot, phone controls, Build counts and built-note decisions. Focused Playwright: 4 passed. Pin/batch integration: 12 passed. Typecheck, build and check:docs passed before the final scoped note-flush/footprint changes; typecheck passed after them.
-- Failed or skipped: full unit passed (976 passed, 6 environment-dependent skips). The first full Playwright run was stopped after the new drawer's infinite artwork animations blocked existing settle checks; the batch failure reproduced alone, was fixed by static Storyboard drawer artwork, and then passed alone. A separate Review clip-loading failure also passed alone without Review changes. Full two-worker Playwright is being rerun.
+- Failed or skipped: none in the final isolated checks: pins 4, alternate browser tests 15, comment/section tests 16, clips 3, render 2 and playback 4 all passed. The earlier full browser failures and their fixes are recorded under Results. Final full unit and two-worker Playwright runs are pending after the guarded comment-read/control fixes. The unit project previously passed with 976 passed and 6 environment-dependent skips.
 - Waiting on owner: none. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
 
 
@@ -49,19 +49,19 @@ Fix each, then note it under Results. Rerun the affected checks.
 2. Instant pins must not be written into `state.comments` at hand-off (`batch.ts:148` `copyBatchNow` via `commentsForVersion`); an undone instant pin must not come back later.
 3. `pin-notes.ts:32` `builtPinNotes` must only pick comments with an `effect` id. Ordinary review comments never get "Keep this note".
 4. `pin-notes.ts:12` writes `pin-note-decisions.json` into the `v1/` version folder. Store reel-wide decisions at the reel level, never inside a version folder.
-5. Mojibake: restore UTF-8 `·`, `…`, `–`, `✓` in `web/src/App.tsx`, `web/src/styles.css`, `web/src/review/_internal/EditsPanel.tsx` and any other file you saved. Check with `git diff origin/main | grep -n -E "Â|â€"` (must print nothing).
+5. Mojibake: restore UTF-8 `·`, `…`, `–`, `✓` in `web/src/App.tsx`, `web/src/styles.css`, `web/src/review/_internal/EditsPanel.tsx` and any other file you saved. Check with `git diff origin/main | rg -n --pcre2 "\x{00C2}|\x{00E2}\x{20AC}"` (must print nothing).
 6. The Review edits (`Review.tsx`, `MediaEditor.tsx` `workingEffectKey`, `EditsPanel.tsx` `pin-comment`) are allowed only because instant pins are in Working and Review shows Working. Keep them minimal, say why under Results, and prove the alternates fix still holds with the `alternates-*` suites.
 7. Nits: `instant-effect.ts:30` unchecked `!` on the shot (throw a typed `KinottaError`); `Storyboard.tsx:177,182` stack offsets index a filtered list; `PinnedEffects.tsx:53` inserted shot placeholder should ask what the new shot shows.
 8. Plan Changelog: a dated entry per step (13, 14, 16).
 
 ## Done when
 
-- [ ] Step 13, desktop: a new Playwright spec drags Title card onto a frame (made at once, in Working, Undo removes it), drags Big word onto a frame (waits for Build), writes a note on an instant pin (moves to the agent) and clears it (moves back), deletes a pin by Delete key and by its card, and undoes both. It also proves the gap and the alternates strip are not drop targets.
-- [ ] Step 13, Insert shot: the spec clicks Insert shot in a gap, describes the shot, and shows the comment goes in the next batch and no "Keep this note" prompt follows.
-- [ ] Step 13, alternates: on a shot with alternates, previewing r2 and dropping an effect pins it to r2; the alternate in the reel is unchanged. `alternates-*` suites still pass.
-- [ ] Step 13, phone width (390px): pins and cards show, Delete and Undo work, and no way to add a pin is offered.
-- [ ] Step 14: a test fails if an instant pin creates an agent job; an agent pin or any pin with a note is saved as a comment with an `effect` id and goes in the next batch (`tests/core/batch.test.ts` passes); the build button shows the waiting count and "1 agent run".
-- [ ] Step 16: after a built pin note, the prompt shows the plan's heading, quoted note and explanation; "Always for this reel" adds a rule to that reel's style only; "Only this version", or ignoring it through the next Build, adds nothing and does not ask again.
+- [x] Step 13, desktop: a new Playwright spec drags Title card onto a frame (made at once, in Working, Undo removes it), drags Big word onto a frame (waits for Build), writes a note on an instant pin (moves to the agent) and clears it (moves back), deletes a pin by Delete key and by its card, and undoes both. It also proves the gap and the alternates strip are not drop targets.
+- [x] Step 13, Insert shot: the spec clicks Insert shot in a gap, describes the shot, and shows the comment goes in the next batch and no "Keep this note" prompt follows.
+- [x] Step 13, alternates: on a shot with alternates, previewing r2 and dropping an effect pins it to r2; the alternate in the reel is unchanged. `alternates-*` suites still pass.
+- [x] Step 13, phone width (390px): pins and cards show, Delete and Undo work, and no way to add a pin is offered.
+- [x] Step 14: a test fails if an instant pin creates an agent job; an agent pin or any pin with a note is saved as a comment with an `effect` id and goes in the next batch (`tests/core/batch.test.ts` passes); the build button shows the waiting count and "1 agent run".
+- [x] Step 16: after a built pin note, the prompt shows the plan's heading, quoted note and explanation; "Always for this reel" adds a rule to that reel's style only; "Only this version", or ignoring it through the next Build, adds nothing and does not ask again.
 - [ ] `npm run typecheck`, `npm run check:docs`, `npm run check:commits -- origin/main` pass.
 - [ ] `npm run build`, then `npx vitest run --project unit` pass.
 - [ ] Full `npx playwright test --workers=2` passes. `main` has no known failures since #74; rerun any failure alone before calling it real, and report it under "Failed or skipped" with the log path if it is not yours.
@@ -136,3 +136,19 @@ The full unit project passed: 112 files, 976 passed and 6 environment-dependent 
 The first full browser run exposed infinite CSS animations brought into Storyboard by the shared Library artwork. They kept document.getAnimations() nonempty, breaking existing settled-editor interactions and wasting background work. The reference drawer uses static artwork. Restricted the animation override to the Storyboard drawer, including pseudo-elements, leaving Library motion unchanged. The existing batch test failed alone before this fix and passed alone afterward without assertion changes. Logs: kinotta-review-playwright-full.log, kinotta-review-batch-isolated-before.log and kinotta-review-batch-isolated-after.log under C:/Users/ryand/AppData/Local/Temp/.
 
 The separate Review clip-load failure from that run passed alone in 1.9 seconds without changing Review; log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-clips-isolated.log. Rebuilt after the CSS fix. The final full browser rerun remains required.
+
+### 2026-10-26: saved final regression-fix plan
+
+The complete second browser run had 146 passed, 7 failed and 8 dependent tests not run. Fix the owned Undo-name collision by using the existing Current history controls rather than a second sidebar toolbar. Scope the sections test's shot helper to shot-open buttons, because Insert shot is now an intentional grid control. Keep derived comment reads under the reel lock required by readEditListNow, using an internal helper for callers already holding that lock. Rerun affected suites separately, then repeat the full two-worker browser run. The diagnostic regex in review item 5 now uses equivalent ASCII PCRE escapes so the brief does not match its own mojibake scan.
+
+The disposable request probe did not reproduce initial Loading across 52 openings, including two concurrent browser contexts. Kept the follow-up within the new controls: the drawer and keep-note query now mount only after a version is ready, and removed the extra comments refresh accidentally added to the pre-existing version-added handler. Existing new-version comment loading already follows the selected version; pin Undo refresh remains on edits-changed. No alternate or Review loading logic was rewritten.
+
+### 2026-10-26: focused compatibility checks
+
+Pin/browser checks pass using the existing Current history controls (4 tests). All 15 alternate browser tests pass, including the preserved chosen-Working-revision behaviour in Review, animation, keyboard and phone layouts; log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-alternates-ui-ready.log. The affected pin/batch core checks pass under the guarded comment-read path (14 tests), and typecheck passes. The second full browser run is recorded in kinotta-review-playwright-final.log; it is not a passing final run. Isolated reruns and complete verification are still in progress.
+
+### 2026-10-26: compatibility fixes verified in isolation
+
+Removed the redundant sidebar Working history toolbar; instant edit Undo/Redo uses the existing Current history controls, and ordinary comment deletion keeps its original Undo affordance. Updated only the section test's shot helper to select shot-open buttons, preserving its original shot-count/name assertions while excluding the newly required Insert shot buttons. Derived comment reads now take the reel lock, with a private helper for mutation callers already holding it.
+
+Verified on the rebuilt final controls: pin browser tests 4 passed; alternate browser suite 15 passed; existing editing/section suites 16 passed; clip suite 3 passed; render suite 2 passed; playback suite 4 passed. No existing test expectations were weakened. Logs under C:/Users/ryand/AppData/Local/Temp/: kinotta-review-pins-regression.log, kinotta-review-alternates-ui-ready.log, kinotta-review-comment-sections.log, kinotta-review-isolated-clips.log, kinotta-review-isolated-picker.log and kinotta-review-isolated-playback-stutter.log. Typecheck, the affected pin/batch core tests (14) and the branch-wide mojibake scan passed. Complete unit and browser verification follows this commit.

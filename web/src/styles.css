@@ -1025,7 +1025,6 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .fx-pin-card .c-act { position: relative; z-index: 2; margin-top: 7px; }
 .fx-insert-form { padding: 12px; border: 1px dashed var(--hairline); margin-bottom: 18px; }
 .fx-insert-form .btn, .fx-insert-form .c-act { margin: 10px 10px 0 0; }
-.fx-history { display: flex; gap: 16px; margin: 12px 0; }
 .fx-build { border-top: 1px solid var(--rule); padding-top: 12px; }
 .fx-build .copy { display: block; }
 @media (max-width: 600px), (pointer: coarse) { .fx-drawer, .fx-gap { display: none; } }

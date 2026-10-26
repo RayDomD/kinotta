@@ -593,7 +593,6 @@ function Studio() {
             rememberTab(event.reel, 'Storyboard');
           }
           setVersionsTick((n) => n + 1);
-          setCommentsTick((n) => n + 1);
           if (current.current.working) setVersionTick((n) => n + 1);
           setReady((prev) => new Set([...prev, event.version]));
         }
