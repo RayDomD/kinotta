@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { importVideo } from './api/index.ts';
 
 const PERCENT = 100;
@@ -6,8 +6,11 @@ const PERCENT = 100;
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.mkv', '.webm'];
 
 interface DropZoneProps {
-  /** Called with the first video's project path once every dropped video is in footage/ (copied, or already there). */
-  onImported(path: string): void;
+  /**
+   * Called with the first video's project path once every dropped video is in footage/, and whether this drop copied
+   * it there (false when an identical file was already in footage/).
+   */
+  onImported(path: string, copied: boolean): void;
 }
 
 /** One dropped video's progress: a line of the status list. */
@@ -42,7 +45,7 @@ async function droppedFiles(data: DataTransfer): Promise<{ files: File[]; folder
 }
 
 /**
- * The New reel drop zone: videos dropped or chosen, singly, several at once or as a folder, are copied into the
+ * The start screen's drop zone: videos dropped or chosen, singly, several at once or as a folder, are copied into the
  * project's footage/ folder one after another. The first is then picked to be named like any other.
  */
 export function DropZone({ onImported }: DropZoneProps) {
@@ -50,6 +53,7 @@ export function DropZone({ onImported }: DropZoneProps) {
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const folderInput = useRef<HTMLInputElement>(null);
 
   const take = async (all: File[], folder: string | null): Promise<void> => {
     if (busy) return;
@@ -62,7 +66,7 @@ export function DropZone({ onImported }: DropZoneProps) {
     setSummary(folder === null ? null : `Found ${videos.length} ${videos.length === 1 ? 'video' : 'videos'} in ${folder}`);
     setBusy(true);
     const update = (index: number, row: Partial<Row>): void => setRows((current) => current.map((r, i) => (i === index ? { ...r, ...row } : r)));
-    let first: string | null = null;
+    let first: { path: string; copied: boolean } | null = null;
     // One upload at a time: the disk is the limit, and the playback copies the server makes run on their own afterwards.
     for (const [index, file] of videos.entries()) {
       // Once every byte is sent, the server still checks it is a video; its playback copy is made in the background.
@@ -70,13 +74,13 @@ export function DropZone({ onImported }: DropZoneProps) {
       try {
         const { path, copied } = await importVideo(file, report);
         update(index, { status: copied ? 'in footage/' : 'already in footage/' });
-        first ??= path;
+        first ??= { path, copied };
       } catch (err: unknown) {
         update(index, { status: err instanceof Error ? err.message : 'Could not copy the video', failed: true });
       }
     }
     setBusy(false);
-    if (first !== null) onImported(first);
+    if (first !== null) onImported(first.path, first.copied);
   };
 
   return (
@@ -115,7 +119,21 @@ export function DropZone({ onImported }: DropZoneProps) {
         <span className="rv-drop-note">
           They are copied into this project's <b>footage/</b> folder and transcribed on this machine. You can cut while the words come in.
         </span>
-        <span className="btn quiet rv-choose">Choose files…</span>
+        <span className="rv-choose">
+          <span className="btn quiet">Choose files…</span>
+          {/* Inside the zone's label, so it opens the folder picker and not the file picker the label points at. */}
+          <button
+            type="button"
+            className="btn quiet"
+            disabled={busy}
+            onClick={(event) => {
+              event.preventDefault();
+              folderInput.current?.click();
+            }}
+          >
+            Choose a folder…
+          </button>
+        </span>
         <span className="rv-drop-status" role="status">{summary}</span>
         {rows.length > 0 && (
           <ul className="rv-drop-rows">
@@ -129,22 +147,21 @@ export function DropZone({ onImported }: DropZoneProps) {
         )}
         <span className="terrain" aria-hidden="true" />
       </label>
-      <label className="btn quiet rv-choose-folder" data-busy={busy}>
-        <input
-          type="file"
-          // A folder picker: React passes these through untyped.
-          {...{ webkitdirectory: '', directory: '' }}
-          aria-label="Choose a folder of videos"
-          disabled={busy}
-          onChange={(event) => {
-            const files = [...(event.target.files ?? [])];
-            const folder = files[0]?.webkitRelativePath.split('/')[0] ?? null;
-            void take(files.filter((file) => !file.webkitRelativePath.split('/').some((part) => part.startsWith('.'))), folder);
-            event.target.value = '';
-          }}
-        />
-        Choose a folder…
-      </label>
+      <input
+        ref={folderInput}
+        className="rv-folder-input"
+        type="file"
+        // A folder picker: React passes these through untyped.
+        {...{ webkitdirectory: '', directory: '' }}
+        aria-label="Choose a folder of videos"
+        disabled={busy}
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])];
+          const folder = files[0]?.webkitRelativePath.split('/')[0] ?? null;
+          void take(files.filter((file) => !file.webkitRelativePath.split('/').some((part) => part.startsWith('.'))), folder);
+          event.target.value = '';
+        }}
+      />
     </div>
   );
 }

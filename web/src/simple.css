@@ -16,7 +16,7 @@
 .sm-form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 20px; grid-column: 1 / -1; }
 .sm-make .rv-dropwrap { margin: 28px 0; }
 .sm-make-actions { display: flex; align-items: flex-end; gap: 20px; margin-top: 12px; }
-.sm-heading-actions label { min-width: 180px; }
+.sm-heading-actions label, .sm-top-actions label { min-width: 180px; }
 
 /* Agent control in header */
 .sm-app .sm-agent-control { flex-direction: row; align-items: center; gap: 8px; }

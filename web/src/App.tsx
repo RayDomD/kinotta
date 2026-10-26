@@ -7,7 +7,6 @@ import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
-import { NewReel, NewReelSide } from './NewReel.tsx';
 import { RenderMenu, RenderPlayer, VersionActions, outputFile, presetName } from './Renders.tsx';
 import type { RenderMenuProps } from './Renders.tsx';
 import { EditorIcon, EditorRail, EditorWorkspace, Review, ReviewSide, useEditorWorkspace, useEdits } from './review/index.ts';
@@ -278,12 +277,9 @@ interface MainProps {
   onSection(id: string): void;
   issues: VersionIssues;
   phase: Phase;
-  creating: boolean;
-  onStarted(slug: string): void;
   edits: EditsState;
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
-  onBriefStarted(slug: string): void;
   /** The reel's versions: the one on show carries its approval. */
   entries: VersionEntry[];
   /** The finished render Review is playing instead of the version, if any. */
@@ -295,8 +291,7 @@ interface MainProps {
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, creating, onStarted, edits, transcription, onBriefStarted, entries, playingRender, onStopRender, working, onWorking, onFrozen } = props;
-  if (creating) return <NewReel project={project} onStarted={onStarted} onBriefStarted={onBriefStarted} />;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, edits, transcription, entries, playingRender, onStopRender, working, onWorking, onFrozen } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
   }
@@ -643,8 +638,9 @@ function Studio() {
     }
   }} />;
 
-  if (simple) return <SimpleMode listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
-    comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted}
+  // New reel opens the one start screen from either view; starting or opening a reel returns to the view it came from.
+  if (simple || creating) return <SimpleMode listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
+    comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted} onBriefStarted={briefStarted}
     onEditor={() => { setWorking(true); setChosen(newest); setPhase('Review'); changeMode(false); }}
     onRefresh={() => { setVersionTick((tick) => tick + 1); setVersionsTick((tick) => tick + 1); setCommentsTick((tick) => tick + 1); }} />;
 
@@ -749,18 +745,13 @@ function Studio() {
           onSection={pickSection}
           issues={issues}
           phase={phase}
-          creating={creating}
-          onStarted={reelStarted}
           edits={edits}
           transcription={transcription}
-          onBriefStarted={briefStarted}
           entries={entries ?? []}
           playingRender={playingRender}
           onStopRender={() => setPlayingRender(null)}
         />
-        {creating ? (
-          <NewReelSide />
-        ) : phase === 'Review' ? (
+        {phase === 'Review' ? (
           <ReviewSide
             edits={edits}
             pieces={openVersion?.pieces}

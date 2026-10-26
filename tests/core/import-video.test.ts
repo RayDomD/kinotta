@@ -161,3 +161,43 @@ describe('importVideo', () => {
     expect(result.path).toBe('footage/talk.mp4');
   });
 });
+
+describe('removeVideo', () => {
+  it('deletes a copied video no reel uses, with its playback copy', { timeout: SLOW_MS }, async () => {
+    const source = copyFixture('footage-project');
+    const dir = emptyProject();
+    const project = openProject(dir);
+    const { path } = await project.importVideo('talk.mp4', createReadStream(join(source, SAMPLE)));
+    const playback = join(dir, 'footage', '.playback', 'talk.mp4');
+    mkdirSync(join(dir, 'footage', '.playback'), { recursive: true });
+    writeFileSync(playback, 'copy');
+
+    expect(await project.removeVideo(path)).toEqual({ removed: true });
+
+    expect(existsSync(join(dir, path))).toBe(false);
+    expect(existsSync(playback)).toBe(false);
+    expect(await project.listVideos()).toEqual([]);
+  });
+
+  it('keeps a video a reel uses', { timeout: SLOW_MS }, async () => {
+    const source = copyFixture('footage-project');
+    const dir = emptyProject();
+    const project = openProject(dir);
+    const { path } = await project.importVideo('talk.mp4', createReadStream(join(source, SAMPLE)));
+    mkdirSync(join(dir, 'reels', 'talk'), { recursive: true });
+    writeFileSync(join(dir, 'reels', 'talk', 'reel.json'), JSON.stringify({ title: 'talk', footage: path }));
+
+    expect(await project.removeVideo(path)).toEqual({ removed: false });
+
+    expect(existsSync(join(dir, path))).toBe(true);
+  });
+
+  it('refuses a video outside footage/', async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir);
+
+    await expect(project.removeVideo(SAMPLE)).rejects.toMatchObject({ code: 'invalid' });
+    await expect(project.removeVideo('footage/../media/talk.mp4')).rejects.toMatchObject({ code: 'invalid' });
+    expect(existsSync(join(dir, SAMPLE))).toBe(true);
+  });
+});
