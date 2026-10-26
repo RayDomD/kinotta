@@ -1,7 +1,7 @@
 ---
 title: One start screen, Auto that builds everything, and a two-step top bar
 date: 2026-10-26
-status: Approved
+status: In Progress
 summary: Merge the start screens, make Auto build the cut and b-roll in one press with visible progress and Cancel, let the agent decide cuts, and turn the top bar into Storyboard then Edit.
 spec: docs/mockups/2026-10-26-start-to-export-flow.html
 ---
@@ -14,7 +14,7 @@ spec: docs/mockups/2026-10-26-start-to-export-flow.html
 - Affected: `web/src/SimpleMode.tsx`, `SimpleMake.tsx`, `NewReel.tsx`, `DropZone.tsx`, `App.tsx` (top bar), `Direction.tsx`; `server/core/_internal/agent-settings.ts`, `agent-jobs.ts`, `dead-air.ts`, `start.ts`; the skill's "Unattended add b-roll" section; `DESIGN.md`; e2e suites `simple-mode`, `direction`, `pinned-effects`.
 - Constraints: Kinotta never spends an agent plan without a yes (asked once per project). Cancel stops the agent and every process it started (already true on the server). Copy request stays available. No fake percentage: progress shows the stage, the time so far and a moving bar. Keep the animated revisions and the Review-loads-Working fix from the inline alternates work. Footage stays where it is when picked from the project. Dropped files are copied.
 - Out of scope: npm or `npx` distribution (deferred). A keyboard way to add effects (separate follow-up). Library's deferred tabs. New effect templates. Portrait reels.
-- Open questions: (1) Export presets: the app's draft, final and overlay, or draft, final and 4K. (2) Whether Auto's footage reels ever have shot options; the unattended b-roll path does not mention alternates, so probably not.
+- Open questions: (1) Answered 2026-10-27: Export lists the app's presets (draft, final, overlay) with a 1080p or 4K size choice. (2) Whether Auto's footage reels ever have shot options; the unattended b-roll path does not mention alternates, so probably not.
 
 ## Goal
 
@@ -60,3 +60,7 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 ### 2026-10-26
 - Plan created from the owner's trial of the Direction and Storyboard features. Approach agreed in conversation: Brief is not a step, Auto keeps Storyboard as optional, the agent decides cuts, Copy mode gets a confirmation, progress and Cancel. Prototype saved as `docs/mockups/2026-10-26-start-to-export-flow.html`.
 - Owner decision: a pasted request's output comes back by Kinotta watching the job folder and loading it, not by the agent calling Kinotta. Plan approved.
+
+### 2026-10-27
+- Owner decisions: Export ▾ lists the app's presets plus a 1080p or 4K size (open question 1); this plan ships in the phase A PR rather than its own; phase A is built in this window, and dispatching any later phase needs a yes first.
+- Phase A built on `feat/start-screen`: `NewReel` deleted, and the editor's New reel opens the Simple start screen. Starting or opening a reel there returns to the view it came from. The start page's top bar holds KINOTTA and the reel menu only. "Choose a folder…" sits inside the drop zone. A picked video shows as a row with Remove, which deletes the copy this screen just made (and its playback copy) unless a reel uses it (`DELETE /api/footage`). Editor specs that only needed a reel now start it through the API, because Auto's dead-air pass would cut their fixture.
