@@ -1,6 +1,6 @@
 # ADR 0007: pinned effects are comments
 
-Status: accepted, 2026-10-25. Not yet implemented; see `docs/plans/2026-10-25-direction-and-storyboard.md`, Phase 5.
+Status: accepted, 2026-10-25. Implemented on `feat/storyboard-pinned-effects`; see `docs/plans/2026-10-25-direction-and-storyboard.md`, Phase 5.
 
 An effect dragged onto a Storyboard shot is stored as a comment with an `effect` id. It keeps the comment's frame pin (a position with its shot name and, on a shot with alternates, the alternate the card was showing) and may carry a note. An agent pin is a request, not a Working change, until a build makes it; an instant pin changes Working when it is made, as an undoable edit. "Insert shot" in a gap between shots is a plain comment describing the new shot, with no `effect` id, and always goes to the agent. Effects are not dropped on gaps or the alternates strip (owner decision, 2026-10-26).
 
