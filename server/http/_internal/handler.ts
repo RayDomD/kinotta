@@ -6,6 +6,7 @@ import { dirname, extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts';
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
+const PIN_NOTES_API = /^\/api\/reels\/([^/]+)\/pin-notes(?:\/([a-f0-9]{64}))?$/;
 const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -379,6 +380,7 @@ export function createHandler(project: Project, webRoot: string) {
         return;
       }
       const versionRoute = VERSION_API.exec(pathname);
+      const pinNotesRoute = PIN_NOTES_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
       const noteRoute = NOTE_API.exec(pathname);
@@ -416,6 +418,14 @@ export function createHandler(project: Project, webRoot: string) {
         else if (id && req.method === 'PATCH') sendJson(res, 200, await project.changeMarker(slug, id, await readJsonBody(req) as { time?: number; name?: string }));
         else if (id && req.method === 'DELETE') { await project.removeMarker(slug, id); res.writeHead(204).end(); }
         else res.writeHead(405).end();
+      } else if (pinNotesRoute) {
+        const slug = safeDecode(pinNotesRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else if (req.method === 'GET' && !pinNotesRoute[2]) sendJson(res, 200, await project.builtPinNotes(slug));
+        else if (req.method === 'POST' && pinNotesRoute[2]) {
+          const body = await readJsonBody(req) as { keep?: unknown };
+          await project.decidePinNote(slug, pinNotesRoute[2], body?.keep as boolean); sendJson(res, 200, { saved: true });
+        } else res.writeHead(405).end();
       } else if (commentsRoute) {
         await handleComments(req, res, project, commentsRoute);
       } else if (commentRoute) {
@@ -556,6 +566,20 @@ export function createHandler(project: Project, webRoot: string) {
         const id = safeDecode(SOUND_EFFECT_ROUTE.exec(pathname)![1]!);
         if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');
         await sendRanged(req, res, await project.soundEffectFile(id));
+      // Effects catalogue routes (effects-library lane)
+      } else if (pathname === '/api/effects') {
+        const { effectsCatalogue } = await import('../../core/index.ts');
+        sendJson(res, 200, { effects: await effectsCatalogue() });
+      } else if (/^\/api\/effects\/([^/]+)\/preview\/(.+)$/.test(pathname)) {
+        const match = /^\/api\/effects\/([^/]+)\/preview\/(.+)$/.exec(pathname)!;
+        const id = safeDecode(match[1]!);
+        const file = safeDecode(match[2]!);
+        if (id === null || file === null) sendNotFound(res);
+        else {
+          const { effectPreviewFile } = await import('../../core/index.ts');
+          const filePath = await effectPreviewFile(id, file);
+          sendFile(req, res, filePath);
+        }
       } else if (footageRoute) {
         await serveFootage(req, res, project, footageRoute);
       } else if (mediaRoute || versionMediaRoute) {

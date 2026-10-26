@@ -26,6 +26,7 @@ import type { CommentsState } from './useComments.ts';
 import { useNote } from './useNote.ts';
 import type { NoteState } from './useNote.ts';
 import { SimpleMode, startsInSimpleMode } from './SimpleMode.tsx';
+import { Library } from './Library.tsx';
 
 type Load =
   | { status: 'loading' }
@@ -56,6 +57,7 @@ function topBarVerifyAttrs(choices: number) {
 
 function TopBar(props: {
   onSimple?(): void;
+  onLibrary?(): void;
   reel: ReelSummary | undefined;
   version: Version | undefined;
   commentCount: number;
@@ -94,6 +96,7 @@ function TopBar(props: {
       </nav>
       {renders && <RenderMenu {...renders} />}
       {props.onSimple && <button type="button" className="c-act" onClick={props.onSimple}>Simple mode</button>}
+      {props.onLibrary && <button type="button" className="c-act" onClick={props.onLibrary}>Library</button>}
       {choices > 0 && !creating && <span className="alternate-choice-count" aria-label="Shots needing a choice" role="status"><span className="num">{choices}</span>{` ${choices === 1 ? 'shot needs' : 'shots need'} a choice`}</span>}
       {reel && version && !creating && (
         <CopyButton
@@ -419,6 +422,15 @@ export function App() {
 
 function Studio() {
   const [simple, setSimple] = useState(startsInSimpleMode);
+  const [library, setLibrary] = useState(() => typeof window !== 'undefined' && (window.location.hash === '#library' || new URLSearchParams(window.location.search).get('page') === 'library'));
+
+  useEffect(() => {
+    const onHash = () => {
+      if (window.location.hash === '#library') setLibrary(true);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const changeMode = (next: boolean) => {
     try { sessionStorage.setItem('kinotta-mode', next ? 'simple' : 'editor'); } catch { /* The mode still works for this visit. */ }
     setSimple(next);
@@ -569,6 +581,7 @@ function Studio() {
         afterPendingEdits(event.reel, () => {
           if (event.reel !== current.current.slug) return;
           setVersionsTick((n) => n + 1);
+          setCommentsTick((n) => n + 1);
           if (current.current.working) setVersionTick((n) => n + 1);
         });
       } else if (event.type === 'version-added') {
@@ -623,6 +636,13 @@ function Studio() {
   const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
   const frozen = openVersion !== undefined && !working;
 
+  if (library) return <Library reelTitle={reel?.title ?? 'The pin'} onBack={() => {
+    setLibrary(false);
+    if (typeof window !== 'undefined' && window.location.hash === '#library') {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }} />;
+
   if (simple) return <SimpleMode listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
     comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted}
     onEditor={() => { setWorking(true); setChosen(newest); setPhase('Review'); changeMode(false); }}
@@ -630,6 +650,10 @@ function Studio() {
 
   const commentsPanel = (
     <CommentsPanel
+      slug={reel?.slug}
+      storyboard={phase === 'Storyboard'}
+      edits={edits}
+      onBuilt={() => { setVersionTick((n) => n + 1); setVersionsTick((n) => n + 1); setCommentsTick((n) => n + 1); }}
       frozen={frozen}
       version={openVersion?.number}
       newest={newest}
@@ -642,6 +666,7 @@ function Studio() {
       section={
         multiSection
           ? {
+              id: sectionId,
               number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)),
               shots: new Set(openVersion.shots.filter((s) => s.section === sectionId).map((s) => s.number)),
             }
@@ -654,9 +679,10 @@ function Studio() {
     <div className="app">
       <TopBar
         onSimple={() => { setWorking(true); setChosen(newest); changeMode(true); }}
+        onLibrary={() => setLibrary(true)}
         reel={reel}
         version={openVersion}
-        commentCount={multiSection ? (pinCounts(comments.comments, openVersion.shots).get(sectionId) ?? 0) : comments.comments.length}
+        commentCount={multiSection ? (pinCounts(comments.comments.filter((comment) => !comment.instant), openVersion.shots).get(sectionId) ?? 0) : comments.comments.filter((comment) => !comment.instant).length}
         note={note}
         frozen={frozen}
         issues={issues}
@@ -668,7 +694,8 @@ function Studio() {
           setPhase(next);
           if (reel) rememberTab(reel.slug, next);
         }}
-        section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
+        section={multiSection ? { id: sectionId,
+              number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
         renders={{
           slug: creating ? undefined : reel?.slug,
           jobs,
@@ -682,7 +709,7 @@ function Studio() {
           },
         }}
       />
-      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
+      <div className="body" data-pin-storyboard={String(phase === 'Storyboard' && !creating)} data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
         <Rail
           reviewMode={phase === 'Review' && !creating}
           project={load.project}

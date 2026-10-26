@@ -1,9 +1,10 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // Edits, deletes and notes change what the server holds, so this has its own server and temp project
 // (playwright.config.ts) and runs in order: each test builds on the comments the ones before it left.
-const EDITING_SERVER = 'http://localhost:4394';
+const EDITING_SERVER = serverUrl('editing');
 const PAGE_WIDTH = 1920;
 const COMMENTS_API = `${EDITING_SERVER}/api/reels/product-showreel/versions/2/comments`;
 const EMPTY_TEXT = 'No comments on v2 yet. Enlarge a shot and click the frame to pin one.';

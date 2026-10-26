@@ -1,8 +1,9 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // The engine-project sample, its clips built by the motion engine when the server starts (playwright.config.ts).
-const ENGINE_SERVER = 'http://localhost:4391';
+const ENGINE_SERVER = serverUrl('engine');
 const PAGE_WIDTH = 1920;
 
 test.use({ baseURL: ENGINE_SERVER });

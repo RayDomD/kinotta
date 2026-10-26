@@ -1,5 +1,6 @@
 import { revealReelRail } from '../helpers/review-rail.ts';
 import { expect, test } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // Building v1 runs the real build, so the first wait after Start is longer than the default.
 const BUILD_WAIT_MS = 30_000;
@@ -7,7 +8,7 @@ const BUILD_WAIT_MS = 30_000;
 const TOOL_CHECK_WAIT_MS = 20_000;
 
 // The footage-project sample with a fake transcriber (playwright.config.ts); a reel is started in it.
-test.use({ baseURL: 'http://localhost:4389' });
+test.use({ baseURL: serverUrl('newReel') });
 
 test('the Needs row names what a start from video needs, and not the render browser', async ({ page }) => {
   await page.goto('/');
@@ -34,7 +35,8 @@ test('a video picked on New reel becomes a reel that opens in Review', async ({ 
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Picked talk' })).toBeVisible();
   await revealReelRail(page);
   await expect(page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Picked talk' })).toHaveAttribute('aria-current', 'true');
-  await expect(page.getByRole('main', { name: 'Review' }).locator('[data-verify-unit="PictureLayer"] video')).toBeVisible();
+  // Before v1 builds, Review shows the plain player; after, the picture layers.
+  await expect(page.getByRole('main', { name: 'Review' }).locator('.rv-frame > video.rv-video, [data-verify-unit="PictureLayer"] video').first()).toBeVisible();
 
   // v1 follows the transcription in the background.
   await expect(page.locator('[data-working-row][data-current-version="1"]')).toBeVisible({ timeout: BUILD_WAIT_MS });

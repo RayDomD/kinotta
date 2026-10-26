@@ -165,7 +165,7 @@ On a parts reel the batch groups comments by shot and opens with a `Rebuild:` li
 _Avoid_: Feedback round, export
 
 **Pinned effect**:
-An effect template dragged onto a Storyboard shot: a comment with an `effect` id, pinned to a spot on a frame, a gap between shots, or the alternates strip. It may carry a note. It is a request, not a Working change, until the next build makes it.
+An effect template dragged onto a Storyboard shot: a comment with an `effect` id, pinned to a spot on a frame (on a shot with alternates, the alternate the card shows). It may carry a note. An agent pin is a request, not a Working change, until the next build makes it; an instant pin is made and put in Working at once.
 _Avoid_: Effect marker, effect placement
 
 **Instant pin**:

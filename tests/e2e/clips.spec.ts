@@ -1,14 +1,14 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
 import { freezeWorking, undoWorkingEdits, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Save runs the real build.
 const BUILD_WAIT_MS = 30_000;
-const PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-clips-project.txt');
+const PROJECT_FILE = projectFile('clips');
 /** Pixels inside a clip's edge where its grip is (the grip is 6 px wide). */
 const GRIP_INSET = 3;
 /** The sample video is 12 s and the lanes open on all of it. */
@@ -23,7 +23,7 @@ const DRAG_PX = 20;
 const SCALE_PX = 30;
 
 // The footage sample as it is (its agent-built reel has four clips), its own server (playwright.config.ts).
-test.use({ baseURL: 'http://localhost:4384' });
+test.use({ baseURL: serverUrl('clips') });
 test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });

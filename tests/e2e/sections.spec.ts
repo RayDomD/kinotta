@@ -1,15 +1,16 @@
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { serverUrl } from './ports.ts';
 
 // Read-only, on the footage server (two sections) so it never disturbs footage.spec.ts, which saves comments there.
 // Pin counts are not asserted for that reason. The one-section reel is checked on the shared server, in the last test.
-const FOOTAGE_SERVER = 'http://localhost:4396';
-const SHARED_SERVER = 'http://localhost:4399';
+const FOOTAGE_SERVER = serverUrl('footage');
+const SHARED_SERVER = serverUrl('shared');
 
 const heading = (page: Page): Locator => page.getByRole('heading', { level: 1 });
 const railSections = (page: Page): Locator => page.getByRole('navigation', { name: 'Sections' }).getByRole('button');
 const bands = (page: Page): Locator => page.locator('.band-lane .band');
-const gridShots = (page: Page): Locator => page.locator('.grid').getByRole('button');
+const gridShots = (page: Page): Locator => page.locator('.grid .shot').getByRole('button', { name: /^Shot / });
 
 test.describe('two sections', () => {
   test.use({ baseURL: FOOTAGE_SERVER });

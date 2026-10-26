@@ -107,3 +107,48 @@ it('the agent prompt lists the same told lines as the request, after the owner n
   for (const line of request.told!) expect(prompt).toContain(`- ${line}`);
   expect(brollJobPrompt(makeBrollJobRequest('id', 'talk', 1, {}, 30))).not.toContain('What the agent is told');
 });
+
+it('agentTold omits an unknown frame without throwing', () => {
+  const context = { frame: 'unknown' } as unknown as Parameters<typeof agentTold>[1];
+  expect(() => agentTold(direction(), context)).not.toThrow();
+  expect(agentTold(direction(), context).some((line) => line.startsWith('Frame:'))).toBe(false);
+});
+it('agentTold prints an unknown setting key instead of undefined', () => {
+  const style = direction({ settings: { futureSetting: 'enabled' } as unknown as Style['settings'] });
+  const lines = agentTold(style);
+  expect(lines).toContain('Settings: futureSetting enabled.');
+  expect(lines.join('\n')).not.toContain('undefined');
+});
+it('Phase 6 request-only: footage and brief requests carry every style line and rule from one saved project style', { timeout: 60_000 }, async () => {
+  const { dir, server, call } = await serve();
+  expect((await call('/api/agent/settings', 'PUT', { provider: 'copy' })).status).toBe(200);
+  const style = direction({ id: 'summit-style', name: 'Summit style', scope: 'project', basedOn: 'clean' });
+  expect((await call('/api/styles', 'PUT', { scope: 'project', style })).status).toBe(200);
+
+  const footage = await call('/api/reels', 'POST', { video: 'media/talk.mp4', title: 'Summit footage', style: { id: style.id } });
+  expect(footage.status).toBe(201);
+  const { slug } = await footage.json();
+  await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
+  const footageCopy = (await server.project.readReelStyle(slug))!;
+  expect(footageCopy).toMatchObject({ id: style.id, scope: 'project', rules: ['Keep captions low'] });
+  const footageLines = agentTold(footageCopy, { frame: 'landscape', frameFound: true });
+  expect(footageLines).toContain('Rule: "Keep captions low".');
+  const status = await (await call(`/api/reels/${slug}/agent`)).json();
+  expect(status.job).toMatchObject({ provider: 'copy', state: 'copy-ready' });
+  const job = JSON.parse(readFileSync(join(dir, 'reels', slug, '.agent', 'jobs', status.job.id, 'request.json'), 'utf8'));
+  expect(job.style).toEqual(footageCopy);
+  expect(job.told).toEqual(footageLines);
+  const copied = await call(`/api/reels/${slug}/agent/copy`);
+  expect(copied.status).toBe(200);
+  const { request: footageRequest } = await copied.json();
+  for (const line of footageLines) expect(footageRequest).toContain(`- ${line}`);
+
+  const brief = await call('/api/reels/brief', 'POST', { title: 'Summit graphics', brief: 'Three steps to the summit', style: { id: style.id } });
+  expect(brief.status).toBe(201);
+  const { slug: briefSlug, request: briefRequest } = await brief.json();
+  const briefCopy = (await server.project.readReelStyle(briefSlug))!;
+  expect(briefCopy).toEqual(footageCopy);
+  const briefLines = agentTold(briefCopy);
+  expect(briefLines).toContain('Rule: "Keep captions low".');
+  for (const line of briefLines) expect(briefRequest).toContain(`- ${line}`);
+});

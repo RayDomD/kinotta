@@ -106,6 +106,7 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  workingEffectKey?: string;
   parts?: PartsManifest;
   workingParts?: { duration: number; shots: Shot[]; key: string };
   workingBase?: number;
@@ -286,6 +287,10 @@ export interface WordPin {
 }
 
 export interface Comment {
+  effect?: string;
+  effectName?: string;
+  instant?: true;
+  insertShot?: true;
   stateReason?: string;
   options?: 2 | 3 | 4;
   id: string;
@@ -308,6 +313,8 @@ export interface CommentsOfVersion {
 }
 
 export interface NewComment {
+  effect?: string;
+  insertShot?: true;
   options?: 2 | 3 | 4;
   pin: { kind?: 'frame'; alternate?: string; shotName?: string; placement?: string; time?: number; shot: string; x: number; y: number; element: string | null } | { kind: 'word'; placement?: string; shot: string; time: number; word: string };
   text: string;
@@ -325,6 +332,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 const getJson = <T>(path: string): Promise<T> => requestJson<T>(path);
 const versionPath = (slug: string, number: number): string => `/api/reels/${encodeURIComponent(slug)}/versions/${number}`;
 
+export interface BuiltPinNote { id: string; text: string }
+export const fetchBuiltPinNotes = (slug: string): Promise<BuiltPinNote[]> => getJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes`);
+export const decidePinNote = (slug: string, id: string, keep: boolean): Promise<void> => requestJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes/${encodeURIComponent(id)}`, jsonBody('POST', { keep }));
 export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
 export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
 /** Whether Python 3, ffmpeg and faster-whisper are installed, which starting a reel from a video needs. */
@@ -669,3 +679,20 @@ export const fetchBrandFonts = (): Promise<import('../../../../server/core/index
 /** Copies a font dropped on Direction into the project's fonts/, with a license note. */
 export const importFont = (file: File): Promise<import('../../../../server/core/index.ts').ImportedFont> =>
   requestJson(`/api/fonts?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+// Effects catalogue (effects-library lane)
+export interface EffectCatalogueEntry {
+  id: string;
+  name: string;
+  category: 'words' | 'lists' | 'speaker' | 'screens' | 'looks' | 'structure';
+  description: string;
+  needs: string;
+  forms: string[];
+  instant: boolean;
+  instantFrom?: string;
+  ask?: string;
+}
+
+export const fetchEffects = async (): Promise<EffectCatalogueEntry[]> => (await getJson<{ effects: EffectCatalogueEntry[] }>('/api/effects')).effects;
+
+export const effectPreviewUrl = (id: string, file: string): string =>
+  `/api/effects/${encodeURIComponent(id)}/preview/${encodeURIComponent(file)}`;

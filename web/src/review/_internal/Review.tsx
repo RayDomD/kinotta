@@ -439,7 +439,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
 
   const problem =
     withFootage && videoFailed ? 'The footage could not be loaded.' : !withFootage && version !== undefined && version.footage?.exists === false ? 'The footage file is missing.' : null;
-  const pageUrl = version ? version.workingParts ? workingPartsPageUrl(reel.slug, version.workingParts.key) : versionPageUrl(reel.slug, version.workingBase ?? version.number) : undefined;
+  const pageUrl = version ? version.workingEffectKey ? workingPartsPageUrl(reel.slug, version.workingEffectKey) : version.workingParts ? workingPartsPageUrl(reel.slug, version.workingParts.key) : versionPageUrl(reel.slug, version.workingBase ?? version.number) : undefined;
   const playable = total > 0 && win.length > 0;
 
   return (

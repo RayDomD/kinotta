@@ -17,6 +17,12 @@ export const MOMENT_REMOVED = 'moment-removed';
 export const ELEMENT_REMOVED = 'element-removed';
 
 export interface StoredComment {
+  effect?: string;
+  effectName?: string;
+  instant?: true;
+  insertShot?: true;
+  /** Self-contained local template output; never sent in a comment batch. */
+  effectHtml?: string;
   stateReason?: string;
   options?: 2 | 3 | 4;
   id: string;

@@ -33,7 +33,16 @@ export default defineConfig({
         },
       },
       { test: { name: 'process-heavy', include: PROCESS_HEAVY_TESTS, fileParallelism: false, testTimeout: PROCESS_TEST_TIMEOUT_MS, sequence: { groupOrder: 1 } } },
-      { test: { name: 'render', include: RENDER_TESTS, fileParallelism: false, sequence: { groupOrder: 2 } } },
+      {
+        test: {
+          name: 'render',
+          include: RENDER_TESTS,
+          fileParallelism: false,
+          sequence: { groupOrder: 2 },
+          // Render tests serve dist/web without building it; rebuild a stale one first.
+          globalSetup: ['tests/helpers/web-build-setup.ts'],
+        },
+      },
     ],
   },
 });

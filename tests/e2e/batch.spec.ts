@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 // Saves comments and batches, so it has its own server and temp project (playwright.config.ts), and runs in order.
-const BATCH_SERVER = 'http://localhost:4397';
-const PROJECT_PATH_FILE = join(tmpdir(), 'kinotta-e2e-batch-project.txt');
+const BATCH_SERVER = serverUrl('batch');
+const PROJECT_PATH_FILE = projectFile('batch');
 const PAGE_WIDTH = 1920;
 const BATCH_FILE = 'reels/product-showreel/v2/comments.json';
 

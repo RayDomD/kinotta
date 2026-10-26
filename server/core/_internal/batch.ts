@@ -1,6 +1,7 @@
+import { dismissBuiltPinNotes } from './pin-notes.ts';
 import { join } from 'node:path';
 import { carriedComment, isSent, sectionOfComment, settleNewest } from './carry.ts';
-import { NO_SHOT, numbered } from './comments.ts';
+import { commentsForVersion, NO_SHOT, numbered } from './comments.ts';
 import { KinottaError } from './errors.ts';
 import { recordHandoff } from './handoff.ts';
 import { readTitle } from './reels.ts';
@@ -60,7 +61,7 @@ function pasteableText(heading: string, file: string, comments: Comment[], notes
     const where = c.pin.shot === NO_SHOT ? '' : `Shot ${c.pin.shot}, `;
     const revision = c.pin.kind === 'frame' ? c.pin.alternate : undefined;
     const label = revision ? version.shots.find((shot) => shot.number === c.pin.shot)?.alternates?.find((alternate) => alternate.revision === revision)?.label ?? revision : undefined;
-    lines.push(`${c.number}. ${where}${label ? `alternate ${label}, ` : ''}${timecode(c.pin.time)}s, ${target(c)}: ${c.text}`);
+    lines.push(`${c.number}. ${where}${label ? `alternate ${label}, ` : ''}${timecode(c.pin.time)}s, ${target(c)}: ${c.effect ? `Effect: ${c.effect}. ` : c.insertShot ? `Insert shot after ${c.pin.shot}: ` : ''}${c.text}`);
   }
   for (const shot of version.shots) if (shot.alternates && !partsShots.includes(shot)) {
     lines.push(`Shot ${shot.number} · ${shot.name}`);
@@ -115,7 +116,7 @@ async function copyBatchNow(projectDir: string, slug: string, number: number, op
 
   return serialized(stateFile, async () => {
     const state = await readState(stateFile, number);
-    const comments = numbered(state.comments).filter((c) => whole || sectionOfComment(version, c) === section.id);
+    const comments = numbered(await commentsForVersion(projectDir, slug, number, state.comments)).filter((c) => !c.instant && (whole || sectionOfComment(version, c) === section.id));
     const note = state.note.trim();
     const notes = note === '' ? [] : [note];
     if (comments.length === 0 && notes.length === 0) {
@@ -136,6 +137,8 @@ async function copyBatchNow(projectDir: string, slug: string, number: number, op
         ...(c.pin.kind === 'word' ? { word: c.pin.word, element: null } : { element: c.pin.element, x: c.pin.x, y: c.pin.y, ...(c.pin.shotName ? { shotName: c.pin.shotName } : {}), ...(c.pin.alternate ? { alternate: c.pin.alternate } : {}) }),
         text: c.text,
         ...(c.options === undefined ? {} : { options: c.options }),
+        ...(c.effect ? { effect: c.effect } : {}),
+        ...(c.insertShot ? { insertShot: true } : {}),
       })),
       notes,
       ...(version.parts ? { shots: version.shots.filter((shot) => shot.alternates).map((shot) => ({ name: shot.name, number: shot.number, inReel: shot.revision, alternates: shot.alternates })) } : {}),
@@ -158,17 +161,19 @@ export async function copyBatch(projectDir: string, slug: string, number: number
     await settleNewest(projectDir, slug);
     const from = await assertTakesComments(projectDir, slug, number);
     const { section } = sectionToCopy(from.sections, options.section);
-    const source = await readState(stateFilePath(projectDir, slug, number), number);
+    const state = await readState(stateFilePath(projectDir, slug, number), number);
+    const source = { ...state, comments: (await commentsForVersion(projectDir, slug, number, state.comments)).filter((comment) => !comment.instant) };
     if (!source.note.trim() && !source.comments.some((comment) => from.sections.length === 1 || sectionOfComment(from, comment) === section.id)) {
       throw new KinottaError('invalid', 'There are no comments or notes to copy yet.');
     }
+    await dismissBuiltPinNotes(projectDir, slug);
     const frozen = await freezeEditsNow(projectDir, slug);
     if (frozen.version !== number) {
       const to = await readVersion(projectDir, slug, frozen.version);
       const file = stateFilePath(projectDir, slug, frozen.version);
       await serialized(file, async () => {
         const state = await readState(file, frozen.version);
-        const comments = source.comments.map((comment) => carriedComment(comment, from, to, null, true));
+        const comments = source.comments.map((comment) => { const carried = carriedComment(comment, from, to, null, true); return comment.effect || comment.insertShot ? { ...carried, id: comment.id } : carried; });
         const ids = comments.filter((_comment, index) => !isSent(source.handedOff, source.comments[index]!.id)).map((comment) => comment.id);
         await writeState(file, { ...state, note: source.note, comments, carriedFrom: { version: number, ids } });
       });

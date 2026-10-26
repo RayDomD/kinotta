@@ -1,3 +1,4 @@
+import { pinnedEffectPage } from './pinned-effect-page.ts';
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import type { Operation, Plan, PlanClip } from './edit-model.ts';
@@ -117,6 +118,12 @@ export async function stageVersion(reelDir: string, input: VersionInput): Promis
     await buildPage(planFile, join(dir, 'index.html'));
     await buildShots(planFile, join(dir, SHOTS_STAGE));
     const shots = JSON.parse(await readFile(join(dir, SHOTS_STAGE), 'utf8')) as Record<string, unknown>;
+    if (input.plan.pinComments) {
+      await writeJson(join(dir, 'pin-comments.json'), input.plan.pinComments);
+      const pageFile = join(dir, 'index.html');
+      const shotList = shots.shots as import('./types.ts').Shot[];
+      await writeFile(pageFile, pinnedEffectPage(await readFile(pageFile, 'utf8'), input.plan, shotList), 'utf8');
+    }
     if (input.operations) await writeJson(join(dir, 'edits.json'), { base: input.operations.base, operations: input.operations.list });
     await rm(join(dir, SHOTS_STAGE));
     await writeJson(join(dir, 'shots.json'), { ...shots, ...(input.changedSections ? { changedSections: input.changedSections } : {}), builtBy: input.builtBy });

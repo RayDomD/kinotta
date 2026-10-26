@@ -1,17 +1,17 @@
 import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
 import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
 import { existsSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
 
 const SAVE_WAIT_MS = 30_000;
-const PROJECT_FILE = join(tmpdir(), 'kinotta-e2e-code-only-project.txt');
+const PROJECT_FILE = projectFile('code-only');
 const DRAG_PX = 40;
 
 // The showreel sample: reels built from code, with no footage and no plan. Its own server (playwright.config.ts).
-test.use({ baseURL: 'http://localhost:4383' });
+test.use({ baseURL: serverUrl('codeOnly') });
 test.describe.configure({ mode: 'serial' });
 
 const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });

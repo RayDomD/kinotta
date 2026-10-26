@@ -1,0 +1,22 @@
+name: pr-body
+
+# Separate from ci.yml so editing the description reruns only this check.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  no-ai-attribution:
+    runs-on: ubuntu-latest
+    steps:
+      # The body arrives through env, never interpolated into the script.
+      - env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$PR_BODY" | grep -qiE 'generated (with|by) \[?claude code'; then
+            echo "The pull request description carries an AI attribution footer. Remove it."
+            exit 1
+          fi
+          echo "pr-body ok"

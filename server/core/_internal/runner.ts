@@ -7,12 +7,11 @@ import { promisify } from 'node:util';
 import type { BeatGrid } from './media-model.ts';
 
 /**
- * The one place Kinotta starts the skill's scripts (E3), its renderer, ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
+ * The service for Kinotta's scripts (E3), apart from the agent-free page builder, its renderer, ffprobe, ffmpeg and the startup tool check's probes. Everything else asks for a result here.
  * The scripts are the repo's own copies under skill/kinotta/.
  */
 
 const SKILL_DIR = resolve(import.meta.dirname, '../../../skill/kinotta');
-const BUILD_SCRIPT = resolve(SKILL_DIR, 'engine/build.py');
 const SHOTS_SCRIPT = resolve(SKILL_DIR, 'scripts/shots.py');
 const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
 const BEATS_SCRIPT = resolve(SKILL_DIR, 'scripts/beats.py');
@@ -83,10 +82,7 @@ async function run(command: string, args: string[], timeout?: number, signal?: A
   }
 }
 
-/** `build.py --plan`: a plan composed into one version page. */
-export async function buildPage(planFile: string, pageFile: string): Promise<void> {
-  await run(PYTHON, [BUILD_SCRIPT, '--plan', planFile, pageFile], BUILD_TIMEOUT_MS);
-}
+export { buildPage } from './build-runner.ts';
 
 /** `shots.py`: the plan's shot list as shots.json. */
 export async function buildShots(planFile: string, shotsFile: string): Promise<void> {
