@@ -67,3 +67,8 @@ Findings from checking the handoff:
 
 ### 2026-10-26
 - Plan created and approved; D1 to D6 answered. D1 applied.
+- W2 done: hook blocked a staged mojibake file from a worktree and allowed the clean commit `94baae8`. The global hook (not versioned) now uses `--git-common-dir`.
+- W3 written; the brief file itself is always in scope. Logs go to `tests/artifacts/verify-lane/` (git-ignored) rather than `tests/`.
+- W4 and W5 done in `~/.claude/templates/brief.md` and `herdr-dispatch` (65 lines).
+- Step 7 waits: codex is still working in the pinned-effects worktree (ports would collide) and free memory was 1.0 GB.
+- Out of scope, recorded only: the global `commit-msg` hook has the same `--git-dir` worktree gap; `herdr-dispatch` still says not to answer a blocked lane, which conflicts with the answer-within-plan memory.
