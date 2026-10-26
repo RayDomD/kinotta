@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinotta flow</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@700;800&display=swap">
+<style>
+  :root {
+    --ground: oklch(.184 .004 106); --ground-deep: oklch(.150 .003 106);
+    --card: oklch(.214 .005 90); --card-raised: oklch(.246 .005 90);
+    --ink: oklch(.945 .004 106); --ink-2: oklch(.820 .007 106); --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14); --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225); --light-glow: oklch(.84 .11 225 / .5); --light-wash: oklch(.84 .11 225 / .07);
+    --changed: oklch(.80 .13 75); --scrim: oklch(.12 .003 106 / .86);
+    --ease: cubic-bezier(.2, .8, .2, 1);
+    --sheet-rest: 5px 5px 0 -1.6px var(--ground), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px var(--ground), 10px 10px 0 0 oklch(.945 .004 106 / .18);
+    --sheet-press: 2px 2px 0 -1.6px var(--ground), 2px 2px 0 0 oklch(.945 .004 106 / .42), 4px 4px 0 -1.6px var(--ground), 4px 4px 0 0 oklch(.945 .004 106 / .18);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: var(--ground); color: var(--ink); font: 15px/1.5 Outfit, "Segoe UI", sans-serif; display: grid; grid-template-rows: auto auto 1fr; }
+  button, select, input { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 1.6px solid var(--ink); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .num { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+
+  .btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform .38s var(--ease), box-shadow .18s var(--ease); display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: var(--sheet-rest); }
+  .btn:disabled { background: none; color: var(--muted); border: 1.4px dashed var(--hairline); box-shadow: none; cursor: not-allowed; }
+  .btn.ghost { background: none; color: var(--ink); border-color: var(--hairline); box-shadow: none; }
+  .btn.ghost:hover { border-color: var(--ink); transform: none; }
+  .c-act { font-size: 13px; color: var(--muted); transition: color .25s var(--ease); }
+  .c-act:hover { color: var(--ink); }
+
+  /* top bar */
+  .top { height: 52px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--rule); }
+  .ident { display: flex; align-items: center; gap: 18px; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: .06em; font-size: 14px; }
+  .reelname { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .reelname span { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 13px; }
+  .steps { display: flex; align-items: center; gap: 4px; }
+  .step { display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: var(--muted); font-size: 14px; border-bottom: 1.6px solid transparent; }
+  .step:hover { color: var(--ink-2); }
+  .step .n { width: 20px; height: 20px; display: grid; place-items: center; border: 1.2px solid var(--hairline); font-family: Doto, monospace; font-weight: 800; font-size: 11px; }
+  .step[aria-current] { color: var(--ink); border-color: var(--ink); }
+  .step[aria-current] .n { border-color: var(--ink); background: var(--ink); color: var(--ground); }
+  .badge { font-family: Doto, monospace; font-weight: 800; font-size: 11px; color: var(--changed); border: 1.2px solid var(--changed); padding: 0 5px; line-height: 16px; }
+  .sep { width: 18px; height: 1.2px; background: var(--hairline); }
+  .seg { display: inline-flex; margin-left: 4px; border: 1.2px solid var(--hairline); }
+  .seg button { font-size: 12.5px; padding: 2px 10px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--card-raised); color: var(--ink); }
+  .actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; position: relative; }
+  .more { width: 32px; height: 32px; display: grid; place-items: center; color: var(--muted); font-size: 18px; }
+  .more:hover, .more[aria-expanded="true"] { color: var(--ink); }
+  .caret { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid currentColor; }
+  .menu { position: absolute; top: 44px; right: 0; min-width: 250px; background: var(--card-raised); border: 1.2px solid var(--hairline); box-shadow: var(--sheet-rest); padding: 6px 0; z-index: 20; }
+  .menu.export { right: 46px; min-width: 300px; }
+  .menu button, .menu .row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; width: 100%; text-align: left; padding: 8px 14px; font-size: 14px; }
+  .menu button:hover { background: var(--card); }
+  .menu .meta { color: var(--muted); font-size: 12px; }
+  .menu hr { border: 0; border-top: 1px solid var(--rule); margin: 6px 0; }
+  .menu .label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 14px 2px; }
+
+  /* progress notice */
+  .job { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--rule); background: var(--ground-deep); font-size: 14px; }
+  .job .what b { font-weight: 500; }
+  .job .stage-txt { color: var(--muted); font-size: 13px; }
+  .track { flex: 1; height: 3px; background: var(--rule); position: relative; overflow: hidden; min-width: 80px; }
+  .track i { position: absolute; top: 0; bottom: 0; width: 28%; background: var(--light); box-shadow: 0 0 10px var(--light-glow); animation: sweep 1.6s var(--ease) infinite; }
+  @keyframes sweep { from { left: -30%; } to { left: 100%; } }
+  .job[data-state="ready"] .track i, .job[data-state="failed"] .track i, .job[data-state="copy"] .track i { animation: none; left: 0; width: 100%; }
+  .job[data-state="failed"] .track i { background: var(--changed); box-shadow: none; }
+  .job[data-state="copy"] .track i { background: var(--hairline); box-shadow: none; }
+  .job .timer { color: var(--muted); font-size: 13px; }
+
+  main { overflow: auto; min-height: 0; }
+
+  /* start */
+  .make { max-width: 640px; margin: 0 auto; padding: 44px 20px 60px; }
+  .eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .make h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; margin: 6px 0 4px; }
+  .make > p { color: var(--ink-2); font-size: 14px; }
+  .drop { margin-top: 24px; border: 1.4px dashed var(--hairline); padding: 34px 20px; display: grid; justify-items: center; gap: 8px; text-align: center; transition: border-color .25s var(--ease), background-color .25s var(--ease); cursor: pointer; }
+  .drop:hover { border-color: var(--light); background: var(--light-wash); }
+  .drop strong { font-size: 19px; font-weight: 500; }
+  .drop span { font-size: 13px; color: var(--ink-2); max-width: 46ch; }
+  .dropped { margin-top: 10px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1.2px solid var(--hairline); background: var(--card); font-size: 14px; }
+  .dropped .num { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .field { display: grid; gap: 6px; margin-top: 18px; font-size: 13px; color: var(--ink-2); }
+  .field select, .field input { background: var(--ground-deep); border: 1.4px solid var(--hairline); padding: 8px 10px; font-size: 14px; color: var(--ink); }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--light); }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  .choice { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; text-align: left; background: var(--card-raised); border: 1.4px solid var(--hairline); transition: border-color .25s var(--ease), transform .38s var(--ease), box-shadow .18s var(--ease); }
+  .choice b { font-size: 19px; font-weight: 500; }
+  .choice span { font-size: 13px; color: var(--ink-2); }
+  .choice:hover { border-color: var(--ink); }
+  .choice.primary { background: var(--ink); color: var(--ground); border-color: var(--ink); box-shadow: var(--sheet-press); }
+  .choice.primary span { color: var(--ground); opacity: .8; }
+  .choice.primary:hover { transform: translate(-2px, -2px); box-shadow: var(--sheet-rest); }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .quiet { margin-top: 22px; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* direction */
+  .dir-steps { display: flex; gap: 6px; margin: 18px 0 22px; flex-wrap: wrap; }
+  .dir-steps span { font-size: 13px; padding: 3px 10px; border: 1.2px solid var(--hairline); color: var(--muted); }
+  .dir-steps span.on { border-color: var(--ink); color: var(--ink); }
+  .dir-steps span.done { color: var(--ink-2); }
+  .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .opt { padding: 14px; text-align: left; border: 1.4px solid var(--hairline); background: var(--card); font-size: 14px; }
+  .opt small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .opt[aria-pressed="true"] { border-color: var(--light); background: var(--light-wash); }
+  .dir-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; }
+
+  /* storyboard */
+  .sb { display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-height: 100%; }
+  .sb-main { padding: 24px 20px 40px; }
+  .sb-main h2, .ed h2 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; }
+  .sb-main .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 18px; }
+  .shot { background: var(--card); border: 1.2px solid var(--rule); transition: border-color .25s var(--ease); }
+  .shot.over { border-color: var(--light); box-shadow: 0 0 0 1px var(--light); }
+  .frame { aspect-ratio: 16/9; position: relative; overflow: hidden; }
+  .frame .fx { position: absolute; left: 8px; bottom: 8px; font-size: 11px; padding: 1px 6px; background: var(--light); color: var(--ground); font-weight: 600; }
+  .shot .meta { padding: 8px 10px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+  .shot .meta .t { font-family: Doto, monospace; font-weight: 700; color: var(--muted); font-size: 12px; }
+  .alts { display: flex; gap: 4px; padding: 0 10px 10px; align-items: center; font-size: 12px; color: var(--changed); }
+  .alts button { width: 22px; height: 14px; border: 1.2px solid var(--hairline); }
+  .alts button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink-2); }
+  .alts .done { color: var(--muted); }
+  .lib { border-left: 1px solid var(--rule); padding: 20px 16px; }
+  .lib h3 { font-size: 14px; font-weight: 500; }
+  .lib p { font-size: 12.5px; color: var(--muted); margin: 2px 0 12px; }
+  .fxitem { display: flex; justify-content: space-between; align-items: center; padding: 9px 10px; border: 1.2px solid var(--hairline); margin-bottom: 8px; font-size: 13.5px; background: var(--card); cursor: grab; }
+  .fxitem:active { cursor: grabbing; }
+  .fxitem small { color: var(--muted); font-size: 11.5px; }
+  .tip { margin: 14px 20px 0; font-size: 13px; color: var(--ink-2); border: 1.2px solid var(--hairline); padding: 8px 12px; display: flex; gap: 12px; align-items: center; }
+
+  /* edit */
+  .ed { padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }
+  .player { aspect-ratio: 16/9; max-height: 52vh; width: 100%; position: relative; overflow: hidden; border: 1px solid var(--rule); }
+  .player .cap { position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%); background: oklch(.12 .003 106 / .7); padding: 4px 12px; font-size: 20px; font-weight: 600; white-space: nowrap; }
+  .player .cap em { font-style: normal; color: var(--changed); }
+  .player .ver { position: absolute; top: 10px; left: 10px; font-size: 12px; padding: 1px 6px; border: 1.2px solid var(--hairline); background: var(--scrim); }
+  .transport { display: flex; align-items: center; gap: 12px; margin: 10px 0; font-size: 13px; }
+  .playbtn { width: 30px; height: 30px; border: 1.4px solid var(--ink); display: grid; place-items: center; }
+  .lane { margin-top: 8px; }
+  .lane .label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .lane .bars { height: 26px; display: flex; gap: 2px; }
+  .lane .bars i { flex: 1; background: var(--card-raised); border: 1px solid var(--rule); }
+  .lane .bars i.b { background: var(--light-wash); border-color: var(--light); }
+  .lane .bars i.empty { background: none; border-style: dashed; }
+  .side { border-left: 1px solid var(--rule); padding-left: 20px; }
+  .side h3 { font-size: 14px; font-weight: 500; }
+  .side p { font-size: 12.5px; color: var(--muted); }
+  .pin { margin-top: 12px; border: 1.2px dashed var(--hairline); padding: 12px; font-size: 13px; color: var(--ink-2); }
+  .side .btn { width: 100%; justify-content: center; margin-top: 16px; }
+  .editor-rows { display: grid; gap: 6px; margin-top: 10px; }
+  .editor-rows div { display: grid; grid-template-columns: 90px 1fr; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+  .editor-rows span { height: 22px; background: var(--card); border: 1px solid var(--rule); }
+  .editor-rows span.w { background: repeating-linear-gradient(90deg, var(--card-raised) 0 34px, var(--ground) 34px 36px); }
+
+  /* dialog + toast */
+  .scrim { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 40; }
+  .dialog { width: min(460px, calc(100vw - 32px)); background: var(--card-raised); border: 1.4px solid var(--hairline); box-shadow: var(--sheet-rest); padding: 22px; }
+  .dialog h3 { font-size: 18px; font-weight: 500; }
+  .dialog p { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
+  .dialog .row { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; align-items: center; }
+  .dialog label { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .toast { position: fixed; right: 20px; bottom: 20px; background: var(--card-raised); border: 1.4px solid var(--hairline); box-shadow: var(--sheet-rest); padding: 12px 14px; display: flex; gap: 14px; align-items: center; font-size: 14px; z-index: 30; }
+  .settings label { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+  .settings select { background: var(--ground-deep); border: 1.4px solid var(--hairline); padding: 8px 10px; }
+
+  .proto { position: fixed; left: 12px; bottom: 12px; font-size: 11px; color: var(--muted); z-index: 50; display: flex; gap: 10px; align-items: center; }
+  .proto button { color: var(--muted); text-decoration: underline; font-size: 11px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="ident">
+    <div class="brand">
+      <svg width="18" height="18" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l9.5 5.5v11L14 25 4.5 19.5v-11z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M4.5 8.5L14 14l9.5-5.5M14 14v11" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>
+      KINOTTA
+    </div>
+    <div class="reelname" id="reelname">New reel</div>
+  </div>
+  <nav class="steps" id="steps" aria-label="Steps" hidden>
+    <button class="step" data-go="storyboard"><span class="n">1</span>Storyboard <span class="badge" id="choiceBadge" title="Shots need a choice">2</span></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="step" data-go="edit"><span class="n">2</span>Edit</button>
+    <span class="seg" role="group" aria-label="Edit view">
+      <button type="button" data-view="simple" aria-pressed="true">Simple</button>
+      <button type="button" data-view="editor" aria-pressed="false">Editor</button>
+    </span>
+  </nav>
+  <div class="actions">
+    <button class="btn" id="exportBtn" hidden>Export <span class="caret"></span></button>
+    <button class="more" id="moreBtn" aria-label="More" aria-expanded="false">···</button>
+    <div class="menu export" id="exportMenu" hidden>
+      <div class="label">Export this version</div>
+      <button data-render="Draft">Draft <span class="meta">fast check</span></button>
+      <button data-render="Final">Final <span class="meta">1080p · from originals</span></button>
+      <button data-render="Final 4K">Final 4K <span class="meta">2160p</span></button>
+      <hr>
+      <div class="label">Renders</div>
+      <div id="renderList"><div class="row"><span class="muted">None yet</span></div></div>
+    </div>
+    <div class="menu" id="moreMenu" hidden>
+      <button data-more="library">Library <span class="meta">effects, sounds</span></button>
+      <button data-more="settings">Settings <span class="meta">agent, delivery</span></button>
+      <hr>
+      <button data-more="reels">All reels</button>
+      <button data-more="new">New reel</button>
+    </div>
+  </div>
+</header>
+
+<div class="job" id="job" hidden>
+  <span class="what"><b id="jobTitle">Adding b-roll</b> <span class="stage-txt" id="jobStage">Preparing</span></span>
+  <span class="track"><i></i></span>
+  <span class="timer num" id="jobTimer">0:00</span>
+  <span id="jobActions"></span>
+</div>
+
+<main id="main"></main>
+
+<div class="proto"><span>Prototype</span><button id="reset">Start over</button><label><input type="checkbox" id="noAgent"> No agent installed</label></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const state = { page: 'start', video: null, title: '', view: 'simple', confirmed: false, agent: 'claude', dirStep: 0, dir: {}, version: 1, job: null, choices: 2, fx: {}, renders: [], tipShown: false };
+const SHOTS = [
+  ['Hook', '0:00', 'oklch(.42 .06 40)', 'oklch(.28 .03 260)'],
+  ['Who I am', '0:06', 'oklch(.38 .05 200)', 'oklch(.24 .03 200)'],
+  ['The problem', '0:14', 'oklch(.40 .07 80)', 'oklch(.26 .04 30)'],
+  ['What I built', '0:27', 'oklch(.36 .06 150)', 'oklch(.22 .03 150)'],
+  ['Proof', '0:49', 'oklch(.44 .05 300)', 'oklch(.25 .03 300)'],
+  ['Close', '1:31', 'oklch(.40 .04 106)', 'oklch(.22 .02 106)'],
+];
+const ALT = { 2: 3, 4: 2 };
+const alt = {};
+const art = (a, b) => `background: linear-gradient(135deg, ${a}, ${b});`;
+const go = (page) => { state.page = page; render(); };
+
+function topbar() {
+  const onReel = ['storyboard', 'edit'].includes(state.page);
+  $('#steps').hidden = !onReel;
+  $('#exportBtn').hidden = !onReel;
+  $('#reelname').innerHTML = onReel ? `${state.title}<span class="num">1:44</span>` : 'New reel';
+  document.querySelectorAll('.step').forEach((s) => s.toggleAttribute('aria-current', s.dataset.go === state.page));
+  document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === state.view)));
+  $('.seg').style.opacity = state.page === 'edit' ? 1 : .45;
+  const badge = $('#choiceBadge'); badge.hidden = state.choices === 0; badge.textContent = state.choices;
+}
+
+function startPage() {
+  return `<section class="make">
+    <p class="eyebrow">Your next reel starts here</p>
+    <h1>Drop a video. We&rsquo;ll find the reel.</h1>
+    <p>One video in. A first cut you can make your own.</p>
+    ${state.video ? `<div class="dropped"><span>${state.video}</span><span class="num">01:44 · 191 MB</span><button class="c-act" id="removeVid">Remove</button></div>` : `
+    <button class="drop" id="drop"><strong>Drop videos or a folder here</strong><span>Copied into this project's footage/ folder and transcribed on this machine. Click to simulate a drop.</span></button>
+    <label class="field">Or use a video already in this project
+      <select id="pick"><option value="">Choose a video</option><option>footage/ScreenRecording_10-24.mp4</option><option>docs/motion/kinotta-light-table.mp4</option></select>
+    </label>`}
+    ${state.video ? `
+    <label class="field">Reel name <input id="title" value="${state.title}"></label>
+    <div class="choices" role="group" aria-label="How to make it">
+      <button class="choice primary" id="auto"><b>Auto →</b><span>We cut it and add b-roll in your usual style. Change anything after.</span></button>
+      <button class="choice" id="direct"><b>Direct</b><span>Choose the style, fonts and music in 5 short steps.</span></button>
+    </div>
+    <p class="hint">${$('#noAgent').checked ? 'No agent found on this machine: Auto makes the cut and prepares the b-roll request for you to paste.' : 'Your usual style: Kinotta&rsquo;s Clean. B-roll runs with Claude Code on your plan.'}</p>` : `<button class="quiet" id="brief">No footage? Start from a short brief</button>`}
+  </section>`;
+}
+
+const DIR = [
+  ['What', 'What is this video?', [['Talking head', 'one person to camera'], ['Product demo', 'screen and voice'], ['Vlog', 'moments and places']]],
+  ['Style', 'How should it look?', [['Clean', 'Kinotta built-in'], ['Bold', 'big type, fast cuts'], ['My style', 'saved last week']]],
+  ['Fonts and music', 'Fonts and music', [['Brand fonts', 'from DESIGN.md'], ['Score that fits', 'generated'], ['No music', 'voice only']]],
+  ['Extras', 'Anything else?', [['Captions', 'phrase by phrase'], ['Light b-roll', 'about 40%'], ['Lots of b-roll', 'about 70%']]],
+];
+function directPage() {
+  const i = state.dirStep;
+  const names = ['What', 'Style', 'Fonts and music', 'Extras', 'Check'];
+  const chips = names.map((n, k) => `<span class="${k === i ? 'on' : k < i ? 'done' : ''}">${k < i ? '✓ ' : ''}${n}</span>`).join('');
+  let body;
+  if (i < 4) {
+    const [key, q, opts] = DIR[i];
+    body = `<h1>${q}</h1><div class="opts" style="margin-top:16px">${opts.map(([a, b]) => `<button class="opt" data-opt="${a}" aria-pressed="${state.dir[key] === a}">${a}<small>${b}</small></button>`).join('')}</div>`;
+  } else {
+    body = `<h1>Check, then build</h1><div class="opts" style="grid-template-columns:1fr;margin-top:16px">${DIR.map(([k]) => `<div class="opt" style="display:flex;justify-content:space-between"><span class="muted">${k}</span><span>${state.dir[k] ?? 'Kinotta picks'}</span></div>`).join('')}</div>`;
+  }
+  return `<section class="make"><p class="eyebrow">Direct · ${state.title}</p><div class="dir-steps">${chips}</div>${body}
+    <div class="dir-nav"><button class="c-act" id="dirBack">← ${i === 0 ? 'Back to start' : 'Back'}</button>
+    ${i < 4 ? `<button class="btn" id="dirNext">Next: ${names[i + 1].toLowerCase()} →</button>` : `<button class="btn" id="dirBuild">Build the reel →</button>`}</div></section>`;
+}
+
+function storyboardPage() {
+  const cards = SHOTS.map(([name, t, a, b], i) => {
+    const n = ALT[i];
+    const choice = alt[i];
+    const fx = state.fx[i];
+    const hue = choice ? `oklch(.40 .07 ${choice * 70 + 20})` : a;
+    return `<article class="shot" data-shot="${i}">
+      <div class="frame" style="${art(hue, b)}">${fx ? `<span class="fx">${fx}</span>` : ''}</div>
+      <div class="meta"><span>${String(i + 1).padStart(2, '0')} ${name}</span><span class="t">${t}</span></div>
+      ${n ? `<div class="alts">${Array.from({ length: n }, (_, k) => `<button aria-label="Option ${k + 1}" data-alt="${i}:${k + 1}" aria-pressed="${choice === k + 1}"></button>`).join('')}<span class="${choice ? 'done' : ''}">${choice ? `option ${choice} in the reel` : `${n} options, choose one`}</span></div>` : ''}
+    </article>`;
+  }).join('');
+  return `<div class="sb"><div class="sb-main">
+      <h2>Storyboard</h2><p class="sub">v${state.version} · 6 shots. Choose options, drag an effect from the Library onto a shot.</p>
+      <div class="shots">${cards}</div>
+    </div>
+    <aside class="lib"><h3>Library · Effects</h3><p>Drag onto a shot to pin it. Instant ones apply now; the rest go to the agent.</p>
+      ${[['Punch-in', 'instant'], ['Light leak', 'instant'], ['Kinetic title', 'agent'], ['Split reveal', 'agent']].map(([n, k]) => `<div class="fxitem" draggable="true" data-fx="${n}">${n}<small>${k}</small></div>`).join('')}
+    </aside></div>`;
+}
+
+function editPage() {
+  const bars = (cls) => Array.from({ length: 22 }, (_, i) => `<i class="${cls(i)}"></i>`).join('');
+  const hasBroll = state.version > 1;
+  const simple = `
+    <div class="lane"><div class="label">Added by Kinotta</div><div class="bars">${bars((i) => hasBroll ? ([2, 3, 7, 11, 12, 16, 19].includes(i) ? 'b' : 'empty') : 'empty')}</div></div>
+    <div class="lane"><div class="label">Your video</div><div class="bars">${bars(() => '')}</div></div>`;
+  const editor = `<div class="editor-rows">${['Graphics', 'B-roll', 'Captions', 'Words', 'Video', 'Music'].map((n) => `<div>${n}<span class="${n === 'Words' ? 'w' : ''}" style="${n === 'B-roll' && !hasBroll ? 'border-style:dashed;background:none' : ''}"></span></div>`).join('')}</div>`;
+  return `${state.tipShown ? '' : `<div class="tip">This is your first cut. To rearrange shots or pin effects, open <b>Storyboard</b>. <button class="c-act" id="tipGo">Open Storyboard</button><button class="c-act" id="tipX">Dismiss</button></div>`}
+  <section class="ed"><div>
+    <div class="player" style="${art('oklch(.36 .02 80)', 'oklch(.22 .01 80)')}"><span class="ver">v${state.version}${hasBroll ? ' · with b-roll' : ' · first cut'}</span><span class="cap">I'm confident that <em>my</em> experience with</span></div>
+    <div class="transport"><button class="playbtn" aria-label="Play">▶</button><span class="num">01:33.12 / 01:44.82</span><span class="muted" style="margin-left:auto">${state.view === 'simple' ? 'Simple' : 'Editor'} view</span></div>
+    ${state.view === 'simple' ? simple : editor}
+  </div>
+  <aside class="side"><h3>Your pins</h3><p>Jump between pins with [ and ]</p>
+    <div class="pin"><b style="font-weight:500;color:var(--ink)">What would you change?</b><br>Turn on the pin, then click the picture.</div>
+    <button class="btn ghost" id="regen">Regenerate (0 pins)</button>
+  </aside></section>`;
+}
+
+function settingsDialog() {
+  return `<div class="scrim" id="scrim"><div class="dialog settings"><h3>Settings</h3>
+    <label>Agent for background builds<select id="agentSel"><option value="claude">Claude Code</option><option value="codex">Codex</option><option value="copy">Copy request (paste it yourself)</option></select></label>
+    <label>Delivery size<select><option>1080p</option><option>4K</option></select></label>
+    <div class="row"><button class="btn" id="closeDlg">Done</button></div></div></div>`;
+}
+
+function render() {
+  topbar();
+  const m = $('#main');
+  m.innerHTML = state.page === 'start' ? startPage() : state.page === 'direct' ? directPage() : state.page === 'storyboard' ? storyboardPage() : editPage();
+  bind();
+  renderJob();
+}
+
+function bind() {
+  $('#drop')?.addEventListener('click', () => { state.video = 'footage/sample-vid.mp4'; state.title = 'Sample vid'; render(); });
+  $('#pick')?.addEventListener('change', (e) => { if (e.target.value) { state.video = e.target.value; state.title = 'Screen recording'; render(); } });
+  $('#removeVid')?.addEventListener('click', () => { state.video = null; state.title = ''; render(); toast('Removed sample-vid.mp4 and Kinotta&rsquo;s copy in footage/.'); });
+  $('#title')?.addEventListener('input', (e) => { state.title = e.target.value; });
+  $('#auto')?.addEventListener('click', () => {
+    if ($('#noAgent').checked) { state.agent = 'copy'; return build(); }
+    if (state.confirmed) return build();
+    confirmDialog();
+  });
+  $('#direct')?.addEventListener('click', () => { state.dirStep = 0; go('direct'); });
+  $('#brief')?.addEventListener('click', () => toast('Brief path: title and brief, then the agent writes the shot list.'));
+  document.querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => { state.dir[DIR[state.dirStep][0]] = b.dataset.opt; render(); }));
+  $('#dirBack')?.addEventListener('click', () => { if (state.dirStep === 0) go('start'); else { state.dirStep--; render(); } });
+  $('#dirNext')?.addEventListener('click', () => { state.dirStep++; render(); });
+  $('#dirBuild')?.addEventListener('click', () => { if ($('#noAgent').checked) state.agent = 'copy'; if (state.confirmed || state.agent === 'copy') build(); else confirmDialog(); });
+  document.querySelectorAll('[data-alt]').forEach((b) => b.addEventListener('click', () => {
+    const [i, k] = b.dataset.alt.split(':').map(Number);
+    const first = !alt[i]; alt[i] = k; if (first) state.choices--; render();
+  }));
+  document.querySelectorAll('.fxitem').forEach((f) => f.addEventListener('dragstart', (e) => e.dataTransfer.setData('text', f.dataset.fx)));
+  document.querySelectorAll('.shot').forEach((s) => {
+    s.addEventListener('dragover', (e) => { e.preventDefault(); s.classList.add('over'); });
+    s.addEventListener('dragleave', () => s.classList.remove('over'));
+    s.addEventListener('drop', (e) => { e.preventDefault(); const fx = e.dataTransfer.getData('text'); state.fx[s.dataset.shot] = fx; render(); toast(`${fx} pinned to shot ${Number(s.dataset.shot) + 1}.`); });
+  });
+  $('#tipGo')?.addEventListener('click', () => { state.tipShown = true; go('storyboard'); });
+  $('#tipX')?.addEventListener('click', () => { state.tipShown = true; render(); });
+  $('#regen')?.addEventListener('click', () => toast('Pin something first.'));
+}
+
+function confirmDialog() {
+  const d = document.createElement('div');
+  d.innerHTML = `<div class="scrim"><div class="dialog"><h3>Build it all now?</h3>
+    <p>Kinotta makes the cut here, then runs <b>Claude Code</b> in the background to add b-roll. It uses your own Claude plan. You can watch progress at the top of any page and cancel it there.</p>
+    <label><input type="checkbox" checked> Don&rsquo;t ask again for this project</label>
+    <div class="row"><button class="c-act" data-x>Cancel</button><button class="btn" data-ok>Build now</button></div></div></div>`;
+  document.body.append(d);
+  d.querySelector('[data-x]').onclick = () => d.remove();
+  d.querySelector('[data-ok]').onclick = () => { state.confirmed = d.querySelector('input').checked; d.remove(); build(); };
+}
+
+let tick = null;
+function build() {
+  state.view = 'simple'; state.version = 1; state.tipShown = false;
+  go('edit');
+  if (state.agent === 'copy') { state.job = { state: 'copy', t: 2 }; renderJob(); return; }
+  state.job = { state: 'preparing', t: 0 };
+  clearInterval(tick);
+  tick = setInterval(() => {
+    const j = state.job; if (!j || !['preparing', 'running', 'checking'].includes(j.state)) return clearInterval(tick);
+    j.t++;
+    if (j.t === 3) j.state = 'running';
+    if (j.t === 14) j.state = 'checking';
+    if (j.t === 17) { j.state = 'ready'; clearInterval(tick); }
+    renderJob();
+  }, 1000);
+  renderJob();
+}
+
+function fmt(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function renderJob() {
+  const j = state.job; const el = $('#job');
+  el.hidden = !j || state.page === 'start' || state.page === 'direct';
+  if (!j) return;
+  el.dataset.state = j.state;
+  const labels = { preparing: 'Preparing the request', running: 'Claude Code is choosing and building cutaways', checking: 'Checking the result', ready: 'Ready', failed: 'Failed', cancelled: 'Cancelled', copy: 'Request ready to paste' };
+  $('#jobTitle').textContent = j.state === 'ready' ? `B-roll for ${state.title} is ready` : j.state === 'copy' ? `B-roll for ${state.title}` : `Adding b-roll to ${state.title}`;
+  $('#jobStage').textContent = j.state === 'ready' ? 'v2 has 16 cutaways' : labels[j.state];
+  $('#jobTimer').textContent = fmt(j.t);
+  const a = $('#jobActions');
+  if (['preparing', 'running', 'checking'].includes(j.state)) a.innerHTML = `<button class="c-act" id="jobCancel">Cancel</button>`;
+  else if (j.state === 'ready') a.innerHTML = `<button class="btn" id="jobOpen">Open v2</button> <button class="c-act" id="jobX">Dismiss</button>`;
+  else if (j.state === 'cancelled') a.innerHTML = `<button class="c-act" id="jobRetry">Retry</button> <button class="c-act" id="jobX">Dismiss</button>`;
+  else if (j.state === 'copy') a.innerHTML = `<span class="muted" style="font-size:12.5px">Paste it into your agent. Kinotta loads v2 when it&rsquo;s done.</span> <button class="btn" id="jobCopy">Copy request</button>`;
+  $('#jobCancel')?.addEventListener('click', () => { j.state = 'cancelled'; clearInterval(tick); renderJob(); toast('Stopped Claude Code and everything it started. v1 is untouched.'); });
+  $('#jobRetry')?.addEventListener('click', build);
+  $('#jobOpen')?.addEventListener('click', () => { state.version = 2; state.job = null; state.page === 'edit' ? render() : go('edit'); toast('Now showing v2.'); });
+  $('#jobX')?.addEventListener('click', () => { state.job = null; renderJob(); });
+  $('#jobCopy')?.addEventListener('click', () => toast('Request copied. Waiting for your agent&rsquo;s output.'));
+}
+
+function toast(html) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html;
+  document.body.append(t); setTimeout(() => t.remove(), 3200);
+}
+
+document.querySelectorAll('.step').forEach((s) => s.addEventListener('click', () => go(s.dataset.go)));
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => { state.view = b.dataset.view; go('edit'); }));
+function menu(btn, el) {
+  btn.addEventListener('click', (e) => { e.stopPropagation(); const open = el.hidden; document.querySelectorAll('.menu').forEach((m) => { m.hidden = true; }); el.hidden = !open; btn.setAttribute('aria-expanded', String(open)); });
+}
+menu($('#exportBtn'), $('#exportMenu'));
+menu($('#moreBtn'), $('#moreMenu'));
+document.addEventListener('click', (e) => { if (!e.target.closest('.menu')) document.querySelectorAll('.menu').forEach((m) => { m.hidden = true; }); });
+document.querySelectorAll('[data-render]').forEach((b) => b.addEventListener('click', () => {
+  const name = `v${state.version} ${b.dataset.render}`;
+  $('#exportMenu').hidden = true;
+  toast(`Rendering ${name}…`);
+  setTimeout(() => { state.renders.unshift(name); $('#renderList').innerHTML = state.renders.map((r) => `<div class="row"><span>${r}</span><span class="meta">ready · just now</span></div>`).join(''); toast(`${name} is ready. <button class="c-act">Play</button> <button class="c-act">Show in folder</button>`); }, 2500);
+}));
+document.querySelectorAll('[data-more]').forEach((b) => b.addEventListener('click', () => {
+  $('#moreMenu').hidden = true;
+  const k = b.dataset.more;
+  if (k === 'settings') {
+    const d = document.createElement('div'); d.innerHTML = settingsDialog(); document.body.append(d);
+    d.querySelector('#agentSel').value = state.agent;
+    d.querySelector('#agentSel').onchange = (e) => { state.agent = e.target.value; };
+    d.querySelector('#closeDlg').onclick = () => d.remove();
+  } else if (k === 'library') { if (['storyboard', 'edit'].includes(state.page)) go('storyboard'); else toast('Library opens beside the Storyboard.'); }
+  else if (k === 'new') { state.video = null; state.title = ''; state.job = null; go('start'); }
+  else toast('All reels: the reel list.');
+}));
+$('#reset').addEventListener('click', () => { location.reload(); });
+$('#noAgent').addEventListener('change', render);
+render();
+</script>
+</body>
+</html>
