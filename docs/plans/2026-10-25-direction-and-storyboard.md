@@ -1,7 +1,7 @@
 ---
 title: Generate or tweak, Direction, effects library and pinned effects
 date: 2026-10-25
-status: In Progress
+status: Done
 summary: Start a reel with Auto or Direct; Direct adds a five-step Direction with presets and a Storyboard where effects are dragged and pinned, not built.
 spec: docs/mockups/2026-10-25-simple-default-direction.html, docs/mockups/2026-10-25-pinned-effect-instant-or-agent.html, docs/mockups/2026-10-25-start-generate-or-tweak.html, docs/mockups/2026-10-25-direction-step.html, docs/mockups/2026-10-25-effects-library.html, docs/mockups/2026-10-25-storyboard-pinned-effects.html
 ---
@@ -96,6 +96,14 @@ Each phase below is its own branch and PR, shippable alone, in this order becaus
 - Phase 5: the instant-pin no-agent test; `tests/core/batch.test.ts` and the `alternates-*` suites; Undo and Delete on pins in the browser at desktop width, and pins shown with Delete and Undo at phone width.
 - Phase 6: a footage reel and a code-built reel built from a style, with the request showing the style and rules.
 
+## Result
+
+Shipped as planned, phase by phase: style storage, built-in styles and built-in brand (#68), Auto, Direct and Direction (#69), the skill reading styles and rules (#70), the effects library (#71), Storyboard pinned effects with "Keep this note" (#77), and the Phase 6 check, #69 nits and `DESIGN.md` sections on the closing branch. This answers the Intent: a reel starts in one click or after five short steps, its style is recorded and is exactly what the agent is told, and effects can be seen and pinned.
+
+Deviations, all owner decisions: no effect drops on gaps or the alternates strip (a gap offers Insert shot instead); adding an effect is drag only, with a keyboard path left as a follow-up; Library's "Your music" and "Add to this reel" are deferred, and the Looks, Camera moves and Transitions tabs are placeholders; the Phase 6 check is request-only, without a real agent build.
+
+Checks: each phase's PR records its own. The last runs were the verify gate on #77 (Playwright 162 passed, typecheck and mojibake ok, one `render` load flake that passed alone 9/9) and, on the closing branch, typecheck, `check:docs`, `check:commits` and the unit project (113 files, 986 passed, 6 skipped).
+
 ## Changelog
 
 ### 2026-10-25
@@ -128,3 +136,4 @@ Each phase below is its own branch and PR, shippable alone, in this order becaus
   - Footage request excerpt: `Form: vlog. Sparse graphics; keep it real over polished.` / `Style: clean. The speaker stays the picture; tags small and brief.` / `Frame: Landscape 16:9, found in the video.` / `Rule: "Keep captions low".`
   - Brief request excerpt: `Form: vlog. Sparse graphics; keep it real over polished.` / `Style: clean. The speaker stays the picture; tags small and brief.` / `Rule: "Keep captions low".` The brief path deliberately reuses the same saved style unchanged.
 - #69 review nits fixed (2026-10-26): an unknown frame omits the Frame line without throwing; an unknown setting label falls back to its key. Each regression failed before its fix and passed afterwards. Scoped unit suite: 8 tests passed.
+- `DESIGN.md` gains Auto and Direct, Direction, Library and Pinned effects sections, from the shipped code and the mockups (step 17's missing half; owner decision to add it before closing). Plan closed as Done; Result filled.
