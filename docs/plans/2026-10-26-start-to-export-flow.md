@@ -1,7 +1,7 @@
 ---
 title: One start screen, Auto that builds everything, and a two-step top bar
 date: 2026-10-26
-status: Draft
+status: Approved
 summary: Merge the start screens, make Auto build the cut and b-roll in one press with visible progress and Cancel, let the agent decide cuts, and turn the top bar into Storyboard then Edit.
 spec: docs/mockups/2026-10-26-start-to-export-flow.html
 ---
@@ -14,7 +14,7 @@ spec: docs/mockups/2026-10-26-start-to-export-flow.html
 - Affected: `web/src/SimpleMode.tsx`, `SimpleMake.tsx`, `NewReel.tsx`, `DropZone.tsx`, `App.tsx` (top bar), `Direction.tsx`; `server/core/_internal/agent-settings.ts`, `agent-jobs.ts`, `dead-air.ts`, `start.ts`; the skill's "Unattended add b-roll" section; `DESIGN.md`; e2e suites `simple-mode`, `direction`, `pinned-effects`.
 - Constraints: Kinotta never spends an agent plan without a yes (asked once per project). Cancel stops the agent and every process it started (already true on the server). Copy request stays available. No fake percentage: progress shows the stage, the time so far and a moving bar. Keep the animated revisions and the Review-loads-Working fix from the inline alternates work. Footage stays where it is when picked from the project. Dropped files are copied.
 - Out of scope: npm or `npx` distribution (deferred). A keyboard way to add effects (separate follow-up). Library's deferred tabs. New effect templates. Portrait reels.
-- Open questions: (1) Export presets: the app's draft, final and overlay, or draft, final and 4K. (2) Fix 7: does the skill hand finished output back itself, or does Kinotta watch `output/` and offer to load it? (3) Whether Auto's footage reels ever have shot options; the unattended b-roll path does not mention alternates, so probably not.
+- Open questions: (1) Export presets: the app's draft, final and overlay, or draft, final and 4K. (2) Whether Auto's footage reels ever have shot options; the unattended b-roll path does not mention alternates, so probably not.
 
 ## Goal
 
@@ -29,17 +29,17 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 - **C. Progress notice.** A single top strip, shown on every reel page, driven by the existing agent job state. It shows the stage label, a timer, a moving bar and Cancel while running. Then it shows "Ready, open vN", or "Failed" or "Cancelled" with Retry. Copy mode shows Copy request plus what happens next. This replaces the Simple mode banner, and the same strip later carries comment-batch builds.
 - **D. Top bar.** Two steps, Storyboard and Edit, with a Simple | Editor switch on Edit that remembers the last pick. Export ▾ replaces the Renders tab (start a render, recent renders, queue). A ··· menu holds Library, Settings, All reels and New reel. The gear and the Simple mode and Library tabs go. The shot-choice count becomes a badge on Storyboard, amber for Direct reels and quiet ("have other options") for Auto reels. After Auto, Edit shows a one-time hint pointing to Storyboard.
 - **E. Agent-decided cuts.** v1 opens with no dead-air cuts. The b-roll job also decides cuts from the transcript: it writes snips tagged by the agent, each with a short reason, which go into the reel's edit list as ordinary editable cuts with the reason visible in the Editor. Remove the `deadAir` strength from Auto and Direction. Independently, soften cut edges: more room after a word, and a lead-in before the next word so its first sound isn't clipped. Name both values.
-- **F. Copy request round trip.** Close the loop decided in open question 2, so a pasted request's output becomes the next version.
+- **F. Copy request round trip.** Kinotta watches each waiting Copy request job's `output/` and, when the finished files appear, runs the existing validation and publish (`acceptOutput`), so the result becomes the next version without any action. On startup it checks waiting jobs too, so output finished while Kinotta was closed still loads. The strip goes from "Waiting for your agent" to "Your agent finished. Open vN"; a failed check shows the reason with Retry. The agent only writes files, so this works with any agent.
 
 ## Steps
 
-1. Answer open questions 1 and 2 with the owner (one at a time).
+1. Answer open question 1 with the owner before phase D.
 2. Phase A, with e2e: drop, remove (copy deleted, referenced file kept), folder drop, editor New reel opens the same screen.
 3. Phase B, with unit tests for the default (each detection case) and e2e for the one-time confirmation.
 4. Phase C, with e2e: Auto, then navigate to Storyboard mid-run (strip stays), Cancel (job cancelled, v1 intact), Retry, Ready opens v2. Copy mode strip.
 5. Phase D, with e2e for each moved control and the phone width (390px).
 6. Phase E. First confirm how unattended output can carry edit-list operations, and check that `validateAgentOutput` accepts them. Unit tests cover cut-edge padding. E2e: the agent's cut is visible, resizable and restorable in the Editor, with its reason shown.
-7. Phase F per the answer to open question 2.
+7. Phase F, with e2e: a Copy request job whose `output/` is filled loads as the next version; one filled while the server was stopped loads on start; invalid output shows its reason.
 8. Update `DESIGN.md` sections (Auto and Direct, top bar, progress notice), and this plan's changelog after each merge.
 
 ## Risks
@@ -59,3 +59,4 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 
 ### 2026-10-26
 - Plan created from the owner's trial of the Direction and Storyboard features. Approach agreed in conversation: Brief is not a step, Auto keeps Storyboard as optional, the agent decides cuts, Copy mode gets a confirmation, progress and Cancel. Prototype saved as `docs/mockups/2026-10-26-start-to-export-flow.html`.
+- Owner decision: a pasted request's output comes back by Kinotta watching the job folder and loading it, not by the agent calling Kinotta. Plan approved.
