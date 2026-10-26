@@ -1,5 +1,7 @@
-import { readEditListNow, workingSources, workingInputs, withReelLock } from './edit-list.ts';
+import { readPinRecord } from './pin-files.ts';
+import { addOperationNow, removeInstantPinNow, readEditListNow, workingSources, workingInputs, workingState, withReelLock } from './edit-list.ts';
 import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { readCapturedVersion, requireReelDir } from './version.ts';
 import { randomUUID } from 'node:crypto';
 import { isSent, readVersion, settleNewest } from './carry.ts';
@@ -13,6 +15,9 @@ import { withSpeech } from './media-speech.ts';
 import { stillTime } from './code-edits.ts';
 import { mediaWords, mediaTimeline } from './media-model.ts';
 import { checkPartsManifest } from './parts.ts';
+import { effectsCatalogue } from './effects-catalogue.ts';
+import { makeInstantEffect } from './instant-effect.ts';
+import { newestVersionNumber } from './version.ts';
 
 /** The shot a word pin carries on a version with no shots: it belongs to the transcript. */
 export const NO_SHOT = '';
@@ -43,7 +48,7 @@ export function numbered(stored: StoredComment[], state?: StateFile): Comment[] 
         Date.parse(a.comment.createdAt) - Date.parse(b.comment.createdAt) ||
         a.index - b.index,
     )
-    .map(({ comment }, i) => ({ ...comment, number: i + 1, ...(state ? statusOf(comment.id, state) : {}) }));
+    .map(({ comment: { effectHtml: _html, ...comment } }, i) => ({ ...comment, number: i + 1, ...(state ? statusOf(comment.id, state) : {}) }));
 }
 
 function fraction(value: unknown, axis: string): number {
@@ -122,10 +127,69 @@ function buildPin(input: NewComment, version: Version): FramePin | WordPin {
   return { ...pin, placement: placement.id, offset: pin.time - placement.at, ...(placement.role === 'gap' ? {} : { sourceTime: word?.sourceStart ?? (placement.in + pin.time - placement.at) }) };
 }
 
+/** Only instant output lives in Working; agent requests retain the ordinary comment lifecycle. */
+export async function commentsForVersion(projectDir: string, slug: string, number: number, ordinary: StoredComment[]): Promise<StoredComment[]> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  let pinComments: Record<string, StoredComment | null>;
+  const managed = new Set<string>();
+  if (number === await newestVersionNumber(reelDir)) {
+    const list = await readEditListNow(projectDir, slug);
+    const history = await workingState(reelDir);
+    for (const op of [...history.operations, ...history.undo.flat(), ...history.redo.flat()]) if (op.kind === 'pin-comment') managed.add(op.commentId);
+    const captured = await readPinRecord<import('./state.ts').StoredComment | null>(join(reelDir, `v${list.base}`, 'pin-comments.json'), 'pin comments');
+    if (!managed.size && !Object.keys(captured).length && !history.anchor?.sources.plan.pinComments) return ordinary.filter((comment) => !comment.instant);
+    pinComments = applyOperations(await workingSources(projectDir, reelDir), list.operations.filter((op) => !list.flagged?.[op.id])).plan.pinComments ?? {};
+  } else {
+    pinComments = await readPinRecord<StoredComment | null>(join(reelDir, `v${number}`, 'pin-comments.json'), 'pin comments');
+  }
+  for (const id of Object.keys(pinComments)) managed.add(id);
+  const pins = Object.values(pinComments).filter((pin): pin is StoredComment => pin?.instant === true).map((comment) => ({ ...comment, pin: { ...comment.pin, version: number } }));
+  const instantIds = new Set(pins.map((comment) => comment.id));
+  return [...ordinary.filter((comment) => !comment.instant && !instantIds.has(comment.id)), ...pins];
+}
+
+async function pinComment(projectDir: string, slug: string, number: number, id: string): Promise<StoredComment | undefined> {
+  const state = await readState(stateFilePath(projectDir, slug, number), number);
+  return (await commentsForVersion(projectDir, slug, number, state.comments)).find((comment) => comment.id === id && (comment.effect || comment.insertShot));
+}
+
+async function savePinComment(projectDir: string, slug: string, number: number, comment: StoredComment): Promise<AddedComment> {
+  await addOperationNow(projectDir, slug, { kind: 'pin-comment', commentId: comment.id, comment });
+  const file = stateFilePath(projectDir, slug, number);
+  await serialized(file, async () => {
+    const state = await readState(file, number);
+    if (state.comments.some((saved) => saved.id === comment.id)) await writeState(file, { ...state, comments: state.comments.filter((saved) => saved.id !== comment.id) });
+  });
+  const comments = await listCommentsNow(projectDir, slug, number);
+  return { comment: comments.find((item) => item.id === comment.id)!, comments };
+}
+
+async function writeAgentPinComment(projectDir: string, slug: string, number: number, comment: StoredComment): Promise<void> {
+  const file = stateFilePath(projectDir, slug, number);
+  await serialized(file, async () => {
+    const state = await readState(file, number);
+    const index = state.comments.findIndex((saved) => saved.id === comment.id);
+    const comments = index < 0 ? [...state.comments, comment] : state.comments.map((saved) => saved.id === comment.id ? comment : saved);
+    await writeState(file, { ...state, comments });
+  });
+}
+
+async function saveAgentPinComment(projectDir: string, slug: string, number: number, comment: StoredComment): Promise<AddedComment> {
+  await writeAgentPinComment(projectDir, slug, number, comment);
+  const comments = await listCommentsNow(projectDir, slug, number);
+  return { comment: comments.find((saved) => saved.id === comment.id)!, comments };
+}
+
 export async function listComments(projectDir: string, slug: string, number: number): Promise<Comment[]> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, () => listCommentsNow(projectDir, slug, number));
+}
+
+/** Read derives Working comments and may recover a save journal or replay edits, so it needs the reel lock. */
+async function listCommentsNow(projectDir: string, slug: string, number: number): Promise<Comment[]> {
   await readVersion(projectDir, slug, number);
   const state = await readState(stateFilePath(projectDir, slug, number), number);
-  return numbered(state.comments, state);
+  return numbered(await commentsForVersion(projectDir, slug, number, state.comments), state);
 }
 
 /** The one guard every change goes through, after the newest version has taken over what its predecessor left. */
@@ -134,10 +198,21 @@ async function takesComments(projectDir: string, slug: string, number: number) {
   return assertTakesComments(projectDir, slug, number);
 }
 
-async function addCommentNow(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
+async function addCommentNow(projectDir: string, slug: string, number: number, input: NewComment, effectHtml?: string): Promise<AddedComment> {
   const version = await commentVersion(projectDir, slug, number);
   const pin = buildPin(input, version);
   const text = typeof input.text === 'string' ? input.text.trim() : '';
+  if (input.effect !== undefined || input.insertShot !== undefined) {
+    if (pin.kind !== 'frame' || input.options !== undefined || input.effect && input.insertShot) throw new KinottaError('invalid', 'Effects and inserted shots need a frame pin without an options request.');
+    if (input.insertShot !== undefined && input.insertShot !== true) throw new KinottaError('invalid', 'Invalid inserted shot.');
+    if (input.insertShot && !text) throw new KinottaError('invalid', 'Describe the new shot.');
+    const effect = input.effect === undefined ? undefined : (await effectsCatalogue()).find((entry) => entry.id === input.effect);
+    if (input.effect !== undefined && !effect) throw new KinottaError('invalid', 'Unknown effect.');
+    const instant = effect?.instant && !text;
+    if (instant && !effectHtml) throw new KinottaError('invalid', 'The instant effect has not been built.');
+    const saved: StoredComment = { id: randomUUID(), pin, text, createdAt: new Date().toISOString(), ...(effect ? { effect: effect.id, effectName: effect.name } : {}), ...(input.insertShot ? { insertShot: true } : {}), ...(instant ? { instant: true, effectHtml } : {}) };
+    return instant ? savePinComment(projectDir, slug, number, saved) : saveAgentPinComment(projectDir, slug, number, saved);
+  }
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
   // A code-built single-page reel may ask too: the agent converts it to parts in its next version to answer.
   if (input.options !== undefined && (!(version.parts || version.code) || pin.shot === NO_SHOT || ![2, 3, 4].includes(input.options))) throw new KinottaError('invalid', 'Options requests need a code-built shot and a count of 2, 3 or 4.');
@@ -150,7 +225,7 @@ async function addCommentNow(projectDir: string, slug: string, number: number, i
     const saved: StoredComment = { id: randomUUID(), pin, text, createdAt: new Date().toISOString(), ...(input.options === undefined ? {} : { options: input.options }) };
     const next = { ...state, comments: [...state.comments, saved] };
     await writeState(file, next);
-    const comments = numbered(next.comments, next);
+    const comments = numbered(await commentsForVersion(projectDir, slug, number, next.comments), next);
     return { comment: comments.find((c) => c.id === saved.id)!, comments };
   });
 }
@@ -159,9 +234,38 @@ function unknownComment(id: string): KinottaError {
   return new KinottaError('not-found', `Comment "${id}" not found.`);
 }
 
-async function editCommentNow(projectDir: string, slug: string, number: number, id: string, input: string): Promise<AddedComment> {
+async function editCommentNow(projectDir: string, slug: string, number: number, id: string, input: string, effectHtml?: string): Promise<AddedComment> {
   await takesComments(projectDir, slug, number);
   const text = typeof input === 'string' ? input.trim() : '';
+  const pinned = await pinComment(projectDir, slug, number, id);
+  if (pinned) {
+    if (pinned.insertShot && !text) throw new KinottaError('invalid', 'Describe the new shot.');
+    const effect = pinned.effect ? (await effectsCatalogue()).find((entry) => entry.id === pinned.effect) : undefined;
+    const { instant: _instant, effectHtml: oldHtml, ...base } = pinned;
+    const instant = effect?.instant && !text;
+    if (instant) {
+      if (pinned.instant) { const comments = await listCommentsNow(projectDir, slug, number); return { comment: comments.find((comment) => comment.id === id)!, comments }; }
+      effectHtml ??= oldHtml;
+      if (!effectHtml) throw new KinottaError('invalid', 'The instant effect has not been built.');
+      return savePinComment(projectDir, slug, number, { ...base, text, effectHtml, instant: true });
+    }
+    const ordinary = { ...base, text };
+    await writeAgentPinComment(projectDir, slug, number, ordinary);
+    if (pinned.instant) {
+      try { await removeInstantPinNow(projectDir, slug, id); }
+      catch (error) {
+        // Restore the original instant-only state if the Working write fails.
+        const file = stateFilePath(projectDir, slug, number);
+        await serialized(file, async () => {
+          const state = await readState(file, number);
+          await writeState(file, { ...state, comments: state.comments.filter((comment) => comment.id !== id) });
+        });
+        throw error;
+      }
+    }
+    const comments = await listCommentsNow(projectDir, slug, number);
+    return { comment: comments.find((comment) => comment.id === id)!, comments };
+  }
   if (text === '') throw new KinottaError('invalid', 'A comment needs some text.');
 
   const file = stateFilePath(projectDir, slug, number);
@@ -170,20 +274,24 @@ async function editCommentNow(projectDir: string, slug: string, number: number, 
     if (!state.comments.some((c) => c.id === id)) throw unknownComment(id);
     const next = { ...state, comments: state.comments.map((c) => (c.id === id ? { ...c, text } : c)) };
     await writeState(file, next);
-    const comments = numbered(next.comments, next);
+    const comments = numbered(await commentsForVersion(projectDir, slug, number, next.comments), next);
     return { comment: comments.find((c) => c.id === id)!, comments };
   });
 }
 
 async function deleteCommentNow(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {
   await takesComments(projectDir, slug, number);
+  if ((await pinComment(projectDir, slug, number, id))?.instant) {
+    await removeInstantPinNow(projectDir, slug, id);
+    return { comments: await listCommentsNow(projectDir, slug, number) };
+  }
   const file = stateFilePath(projectDir, slug, number);
   return serialized(file, async () => {
     const state = await readState(file, number);
     if (!state.comments.some((c) => c.id === id)) throw unknownComment(id);
     const next = { ...state, comments: state.comments.filter((c) => c.id !== id) };
     await writeState(file, next);
-    return { comments: numbered(next.comments, next) };
+    return { comments: numbered(await commentsForVersion(projectDir, slug, number, next.comments), next) };
   });
 }
 
@@ -208,14 +316,48 @@ async function setNoteNow(projectDir: string, slug: string, number: number, inpu
   });
 }
 
+/** Build from a brief locked snapshot; Python never holds the reel lock. */
+async function prepareInstant(projectDir: string, slug: string, number: number, request: NewComment | { id: string }) {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const snapshot = await withReelLock(reelDir, async () => {
+    const existing = 'id' in request ? await pinComment(projectDir, slug, number, request.id) : undefined;
+    const input = 'id' in request ? existing && { ...existing, text: '' } : request;
+    if (!input?.effect || typeof input.text === 'string' && input.text.trim() || existing?.instant) return undefined;
+    const effect = (await effectsCatalogue()).find((effect) => effect.id === input.effect);
+    if (!effect?.instant) return undefined;
+    const version = await commentVersion(projectDir, slug, number);
+    const pin = buildPin(input, version);
+    if (pin.kind !== 'frame') throw new KinottaError('invalid', 'Effects need a frame pin.');
+    return { version, pin, effect, existing };
+  });
+  if (!snapshot) return undefined;
+  const html = await makeInstantEffect(projectDir, slug, snapshot.effect.id, snapshot.pin, snapshot.version);
+  return { html, version: JSON.stringify(snapshot.version), existing: JSON.stringify(snapshot.existing) };
+}
+
+async function checkInstantSnapshot(projectDir: string, slug: string, number: number, prepared: Awaited<ReturnType<typeof prepareInstant>>, id?: string) {
+  if (!prepared) return;
+  if (JSON.stringify(await commentVersion(projectDir, slug, number)) !== prepared.version || id && JSON.stringify(await pinComment(projectDir, slug, number, id)) !== prepared.existing) {
+    throw new KinottaError('invalid', 'Working changed while this effect was being built. Try the effect again.');
+  }
+}
+
 export async function addComment(projectDir: string, slug: string, number: number, input: NewComment): Promise<AddedComment> {
   const reelDir = await requireReelDir(projectDir, slug);
-  return withReelLock(reelDir, () => addCommentNow(projectDir, slug, number, input));
+  const prepared = input?.effect && !(typeof input.text === 'string' && input.text.trim()) ? await prepareInstant(projectDir, slug, number, input) : undefined;
+  return withReelLock(reelDir, async () => {
+    await checkInstantSnapshot(projectDir, slug, number, prepared);
+    return addCommentNow(projectDir, slug, number, input, prepared?.html);
+  });
 }
 
 export async function editComment(projectDir: string, slug: string, number: number, id: string, input: string): Promise<AddedComment> {
   const reelDir = await requireReelDir(projectDir, slug);
-  return withReelLock(reelDir, () => editCommentNow(projectDir, slug, number, id, input));
+  const prepared = typeof input === 'string' && !input.trim() ? await prepareInstant(projectDir, slug, number, { id }) : undefined;
+  return withReelLock(reelDir, async () => {
+    await checkInstantSnapshot(projectDir, slug, number, prepared, id);
+    return editCommentNow(projectDir, slug, number, id, input, prepared?.html);
+  });
 }
 
 export async function deleteComment(projectDir: string, slug: string, number: number, id: string): Promise<CommentList> {

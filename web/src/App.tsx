@@ -581,6 +581,7 @@ function Studio() {
         afterPendingEdits(event.reel, () => {
           if (event.reel !== current.current.slug) return;
           setVersionsTick((n) => n + 1);
+          setCommentsTick((n) => n + 1);
           if (current.current.working) setVersionTick((n) => n + 1);
         });
       } else if (event.type === 'version-added') {
@@ -649,6 +650,10 @@ function Studio() {
 
   const commentsPanel = (
     <CommentsPanel
+      slug={reel?.slug}
+      storyboard={phase === 'Storyboard'}
+      edits={edits}
+      onBuilt={() => { setVersionTick((n) => n + 1); setVersionsTick((n) => n + 1); setCommentsTick((n) => n + 1); }}
       frozen={frozen}
       version={openVersion?.number}
       newest={newest}
@@ -661,6 +666,7 @@ function Studio() {
       section={
         multiSection
           ? {
+              id: sectionId,
               number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)),
               shots: new Set(openVersion.shots.filter((s) => s.section === sectionId).map((s) => s.number)),
             }
@@ -676,7 +682,7 @@ function Studio() {
         onLibrary={() => setLibrary(true)}
         reel={reel}
         version={openVersion}
-        commentCount={multiSection ? (pinCounts(comments.comments, openVersion.shots).get(sectionId) ?? 0) : comments.comments.length}
+        commentCount={multiSection ? (pinCounts(comments.comments.filter((comment) => !comment.instant), openVersion.shots).get(sectionId) ?? 0) : comments.comments.filter((comment) => !comment.instant).length}
         note={note}
         frozen={frozen}
         issues={issues}
@@ -688,7 +694,8 @@ function Studio() {
           setPhase(next);
           if (reel) rememberTab(reel.slug, next);
         }}
-        section={multiSection ? { id: sectionId, number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
+        section={multiSection ? { id: sectionId,
+              number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
         renders={{
           slug: creating ? undefined : reel?.slug,
           jobs,
@@ -702,7 +709,7 @@ function Studio() {
           },
         }}
       />
-      <div className="body" data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
+      <div className="body" data-pin-storyboard={String(phase === 'Storyboard' && !creating)} data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
         <Rail
           reviewMode={phase === 'Review' && !creating}
           project={load.project}

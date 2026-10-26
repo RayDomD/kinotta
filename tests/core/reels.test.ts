@@ -1,8 +1,14 @@
-import { mkdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
 import { copyFixture, emptyProject, setReelMtime } from '../helpers/project.ts';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, stat: vi.fn(actual.stat) };
+});
 
 const OLDER = new Date('2026-01-01T10:00:00Z');
 const NEWER = new Date('2026-02-01T10:00:00Z');
@@ -44,6 +50,41 @@ describe('listReels', () => {
     const listing = await openProject(dir).listReels();
 
     expect(listing.reels[0]).toMatchObject({ slug: 'product-showreel', lastChange: later.getTime() });
+  });
+
+  it('lists a reel when its only file disappears during the last-change scan', async () => {
+    const dir = emptyProject();
+    const reelDir = join(dir, 'reels', 'vanishing');
+    mkdirSync(reelDir, { recursive: true });
+    const temporary = join(reelDir, 'state.json.tmp');
+    writeFileSync(temporary, '{}');
+    const realStat = (await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')).stat;
+    let removed = false;
+    const stat = vi.mocked(fs.stat).mockImplementation((...args) => {
+      if (String(args[0]) === temporary) {
+        unlinkSync(temporary);
+        utimesSync(reelDir, NEWER, NEWER);
+        removed = true;
+      }
+      return realStat(...args);
+    });
+    try {
+      const listing = await openProject(dir).listReels();
+      expect(removed).toBe(true);
+      expect(listing).toEqual({ state: 'ok', reels: [
+        { slug: 'vanishing', title: 'vanishing', newestVersion: null, lastChange: NEWER.getTime() },
+      ] });
+    } finally { stat.mockImplementation(realStat); }
+  });
+
+  it('surfaces file-stat errors other than a disappearing file', async () => {
+    const dir = emptyProject();
+    const reelDir = join(dir, 'reels', 'unreadable');
+    mkdirSync(reelDir, { recursive: true });
+    writeFileSync(join(reelDir, 'state.json'), '{}');
+    const failure = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+    vi.mocked(fs.stat).mockRejectedValueOnce(failure);
+    await expect(openProject(dir).listReels()).rejects.toBe(failure);
   });
 
   it('falls back to the folder name when reel.json is missing or has no title', async () => {

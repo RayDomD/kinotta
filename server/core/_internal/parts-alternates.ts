@@ -1,3 +1,8 @@
+import { readPinRecord } from './pin-files.ts';
+import { pinnedEffectPage } from './pinned-effect-page.ts';
+import { readFile } from 'node:fs/promises';
+import { checkPartsManifest } from './parts.ts';
+import { partsAlternateManifest } from './parts-assembler.ts';
 import { join } from 'node:path';
 import { editsCss, readEditsCss } from './code-edits.ts';
 import { assembleParts } from './parts-assembler.ts';
@@ -18,7 +23,9 @@ export async function alternatePage(projectDir: string, slug: string, number: nu
   if (cached !== undefined) return cached;
   const html = assembleParts(version.parts, await readPartsInputs(reelDir, version.parts), { shot, revision });
   const offsets = editsCss(await readEditsCss(join(reelDir, `v${number}`)));
-  const page = html.replace('</head>', `${offsets ? `<style>${offsets}</style>` : ''}</head>`);
+  const pinComments = await readPinRecord<import('./state.ts').StoredComment | null>(join(reelDir, `v${number}`, 'pin-comments.json'), 'pin comments');
+  const alternate = partsAlternateManifest(version.parts, { shot, revision });
+  const page = pinnedEffectPage(html, { pinComments }, checkPartsManifest(alternate as unknown as Record<string, unknown>).shots).replace('</head>', `${offsets ? `<style>${offsets}</style>` : ''}</head>`);
   pages.set(key, page);
   return page;
 }

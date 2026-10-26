@@ -27,7 +27,7 @@ const FORM_NAMES: Record<string, string> = {
 
 const ALL_FORMS = Object.keys(FORM_NAMES);
 
-const PREVIEW_HTML: Record<string, string> = {
+export const PREVIEW_HTML: Record<string, string> = {
   'big-word': '<div class="p-big">pin.</div>',
   captions: '<i class="person"></i><div class="p-cap">one <i>pin</i> fixes it</div>',
   'title-card': '<div class="p-title"><b>The pin</b><span>Kinotta · 2026</span></div>',

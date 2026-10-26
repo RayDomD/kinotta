@@ -1,3 +1,4 @@
+import { builtPinNotes, decidePinNote } from './_internal/pin-notes.ts';
 import { createAgentJobs, type AgentJobsOptions } from './_internal/agent-jobs.ts';
 import { listStyles, saveStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/style.ts';
 export { validateStyle, readStyle, listStyles, saveStyle, resolveDefaultStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyles, migrateStyleProfile } from './_internal/style.ts';
@@ -11,7 +12,7 @@ export type { StyleChoice } from './_internal/types.ts';
 import { rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { buildParts } from './_internal/parts-build.ts';
-import { workingPartsPage, workingPartsSnapshot } from './_internal/parts-working.ts';
+import { workingEffectSnapshot, workingPartsPage, workingPartsSnapshot } from './_internal/parts-working.ts';
 import { alternatePage } from './_internal/parts-alternates.ts';
 import { copyBatch } from './_internal/batch.ts';
 import { addOperation, cancelHandoff, discardEdits, readEditList, readEditListNow, readMediaModel, withReelLock, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
@@ -160,6 +161,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     return renders.add(request, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments));
   };
   return {
+    builtPinNotes: (slug) => builtPinNotes(dir, slug),
+    decidePinNote: (slug, id, keep) => decidePinNote(dir, slug, id, keep),
     brandFonts: () => readBrandFonts(dir),
     importFont: (name, body) => importFont(dir, name, body),
     listStyles: (videoType) => listStyles(dir, videoType),
@@ -212,8 +215,9 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
         const number = await newestVersionNumber(reelDir);
         const version = await markWaiting(dir, slug, number, await readCapturedVersion(dir, slug, number, join(reelDir, `v${list.base}`)));
         const parts = version.parts ? await workingPartsSnapshot(dir, slug) : null;
+        const effectPage = !parts ? await workingEffectSnapshot(dir, slug) : null;
         const shots = parts?.shots.map((shot) => ({ ...shot, section: version.shots.find((original) => original.name === shot.name)?.section }));
-        return { ...version, isNewest: true, workingBase: list.base, ...(parts && shots ? { workingParts: { duration: parts.duration, shots, key: parts.key } } : {}) };
+        return { ...version, isNewest: true, workingBase: list.base, ...(effectPage ? { workingEffectKey: effectPage.key } : {}), ...(parts && shots ? { workingParts: { duration: parts.duration, shots, key: parts.key } } : {}) };
       });
     },
     listVersions: (slug) => listVersions(dir, slug),
@@ -228,9 +232,9 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     footageFile: (slug) => footageFile(dir, slug),
     footageAudioFile: (slug) => footageAudioFile(dir, slug),
     listComments: (slug, number) => listComments(dir, slug, number),
-    addComment: (slug, number, input) => addComment(dir, slug, number, input),
-    editComment: (slug, number, id, text) => editComment(dir, slug, number, id, text),
-    deleteComment: (slug, number, id) => deleteComment(dir, slug, number, id),
+    addComment: async (slug, number, input) => { const result = await addComment(dir, slug, number, input); if (input.effect || input.insertShot) emit({ type: 'edits-changed', reel: slug }); return result; },
+    editComment: async (slug, number, id, text) => { const result = await editComment(dir, slug, number, id, text); if (result.comment.effect || result.comment.insertShot) emit({ type: 'edits-changed', reel: slug }); return result; },
+    deleteComment: async (slug, number, id) => { const result = await deleteComment(dir, slug, number, id); emit({ type: 'edits-changed', reel: slug }); return result; },
     readNote: (slug, number) => readNote(dir, slug, number),
     setNote: (slug, number, note) => setNote(dir, slug, number, note),
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),

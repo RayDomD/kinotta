@@ -127,14 +127,14 @@ describe('startReel', () => {
 });
 
 describe('the runner', () => {
-  it('is the only module that names the skill scripts or the renderer, or starts Python', () => {
+  it('centralizes script launches in runner and the agent-free build runner', () => {
     const offenders: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         const path = join(dir, entry.name);
         if (entry.isDirectory()) walk(path);
-        else if (/\.ts$/.test(entry.name) && !path.endsWith('runner.ts')) {
-          // Naming Python is fine (the tool check's hints and types); starting it outside the runner is not.
+        else if (/\.ts$/.test(entry.name) && ![join(SERVER_DIR, 'core/_internal/runner.ts'), join(SERVER_DIR, 'core/_internal/build-runner.ts')].includes(path)) {
+          // Naming Python is fine (the tool check's hints and types); starting it outside these two services is not.
           const text = readFileSync(path, 'utf8');
           if (/\.py\b|ffprobe|render\.js/i.test(text) || (/child_process/.test(text) && /python/i.test(text))) offenders.push(path);
         }
@@ -143,6 +143,9 @@ describe('the runner', () => {
     walk(SERVER_DIR);
 
     expect(offenders).toEqual([]);
+    const localBuilder = readFileSync(join(SERVER_DIR, 'core/_internal/build-runner.ts'), 'utf8');
+    expect(localBuilder).not.toMatch(/from ['"].*(?:runner|agent-jobs)\.ts['"]/);
+    expect(localBuilder).not.toMatch(/launchAgent|startAgentJob/);
   });
 });
 

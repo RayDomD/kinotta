@@ -224,6 +224,13 @@ export async function copyStyleToReel(projectDir: string, slug: string, input: u
   return copy;
 }
 
+/** Keep a built note in this reel's private copy; saved/default styles remain untouched. */
+export async function addReelRule(projectDir: string, slug: string, rule: string): Promise<void> {
+  const current = await readReelStyle(projectDir, slug) ?? { ...(await resolveDefaultStyle(projectDir)), scope: 'project' as const };
+  const next = validateStyle({ ...current, scope: 'project', rules: [...new Set([...current.rules, rule])] });
+  await write(reelStyleFile(projectDir, slug), projectDir, next);
+}
+
 interface Migrations { taste?: string; profile?: string }
 async function migrationRecord(file: string, root: string): Promise<Migrations> {
   return object(await readJson(file, root) ?? {}) as Migrations;

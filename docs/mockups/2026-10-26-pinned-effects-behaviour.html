@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pinned effects behaviour</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;800&family=Outfit:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);--still:oklch(.13 .006 50);
+  --press:2px 2px 0 -1.6px var(--ground),2px 2px 0 0 oklch(.945 .004 106 / .42),4px 4px 0 -1.6px var(--ground),4px 4px 0 0 oklch(.945 .004 106 / .18);
+  --you-bg:oklch(.22 .006 60);--you-ink:oklch(.93 .035 85);--you-accent:oklch(.74 .12 55);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:Doto,monospace;font-weight:800;font-variant-numeric:tabular-nums}
+.mock{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;background:var(--ground-deep);border-bottom:1.4px solid var(--rule);font-size:13px;color:var(--muted)}
+.mock .reset{margin-left:auto;background:none;border:0;color:var(--muted);text-decoration:underline;font-size:12px}
+.top{min-height:52px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:6px 16px;border-bottom:1.4px solid var(--rule)}
+.brand{font-weight:600;letter-spacing:.14em;font-size:13px}
+.reelname{color:var(--ink-2)}
+.working-flag{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.working-flag b{color:var(--ink-2);font-weight:500}
+.shell{display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:calc(100vh - 100px)}
+.main{padding:20px 22px 80px;min-width:0}
+h1{font-weight:500;font-size:22px;letter-spacing:-.4px;margin:0}
+.lede{color:var(--muted);font-size:13px;margin:4px 0 16px;max-width:70ch}
+.tries{border:1.4px solid var(--hairline);background:var(--card);padding:10px 14px;margin:0 0 20px;font-size:13px;color:var(--ink-2);max-width:78ch}
+.tries ol{margin:4px 0 0;padding-left:20px}
+.row{display:flex;align-items:stretch;gap:0}
+.shot{flex:1 1 0;min-width:0;border:1.4px solid transparent;padding:8px}
+.still{aspect-ratio:9/16;max-height:320px;width:100%;background:var(--still);position:relative;overflow:hidden;border:1.4px solid transparent}
+.dragging .still,.dragging .strip,.dragging .gap{border-color:var(--rule)}
+.over{border-color:var(--light)!important;background-color:var(--light-wash)!important}
+.person{position:absolute;left:50%;bottom:-4%;width:52%;height:62%;transform:translateX(-50%)}
+.person::before{content:"";position:absolute;left:30%;top:0;width:40%;aspect-ratio:1;border-radius:50%;background:oklch(.38 .008 60)}
+.person::after{content:"";position:absolute;left:0;right:0;top:40%;bottom:0;border-radius:46% 46% 0 0;background:oklch(.31 .008 60)}
+.cap{display:flex;justify-content:space-between;margin-top:6px;font-size:14px}
+.cap .t{font-weight:500}.cap .tc{font-size:12px;color:var(--muted)}
+.status{font-size:12.5px;margin-top:2px;min-height:20px;color:var(--ink-2)}
+.status i{font-style:normal;color:var(--light)}
+.fx-layer{position:absolute;left:8%;right:8%;top:14%;padding:10px 12px;background:var(--you-bg);color:var(--you-ink);font-family:Fraunces,serif;font-weight:600;border-left:4px solid var(--you-accent);pointer-events:none}
+.fx-layer .big{font-size:24px;line-height:1}
+.fx-layer ul{margin:0;padding:0;list-style:none;font-size:13px;line-height:1.5}
+.fx-layer.anim{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.planned{position:absolute;inset:14% 8% auto;border:1.6px dashed var(--light);background:oklch(.84 .11 225 / .1);height:20%;display:grid;place-items:center;font-size:12px;color:var(--light);pointer-events:none;text-align:center;padding:0 6px}
+.busy{position:absolute;inset:0;background:oklch(.12 .003 106 / .55);display:grid;place-items:center;z-index:2;pointer-events:none}
+.busy span{font-size:12px;background:var(--ground);border:1.2px solid var(--hairline);padding:2px 10px}
+.bar{position:absolute;left:0;bottom:0;height:3px;background:var(--light);box-shadow:0 0 8px var(--light-glow);z-index:3}
+.hex{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;display:grid;place-items:center;font-family:Doto,monospace;font-weight:800;font-size:11px;color:var(--ground);background:var(--light);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);z-index:4;border:0;padding:0}
+.hex.sel{background:var(--ink)}
+.strip{margin-top:6px;border:1.4px dashed transparent;padding:4px 6px;font-size:12px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:30px}
+.dots{display:flex;gap:4px;align-items:center}
+.dots i{width:7px;height:7px;border-radius:50%;border:1.2px solid var(--ink-2)}
+.dots i.on{background:var(--ink-2)}
+.chip{display:inline-flex;gap:4px;align-items:center;border:1.2px solid var(--hairline);padding:0 4px 0 2px;font-size:11.5px;color:var(--ink-2);background:var(--card)}
+.chip.sel{border-color:var(--light)}
+.chip .x,.pcard .x{background:none;border:0;color:var(--muted);padding:0 2px;font-size:13px;line-height:1}
+.gap{flex:0 0 34px;margin:8px 0 60px;border:1.4px dashed transparent;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;font-size:11px;color:var(--muted);transition:flex-basis .2s}
+.gap.has{flex-basis:120px;writing-mode:horizontal-tb;border-color:var(--light);border-style:dashed;padding:6px;flex-direction:column;gap:6px;text-align:center;color:var(--light)}
+.insert{writing-mode:vertical-rl;background:none;border:1.2px dashed var(--hairline);color:var(--muted);font-size:11px;padding:8px 2px;height:100%}
+.insert:hover{border-color:var(--light);color:var(--light)}
+.gnote{font-size:11.5px;color:var(--ink-2);overflow-wrap:anywhere;max-height:6.5em;overflow:hidden}
+.gap.has.made{border-style:solid;color:var(--you-ink);background:var(--you-bg)}
+.tag{font-size:11px;padding:0 6px;white-space:nowrap}
+.tag.free{background:var(--you-accent);color:var(--ground);font-weight:600}
+.tag.agent{border:1.2px dashed var(--light);color:var(--light)}
+.wpin{display:inline-grid;place-items:center;width:16px;height:16px;font-family:Doto,monospace;font-weight:800;font-size:9px;color:var(--ground);background:var(--light);clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.side{border-left:1.4px solid var(--rule);display:flex;flex-direction:column}
+.drawer{padding:14px 16px}
+.label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.hint{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.fxgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fx{border:1.4px solid var(--hairline);cursor:grab}
+.fx:hover{border-color:var(--ink)}
+.fx .prev{aspect-ratio:16/10;position:relative;background:var(--still);overflow:hidden}
+.fx .prev .fx-layer{top:18%;padding:6px 8px}.fx .prev .big{font-size:14px}.fx .prev ul{font-size:10px}
+.fx .m{padding:5px 8px 7px;font-size:13px}
+.fx .m small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
+.queue{border-top:1.4px solid var(--rule);padding:12px 16px}
+.qhead{display:flex;align-items:center;gap:8px}
+.qhead .label{margin:0}
+.ghost{margin-left:auto;background:none;border:1.4px solid var(--hairline);padding:2px 10px;font-size:12.5px}
+.ghost:disabled{opacity:.4;cursor:default}
+.pcard{background:var(--card);border:1.4px solid var(--hairline);padding:8px 10px;margin:8px 0 0}
+.pcard.sel{border-color:var(--light)}
+.pcard .h{display:flex;gap:8px;align-items:center;font-size:13px}
+.pcard .h b{font-weight:500}
+.pcard .h .where{color:var(--muted);font-size:12px;margin-left:auto}
+.pcard textarea{width:100%;margin-top:6px;background:var(--ground-deep);border:1.4px solid var(--hairline);color:var(--ink);padding:6px 8px;font:inherit;font-size:13px;min-height:38px;resize:vertical}
+.pcard textarea:focus{outline:none;border-color:var(--light)}
+.pcard .st{font-size:12px;color:var(--ink-2);margin-top:4px}
+.keep{margin-top:8px;border-top:1.4px solid var(--rule);padding-top:8px;font-size:13px}
+.keep h3{font-size:14px;font-weight:600;margin:0 0 4px}
+.keep q{display:block;font-family:Fraunces,serif;color:var(--you-ink);margin:0 0 4px}
+.keep p{color:var(--muted);font-size:12.5px;margin:0 0 8px}
+.keep .btns{display:flex;gap:8px}
+.primary{background:var(--ink);color:var(--ground);border:0;font-weight:600;padding:8px 16px;box-shadow:var(--press)}
+.primary:disabled{opacity:.4;cursor:default}
+.primary.small{padding:4px 12px;font-size:13px}
+.primary .num{margin-left:6px}
+.muted{color:var(--muted);font-size:12.5px}
+.cost{font-size:12px;color:var(--muted);margin-top:6px}
+.rules{border-top:1.4px solid var(--rule);padding:12px 16px 24px}
+.rules ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-2)}
+.log{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px}
+@media (max-width:820px){.shell{grid-template-columns:1fr}.side{border-left:0;border-top:1.4px solid var(--rule)}.row{flex-wrap:wrap}.shot{flex:1 1 40%}.gap{flex-basis:100%;writing-mode:horizontal-tb;margin:0;min-height:30px}.gap.has{flex-basis:100%}}
+</style>
+</head>
+<body>
+<div class="mock"><span>Behaviour mockup v4 · effects on frames and alternates; gaps take an inserted-shot comment · timings compressed</span><button class="reset" id="reset">Reset</button></div>
+<header class="top">
+  <div class="brand">KINOTTA</div>
+  <div class="reelname">Weekend out <span class="num" style="color:var(--muted);font-size:12px">00:30</span></div>
+  <div class="working-flag" id="wflag"></div>
+</header>
+<div class="shell">
+  <main class="main">
+    <h1>Storyboard · Working</h1>
+    <p class="lede">Drag an effect onto a frame or the alternates strip under it. To add a shot, use Insert shot in the gap between two shots and describe it.</p>
+    <div class="tries"><b>Things to try</b>
+      <ol>
+        <li>Drop <b>Title card</b> on a frame: it is made at once, free.</li>
+        <li>Click <b>Insert shot</b> in a gap and describe the new shot: it goes to the agent with the next Build.</li>
+        <li>Drop <b>Section tag</b> on a strip: it becomes an alternate to try.</li>
+        <li>Click a pin, press <b>Delete</b>; then <b>Ctrl+Z</b> or Undo.</li>
+        <li>Type a note on an instant pin: it moves to the agent. Build, then answer <b>Keep this note?</b></li>
+      </ol>
+    </div>
+    <div class="row" id="row"></div>
+    <p class="log" id="log" aria-live="polite"></p>
+  </main>
+  <aside class="side">
+    <div class="drawer">
+      <p class="label">Effects</p>
+      <p class="hint">Each card says whether it is instant or needs the agent.</p>
+      <div class="fxgrid" id="fx"></div>
+    </div>
+    <div class="queue" id="queue"></div>
+    <div class="rules" id="rules"></div>
+  </aside>
+</div>
+<script>
+const FX = {
+  title: { name: 'Title card', d: 'Uses the reel title', text: 'Weekend out', instant: true },
+  tag: { name: 'Section tag', d: 'Uses the section name', text: '02 · The drive', instant: true },
+  big: { name: 'Big word', d: 'Picks a word you say', text: 'Finally.', why: 'picks a word from what you said' },
+  list: { name: 'Checklist', d: 'Picks the items you list', items: ['Coffee', 'Coast road', 'No phone'], why: 'picks the items from what you said' },
+};
+const SHOTS = [{ n: '01', t: 'Hook', tc: '00:00–00:04' }, { n: '02', t: 'Driving', tc: '00:04–00:15' }, { n: '03', t: 'Beach', tc: '00:15–00:30' }];
+const INSTANT_MS = 900, AGENT_MS = 4000;
+let pins = [], rules = [], undo = [], counter = 0, selected = null;
+const pad = (n) => String(n).padStart(2, '0');
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const fxName = (p) => p.fx ? FX[p.fx].name : 'Inserted shot';
+const needsAgent = (p) => p.kind === 'gap' || !FX[p.fx].instant || !!p.note.trim();
+const why = (p) => p.kind === 'gap' ? 'the agent makes the new shot' : !FX[p.fx].instant ? FX[p.fx].why : 'your note needs the agent to read it';
+const where = (p) => p.kind === 'frame' ? 'Shot ' + SHOTS[p.at].n : p.kind === 'gap' ? 'New shot after ' + SHOTS[p.at].n : 'Alternate of ' + SHOTS[p.at].n;
+const log = (t) => { document.getElementById('log').textContent = t; };
+
+function snapshot() {
+  // A save mid-build is restored settled: an instant fill counts as done, an agent run as waiting again.
+  undo.push(JSON.stringify({ pins: pins.map((p) => ({ ...p, phase: p.phase === 'filling' ? 'done' : p.phase === 'agent' ? 'wait' : p.phase, made: p.phase === 'filling' ? true : p.made })), rules, counter }));
+  if (undo.length > 50) undo.shift();
+}
+function restore() {
+  if (!undo.length) return;
+  const s = JSON.parse(undo.pop()); pins = s.pins; rules = s.rules; counter = s.counter; selected = null; log('Undone.'); render();
+}
+
+const layer = (fx, anim) => { const f = FX[fx];
+  return '<div class="fx-layer' + (anim ? ' anim' : '') + '">' + (f.items ? '<ul>' + f.items.map((i) => '<li>— ' + i + '</li>').join('') + '</ul>' : '<div class="big">' + f.text + '</div>') + '</div>'; };
+function phaseText(p) {
+  if (p.phase === 'draft') return 'Describe the new shot to send it with the next Build';
+  return ({ filling: 'Making it in your style…', done: p.byAgent ? 'Built by the agent' + (p.note.trim() && p.kind !== 'gap' ? ' · note followed' : '') : 'Done · no agent, no tokens', wait: 'Waiting for Build · ' + why(p), agent: '<i>Agent working</i> · one run for all waiting pins' })[p.phase];
+}
+function kindTag(p) { return p.byAgent ? '' : needsAgent(p) ? '<span class="tag agent">Needs the agent</span>' : '<span class="tag free">Instant · free</span>'; }
+
+function shotHTML(s, i) {
+  const own = pins.filter((p) => p.kind === 'frame' && p.at === i), last = own[own.length - 1];
+  let inner = '<i class="person"></i>';
+  own.forEach((p) => { inner += '<button class="hex' + (selected === p.id ? ' sel' : '') + '" style="left:' + p.x + '%;top:' + p.y + '%" data-pick="' + p.id + '" title="' + FX[p.fx].name + '">' + pad(p.no) + '</button>'; });
+  if (last) {
+    inner += last.made ? layer(last.fx, last.fresh) : '<div class="planned">' + FX[last.fx].name + ' · planned</div>';
+    if (last.phase === 'filling' || last.phase === 'agent') inner += '<div class="busy"><span>' + (last.phase === 'agent' ? 'Agent building…' : 'Making it…') + '</span></div><div class="bar" style="width:' + last.prog + '%"></div>';
+  }
+  const alts = pins.filter((p) => p.kind === 'strip' && p.at === i);
+  const strip = '<div class="strip" data-drop="strip" data-at="' + i + '"><span class="dots" title="Alternates: r1 in the reel"><i class="on"></i><i></i></span>' +
+    (alts.length ? alts.map((p) => '<span class="chip' + (selected === p.id ? ' sel' : '') + '" data-pick="' + p.id + '"><span class="wpin">' + pad(p.no) + '</span>' + FX[p.fx].name + (p.made ? '' : ' · planned') + '<button class="x" data-del="' + p.id + '" aria-label="Delete">×</button></span>').join('') : '<span>Drop here to try as an alternate</span>') + '</div>';
+  return '<div class="shot"><div class="still" data-drop="frame" data-at="' + i + '">' + inner + '</div><div class="cap"><span class="t">' + s.n + ' · ' + s.t + '</span><span class="tc num">' + s.tc + '</span></div><div class="status">' + (last ? phaseText(last) : '<span class="muted">Drop an effect on the frame</span>') + '</div>' + strip + '</div>';
+}
+function gapHTML(i) {
+  const p = pins.find((q) => q.kind === 'gap' && q.at === i);
+  if (!p) return '<div class="gap"><button class="insert" data-insert="' + i + '">+ Insert shot</button></div>';
+  const st = p.made ? 'built' : p.phase === 'agent' ? 'making…' : p.phase === 'wait' ? 'waiting for Build' : 'describe it';
+  return '<div class="gap has' + (p.made ? ' made' : '') + '" data-pick="' + p.id + '"><span class="wpin">' + pad(p.no) + '</span><span>New shot</span><span class="gnote">' + (p.note.trim() ? esc(p.note.trim()) : '…') + '</span><span style="font-size:11px">' + st + '</span><button class="x" style="background:none;border:0;color:inherit" data-del="' + p.id + '" aria-label="Delete">×</button></div>';
+}
+
+function render() {
+  let row = '';
+  SHOTS.forEach((s, i) => { row += shotHTML(s, i); if (i < SHOTS.length - 1) row += gapHTML(i); });
+  document.getElementById('row').innerHTML = row;
+  document.getElementById('fx').innerHTML = Object.entries(FX).map(([id, f]) => '<div class="fx" draggable="true" data-fx="' + id + '"><div class="prev">' + layer(id) + '</div><div class="m">' + f.name + ' ' + (f.instant ? '<span class="tag free">Instant · free</span>' : '<span class="tag agent">Agent</span>') + '<small>' + f.d + '</small></div></div>').join('');
+  const waiting = pins.filter((p) => p.phase === 'wait'), building = pins.some((p) => p.phase === 'agent'), free = pins.filter((p) => p.phase === 'done' && !p.byAgent).length;
+  let q = '<div class="qhead"><p class="label">Pinned effects</p><button class="ghost" id="undo"' + (undo.length ? '' : ' disabled') + '>Undo</button></div>';
+  q += pins.length ? pins.map((p) => {
+    const locked = p.phase === 'agent' || p.phase === 'filling' || p.byAgent;
+    let card = '<div class="pcard' + (selected === p.id ? ' sel' : '') + '" data-pick="' + p.id + '"><div class="h"><span class="wpin">' + pad(p.no) + '</span><b>' + fxName(p) + '</b>' + kindTag(p) + '<span class="where">' + where(p) + '</span><button class="x" data-del="' + p.id + '" aria-label="Delete pin ' + pad(p.no) + '">×</button></div>';
+    card += '<textarea data-note="' + p.id + '" placeholder="' + (p.kind === 'gap' ? 'What should the new shot show?' : 'Note (optional). Writing one sends it to the agent.') + '"' + (locked ? ' disabled' : '') + '>' + esc(p.note) + '</textarea><div class="st">' + phaseText(p) + '</div>';
+    if (p.askKeep) card += '<div class="keep"><h3>Keep this note in this reel\'s style?</h3><q>' + esc(p.note.trim()) + '</q><p>Kinotta will follow it on later versions of this reel. To use it on other reels, reuse this style or save it as yours. You can see or turn off rules in the Check step.</p><div class="btns"><button class="primary small" data-keep="' + p.id + '">Keep it</button><button class="ghost" style="margin:0" data-skip="' + p.id + '">Not now</button></div></div>';
+    return card + '</div>';
+  }).join('') : '<p class="muted" style="margin-top:8px">Nothing pinned yet.</p>';
+  q += '<div style="margin-top:12px"><button class="primary" id="build"' + (waiting.length && !building ? '' : ' disabled') + '>Build next version<span class="num">' + pad(waiting.length) + '</span></button></div><p class="cost">' + (waiting.length ? waiting.length + ' pin' + (waiting.length > 1 ? 's' : '') + ' · 1 agent run' : building ? 'Agent run in progress' : 'Nothing needs the agent') + (free ? ' · ' + free + ' already done free' : '') + '</p>';
+  document.getElementById('queue').innerHTML = q;
+  document.getElementById('rules').innerHTML = '<p class="label">This reel\'s style · rules</p>' + (rules.length ? '<ul>' + rules.map((r) => '<li>' + esc(r) + '</li>').join('') + '</ul>' : '<p class="muted">No rules yet. Kept notes land here, for this reel only.</p>');
+  const planned = pins.filter((p) => !p.made && p.phase !== 'draft').length, made = pins.filter((p) => p.made).length;
+  document.getElementById('wflag').innerHTML = 'Working: <b>' + made + ' built</b> · ' + planned + ' requested, not yet in Working';
+  pins.forEach((p) => { p.fresh = false; });
+}
+
+function tick(p, ms, phase, done) {
+  p.phase = phase; p.prog = 0; const t0 = performance.now();
+  const step = () => { if (!pins.includes(p) || p.phase !== phase) return; p.prog = Math.min(100, (performance.now() - t0) / ms * 100); render(); if (p.prog < 100) requestAnimationFrame(step); else done(); };
+  requestAnimationFrame(step);
+}
+function settleInstant(p) { tick(p, INSTANT_MS, 'filling', () => { p.phase = 'done'; p.made = true; p.fresh = true; render(); }); }
+
+function drop(fx, kind, at, x, y) {
+  if (kind === 'gap' && pins.some((p) => p.kind === 'gap' && p.at === at)) { log('That gap already has a planned shot. Delete it first.'); return; }
+  snapshot();
+  const p = { id: 'p' + (++counter), no: counter, fx, kind, at, x, y, note: '', made: false, byAgent: false, askKeep: false };
+  pins.push(p); selected = p.id;
+  log('Pinned ' + FX[fx].name + ' · ' + where(p) + '.');
+  if (FX[fx].instant) settleInstant(p); else { p.phase = 'wait'; render(); }
+}
+function remove(id) {
+  const p = pins.find((q) => q.id === id); if (!p) return;
+  snapshot(); pins = pins.filter((q) => q !== p); if (selected === id) selected = null;
+  log('Deleted ' + (p.kind === 'gap' ? 'inserted shot ' : 'pin ') + pad(p.no) + '. Ctrl+Z brings it back.'); render();
+}
+function build() {
+  const ids = pins.filter((p) => p.phase === 'wait');
+  ids.forEach((p) => tick(p, AGENT_MS, 'agent', () => { p.phase = 'done'; p.byAgent = true; p.made = true; p.fresh = true; p.askKeep = p.kind !== 'gap' && !!p.note.trim(); render(); }));
+  log('One agent run for ' + ids.length + ' pin' + (ids.length > 1 ? 's' : '') + '.');
+}
+
+let dragFx = null;
+const clearOver = () => document.querySelectorAll('.over').forEach((x) => x.classList.remove('over'));
+document.addEventListener('dragstart', (e) => { const f = e.target.closest('[data-fx]'); if (!f) return; dragFx = f.dataset.fx; e.dataTransfer.setData('text/plain', dragFx); document.body.classList.add('dragging'); });
+document.addEventListener('dragend', () => { dragFx = null; document.body.classList.remove('dragging'); clearOver(); });
+document.addEventListener('dragover', (e) => { if (!dragFx) return; const t = e.target.closest('[data-drop]'); clearOver(); if (t) { e.preventDefault(); t.classList.add('over'); } });
+document.addEventListener('drop', (e) => {
+  e.preventDefault(); document.body.classList.remove('dragging'); clearOver();
+  const t = e.target.closest('[data-drop]'); if (!t || !dragFx) return;
+  const r = t.getBoundingClientRect();
+  const x = Math.round(Math.max(8, Math.min(92, (e.clientX - r.left) / r.width * 100))), y = Math.round(Math.max(6, Math.min(94, (e.clientY - r.top) / r.height * 100)));
+  drop(dragFx, t.dataset.drop, +t.dataset.at, x, y); dragFx = null;
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#reset')) { pins = []; rules = []; undo = []; counter = 0; selected = null; log(''); return render(); }
+  if (e.target.closest('#build')) return build();
+  if (e.target.closest('#undo')) return restore();
+  const ins = e.target.closest('[data-insert]'); if (ins) { snapshot(); const p = { id: 'p' + (++counter), no: counter, fx: null, kind: 'gap', at: +ins.dataset.insert, note: '', made: false, byAgent: false, askKeep: false, phase: 'draft' }; pins.push(p); selected = p.id; noteSaved = p.id; render(); document.querySelector('[data-note="' + p.id + '"]').focus(); return; }
+  const del = e.target.closest('[data-del]'); if (del) return remove(del.dataset.del);
+  const keep = e.target.closest('[data-keep]'); if (keep) { const p = pins.find((q) => q.id === keep.dataset.keep); snapshot(); rules.push(p.note.trim()); p.askKeep = false; log('Kept as a rule in this reel\'s style.'); return render(); }
+  const skip = e.target.closest('[data-skip]'); if (skip) { pins.find((q) => q.id === skip.dataset.skip).askKeep = false; return render(); }
+  if (e.target.closest('textarea')) return;
+  const pick = e.target.closest('[data-pick]'); selected = pick ? pick.dataset.pick : null; render();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('textarea')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); restore(); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); remove(selected); }
+});
+// Writing a note on an instant pin moves it to the agent; clearing the note moves it back.
+let noteSaved = null;
+// One Undo step per note edit, however often the box is refocused while typing.
+document.addEventListener('focusin', (e) => { const id = e.target.dataset?.note; if (id && noteSaved !== id) { noteSaved = id; snapshot(); } });
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('textarea')) noteSaved = null; });
+document.addEventListener('input', (e) => {
+  const id = e.target.dataset.note; if (!id) return; const p = pins.find((q) => q.id === id); p.note = e.target.value;
+  // An inserted shot waits for Build once it is described; the gap shows the text as it is typed.
+  if (p.kind === 'gap') { if (p.phase === 'draft' || p.phase === 'wait') p.phase = p.note.trim() ? 'wait' : 'draft'; const pos = e.target.selectionStart; render(); const t = document.querySelector('[data-note="' + id + '"]'); t.focus(); t.setSelectionRange(pos, pos); return; }
+  if (!FX[p.fx].instant || !(p.phase === 'done' || p.phase === 'wait')) return;
+  const next = p.note.trim() ? 'wait' : 'done';
+  if (next === p.phase) return;
+  p.phase = next; p.made = next === 'done';
+  const pos = e.target.selectionStart; render(); const t = document.querySelector('[data-note="' + id + '"]'); t.focus(); t.setSelectionRange(pos, pos);
+});
+render();
+</script>
+</body>
+</html>

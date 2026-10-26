@@ -30,6 +30,7 @@ function verifyAttrs(tab: string, list: EditsState['list']) {
 /** Where an operation landed on the timeline as it was when the operation was made, in the transport's reading. */
 function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number, clips: readonly PlanClip[] | undefined): string {
   const op = operations[index]!;
+  if (op.kind === 'pin-comment') return op.comment ? `shot ${op.comment.pin.shot}` : 'pin';
   if (op.kind === 'shot-alternate' || op.kind === 'shot-alternate-dismiss') return `shot ${op.shot}`;
   if (op.kind === 'track-add' || op.kind === 'track-change' || op.kind === 'track-move' || op.kind === 'track-remove') return 'audio track';
   if (op.kind === 'placement-detach') return 'insert sound';

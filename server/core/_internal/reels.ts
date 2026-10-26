@@ -32,8 +32,14 @@ async function newestMtime(dir: string): Promise<number> {
         newest = Math.max(newest, inner);
       }
     } else {
-      sawFile = true;
-      newest = Math.max(newest, (await stat(path)).mtimeMs);
+      try {
+        const modified = (await stat(path)).mtimeMs;
+        sawFile = true;
+        newest = Math.max(newest, modified);
+      } catch (error) {
+        // An atomic writer may rename a temporary file after readdir.
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
   }
   return sawFile ? newest : (await stat(dir)).mtimeMs;

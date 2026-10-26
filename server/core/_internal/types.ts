@@ -132,6 +132,7 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  workingEffectKey?: string;
   workingParts?: { duration: number; shots: Shot[]; key: string };
   parts?: PartsManifest;
   /** Working uses this authored page with the durable operation journal applied in the editor. */
@@ -318,6 +319,8 @@ export interface SoundEffect {
 }
 
 export interface Project {
+  builtPinNotes(slug: string): Promise<import('./pin-notes.ts').BuiltPinNote[]>;
+  decidePinNote(slug: string, id: string, keep: boolean): Promise<void>;
   /** Direction's Fonts row: the brand fonts in plain words, or the built-in brand's. */
   brandFonts(): Promise<import('./brand-fonts.ts').BrandFonts>;
   /** A font dropped on Direction, copied into the project's fonts/ with a license note. */
@@ -699,6 +702,10 @@ export interface WordPin extends PlacementPin {
 }
 
 export interface Comment {
+  effect?: string;
+  effectName?: string;
+  instant?: true;
+  insertShot?: true;
   stateReason?: string;
   options?: 2 | 3 | 4;
   id: string;
@@ -721,6 +728,8 @@ export interface Comment {
 }
 
 export interface NewComment {
+  effect?: string;
+  insertShot?: true;
   options?: 2 | 3 | 4;
   pin: NewFramePin | NewWordPin;
   text: string;

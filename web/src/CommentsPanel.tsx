@@ -1,3 +1,7 @@
+import { KeepPinNotes } from './KeepPinNotes.tsx';
+import { EffectsDrawer, flushPinnedNotes, PinnedCommentCard } from './PinnedEffects.tsx';
+import { CopyButton } from './CopyButton.tsx';
+import type { EditsState } from './review/index.ts';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { Comment, Shot } from './api/index.ts';
@@ -168,6 +172,10 @@ function NoteBox({ note, readOnly }: { note: NoteState; readOnly: boolean }) {
 }
 
 interface PanelProps {
+  slug?: string;
+  storyboard?: boolean;
+  edits?: EditsState;
+  onBuilt?(): void;
   frozen?: boolean;
   version: number | undefined;
   newest: number | undefined;
@@ -175,15 +183,16 @@ interface PanelProps {
   note: NoteState;
   onOpenComment(comment: Comment, opener: HTMLElement): void;
   /** On a multi-section reel: the current section's number and the shots it holds; the column lists only its comments. */
-  section?: { number: string; shots: ReadonlySet<string> } | null;
+  section?: { id?: string; number: string; shots: ReadonlySet<string> } | null;
   /** The open version's shots, to name the alternate a pin is on. */
   shots?: readonly Shot[];
 }
 
 /** The comments column: a card per pin (open, edit, delete with undo), and the note on the whole reel. */
-export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false, shots = [] }: PanelProps) {
+export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false, shots = [], slug, storyboard = false, edits, onBuilt }: PanelProps) {
   const { error } = state;
   const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
+  const waitingCount = comments.filter((comment) => !comment.instant && !comment.sent).length;
   const readOnly = frozen || version !== undefined && newest !== undefined && version !== newest;
   const [undo, setUndo] = useState<{ comment: Comment; number: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -201,6 +210,19 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
     if (undo) undoButton.current?.focus();
   }, [undo]);
 
+  useEffect(() => {
+    if (!undo) return;
+    const onUndo = (event: globalThis.KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault(); event.stopImmediatePropagation(); void restore();
+      }
+    };
+    window.addEventListener('keydown', onUndo, true);
+    return () => window.removeEventListener('keydown', onUndo, true);
+  }, [undo, edits, state]);
+
   async function remove(comment: Comment): Promise<void> {
     setProblem(null);
     try {
@@ -216,6 +238,10 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
 
   async function restore(): Promise<void> {
     if (!undo) return;
+    if (undo.comment.instant && edits) {
+      window.clearTimeout(undoTimer.current); setUndo(null);
+      await edits.undo(); return;
+    }
     const { pin, text, options } = undo.comment;
     window.clearTimeout(undoTimer.current);
     setUndo(null);
@@ -224,6 +250,8 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
         pin: pin.kind === 'word' ? { kind: 'word', placement: pin.placement, shot: pin.shot, time: pin.time, word: pin.word } : { kind: 'frame', placement: pin.placement, time: pin.time, shot: pin.shot, x: pin.x, y: pin.y, element: pin.element, ...(pin.alternate ? { alternate: pin.alternate } : {}) },
         text,
         ...(options !== undefined ? { options } : {}),
+        ...(undo.comment.effect ? { effect: undo.comment.effect } : {}),
+        ...(undo.comment.insertShot ? { insertShot: true } : {}),
       });
     } catch (err) {
       setProblem(failure(err, 'Could not restore the comment.'));
@@ -233,6 +261,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
   const empty = version === undefined ? 'No comments yet.' : readOnly ? `No comments on v${version}.` : `No comments on v${version} yet. Enlarge a shot and click the frame to pin one.`;
   return (
     <aside className="comments" aria-label="Comments">
+      {storyboard && version !== undefined && !readOnly && <EffectsDrawer />}
       <header>
         <h2>Comments</h2>
         {version !== undefined && (
@@ -253,7 +282,9 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
         <Empty>{`Could not read the comments. ${error}`}</Empty>
       ) : comments.length > 0 ? (
         <ol className="clist" aria-label="Comments on this version">
-          {comments.map((comment) => (
+          {comments.map((comment) => comment.effect || comment.insertShot ? (
+            <PinnedCommentCard key={comment.id} comment={comment} state={state} editable={!readOnly} remove={() => void remove(comment)} />
+          ) : (
             <CommentCard
               key={comment.id}
               comment={comment}
@@ -268,6 +299,9 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
       ) : (
         <Empty>{empty}</Empty>
       )}
+      {storyboard && slug && version !== undefined && !readOnly && comments.some((comment) => comment.effect || comment.insertShot) && <div className="fx-build"><CopyButton slug={slug} version={version} count={waitingCount} build beforeCopy={async () => { await flushPinnedNotes(); await note.flush(); }} hasNote={!!note.text.trim()} section={section?.id ? { id: section.id, number: section.number } : null} onSaved={onBuilt} />
+        <p className="meta">{waitingCount > 0 ? `${waitingCount} waiting · 1 agent run · Copies the request` : 'Nothing needs the agent'}</p></div>}
+      {storyboard && slug && version !== undefined && newest !== undefined && !readOnly && <KeepPinNotes slug={slug} version={newest} />}
       {version !== undefined && <NoteBox note={note} readOnly={readOnly} />}
     </aside>
   );
