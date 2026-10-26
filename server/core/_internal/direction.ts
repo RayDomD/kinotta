@@ -96,9 +96,10 @@ export function agentTold(style: Style, context: ToldContext = {}): string[] {
   const lookId = styleLook(style);
   const look = lookById(lookId);
   lines.push(look ? `Style: ${look.id}. ${look.told}` : `Style: ${style.name}.`);
-  if (context.frame) lines.push(`Frame: ${FRAMES.find((frame) => frame.id === context.frame)!.label}${context.frameFound ? ', found in the video' : ''}.`);
+  const frame = FRAMES.find((frame) => frame.id === context.frame);
+  if (frame) lines.push(`Frame: ${frame.label}${context.frameFound ? ', found in the video' : ''}.`);
   const settings = Object.entries(style.settings).filter(([key]) => key !== 'videoType');
-  if (settings.length) lines.push(`Settings: ${settings.map(([key, value]) => `${SETTING_NAMES[key]} ${value}${style.yours.includes(key) ? ' (the owner\'s choice)' : ''}`).join('; ')}.`);
+  if (settings.length) lines.push(`Settings: ${settings.map(([key, value]) => `${SETTING_NAMES[key] ?? key} ${value}${style.yours.includes(key) ? ' (the owner\'s choice)' : ''}`).join('; ')}.`);
   const fonts = style.fonts;
   lines.push(fonts?.words || fonts?.numbers
     ? `Fonts: ${[fonts.words && `${fonts.words} for words`, fonts.numbers && `${fonts.numbers} for numbers`].filter(Boolean).join(', ')}.`
