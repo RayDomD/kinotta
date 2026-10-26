@@ -23,6 +23,7 @@ it('Auto in Simple plays v1 while a fake agent runs, then loads published v2 as 
     await page.getByLabel('Or use a video in this project').selectOption('media/talk.mp4');
     await page.getByLabel('Reel name', { exact: true }).fill('Fake agent Make');
     await page.getByRole('button', { name: /^Auto/ }).click();
+    await page.getByRole('dialog', { name: 'Build it all now?' }).getByRole('button', { name: 'Build now' }).click();
     const slug = 'fake-agent-make';
     await expect.poll(() => server.project.agentJob(slug).then((job) => job?.state).catch(() => undefined), { timeout: 20_000 }).toBe('running');
     expect((await server.project.readWorkingVersion(slug)).number).toBe(1);

@@ -63,7 +63,8 @@ export async function freezeWorking(page: Page): Promise<void> {
   const result = await response;
   if (result.ok()) {
     const job = await result.json() as { id: string };
-    await page.request.delete(`/api/renders/${job.id}`);
+    // Cancellation is idempotent; retry one reset cleanup connection.
+    await page.request.delete(`/api/renders/${job.id}`, { maxRetries: 1 });
     await page.keyboard.press('Escape');
   }
 }

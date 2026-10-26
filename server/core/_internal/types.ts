@@ -777,6 +777,8 @@ export interface VideoEntry {
 }
 
 export interface NewReel extends MakeOptions {
+  /** Permission to run the installed agent for this build only. */
+  agentConfirmed?: boolean;
   /** Project-relative path of the video. */
   video: string;
   /** The reel's name; the video's file name when absent or blank. */

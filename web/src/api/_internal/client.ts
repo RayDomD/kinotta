@@ -205,6 +205,12 @@ export interface RenderJob {
 }
 
 export type AgentProvider = 'copy' | 'claude' | 'codex';
+/** Display names for explicit provider settings and build confirmation. */
+export const AGENT_PROVIDER_LABELS: Record<AgentProvider, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  copy: 'Copy request (paste it yourself)',
+};
 export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
 
 export interface AgentJob {
@@ -223,6 +229,7 @@ export interface AgentJob {
 }
 
 export interface AgentSettings {
+  confirmed?: boolean;
   provider: AgentProvider;
   usageNotice?: string;
 }
@@ -561,6 +568,7 @@ export const startReelFromBrief = (input: { title: string; brief: string }): Pro
 export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
 
 export interface NewReelInput {
+  agentConfirmed?: boolean;
   videoType?: 'explainer' | 'interview' | 'tutorial' | 'demo' | 'short' | 'lecture' | 'vlog';
   broll?: 'light' | 'medium' | 'heavy';
   captions?: 'off' | 'phrases' | 'word-by-word' | 'word by word';
@@ -579,8 +587,8 @@ export const startReel = (input: NewReelInput): Promise<{ slug: string }> =>
   }));
 
 export const fetchAgentSettings = (): Promise<AgentSettings> => getJson('/api/agent/settings');
-export const saveAgentSettings = (provider: AgentProvider): Promise<AgentSettings> =>
-  requestJson('/api/agent/settings', jsonBody('PUT', { provider }));
+export const saveAgentSettings = (input: AgentProvider | { provider?: AgentProvider; confirmed?: true }): Promise<AgentSettings> =>
+  requestJson('/api/agent/settings', jsonBody('PUT', typeof input === 'string' ? { provider: input } : input));
 export const checkAgents = async (): Promise<AgentPresence[] & { agents: AgentPresence[] }> => {
   const result = await getJson<{ agents: AgentPresence[] }>('/api/agent/check');
   const arr = (result.agents ?? []) as AgentPresence[] & { agents: AgentPresence[] };

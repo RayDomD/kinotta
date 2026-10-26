@@ -18,6 +18,12 @@ const DROPPED_VIDEO = {
 
 test.use({ baseURL: serverUrl('dropVideo') });
 
+// These start-screen tests build the reel without spending an installed agent's plan.
+test.beforeEach(async ({ request }) => {
+  const response = await request.put('/api/agent/settings', { data: { provider: 'copy' } });
+  await expect(response).toBeOK();
+});
+
 /** The project's videos, as the start screen lists them. */
 const footage = async (page: Page): Promise<string[]> => ((await (await page.request.get('/api/videos')).json()) as { videos: { path: string }[] }).videos.map((video) => video.path);
 

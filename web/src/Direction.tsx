@@ -12,7 +12,7 @@ import {
 import type { BrandFonts, ReelSummary, Style, VideoEntry } from './api/_internal/client.ts';
 import { FORMS, FRAMES, LOOKS, agentTold, formById, frameOf, lookById, musicChoice, styleLook } from '../../server/core/model.ts';
 import type { Frame, MusicChoice } from '../../server/core/model.ts';
-import { VideoCard } from './SimpleMake.tsx';
+import { useAgentConfirmation, VideoCard } from './SimpleMake.tsx';
 import { DropCard, FONT_FILE, MUSIC_FILE, OwnFontPanel, OwnMusicPanel, takeFont, takeMusic } from './DirectionOwnFiles.tsx';
 import type { OwnFont, OwnMusic } from './DirectionOwnFiles.tsx';
 import { formatClock } from './timecode.ts';
@@ -77,6 +77,7 @@ function Choice({ on, onClick, children, className = '' }: { on: boolean; onClic
  * record; Check shows it beside the exact lines the agent will be given, and Build sends that style with the reel.
  */
 export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
+  const confirmation = useAgentConfirmation();
   const [step, setStep] = useState<Step>(1);
   const [styles, setStyles] = useState<Style[]>([]);
   const [reels, setReels] = useState<ReelSummary[]>([]);
@@ -188,15 +189,19 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
     if (!style || !canBuild) return;
     setBusy(true);
     setError('');
-    const chosen = sendable(style);
-    const started = footage
-      ? startReel({ video: video.path, title, deadAir: 'normal', ...(about.trim() ? { notes: about.trim() } : {}), style: chosen })
-      : startStyledBrief({ title, brief: about.trim(), style: chosen }).then(async (reel) => {
-          // As with any brief: the request is on the clipboard when the browser allows it, and on the reel's page anyway.
-          await navigator.clipboard.writeText(reel.request).catch(() => undefined);
-          return reel;
-        });
-    started.then(({ slug }) => onStarted(slug), (err: unknown) => {
+    void confirmation.confirm().then(async (confirmed) => {
+      if (!confirmed) { setBusy(false); return; }
+      const chosen = sendable(style);
+      const started = footage
+        ? startReel({ agentConfirmed: true, video: video.path, title, deadAir: 'normal', ...(about.trim() ? { notes: about.trim() } : {}), style: chosen })
+        : startStyledBrief({ title, brief: about.trim(), style: chosen }).then(async (reel) => {
+            // As with any brief: the request is on the clipboard when the browser allows it, and on the reel's page anyway.
+            await navigator.clipboard.writeText(reel.request).catch(() => undefined);
+            return reel;
+          });
+      const { slug } = await started;
+      onStarted(slug);
+    }).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : 'Could not start the reel. Try again.');
       setBusy(false);
     });
@@ -540,6 +545,7 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
 
       {nav}
       {error && <p className="dx-need" role="alert">{error}</p>}
+      {confirmation.dialog}
     </main>
   );
 }

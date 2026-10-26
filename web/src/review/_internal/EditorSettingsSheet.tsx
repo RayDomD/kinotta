@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { AGENT_PROVIDER_LABELS, fetchAgentSettings, saveAgentSettings } from '../../api/_internal/client.ts';
+import type { AgentProvider, AgentSettings } from '../../api/_internal/client.ts';
 import { DEFAULT_SETTINGS, EDITOR_ACTIONS, keyChord, keyConflicts } from './editor-settings.ts';
 import type { EditorSettings } from './editor-settings.ts';
 import { EditorIcon } from './EditorIcon.tsx';
 
-const PANES = ['Keyboard', 'Editing', 'Layout', 'Appearance'] as const;
+const PANES = ['Keyboard', 'Editing', 'Layout', 'Appearance', 'Agent'] as const;
 function verifyAttrs(open: boolean, pane: string, conflicts: number) {
   return { 'data-verify-unit': 'EditorSettingsSheet', 'data-verify-status': open ? 'open' : 'closed', 'data-verify-pane': pane, 'data-verify-conflicts': conflicts, 'data-verify-error': String(conflicts > 0) };
 }
@@ -12,11 +14,32 @@ function verifyAttrs(open: boolean, pane: string, conflicts: number) {
 export function EditorSettingsSheet({ open, settings, onChange, onClose }: { open: boolean; settings: EditorSettings; onChange: Dispatch<SetStateAction<EditorSettings>>; onClose(): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [pane, setPane] = useState<(typeof PANES)[number]>('Keyboard');
+  const [agent, setAgent] = useState<AgentSettings | null>(null);
+  const [agentError, setAgentError] = useState('');
+  const [savingAgent, setSavingAgent] = useState(false);
   const conflicts = keyConflicts(settings.keys);
   useEffect(() => {
     if (open && !dialog.current!.open) dialog.current!.showModal();
     if (!open && dialog.current!.open) dialog.current!.close();
   }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    let current = true;
+    setAgent(null);
+    setAgentError('');
+    void fetchAgentSettings().then(
+      (settings) => { if (current) setAgent(settings); },
+      (err: unknown) => { if (current) setAgentError(err instanceof Error ? err.message : 'Could not load agent settings.'); },
+    );
+    return () => { current = false; };
+  }, [open]);
+  const changeAgent = async (provider: AgentProvider) => {
+    setSavingAgent(true);
+    setAgentError('');
+    try { setAgent(await saveAgentSettings({ provider })); }
+    catch (err) { setAgentError(err instanceof Error ? err.message : 'Could not save agent settings.'); }
+    finally { setSavingAgent(false); }
+  };
   const change = <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => onChange((state) => ({ ...state, [key]: value }));
   return <dialog ref={dialog} className="editor-settings" aria-labelledby="editor-settings-title" {...verifyAttrs(open, pane, conflicts.length)} onCancel={onClose} onClose={onClose}>
     <header><h2 id="editor-settings-title">Settings</h2><button type="button" className="editor-icon-button" aria-label="Close Settings" onClick={onClose}><EditorIcon name="close" /></button></header>
@@ -24,6 +47,14 @@ export function EditorSettingsSheet({ open, settings, onChange, onClose }: { ope
       <nav aria-label="Settings categories">{PANES.map((name) => <button type="button" key={name} aria-current={pane === name ? 'page' : undefined} onClick={() => setPane(name)}>{name}</button>)}</nav>
       <section aria-label={`${pane} settings`}>
         <h3>{pane}</h3>
+        {pane === 'Agent' && <div className="editor-setting-fields">
+          <label className="editor-agent-field">Agent for background builds<select value={agent?.provider ?? ''} disabled={!agent || savingAgent} onChange={(event) => void changeAgent(event.target.value as AgentProvider)}>
+            {!agent && <option value="">Loading...</option>}
+            {Object.entries(AGENT_PROVIDER_LABELS).map(([provider, label]) => <option key={provider} value={provider}>{label}</option>)}
+          </select></label>
+          {agent && <p className="editor-settings-note">{agent.usageNotice}</p>}
+          {agentError && <p role="alert">{agentError}</p>}
+        </div>}
         {pane === 'Keyboard' && <>
           <div className="editor-settings-note"><p>Choose a key field and press the shortcut. Backspace clears it. Escape closes Settings.</p><button type="button" className="rv-tool" onClick={() => change('keys', { ...DEFAULT_SETTINGS.keys })}>Reset all shortcuts</button></div>
           {conflicts.map((conflict) => <p role="alert" key={conflict.key}>{conflict.key} is assigned to {conflict.actions.map((id) => EDITOR_ACTIONS.find((action) => action.id === id)!.label).join(' and ')}. Reassign one to use it.</p>)}

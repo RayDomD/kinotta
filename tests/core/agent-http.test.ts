@@ -10,11 +10,15 @@ it('exposes explicit agent settings, Copy fallback, reconnect status, retry, and
   const dir = copyFixture('footage-project');
   const server = await startServer({ projectDir: dir, port: 0, transcriber: async () => [] }); running.push(server);
   const call = (path: string, method = 'GET', body?: unknown, headers: Record<string, string> = {}) => fetch(`${server.url}${path}`, { method, headers: { 'content-type': 'application/json', ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  await server.project.saveAgentSettings({ provider: 'copy' });
   expect(await (await call('/api/agent/settings')).json()).toMatchObject({ provider: 'copy', usageNotice: expect.stringContaining('quota') });
   expect((await call('/api/agent/settings', 'PUT', { provider: 'wrong' })).status).toBe(422);
   expect((await call('/api/agent/settings', 'PUT', { provider: 'claude' }, { origin: 'https://untrusted.example' })).status).toBe(403);
   expect(await (await call('/api/agent/settings', 'PUT', { provider: 'codex' })).json()).toMatchObject({ provider: 'codex' });
   expect(await (await call('/api/agent/settings', 'PUT', { provider: 'copy' })).json()).toMatchObject({ provider: 'copy' });
+  expect(await (await call('/api/agent/settings', 'PUT', { confirmed: true })).json()).toMatchObject({ provider: 'copy', confirmed: true });
+  expect(await (await call('/api/agent/settings')).json()).toMatchObject({ provider: 'copy', confirmed: true });
+  expect((await call('/api/reels', 'POST', { video: 'media/talk.mp4', agentConfirmed: true }, { origin: 'https://untrusted.example' })).status).toBe(403);
   const { slug } = await (await call('/api/reels', 'POST', { video: 'media/talk.mp4' })).json();
   await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
   const path = `/api/reels/${slug}/agent`;

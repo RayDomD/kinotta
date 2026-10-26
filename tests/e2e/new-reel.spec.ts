@@ -11,6 +11,12 @@ const TOOL_CHECK_WAIT_MS = 20_000;
 // The footage-project sample with a fake transcriber (playwright.config.ts); a reel is started in it.
 test.use({ baseURL: serverUrl('newReel') });
 
+// These start-screen tests build the reel without spending an installed agent's plan.
+test.beforeEach(async ({ request }) => {
+  const response = await request.put('/api/agent/settings', { data: { provider: 'copy' } });
+  await expect(response).toBeOK();
+});
+
 const phaseTab = (page: Page, name: string): Locator => page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name, exact: true });
 const projectVideos = (page: Page): Locator => page.getByLabel('Or use a video in this project');
 

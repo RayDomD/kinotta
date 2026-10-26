@@ -13,7 +13,9 @@ async function serve() {
   // Saved styles for you live in the home folder; each test gets its own.
   process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-home-'));
   const dir = copyFixture('footage-project');
-  return Object.assign(await startServer({ projectDir: dir, port: 0, transcriber: async () => WORDS }), { dir });
+  const server = await startServer({ projectDir: dir, port: 0, transcriber: async () => WORDS });
+  await server.project.saveAgentSettings({ provider: 'copy' });
+  return Object.assign(server, { dir });
 }
 
 async function openDirection(page: Page, url: string, title: string) {

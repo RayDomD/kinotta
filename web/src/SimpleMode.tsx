@@ -3,17 +3,14 @@ import {
   cancelReelAgentJob,
   copyBatch,
   copyReelAgentJob,
-  fetchAgentSettings,
   fetchReelAgentJob,
   fetchWorkingVersion,
   migrateStyleProfile,
   retryReelAgentJob,
-  saveAgentSettings,
   subscribe,
 } from './api/_internal/client.ts';
 import type {
   AgentJob,
-  AgentProvider,
   NewComment,
   ReelListing,
   ReelSummary,
@@ -217,7 +214,6 @@ export function SimpleMode({
   onEditor(): void;
   onRefresh(): void;
 }) {
-  const [agentProvider, setAgentProvider] = useState<AgentProvider>('copy');
   const [agentJob, setAgentJob] = useState<AgentJob | null>(null);
   const [draft, setDraft] = useState<NewComment['pin'] | null>(null);
   const [pinMode, setPinMode] = useState(false);
@@ -234,9 +230,6 @@ export function SimpleMode({
 
   useEffect(() => {
     void migrateSimpleOptionsProfile(migrateStyleProfile);
-    void fetchAgentSettings().then((settings) => {
-      if (settings?.provider) setAgentProvider(settings.provider);
-    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -456,25 +449,6 @@ export function SimpleMode({
           <header className="sm-top">
             <span className="brand">KINOTTA</span>
             <span>Simple mode</span>
-            <div className="sm-top-actions">
-              <label className="sm-agent-control">
-                Agent
-                <select
-                  aria-label="Agent provider"
-                  value={agentProvider}
-                  disabled={busy}
-                  onChange={(event) => {
-                    const next = event.target.value as AgentProvider;
-                    setAgentProvider(next);
-                    void saveAgentSettings(next).catch(problem);
-                  }}
-                >
-                  <option value="copy">Copy request</option>
-                  <option value="claude">Claude Code</option>
-                  <option value="codex">Codex</option>
-                </select>
-              </label>
-            </div>
           </header>
 
           <div className="sm-heading">
