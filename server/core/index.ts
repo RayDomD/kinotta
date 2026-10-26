@@ -16,7 +16,7 @@ import { alternatePage } from './_internal/parts-alternates.ts';
 import { copyBatch } from './_internal/batch.ts';
 import { addOperation, cancelHandoff, discardEdits, readEditList, readEditListNow, readMediaModel, withReelLock, redoEdit, removeOperation, undoEdit } from './_internal/edit-list.ts';
 import { captureWorking, freezeEdits } from './_internal/save.ts';
-import { readVersion, settleNewest } from './_internal/carry.ts';
+import { markWaiting, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageAudioFile, footageFile } from './_internal/footage.ts';
 import { importVideo } from './_internal/import.ts';
@@ -210,7 +210,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
       return withReelLock(reelDir, async () => {
         const list = await readEditListNow(dir, slug);
         const number = await newestVersionNumber(reelDir);
-        const version = await readCapturedVersion(dir, slug, number, join(reelDir, `v${list.base}`));
+        const version = await markWaiting(dir, slug, number, await readCapturedVersion(dir, slug, number, join(reelDir, `v${list.base}`)));
         const parts = version.parts ? await workingPartsSnapshot(dir, slug) : null;
         const shots = parts?.shots.map((shot) => ({ ...shot, section: version.shots.find((original) => original.name === shot.name)?.section }));
         return { ...version, isNewest: true, workingBase: list.base, ...(parts && shots ? { workingParts: { duration: parts.duration, shots, key: parts.key } } : {}) };

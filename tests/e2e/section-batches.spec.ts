@@ -59,8 +59,7 @@ function writeVersionTwo(): void {
   renameSync(building, join(reel, 'v2'));
 }
 
-// App bug: readWorkingVersion (server/core/index.ts) skips the reel state, so a handed-off section never reads as waiting.
-test.fixme('copying a section hands off only that section, and marks it waiting', async ({ page }) => {
+test('copying a section hands off only that section, and marks it waiting', async ({ page }) => {
   await pin(page, '01', 1, { x: 0.3, y: 0.4 }, 'Slide the laptops in faster.');
   await pin(page, '03', 2, { x: 0.3, y: 0.4 }, 'Hold the grey-out longer.');
   await pin(page, '04', 2, { x: 0.7, y: 0.6 }, 'Merge box needs a beat.');

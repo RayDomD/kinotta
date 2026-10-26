@@ -187,7 +187,11 @@ export async function settleNewest(projectDir: string, slug: string): Promise<vo
 /** A version as the app sees it: its files, its changed sections, and the sections still waiting on an agent. */
 export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
   await settleNewest(projectDir, slug);
-  const version = await readVersionFiles(projectDir, slug, number);
+  return markWaiting(projectDir, slug, number, await readVersionFiles(projectDir, slug, number));
+}
+
+/** Marks the sections a version's state still has waiting on an agent, including ones handed off from it. */
+export async function markWaiting(projectDir: string, slug: string, number: number, version: Version): Promise<Version> {
   const state = await readState(stateFilePath(projectDir, slug, number), number).catch(() => null);
   if (state === null) return version;
   const waiting = new Set([...(state.waiting ?? []), ...Object.keys(state.handedOff ?? {})]);
