@@ -315,7 +315,7 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto(server.url);
     await expect(page.getByRole('heading', { name: 'Product showreel', exact: true })).toBeVisible();
-    await expect(page.getByLabel('Agent provider')).toBeVisible();
+    await expect(page.getByLabel('Agent provider')).toHaveCount(0);
     await expect(page.locator('.sm-preview .rv-tracks-pane, .sm-preview .editor-toolbar, .sm-preview .rv-divider, .sm-preview .rv-scrubber')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'New reel', exact: true })).toHaveCount(0);
 
@@ -382,9 +382,6 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     await expect(page.getByRole('navigation', { name: 'Phase' })).toBeVisible();
     await page.getByRole('button', { name: 'Simple mode', exact: true }).click();
     await expect(page.getByRole('complementary', { name: 'Your pins' }).getByRole('listitem')).toHaveCount(2);
-    await expect(page.getByLabel('Agent provider')).toHaveValue('copy');
-    await page.getByLabel('Agent provider').selectOption('claude');
-    await expect(page.getByLabel('Agent provider')).toHaveValue('claude');
   } finally { await server.close(); }
 });
 
