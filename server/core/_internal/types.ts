@@ -132,6 +132,7 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  workingEffectKey?: string;
   workingParts?: { duration: number; shots: Shot[]; key: string };
   parts?: PartsManifest;
   /** Working uses this authored page with the durable operation journal applied in the editor. */
@@ -699,6 +700,10 @@ export interface WordPin extends PlacementPin {
 }
 
 export interface Comment {
+  effect?: string;
+  effectName?: string;
+  instant?: true;
+  insertShot?: true;
   stateReason?: string;
   options?: 2 | 3 | 4;
   id: string;
@@ -721,6 +726,8 @@ export interface Comment {
 }
 
 export interface NewComment {
+  effect?: string;
+  insertShot?: true;
   options?: 2 | 3 | 4;
   pin: NewFramePin | NewWordPin;
   text: string;

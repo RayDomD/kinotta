@@ -1,3 +1,4 @@
+import { pinnedEffectPage } from './pinned-effect-page.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -105,6 +106,12 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
       Object.assign(shots, next);
       await writeFile(join(stage, 'index.html'), assembleParts(next, inputs), 'utf8');
     } else await freezePageDependencies(stage);
+    if (edited.plan.pinComments) {
+      await writeJsonAtomic(join(stage, 'pin-comments.json'), edited.plan.pinComments);
+      const pageFile = join(stage, 'index.html');
+      const pinnedShots = parts ? checkPartsManifest(shots).shots : scenes.map((scene, index) => ({ number: String(index + 1).padStart(2, '0'), name: scene.name, start: scene.start, duration: scene.duration, title: scene.name, description: '' }));
+      await writeFile(pageFile, pinnedEffectPage(await readFile(pageFile, 'utf8'), edited.plan, pinnedShots), 'utf8');
+    }
     await writeEdits(stage, offsetsOf(edited));
     if (!parts) await writeSceneTiming(stage, sources, edited);
     if (edited.plan.media) {

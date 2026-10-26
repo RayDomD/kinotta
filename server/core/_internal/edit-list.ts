@@ -1,3 +1,4 @@
+import { writeFileAtomic } from './state.ts';
 /**
  * Working state lives in edit-list.json, outside immutable version folders.
  * `base` names the authored inputs to which operations and history entries apply.
@@ -28,7 +29,7 @@ import { newestVersionNumber, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['shot-alternate', 'shot-alternate-dismiss', 'source-beats', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset']);
+const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'source-beats', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset']);
 
 const queues = new Map<string, Promise<unknown>>();
 
@@ -109,7 +110,7 @@ function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditLis
 async function writeStored(reelDir: string, stored: Stored): Promise<void> {
   const file = join(reelDir, EDIT_LIST_FILE);
   if (stored.anchor === undefined && stored.frozen === undefined && stored.operations.length === 0 && stored.undo.length === 0 && stored.redo.length === 0) await rm(file, { force: true });
-  else await writeJsonAtomic(file, stored);
+  else await writeFileAtomic(file, `${JSON.stringify(stored, null, 2)}\n`);
 }
 
 /** The reel's sources as the newest version has them: what an edit list applies to. */
@@ -270,16 +271,20 @@ async function checkApplies(projectDir: string, reelDir: string, operations: rea
 /** Adds an operation to the list, after checking it applies on top of the ones already there. */
 export async function addOperation(projectDir: string, slug: string, input: NewOperation): Promise<EditList> {
   const reelDir = await requireReelDir(projectDir, slug);
-  return withReelLock(reelDir, async () => {
-    const stored = await loadForChange(projectDir, reelDir, slug);
-    if ('reversal' in input) throw new KinottaError('invalid', 'Undo reversals are recorded by Kinotta. Use Undo to reverse an edit.');
-    if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
-    if (input.by !== undefined && (typeof input.by !== 'string' || !input.by.trim())) throw new KinottaError('invalid', 'An edit needs the name of who made it.');
-    const operation = { ...input, by: input.by?.trim() ?? 'you', id: randomUUID() } as Operation;
-    const operations = [...stored.operations, operation];
-    await checkApplies(projectDir, reelDir, operations, stored.flagged);
-    return shown(await commit(reelDir, stored, operations), false, await readHandoff(reelDir, stored.frozen ?? stored.base));
-  });
+  return withReelLock(reelDir, () => addOperationNow(projectDir, slug, input));
+}
+
+/** Caller holds the reel lock, shared by comment and instant-pin writes. */
+export async function addOperationNow(projectDir: string, slug: string, input: NewOperation): Promise<EditList> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const stored = await loadForChange(projectDir, reelDir, slug);
+  if ('reversal' in input) throw new KinottaError('invalid', 'Undo reversals are recorded by Kinotta. Use Undo to reverse an edit.');
+  if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
+  if (input.by !== undefined && (typeof input.by !== 'string' || !input.by.trim())) throw new KinottaError('invalid', 'An edit needs the name of who made it.');
+  const operation = { ...input, by: input.by?.trim() ?? 'you', id: randomUUID() } as Operation;
+  const operations = [...stored.operations, operation];
+  await checkApplies(projectDir, reelDir, operations, stored.flagged);
+  return shown(await commit(reelDir, stored, operations), false, await readHandoff(reelDir, stored.frozen ?? stored.base));
 }
 
 /**

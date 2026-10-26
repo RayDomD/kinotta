@@ -106,6 +106,7 @@ export interface ContractIssue {
 }
 
 export interface Version {
+  workingEffectKey?: string;
   parts?: PartsManifest;
   workingParts?: { duration: number; shots: Shot[]; key: string };
   workingBase?: number;
@@ -286,6 +287,10 @@ export interface WordPin {
 }
 
 export interface Comment {
+  effect?: string;
+  effectName?: string;
+  instant?: true;
+  insertShot?: true;
   stateReason?: string;
   options?: 2 | 3 | 4;
   id: string;
@@ -308,6 +313,8 @@ export interface CommentsOfVersion {
 }
 
 export interface NewComment {
+  effect?: string;
+  insertShot?: true;
   options?: 2 | 3 | 4;
   pin: { kind?: 'frame'; alternate?: string; shotName?: string; placement?: string; time?: number; shot: string; x: number; y: number; element: string | null } | { kind: 'word'; placement?: string; shot: string; time: number; word: string };
   text: string;

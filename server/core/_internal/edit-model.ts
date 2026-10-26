@@ -1,3 +1,4 @@
+import type { StoredComment } from './state.ts';
 import { restoreEdit } from './edit-reversal.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap } from './pieces.ts';
@@ -124,6 +125,8 @@ export interface PlanClip {
 
 /** The plan a reel's sources hold. Only the fields an operation touches are named; the rest passes through. */
 export interface Plan {
+  /** Comment snapshots in Working history, including deletion tombstones. */
+  pinComments?: Record<string, StoredComment | null>;
   parts?: PartsManifest;
   /** Authored page scene timings are free of footage bounds. Sound remains on reel time. */
   codeTiming?: boolean;
@@ -377,7 +380,10 @@ export interface PlacementDetachOperation extends AuthoredOperation { id: string
 export interface ShotAlternateOperation extends AuthoredOperation { id: string; kind: 'shot-alternate'; shot: string; revision: string }
 export interface ShotAlternateDismissOperation extends AuthoredOperation { id: string; kind: 'shot-alternate-dismiss'; shot: string; revision: string; reason?: string }
 
+export interface PinCommentOperation extends AuthoredOperation { id: string; kind: 'pin-comment'; commentId: string; comment: StoredComment | null }
+
 export type Operation =
+  | PinCommentOperation
   | ShotAlternateOperation
   | ShotAlternateDismissOperation
   | SourceBeatsOperation
@@ -1125,6 +1131,10 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
   if (sources.plan.media && (op.kind === 'snip' || op.kind === 'cut' || op.kind === 'move-piece')) throw new KinottaError('invalid', 'This reel uses native placements. Trim, split or move its named placement instead.');
   if (!sources.plan.media && (op.kind.startsWith('track-') || op.kind.startsWith('placement-') || op.kind === 'clip-attachment' || op.kind === 'clip-split' || ('placement' in op && typeof op.placement === 'string'))) sources = { ...sources, plan: mediaEditingPlan(sources) };
   switch (op.kind) {
+    case 'pin-comment': {
+      if (!op.commentId || op.comment && (op.comment.id !== op.commentId || (!op.comment.effect && !op.comment.insertShot))) throw new KinottaError('invalid', 'A pin edit needs its comment identity.');
+      return { ...sources, plan: { ...sources.plan, pinComments: { ...sources.plan.pinComments, [op.commentId]: op.comment } } };
+    }
     case 'shot-alternate':
       return applyShotAlternate(sources, op);
     case 'shot-alternate-dismiss':
@@ -1224,6 +1234,7 @@ function partsSequence(sources: Sources): Sources {
 /** Whether an operation changes what a section (a span of source seconds) shows, beyond moving it on the timeline. */
 export function operationTouches(op: Operation, section: { start: number; end: number }): boolean {
   switch (op.kind) {
+    case 'pin-comment':
     case 'shot-alternate':
     case 'shot-alternate-dismiss':
       return true;
@@ -1297,6 +1308,8 @@ export function describeOperation(op: Operation): { target: string; text: string
     return { ...description, text: `Undo: ${description.text}` };
   }
   switch (op.kind) {
+    case 'pin-comment':
+      return { target: op.comment?.effectName ?? 'Pinned comment', text: op.comment ? 'Updated pin' : 'Deleted pin' };
     case 'shot-alternate':
       return { target: `Shot ${op.shot}`, text: `Used alternate ${op.revision}` };
     case 'shot-alternate-dismiss':

@@ -624,7 +624,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  const pageUrl = version!.workingParts ? workingPartsPageUrl(reel.slug, version!.workingParts.key) : versionPageUrl(reel.slug, version!.workingBase ?? version!.number);
+  const pageUrl = version!.workingEffectKey ? workingPartsPageUrl(reel.slug, version!.workingEffectKey) : version!.workingParts ? workingPartsPageUrl(reel.slug, version!.workingParts.key) : versionPageUrl(reel.slug, version!.workingBase ?? version!.number);
   return <main ref={main} className="main rv-main rv-resizable" aria-label="Review" {...verifyAttrs(media.placements.length, playing, ready, playback.error ?? pictureError, clipMenu && timeline.placements.some((p) => p.id === clipMenu.id) ? clipMenu.id : '', editable)} data-verify-broken-graphics={(authored.clips ?? []).filter((c) => c.attachmentBroken).length} data-verify-clock={time} data-verify-waiting="false">
     {!simple && <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>}
     {error && <p role="alert">{error}</p>}
