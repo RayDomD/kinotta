@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchAgentSettings, saveAgentSettings, fetchStyles, listVideos, removeVideo, startReel } from './api/_internal/client.ts';
+import { AGENT_PROVIDER_LABELS, fetchAgentSettings, saveAgentSettings, fetchStyles, listVideos, removeVideo, startReel } from './api/_internal/client.ts';
 import type { AgentSettings, Style, VideoEntry } from './api/_internal/client.ts';
 import { FRAMES, frameOf } from '../../server/core/model.ts';
 import { BriefForm } from './BriefReel.tsx';
@@ -46,7 +46,7 @@ function AgentConfirmDialog({ settings, onFinish }: { settings: AgentSettings; o
   return <dialog ref={dialog} className="agent-confirm" role="dialog" aria-modal="true" aria-labelledby="agent-confirm-title" aria-describedby="agent-confirm-body" onCancel={(event) => { event.preventDefault(); if (!saving) onFinish(false); }}>
     <h2 id="agent-confirm-title">Build it all now?</h2>
     <div id="agent-confirm-body">
-      <p>Kinotta makes the cut here, then runs <b>{settings.provider === 'claude' ? 'Claude Code' : 'Codex'}</b> in the background to add b-roll.</p>
+      <p>Kinotta makes the cut here, then runs <b>{AGENT_PROVIDER_LABELS[settings.provider]}</b> in the background to add b-roll.</p>
       <p>{settings.usageNotice}</p>
       <p>You can watch progress at the top of the page and Cancel there.</p>
     </div>
@@ -236,7 +236,7 @@ export function SimpleMake({ onStarted, onBriefStarted }: { onStarted(slug: stri
               ? usual.scope === 'builtin'
                 ? <>Your usual style: Kinotta&rsquo;s {usual.name}, until you save your own.</>
                 : <>Your usual style: {usual.name}.</>
-              : 'Your usual style: Kinotta picks one for this video.'}{agent && ` B-roll runs with ${agent.provider === 'claude' ? 'Claude Code' : 'Codex'} on your plan.`}</>}
+              : 'Your usual style: Kinotta picks one for this video.'}{agent && ` B-roll runs with ${AGENT_PROVIDER_LABELS[agent.provider]} on your plan.`}</>}
           </p>
         </div>
       )}

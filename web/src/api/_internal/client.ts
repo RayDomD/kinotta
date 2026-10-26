@@ -205,6 +205,12 @@ export interface RenderJob {
 }
 
 export type AgentProvider = 'copy' | 'claude' | 'codex';
+/** Display names for explicit provider settings and build confirmation. */
+export const AGENT_PROVIDER_LABELS: Record<AgentProvider, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  copy: 'Copy request (paste it yourself)',
+};
 export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
 
 export interface AgentJob {

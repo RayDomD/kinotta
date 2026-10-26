@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { fetchAgentSettings, saveAgentSettings } from '../../api/_internal/client.ts';
+import { AGENT_PROVIDER_LABELS, fetchAgentSettings, saveAgentSettings } from '../../api/_internal/client.ts';
 import type { AgentProvider, AgentSettings } from '../../api/_internal/client.ts';
 import { DEFAULT_SETTINGS, EDITOR_ACTIONS, keyChord, keyConflicts } from './editor-settings.ts';
 import type { EditorSettings } from './editor-settings.ts';
@@ -50,7 +50,7 @@ export function EditorSettingsSheet({ open, settings, onChange, onClose }: { ope
         {pane === 'Agent' && <div className="editor-setting-fields">
           <label className="editor-agent-field">Agent for background builds<select value={agent?.provider ?? ''} disabled={!agent || savingAgent} onChange={(event) => void changeAgent(event.target.value as AgentProvider)}>
             {!agent && <option value="">Loading...</option>}
-            <option value="claude">Claude Code</option><option value="codex">Codex</option><option value="copy">Copy request (paste it yourself)</option>
+            {Object.entries(AGENT_PROVIDER_LABELS).map(([provider, label]) => <option key={provider} value={provider}>{label}</option>)}
           </select></label>
           {agent && <p className="editor-settings-note">{agent.usageNotice}</p>}
           {agentError && <p role="alert">{agentError}</p>}
