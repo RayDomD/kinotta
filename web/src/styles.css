@@ -1048,3 +1048,6 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .fx-keep > div { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
 .fx-footprint.planned { z-index: 3; }
+
+/* The Storyboard reference uses static drawer artwork; keep Library motion out of the editor's background. */
+.fx-drawer .fx-choice *, .fx-drawer .fx-choice *::before, .fx-drawer .fx-choice *::after { animation: none; }

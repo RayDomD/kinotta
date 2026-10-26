@@ -5,7 +5,7 @@
 <!-- Keep this block current. Claude reads only this block and the diff. -->
 - State: working
 - Done: implemented comment-backed Working pin edits, isolated instant template builds with Style fonts and Brand colours, batch routing, frame-only drops, alternate identity, note/Delete/Undo cards, Insert shot, phone controls, Build counts and built-note decisions. Focused Playwright: 4 passed. Pin/batch integration: 12 passed. Typecheck, build and check:docs passed before the final scoped note-flush/footprint changes; typecheck passed after them.
-- Failed or skipped: none in the affected checks after the review fixes (31 core checks and 4 focused browser checks passed). Full unit, alternate suites and full two-worker Playwright verification are pending. The earlier runner-guard failure is resolved by the approved extraction.
+- Failed or skipped: full unit passed (976 passed, 6 environment-dependent skips). The first full Playwright run was stopped after the new drawer's infinite artwork animations blocked existing settle checks; the batch failure reproduced alone, was fixed by static Storyboard drawer artwork, and then passed alone. A separate Review clip-loading failure also passed alone without Review changes. Full two-worker Playwright is being rerun.
 - Waiting on owner: none. Runner guard answered by Claude: extract the local build invocation into an agent-free `server/core/_internal/build-runner.ts`, used by both `runner.ts` and `instant-effect.ts`, and update the guard in `tests/core/start-reel.test.ts` to allow exactly that one module (plus `runner.ts` if it still starts the agent). Then work through "Review fixes" below.
 
 
@@ -128,3 +128,11 @@ The Status decision authorizes an agent-free build-runner shared with runner.ts.
 The approved builder extraction moves the local page invocation to build-runner.ts. runner.ts re-exports it for existing callers; instant-effect.ts imports only the agent-free service. The architecture guard allows exactly those two service paths and checks that the local builder does not import or call the agent launcher.
 
 Affected checks: 31 core checks passed (pin lifecycle, batch, note decisions and runner); typecheck and build passed; all 4 focused Playwright checks passed, including ordinary pin Ctrl+Z and unchanged Working counts. Logs: C:/Users/ryand/AppData/Local/Temp/kinotta-review-core.log and kinotta-review-pins-e2e.log.
+
+### 2026-10-26: full-run regression fixed
+
+The full unit project passed: 112 files, 976 passed and 6 environment-dependent skips. All seven alternate core suites passed (26 tests). Documentation and commit checks passed. The behaviour mockup's instant drop, note/Build/keep and Insert shot/Build flows were fully clicked through with Playwright; log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-mockup.log.
+
+The first full browser run exposed infinite CSS animations brought into Storyboard by the shared Library artwork. They kept document.getAnimations() nonempty, breaking existing settled-editor interactions and wasting background work. The reference drawer uses static artwork. Restricted the animation override to the Storyboard drawer, including pseudo-elements, leaving Library motion unchanged. The existing batch test failed alone before this fix and passed alone afterward without assertion changes. Logs: kinotta-review-playwright-full.log, kinotta-review-batch-isolated-before.log and kinotta-review-batch-isolated-after.log under C:/Users/ryand/AppData/Local/Temp/.
+
+The separate Review clip-load failure from that run passed alone in 1.9 seconds without changing Review; log: C:/Users/ryand/AppData/Local/Temp/kinotta-review-clips-isolated.log. Rebuilt after the CSS fix. The final full browser rerun remains required.
