@@ -1,7 +1,7 @@
 ---
 title: Caption font and background
 date: 2026-10-27
-status: Approved
+status: Done
 summary: The agent can set a reel's caption font and background from a comment, instead of the fixed Geist 50px on a dark box.
 spec:
 ---
@@ -29,10 +29,10 @@ spec:
 
 ## Steps
 
-1. [ ] Engine tests (red): the default plan's caption CSS is unchanged; font and background applied; `none` removes the box in every look; bad values rejected.
-2. [ ] `build.py` variables and validation.
-3. [ ] Editor preview reads the fields; editor render test.
-4. [ ] `contract.md` and skill comment guidance.
+1. [x] Engine tests (red): the default plan's caption CSS is unchanged; font and background applied; `none` removes the box in every look; bad values rejected.
+2. [x] `build.py` variables and validation.
+3. [x] Editor preview reads the fields; editor render test.
+4. [x] `contract.md` and skill comment guidance.
 
 ## Risks
 
@@ -45,8 +45,38 @@ spec:
 - One render of a sample reel with a custom font, viewed.
 - `npm run typecheck`.
 
+## Result
+
+Shipped (2026-10-27):
+
+- `captions.font` (a family name, or `{ family, weight?, size? }`) and `captions.background` (a CSS colour, alpha allowed, or `"none"`) in the plan. `build.py` writes them on each caption as `--cap-font` and `--cap-bg`; `CAPTION_CSS` reads them with today's values as fallbacks, in the phrase box and the `words` look's per-word box. A plan without them builds the identical page.
+- Validation, mirrored in `pieces.py` (`check_caption_style`, also run by `build.py`) and `edit-model.ts` (`checkCaptionStyle`): the font family must be Geist or a family in the plan's `brand.fonts` (the only fonts a render embeds), weight 1 to 1000, size 1 to 300 px, and the background a hex or rgb/hsl colour or `none`. Anything else stops with a readable message.
+- Editor preview: `MediaEditor.tsx` passes `font` (via the shared `captionFontCss`) and `background` in `captionPreview`; `PagePlayer.tsx` sets `--cap-font` and `--cap-bg` like `--cap-color`.
+- Saved edit lists replay the same: `withCaptions` keeps both fields through caption moves (tested).
+- Docs: `skill/kinotta/reference/engine-api.md`, `stages/footage-reel.md` and `stages/04-next-version.md` (comment guidance: answer "change the caption font" with `captions.font`).
+
+Deviations:
+
+- Documented in `engine-api.md`, `footage-reel.md` and `04-next-version.md`, not `contract.md`, which does not mention captions (brief's note).
+- `SimpleTimeline.tsx:324` was not changed: it reads only `look: off`, so there was nothing to read there.
+- "kinotta check rejects": the refusal happens where the plan is read and built (engine `check_plan_parts` and `caption_style`, server `checkPlanParts`), not in `versionIssues`, which has no brand data. `kinotta check` on a built version cannot hold a bad value because the build refuses it.
+- `font` also accepts a bare string as shorthand for a family; the plan only said "a family name with optional weight and size".
+
+Checks run:
+
+- Caption engine tests (`tests/engine/captions.test.ts`, `tests/engine/media-model.test.ts`) and core (`tests/core/media-model.test.ts`): pass. Written red first (6 failures), then green.
+- Editor render test (`tests/e2e/optimistic-edits.spec.ts`, "the editor preview draws captions in the plan's font and background"): 1 passed.
+- Sample render viewed (default; Geist 800 72px with no box; brand serif 64px on orange in the `words` look): all three drew as set.
+- `npm run typecheck`: clean. `npm run check:docs`: `check:docs ok`.
+- `npx vitest run --project unit`: `Test Files 1 failed | 115 passed | 1 skipped (117)`, `Tests 3 failed | 1169 passed | 3 skipped (1175)`. The 3 failures are `tests/engine/sound-skill.test.ts` "applies generated score operations with missing / existing / partial tracks": `ImportError: cannot import name '_ccallback_c' from 'scipy._lib'` (a pip numpy 2.5.3 shadows the apt scipy 1.11.4 here). Not caused by this change.
+- Full e2e (`npx playwright test`): `24 failed, 3 did not run, 171 passed (9.8m)`. Failures: `agent-confirm` (3), `agent-strip` (9), `direction` "Direct: your own font and music...", `pinned-effects` "frame drops make instant Working output...", `playback-stutter` "uncut clip plays smoothly...", `review` "playback follows the pieces and skips a snipped stretch", `simple-mode` (pins, hover feedback, agent timers, "Simple is the default", e.g. `expect(heading "Product showreel").toBeVisible()` failed). Re-run of the same specs alone: `19 failed, 25 passed`. The same specs on unmodified `origin/main` (agent-confirm, agent-strip, simple-mode, playback-stutter): `21 failed, 13 passed`. So these failures predate this change; the cause is the environment (no faster-whisper, no agent tooling).
+- `docs/plans/index.html` not regenerated: `pwsh` is not installed.
+
+Out of scope, not done: editor controls for font and background, caption position, per-word styling.
+
 ## Changelog
 
 ### 2026-10-27
 - Plan created with Intent only. Owner chose agent-only (set from comments) on 2026-10-27.
 - Owner approved the Intent and its recommended answers; Goal, Approach, Steps, Risks and Checks written. Status Approved.
+- Built; Result recorded. Status Done.
