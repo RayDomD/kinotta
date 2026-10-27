@@ -255,7 +255,7 @@ test('the shared bar and menus fit at 1440px and 390px', async ({ page }) => {
   } finally { await server.close(); }
 });
 
-test('Simple Edit has no internal horizontal scroll at 390px with progress and a two-minute ruler', async ({ page }) => {
+test('Simple Edit keeps the last two-minute ruler label visible without horizontal scroll at 390px and 1440px', async ({ page }) => {
   const dir = copyFixture('footage-project');
   const version = join(dir, 'reels/founder-talk/v1');
   // Match the manual run length: its last major tick falls just beyond the reel end.
@@ -277,10 +277,25 @@ test('Simple Edit has no internal horizontal scroll at 390px with progress and a
     await expect(page.getByLabel('Simple timeline ruler')).toBeVisible();
     await expect(page.locator('[data-verify-unit=Transport]')).toHaveAttribute('data-verify-total', String(duration));
     const app = page.locator('.app.sm-app');
-    const overflow = await app.evaluate((element) => ({
-      clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
-      children: [...element.querySelectorAll('*')].filter((child) => child.getBoundingClientRect().right > element.getBoundingClientRect().left + element.clientWidth).map((child) => ({ className: child.className, right: child.getBoundingClientRect().right })),
-    }));
-    expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.clientWidth);
+    mkdirSync(ARTIFACTS, { recursive: true });
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      const lastLabel = page.getByLabel('Simple timeline ruler').locator('.sm-tick.major span').last();
+      await expect(lastLabel).toHaveText('02:00');
+      await expect(lastLabel).toBeVisible();
+      const appBox = (await app.boundingBox())!;
+      const labelBox = (await lastLabel.boundingBox())!;
+      expect(labelBox.x).toBeGreaterThanOrEqual(appBox.x);
+      expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(appBox.x + appBox.width);
+      const rulerBox = (await page.getByLabel('Simple timeline ruler').boundingBox())!;
+      expect(labelBox.x).toBeGreaterThanOrEqual(rulerBox.x);
+      expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(rulerBox.x + rulerBox.width);
+      const overflow = await app.evaluate((element) => ({
+        clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
+        children: [...element.querySelectorAll('*')].filter((child) => child.getBoundingClientRect().right > element.getBoundingClientRect().left + element.clientWidth).map((child) => ({ className: child.className, right: child.getBoundingClientRect().right })),
+      }));
+      expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.clientWidth);
+      await page.getByLabel('Simple timeline ruler').screenshot({ animations: 'disabled', path: join(ARTIFACTS, `simple-ruler-${width}.png`) });
+    }
   } finally { await server.close(); }
 });
