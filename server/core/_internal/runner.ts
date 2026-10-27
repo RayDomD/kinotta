@@ -628,7 +628,7 @@ export const agentSkillDirectory = (): string => SKILL_DIR;
 export interface AgentCommand { command: string; prefix: string[] }
 /** Claude's shell tool is PowerShell on native Windows and Bash elsewhere. */
 export const CLAUDE_BROLL_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash,PowerShell';
-/** Only the commands of SKILL.md "Unattended add b-roll". Claude's sandbox does not run on native Windows, so these rules are the boundary. */
+/** Only the commands of skill/stages/02-first-build.md. Claude's sandbox does not run on native Windows, so these rules are the boundary. */
 const BROLL_COMMANDS = ['python skill/engine/build.py *', 'python3 skill/engine/build.py *', 'python skill/scripts/shots.py *', 'python3 skill/scripts/shots.py *', 'node skill/engine/beats.js *'];
 export const CLAUDE_BROLL_ALLOWED_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', ...['Bash', 'PowerShell'].flatMap((shell) => BROLL_COMMANDS.map((command) => `${shell}(${command})`))];
 /** The run may not rewrite the copied skill and then run it. Edit rules cover every file-writing tool. */
