@@ -16,8 +16,8 @@ import type { LibraryRow } from './MediaLibrary.tsx';
 import { MediaPreview } from './MediaPreview.tsx';
 import { ClipSettings } from './ClipSettings.tsx';
 import { SoundSettings } from './SoundSettings.tsx';
-import { MIN_CLIP, applyOperations, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
-import type { MediaSource, MediaTimeline, NewOperation, SourcePlacement, Sources } from '../../../../server/core/model.ts';
+import { MIN_CLIP, applyOperations, captionFontCss, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
+import type { CaptionsPlan, MediaSource, MediaTimeline, NewOperation, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
 import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
@@ -348,7 +348,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   };
   const phrases = useMemo(() => edited.captions ? captionPhrases(words) : [], [edited.captions, words]);
   const captionStyle = typeof edited.captions === 'object' ? edited.captions : {};
-  const captionPreview = useMemo(() => phrases.map((phrase) => ({ ...phrase, placement: phrase.words[0]!.placement!, sourceStart: phrase.words[0]!.sourceStart!, look: typeof edited.captions === 'object' ? edited.captions.look ?? 'highlight' : 'highlight', color: typeof edited.captions === 'object' ? edited.captions.color ?? CAPTION_COLOR : CAPTION_COLOR })), [phrases, edited.captions]);
+  const captionPreview = useMemo(() => { const { font, background } = typeof edited.captions === 'object' ? edited.captions : ({} as CaptionsPlan); return phrases.map((phrase) => ({ ...phrase, placement: phrase.words[0]!.placement!, sourceStart: phrase.words[0]!.sourceStart!, look: typeof edited.captions === 'object' ? edited.captions.look ?? 'highlight' : 'highlight', color: typeof edited.captions === 'object' ? edited.captions.color ?? CAPTION_COLOR : CAPTION_COLOR, ...(font === undefined ? {} : { font: captionFontCss(font) }), ...(background === undefined ? {} : { background }) })); }, [phrases, edited.captions]);
   // Keep the authored page's caption bound to the saved occurrence while native lanes preview the edit.
   const [savingCaption, setSavingCaption] = useState<typeof captionPreview | null>(null);
   const captionShifts = useMemo(() => captionPreview.map((phrase) => {

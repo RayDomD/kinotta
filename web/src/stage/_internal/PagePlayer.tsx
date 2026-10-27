@@ -36,6 +36,10 @@ export interface CaptionPreview {
   words: readonly CaptionWord[];
   look: string;
   color: string;
+  /** The CSS `font` value for the caption (`--cap-font`). Absent: the page's own. */
+  font?: string;
+  /** The CSS background for the caption box (`--cap-bg`), a colour or `none`. Absent: the page's own. */
+  background?: string;
 }
 
 /** The caption on show retyped: its index among the page's caption scenes and the whole phrase's new text. */
@@ -172,6 +176,8 @@ function applyCaptionPreview(frame: HTMLIFrameElement | null, preview: PagePlaye
     const caption = doc.createElement('div');
     caption.className = 'caption'; caption.dataset.el = 'caption'; caption.dataset.look = phrase.look;
     caption.style.setProperty('--cap-color', phrase.color);
+    if (phrase.font !== undefined) caption.style.setProperty('--cap-font', phrase.font);
+    if (phrase.background !== undefined) caption.style.setProperty('--cap-bg', phrase.background);
     const line = doc.createElement('span'); line.className = 'ph';
     phrase.words.forEach((word, n) => {
       const span = doc.createElement('span');

@@ -1,4 +1,5 @@
 import { expect, test } from '../helpers/editor-test.ts';
+import type { Page } from '../helpers/editor-test.ts';
 import { startServer } from '../../server/main.ts';
 import { createStutterProject } from './realtime-project.ts';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -92,5 +93,43 @@ test('Simple mode shows a word edit before the reply and restores it on refusal'
     closing = true; release(); await page.close(); await server.close();
     try { rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
     catch (error) { if (!['EPERM', 'EBUSY'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error; }
+  }
+});
+
+test('the editor preview draws captions in the plan\'s font and background, and as built without them', async ({ browser }) => {
+  const projectDir = createStutterProject('caption-style');
+  const planFiles = ['plan.json', 'v1/plan.json', 'v1/media.json'].map((file) => join(projectDir, 'reels/caption-style', file));
+  const setCaptions = (captions: unknown): void => {
+    for (const path of planFiles) {
+      const plan = JSON.parse(readFileSync(path, 'utf8'));
+      plan.captions = captions;
+      plan.media.sources[0].words = [{ text: 'hello', start: 0.5, end: 1 }];
+      plan.media.placements[0].speech = true;
+      writeFileSync(path, JSON.stringify(plan));
+    }
+  };
+  const caption = (page: Page) => page.frameLocator('iframe[title="Authored graphics"]').locator('.caption').first();
+  const vars = (page: Page) => caption(page).evaluate((el) => ({ font: (el as HTMLElement).style.getPropertyValue('--cap-font'), background: (el as HTMLElement).style.getPropertyValue('--cap-bg') }));
+  const open = async (page: Page, url: string): Promise<void> => {
+    await page.goto(url);
+    await expect(caption(page)).toBeAttached();
+  };
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  let server: Awaited<ReturnType<typeof startServer>> | undefined;
+  try {
+    setCaptions({ font: { family: 'Geist', weight: 800, size: 64 }, background: 'rgba(0, 0, 0, 0.4)' });
+    server = await startServer({ projectDir, port: 0 });
+    await open(page, server.url);
+    await expect.poll(() => vars(page)).toEqual({ font: "800 64px/1.18 'Geist',system-ui,sans-serif", background: 'rgba(0, 0, 0, 0.4)' });
+    await server.close();
+
+    // Captions without the fields leave the page's own font and background in force.
+    setCaptions(true);
+    server = await startServer({ projectDir, port: 0 });
+    await open(page, server.url);
+    await expect.poll(() => vars(page)).toEqual({ font: '', background: '' });
+  } finally {
+    await page.close(); await server?.close();
+    rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
