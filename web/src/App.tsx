@@ -122,7 +122,7 @@ function TopBar(props: {
           onSaved={onCopied}
         />
       )}
-      <Popover label="More" button={<span aria-hidden="true">···</span>} buttonClass="tb-menu tb-more" className="tb-more-pop" open={more} onOpen={closeMore}>
+      <Popover label="More" disabled={!props.listing} button={<span aria-hidden="true">···</span>} buttonClass="tb-menu tb-more" className="tb-more-pop" open={more} onOpen={closeMore}>
         {allReels && props.simple ? <label>Choose reel<select autoFocus aria-label="Choose reel" value={reel?.slug ?? ''} onChange={(event) => { if (event.target.value) props.onOpen?.(event.target.value); closeMore(false); }}>
           <option value="" disabled>Choose reel</option>
           {props.listing?.reels.map((item) => <option key={item.slug} value={item.slug}>{item.title}</option>)}

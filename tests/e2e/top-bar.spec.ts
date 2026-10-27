@@ -52,6 +52,22 @@ test('Storyboard and Edit share the bar; the edit view persists after reload and
   } finally { await server.close(); }
 });
 
+test('More waits for the reel listing before exposing its actions', async ({ page }) => {
+  const server = await startServer({ projectDir: fixture(), port: 0 });
+  let release = () => {};
+  const gate = new Promise<void>((done) => { release = done; });
+  try {
+    await page.route('**/api/reels', async (route) => { await gate; await route.continue(); });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(server.url);
+    await expect(top(page).getByRole('button', { name: 'More', exact: true })).toBeDisabled();
+    release();
+    await expect(top(page).getByRole('button', { name: 'More', exact: true })).toBeEnabled();
+    await more(page, 'New reel');
+    await expect(page.locator('.sm-make')).toBeVisible();
+  } finally { release(); await server.close(); }
+});
+
 test('the old session preference migrates once to local storage', async ({ page }) => {
   const server = await startServer({ projectDir: fixture(), port: 0 });
   try {

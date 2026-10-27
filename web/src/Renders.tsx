@@ -51,9 +51,10 @@ const when = (iso: string): string => new Date(iso).toLocaleString(undefined, { 
  * A button that opens a panel under it: Escape or a press outside closes it and gives focus back to the button. The
  * panel is a dialog named `label`, its first control focused on open.
  */
-export function Popover({ label, dialogLabel = label, button, buttonDescriptionId, className, buttonClass, children, open, onOpen }: {
+export function Popover({ label, dialogLabel = label, disabled = false, button, buttonDescriptionId, className, buttonClass, children, open, onOpen }: {
   label: string;
   dialogLabel?: string;
+  disabled?: boolean;
   button: ReactNode;
   buttonDescriptionId?: string;
   className: string;
@@ -90,7 +91,7 @@ export function Popover({ label, dialogLabel = label, button, buttonDescriptionI
   }, [open, onOpen, dialogLabel]);
   return (
     <span className="popover-anchor">
-      <button ref={trigger} type="button" className={buttonClass} aria-label={label} aria-describedby={buttonDescriptionId} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
+      <button ref={trigger} type="button" disabled={disabled} className={buttonClass} aria-label={label} aria-describedby={buttonDescriptionId} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
         {button}
       </button>
       {open && (
