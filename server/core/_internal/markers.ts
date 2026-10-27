@@ -6,9 +6,18 @@ import { requireReelDir } from './version.ts';
 import { serialized, writeFileAtomic } from './state.ts';
 
 export interface TimelineMarker { id: string; time: number; name: string }
+const markersFile = (dir: string, slug: string): string => join(dir, 'reels', '.kinotta', slug, 'markers.json');
 async function fileFor(dir: string, slug: string) {
   await requireReelDir(dir, slug);
-  return join(dir, 'reels', '.kinotta', slug, 'markers.json');
+  return markersFile(dir, slug);
+}
+/**
+ * Runs a change to a reel's markers in the order it was called. The queue slot is taken before anything is awaited: checking
+ * the reel first let two simultaneous calls reach the queue in either order, so the markers could be stored out of call order.
+ */
+function changing<T>(dir: string, slug: string, change: (file: string) => Promise<T>): Promise<T> {
+  const file = markersFile(dir, slug);
+  return serialized(file, async () => { await requireReelDir(dir, slug); return change(file); });
 }
 function valid(input: unknown): { time: number; name: string } {
   const value = input as Partial<TimelineMarker> | null;
@@ -25,12 +34,11 @@ async function read(file: string): Promise<TimelineMarker[]> {
 }
 export async function listMarkers(dir: string, slug: string): Promise<TimelineMarker[]> { return read(await fileFor(dir, slug)); }
 export async function addMarker(dir: string, slug: string, input: unknown): Promise<TimelineMarker> {
-  const marker = { id: randomUUID(), ...valid(input) }; const file = await fileFor(dir, slug);
-  return serialized(file, async () => { const markers = await read(file); markers.push(marker); await writeFileAtomic(file, JSON.stringify(markers)); return marker; });
+  const marker = { id: randomUUID(), ...valid(input) };
+  return changing(dir, slug, async (file) => { const markers = await read(file); markers.push(marker); await writeFileAtomic(file, JSON.stringify(markers)); return marker; });
 }
 export async function changeMarker(dir: string, slug: string, id: string, changes: unknown): Promise<TimelineMarker> {
-  const file = await fileFor(dir, slug);
-  return serialized(file, async () => {
+  return changing(dir, slug, async (file) => {
     const markers = await read(file); const index = markers.findIndex((marker) => marker.id === id);
     if (index < 0) throw new KinottaError('not-found', 'This marker no longer exists.');
     if (!changes || typeof changes !== 'object' || Array.isArray(changes) || Object.keys(changes).some((key) => !['name', 'time'].includes(key))) throw new KinottaError('invalid', 'Change only a marker’s name or time.');
@@ -39,6 +47,5 @@ export async function changeMarker(dir: string, slug: string, id: string, change
   });
 }
 export async function removeMarker(dir: string, slug: string, id: string): Promise<void> {
-  const file = await fileFor(dir, slug);
-  return serialized(file, async () => { const markers = await read(file); await writeFileAtomic(file, JSON.stringify(markers.filter((marker) => marker.id !== id))); });
+  return changing(dir, slug, async (file) => { const markers = await read(file); await writeFileAtomic(file, JSON.stringify(markers.filter((marker) => marker.id !== id))); });
 }
