@@ -19,7 +19,7 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await revealReelRail(page);
     const versions = page.getByRole('navigation', { name: 'Current reel', exact: true });
-    for (const check of railChecks) expect(await versions.evaluate(check.check), check.description).toBe(true);
+    for (const check of railChecks) expect(await page.locator('[data-verify-unit="VersionRail"]').evaluate(check.check), check.description).toBe(true);
     for (const check of renderChecks) expect(await page.locator('[data-verify-unit="VersionActions"]').evaluate(check.check), check.description).toBe(true);
     await expect(versions.getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
     await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('1 edit');
@@ -29,14 +29,15 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     await page.getByRole('button', { name: 'More settings…', exact: true }).click();
     const render = page.getByRole('dialog', { name: 'Render Working' });
-    await expect(render.getByText('Draft of Working', { exact: true })).toBeVisible();
-    await expect(render.getByText('Final, freezes as v3', { exact: true })).toBeVisible();
+    await expect(render.getByRole('radio', { name: 'Quick preview', exact: true })).toBeVisible();
+    await expect(render.getByRole('radio', { name: 'Video', exact: true })).toBeChecked();
+    await expect(render.getByText('Saves Working as v3', { exact: false })).toBeVisible();
     await page.keyboard.press('Escape');
     await server.project.addOperation(reel, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 20, y: 0, scale: 1, by: 'Claude' });
     await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('2 edits');
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Claude');
     expect((await server.project.readVersion(reel, 2)).number).toBe(2);
-    await expect(page.getByRole('navigation', { name: 'Versions', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Versions', exact: true }).getByRole('button')).toHaveText([/^v2/, /^v1/]);
     await page.getByRole('button', { name: /^Undo Ctrl/ }).click();
     await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('1 edit');
     await page.getByRole('button', { name: /^Redo Ctrl/ }).click();

@@ -1,6 +1,6 @@
 export const fixtures = [
   { name: 'working', description: 'Render Working with no save choice' },
-  { name: 'frozen', description: 'Render an explicit frozen version' },
+  { name: 'frozen', description: 'Render an explicit saved version' },
   { name: 'busy', description: 'Approval request pending' },
   { name: 'invalid-working', description: 'FAIL: Working still asks which saved content to render', fail: true },
 ] as const;

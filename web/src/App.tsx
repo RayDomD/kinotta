@@ -216,7 +216,7 @@ function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edit
   const newestFirst = [...entries].sort((a, b) => b.number - a.number);
   // Using the version the current reel already is changes nothing.
   const same = selected === frozenVersion && editsSinceFreeze === 0;
-  return <div><div className="label">Reel</div><nav className="versions" aria-label="Current reel" data-verify-unit="VersionRail" data-verify-working={String(working)} data-verify-count={entries.length}>
+  return <div data-verify-unit="VersionRail" data-verify-working={String(working)} data-verify-count={entries.length}><div className="label">Reel</div><nav className="versions" aria-label="Current reel">
     <button type="button" data-working-row data-current-version={frozenVersion} aria-current={working ? 'true' : undefined} onClick={onWorking}>
       <span>Current<span className="rv-who">{editsSinceFreeze} {editsSinceFreeze === 1 ? 'edit' : 'edits'}</span></span>
     </button>

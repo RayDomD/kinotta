@@ -482,7 +482,8 @@ test('card Use chooses alternate in the reel with undo, and Not this dismisses w
     await expect(card).toHaveAttribute('data-verify-shown', 'r1');
     await expect(openBtn).toBeFocused();
 
-    await expect(page.getByRole('navigation', { name: 'Versions', exact: true })).toHaveCount(0);
+    // Choosing and dismissing alternates saved no version: the rail still lists only v1.
+    await expect(page.getByRole('navigation', { name: 'Versions', exact: true }).getByRole('button')).toHaveCount(1);
     expect((await server.project.readVersion('parts', 1)).shots.find((shot) => shot.name === 'proof')?.revision).toBe('r1');
   } finally {
     await server.close();
