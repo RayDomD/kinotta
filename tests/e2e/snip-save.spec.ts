@@ -65,7 +65,7 @@ test('snip a stretch, see it in the Edits panel, and Save it as a new version', 
   await expect(review(page).locator('[data-role="main"] [data-placement]')).toHaveCount(2);
   await expect(review(page).locator('[data-role="main"]').getByRole('button', { name: /^Gap, gap,/ })).toHaveCount(0);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
-  await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
 
   // The edit list is in the reel folder, outside every version, and no version exists yet.
   await waitForEditSave(page);
@@ -153,7 +153,7 @@ test('an agent-built footage reel can be snipped and saved too, and its unsent c
   for (const input of pins) expect((await page.request.post(commentsUrl, { data: input })).ok()).toBe(true);
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
   await expect.poll(() => reviewClockText(page), { timeout: BUILD_WAIT_MS }).toMatch(/\/ 00:12\.0\d$/);
   await expect(review(page).getByRole('toolbar', { name: 'Timeline tools' })).toBeVisible();
@@ -256,7 +256,7 @@ test('undo and redo step the edit list, one card can be removed, and a reload br
   await page.reload();
   await revealReelRail(page);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Undo talk/ }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(cards).toHaveCount(1);
   await page.getByRole('button', { name: /^Redo Ctrl/ }).click();
   await expect(cards).toHaveCount(2);
@@ -525,7 +525,7 @@ test('keyboard only: play, mark a stretch, snip it and Save', async ({ page }) =
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
 
   // Render is reachable by Tab, and Final freezes Working.
-  const render = page.getByRole('button', { name: 'Render Working', exact: true });
+  const render = page.getByRole('button', { name: 'Export', exact: true });
   await tabTo(page, render);
   await waitForEditSave(page);
   await freezeWorking(page);

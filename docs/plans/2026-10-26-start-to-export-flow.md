@@ -69,3 +69,5 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 - Phase B built on `feat/agent-default`: with no `.kinotta-agent.json`, the agent defaults to Claude Code, then Codex, then Copy request. The first Auto or Direct build asks "Build it all now?" with the usage notice, and "Don't ask again" stores the yes in the same file. The Agent picker lives only in Settings. With no agent found, the Auto hint says Kinotta will prepare a request to paste.
 
 - Phase C built on `feat/progress-notice`: one persistent b-roll progress strip under each reel page's top bar replaces the Simple mode banner, with stage, elapsed time, Cancel, Retry, ready-version navigation and Copy request fallback. Comment-batch builds remain deferred.
+
+- Phase D built on `feat/top-bar`: Storyboard and Edit share one top bar, Edit remembers Simple | Editor across tabs, Export holds presets, size, detailed settings, queue and recent files, and More holds the moved tools. Reel origin drives the Storyboard badge and the per-reel Auto hint. All 10 top-bar e2e checks pass with 1440px/390px screenshots; final full-suite verification pending.

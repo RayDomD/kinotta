@@ -113,7 +113,7 @@ async function runPlaybackTest(
   await attachInstrumentation(page);
   await page.goto(serverUrl);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: `Playback ${slug}`, exact: true }).click();
-  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
   await page.waitForFunction(
     () => document.querySelector('[data-verify-unit="MediaEditor"]')?.getAttribute('data-verify-loading') === 'false'

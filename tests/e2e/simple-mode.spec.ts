@@ -184,7 +184,7 @@ test('the editor shares element hover feedback and retains its frame pin save fl
   try {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(server.url);
-    await page.getByRole('group', { name: 'After the first cut' }).getByRole('button', { name: /^Edit/ }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Editor', exact: true }).click();
     const tool = page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true });
     await expect(tool).toBeEnabled();
     await tool.click();
@@ -218,6 +218,8 @@ test('picture picking covers footage-only moments with exact coordinates and no 
     const { slug } = await server.project.startReel({ video: 'media/talk.mp4', title: 'Footage only', broll: 'light', captions: 'off' });
     await expect.poll(async () => (await server.project.listVersions(slug)).length, { timeout: 30_000 }).toBe(1);
     await page.goto(server.url);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'All reels', exact: true }).click();
     await page.getByRole('combobox', { name: 'Choose reel' }).selectOption(slug);
     const player = page.locator('.sm-preview .rv-page');
     await expect(player).toHaveAttribute('data-state', 'ready');
@@ -376,11 +378,11 @@ test('Simple is the default: required-note pins, navigation, persistence, copy r
     expect(await app.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await expect(page.getByRole('button', { name: /Regenerate \(2 pins\)/ })).toBeInViewport();
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('group', { name: 'After the first cut' }).getByRole('button', { name: /^Edit/ }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Editor', exact: true }).click();
     await expect(page.getByRole('main', { name: 'Review', exact: true })).toBeVisible();
     await expect(page.locator('.reelname')).toContainText('Product showreel');
     await expect(page.getByRole('navigation', { name: 'Phase' })).toBeVisible();
-    await page.getByRole('button', { name: 'Simple mode', exact: true }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Simple', exact: true }).click();
     await expect(page.getByRole('complementary', { name: 'Your pins' }).getByRole('listitem')).toHaveCount(2);
   } finally { await server.close(); }
 });
@@ -398,6 +400,8 @@ test('Regenerate combines section requests after freezing changed Working and of
       navigator.clipboard.writeText = async () => { throw new Error('Clipboard blocked'); };
     });
     await page.goto(server.url);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'All reels', exact: true }).click();
     await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('founder-talk');
     await page.getByRole('button', { name: /Regenerate \(2 pins\)/ }).click();
     await expect(page.locator('.sm-message[role="status"]')).toContainText('Request saved.');
@@ -416,7 +420,8 @@ test('Auto starts a real reel from a project video in Simple mode with the usual
     expect((await server.project.listStyles()).defaultId).toBe('clean');
     await page.goto(server.url);
     expect(await page.evaluate(() => localStorage.getItem('kinotta-simple-options-v1'))).toBeNull();
-    await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
 
@@ -454,7 +459,8 @@ test('Editable dead-air cuts: full recording timeline, restored pause, resized c
   });
   try {
     await page.goto(server.url);
-    await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
     await expect(page.getByLabel('Drop videos')).toBeAttached();
     await page.getByLabel('Or use a video in this project').selectOption({ index: 1 });
     await page.getByLabel('Reel name', { exact: true }).fill('Editable dead air');

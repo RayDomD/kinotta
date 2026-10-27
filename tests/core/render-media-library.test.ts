@@ -35,7 +35,7 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     page.on('requestfailed', (request) => analyses.delete(request));
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
     const library = page.getByRole('region', { name: 'Project media library' });
     const dropLibrary = async (path: string, target: Locator) => {
@@ -117,7 +117,7 @@ it('keeps every media path in one rail list, previews in the frame, reuses dupli
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
     const missing = library.locator('[data-media-path="tone.wav"]');
     await missing.getByText('File missing', { exact: true }).waitFor();

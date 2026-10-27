@@ -45,8 +45,9 @@ describe('working renders and explicit frozen renders', () => {
       const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
       await openDetailedEditor(page, server.url);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-      await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
-      await page.getByRole('button', { name: 'Render Working', exact: true }).click();
+      await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
+      await page.getByRole('button', { name: 'Export', exact: true }).click();
+      await page.getByRole('button', { name: 'More settings…', exact: true }).click();
       const form = page.getByRole('dialog', { name: 'Render Working' });
       expect(await form.getByRole('radio', { name: 'Draft of Working' }).isChecked()).toBe(true);
       expect(await form.getByText('Save', { exact: true }).count()).toBe(0);

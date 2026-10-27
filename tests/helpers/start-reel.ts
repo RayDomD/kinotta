@@ -11,5 +11,5 @@ export async function startReelInEditor(page: Page, title: string, video = 'medi
   await page.goto('/');
   await revealReelRail(page);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: title, exact: true }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
 }

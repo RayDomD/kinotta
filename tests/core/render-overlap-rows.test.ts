@@ -29,7 +29,7 @@ it('separates overlapping files visually while touching clips reuse a row and so
     const page = await browser.newPage({ viewport: { width: 1440, height: 1400 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const sound = page.locator('[data-track="speech"]');
     await sound.locator('[data-placement="next"]').waitFor();
     await separate(sound.locator('[data-placement="main"]'), sound.locator('[data-placement="sound"]'));

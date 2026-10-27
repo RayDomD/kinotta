@@ -35,7 +35,7 @@ it('previews, searches and adds bundled sound at the playhead with reusable cont
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
     const library = page.getByRole('region', { name: 'Project media library' });
     await library.getByRole('tab', { name: 'Effects', exact: true }).click({ timeout: 3000 });

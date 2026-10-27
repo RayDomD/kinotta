@@ -2,7 +2,7 @@ import type { Page } from 'playwright';
 
 /** Render-unit checks open the same detailed surface they exercised before Simple became the default. */
 export async function openDetailedEditor(page: Page, url: string): Promise<void> {
-  await page.addInitScript(() => { try { sessionStorage.setItem('kinotta-mode', 'editor'); } catch { /* Non-origin fixture page. */ } });
+  await page.addInitScript(() => { try { localStorage.setItem('kinotta-mode', 'editor'); } catch { /* Non-origin fixture page. */ } });
   await page.goto(url);
 }
 
@@ -37,7 +37,7 @@ export async function dragTimelineHandle(page: Page, label: string, seconds: num
 /** Navigation checks explicitly reveal Reel now that Review starts with its rail collapsed. */
 export async function revealReelRail(page: Page): Promise<void> {
   await page.locator('.body').waitFor();
-  const reviewTab = page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true });
+  const reviewTab = page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true });
   if (await reviewTab.getAttribute('aria-current') !== 'page') return;
   const tab = page.getByRole('tab', { name: 'Reel rail', exact: true });
   await tab.waitFor({ state: 'visible' });
@@ -55,7 +55,10 @@ export async function openCaption(page: Page, time: string): Promise<void> {
 /** Final is the editor's freeze boundary. These editing checks cancel its render after capture. */
 export async function freezeWorking(page: Page): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Render Working', exact: true });
-  if (!await dialog.count()) await page.getByRole('button', { name: 'Render Working', exact: true }).click();
+  if (!await dialog.count()) {
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    await page.getByRole('button', { name: 'More settings…', exact: true }).click();
+  }
   await dialog.getByRole('radio', { name: /^Final, freezes/ }).check();
   await dialog.getByRole('combobox', { name: 'Size', exact: true }).selectOption('half');
   const response = page.waitForResponse((reply) => reply.url().endsWith('/working-render') && reply.request().method() === 'POST');

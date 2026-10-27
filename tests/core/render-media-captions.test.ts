@@ -26,7 +26,7 @@ it('retypes one use of a repeated phrase through the caption handle, leaving the
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByLabel('Playhead', { exact: true }).fill('2.3');
     const frame = page.frameLocator('iframe[title="Authored graphics"]');
     await expect.poll(() => frame.locator('[data-caption].active').getAttribute('data-placement')).toBe('repeat');
