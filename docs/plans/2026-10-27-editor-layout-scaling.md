@@ -1,7 +1,7 @@
 ---
 title: Editor layout, scaling and collapsible sidebar
 date: 2026-10-27
-status: Draft
+status: Approved
 summary: A collapsible sidebar with a light animation, and an editor layout that scales cleanly when the window or the timeline divider moves, checked by an impeccable pass.
 spec:
 ---
@@ -26,7 +26,7 @@ spec:
 - Open questions:
   - O1: Resolved 2026-10-27. Both the left rail (Reel, Sections) and the right panel (Effects, Comments) collapse, each with its own toggle.
   - O2: Resolved 2026-10-27 by agy's audit (`.herdr/runs/2026-10-27-editor-layout-scaling/phases/A-audit/audit.md`), checked by Claude against the code and screenshots. Causes, verified: the tracks pane has no height floor (`review.css:5,8`: the picture well may take all but 90px, the tracks pane is `flex: 1; min-height: 0`), so dragging the divider down squeezes the timeline to nothing (`screens/divider-after.png`); the divider calls `setSettings` on every pointer move (`ViewerDivider.tsx:8`), which re-renders the whole editor and writes settings to storage each time (`EditorWorkspace.tsx:57-61`); the side columns are sized with `clamp(..vw..)` (`styles.css:57-58`), so they change width as the window does; the marker panel is inserted above the divider when open (`MediaEditor.tsx:680`), pushing everything below it down. Likely but not separately confirmed: a scrollbar appearing in the tracks pane narrows every clip by its width, and toolbar rows wrap at certain widths.
-  - O3: Column widths and default picture height. `DESIGN.md` § Layout says a fixed 220px rail and 320px right column; § Components says the player sits at 36vh. The code uses `clamp(..vw..)` columns and a 55vh default picture. Asked 2026-10-27.
+  - O3: Column widths and default picture height. `DESIGN.md` § Layout says a fixed 220px rail and 320px right column; § Components says the player sits at 36vh. The code uses `clamp(..vw..)` columns and a 55vh default picture. Resolved 2026-10-27, owner approved: fixed 220px rail and 320px right column per `DESIGN.md`; default picture share about 45% of the column, and `DESIGN.md` § Components updated to match.
 
 ## Goal
 
@@ -47,7 +47,7 @@ spec:
 
 ## Steps
 
-1. [ ] O3 answered.
+1. [x] O3 answered: fixed 220px / 320px columns, default picture share about 45%, `DESIGN.md` updated.
 2. [ ] Render tests (red): panel toggles set the grid columns and persist across reload; reduced motion has no transition; dragging the divider keeps the tracks pane at or above its floor and does not change the toolbar or header sizes; side panel widths don't change between 1280 and 1920px.
 3. [ ] Panels: grid variables, transition, buttons, `inert`, persisted settings.
 4. [ ] Divider: drag without re-rendering, height floor, scrollbar gutter, marker panel out of the flow.
@@ -72,3 +72,4 @@ spec:
 - Plan created with Intent only. Owner asked for a collapsible sidebar with a light animation, proper scaling, and an impeccable pass by agy.
 - O1 resolved: both side panels collapse.
 - agy's impeccable audit done; Claude verified its main causes against the code and screenshots (O2). Goal, Approach, Steps, Risks and Checks written. O3 (column widths and picture height) asked.
+- O3 resolved with the recommendation; status Approved.
