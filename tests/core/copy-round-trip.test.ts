@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, cpSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, cpSync, renameSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -169,8 +169,8 @@ describe('copy request round trip', () => {
     expect(existsSync(join(dir, 'reels', slug, 'v2'))).toBe(false);
   }, TIMEOUT);
 
-  it('4. A job finished while the server was stopped publishes on open: ready promise auto-publishes on startup', async () => {
-    const { dir, project, slug } = await setupCopyJob({ settleMs: 50 });
+  it('4. A job finished while the server was stopped settles on open before publishing', async () => {
+    const { dir, project, slug } = await setupCopyJob({ settleMs: 200 });
     const initialJob = (await project.agentJob(slug))!;
     const outputDir = join(dir, 'reels', slug, '.agent/jobs', initialJob.id, 'output');
 
@@ -191,12 +191,58 @@ describe('copy request round trip', () => {
     // Reading the job or awaiting ready should have processed the completed job
     const job = await reopened.agentJob(slug);
     expect(job).toMatchObject({
+      state: 'copy-ready',
+      canRetry: true,
+    });
+    await delay(50);
+    const updatedShots = {
+      ...JSON.parse(cachedShots!),
+      customMarker: 'settled-after-reopen',
+    };
+    writeFileSync(join(outputDir, 'shots.json'), JSON.stringify(updatedShots));
+
+    await until(async () => (await reopened.agentJob(slug))?.state === 'succeeded');
+    expect(await reopened.agentJob(slug)).toMatchObject({
       state: 'succeeded',
       version: 2,
       canRetry: false,
     });
     expect(existsSync(join(dir, 'reels', slug, 'v2'))).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, 'reels', slug, 'v2', 'shots.json'), 'utf8')).customMarker).toBe('settled-after-reopen');
     expect(existsSync(join(dir, 'reels', slug, 'v2', DONE_MARKER))).toBe(false);
+  }, TIMEOUT);
+
+  it('fails marker removal errors with a reason and retry instead of stopping silently', async () => {
+    const { dir, project, slug, outputDir } = await setupCopyJob({ settleMs: 50 });
+    writeValidOutput(outputDir);
+    mkdirSync(join(outputDir, DONE_MARKER));
+
+    await until(async () => (await project.agentJob(slug))?.state === 'failed');
+    expect(await project.agentJob(slug)).toMatchObject({
+      state: 'failed',
+      canRetry: true,
+      error: expect.stringContaining('regular file'),
+    });
+    expect(existsSync(join(dir, 'reels', slug, 'v2'))).toBe(false);
+  }, TIMEOUT);
+
+  it('refuses a symlinked output directory without deleting outside DONE', async () => {
+    const { dir, project, slug, jobDir, outputDir } = await setupCopyJob({ settleMs: 50 });
+    await project.close();
+    const outside = join(dir, 'external-output');
+    mkdirSync(outside);
+    writeFileSync(join(outside, DONE_MARKER), 'keep');
+    renameSync(outputDir, join(jobDir, 'original-output'));
+    symlinkSync(outside, outputDir, process.platform === 'win32' ? 'junction' : 'dir');
+
+    const reopened = openProject(dir, { agent: { settleMs: 50 } });
+    projects.push(reopened);
+    expect(await reopened.agentJob(slug)).toMatchObject({
+      state: 'failed',
+      canRetry: true,
+      error: expect.stringContaining('real private directory'),
+    });
+    expect(readFileSync(join(outside, DONE_MARKER), 'utf8')).toBe('keep');
   }, TIMEOUT);
 
   it('5. A job without DONE stays copy-ready: both while server is running and on startup', async () => {

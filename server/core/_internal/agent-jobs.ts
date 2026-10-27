@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { copyFile, cp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { brollJobPrompt, makeBrollJobRequest, type BrollJobRequest } from './requests.ts';
-import { COPY_SETTLE_MS, DONE_MARKER, watchCopyOutput, type CopyWatchHandle } from './copy-watch.ts';
+import { assertSafeCopyOutput, COPY_SETTLE_MS, removeCopyDoneMarker, watchCopyOutput, type CopyWatchHandle } from './copy-watch.ts';
 import type { Frame } from './direction.ts';
 import { readReelStyle } from './style.ts';
 import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch } from './runner.ts';
@@ -66,23 +65,42 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     }
   }
 
-  function startWatchingCopyJob(job: AgentJob): void {
+  async function startWatchingCopyJob(job: AgentJob): Promise<void> {
     if (closed || job.state !== 'copy-ready') return;
     stopWatching(job.reel);
     const outputDir = join(jobDir(job), 'output');
-    const watcher = watchCopyOutput(
-      outputDir,
-      async () => {
-        copyWatchers.delete(job.reel);
-        try {
-          await runAcceptOutput(job.reel, job.id);
-        } catch {
-          // Handled within runAcceptOutput
-        }
-      },
-      { settleMs: options.settleMs ?? COPY_SETTLE_MS },
-    );
-    copyWatchers.set(job.reel, watcher);
+    try {
+      await assertSafeCopyOutput(jobDir(job), outputDir);
+      let watcher: CopyWatchHandle;
+      watcher = watchCopyOutput(
+        jobDir(job),
+        outputDir,
+        async () => {
+          if (copyWatchers.get(job.reel) === watcher) copyWatchers.delete(job.reel);
+          try {
+            await runAcceptOutput(job.reel, job.id);
+          } catch {
+            // Handled within runAcceptOutput
+          }
+        },
+        async (error) => {
+          if (latest.get(job.reel)?.id !== job.id) return;
+          job.state = 'failed';
+          job.error = (error instanceof Error ? error.message : 'Could not accept Copy request output.').slice(0, ERROR_LENGTH);
+          job.canRetry = true;
+          job.updatedAt = new Date().toISOString();
+          await set(job);
+        },
+        { settleMs: options.settleMs ?? COPY_SETTLE_MS },
+      );
+      copyWatchers.set(job.reel, watcher);
+    } catch (error) {
+      job.state = 'failed';
+      job.error = (error instanceof Error ? error.message : 'Could not watch Copy request output.').slice(0, ERROR_LENGTH);
+      job.canRetry = true;
+      job.updatedAt = new Date().toISOString();
+      await set(job);
+    }
   }
 
   const set = (job: AgentJob): Promise<void> => {
@@ -142,12 +160,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       if (newest) {
         latest.set(reel, newest);
         if (newest.state === 'copy-ready') {
-          const marker = join(jobDir(newest), 'output', DONE_MARKER);
-          if (existsSync(marker)) {
-            if (!closed) await runAcceptOutput(reel, newest.id).catch(() => {});
-          } else if (!closed) {
-            startWatchingCopyJob(newest);
-          }
+          if (!closed) await startWatchingCopyJob(newest);
         }
       }
     }
@@ -207,7 +220,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       await mkdir(join(dir, 'output'));
       await writeJsonAtomic(join(dir, 'request.json'), request);
       const { writeFile } = await import('node:fs/promises');
-      await writeFile(join(dir, 'prompt.txt'), brollJobPrompt(request), 'utf8');
+      await writeFile(join(dir, 'prompt.txt'), brollJobPrompt(request, true), 'utf8');
       await set(job);
       const current = job;
       void execute(current, source, plan, controller, request).catch(() => {
@@ -217,7 +230,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
         running.delete(reel);
         finish();
         if (current.state === 'copy-ready' && !closed) {
-          startWatchingCopyJob(current);
+          void startWatchingCopyJob(current);
         }
       });
       return { ...current };
@@ -230,6 +243,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
 
   async function validateAndPublish(job: AgentJob, request: BrollJobRequest, controller: AbortController, frozenPlan: Record<string, unknown>, inputTranscript: string): Promise<void> {
     const output = join(jobDir(job), 'output');
+    await assertSafeCopyOutput(jobDir(job), output);
     await validateAgentOutput(output, controller.signal, frozenPlan, inputTranscript);
     const reelDir = await requireReelDir(projectDir, job.reel);
     await withReelLock(reelDir, async () => {
@@ -297,6 +311,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       await heartbeat;
       if (controller.signal.aborted) throw new Error('Agent cancelled.');
       job.state = 'validating'; await set(job);
+      await removeCopyDoneMarker(dir, join(dir, 'output'));
       await validateAndPublish(job, request, controller, frozenPlan, inputTranscript);
     } catch (error) {
       const stopFailed = error instanceof AgentTreeStopError;
@@ -326,7 +341,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     running.set(reel, { controller, done });
     try {
       const outputDir = join(jobDir(job), 'output');
-      await rm(join(outputDir, DONE_MARKER), { force: true });
+      await removeCopyDoneMarker(jobDir(job), outputDir);
       const request = await json<BrollJobRequest>(join(jobDir(job), 'request.json'));
       job.state = 'validating'; await set(job);
       await validateAndPublish(job, request, controller, await json<Record<string, unknown>>(join(jobDir(job), 'input/plan.json')), await readFile(join(jobDir(job), 'input/transcript.json'), 'utf8'));
