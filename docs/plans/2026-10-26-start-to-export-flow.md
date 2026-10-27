@@ -1,7 +1,7 @@
 ---
 title: One start screen, Auto that builds everything, and a two-step top bar
 date: 2026-10-26
-status: In Progress
+status: Done
 summary: Merge the start screens, make Auto build the cut and b-roll in one press with visible progress and Cancel, let the agent decide cuts, and turn the top bar into Storyboard then Edit.
 spec: docs/mockups/2026-10-26-start-to-export-flow.html
 ---
@@ -55,6 +55,23 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 - Unit tests, and the Playwright suites each phase touches. The full suite runs before the last phase merges.
 - A manual run on the built app (port 4317): drop a real video, Auto, watch the strip, cancel once, rerun, open v2.
 
+## Result
+
+All six phases shipped as planned, one PR each: A start screen (#81), B agent default and confirmation (#84), C progress notice (#86), D top bar (#87), E agent-decided cuts and softer cut edges (#83, #85), and F Copy request round trip (#88). DESIGN.md has entries for Auto and Direct, the top bar and the progress notice (step 8).
+
+Deviations:
+- Agent cuts are resized in Simple mode, and the Editor only shows and restores them (owner's option A).
+- The manual run found three defects, fixed in #89 (phase G, added). Kinotta's output check rejected a real agent's runtime-built `url(${...})` as a missing file. It also rejected the agent's correction of a misheard transcript word. And Simple Edit scrolled sideways at 390 px.
+- The manual run used port 4318 and a scratch project rather than 4317, which another server used.
+
+Checks run:
+- Each phase: typecheck, docs and commit checks, unit tests and its Playwright suites, a review by the other lane, and the full verify gate before merge. Known unit failures are tracked in #82.
+- Manual run, 2026-10-27, on main `7a3eca4` with `footage/sample vid .mp4` and real Claude Code. Passed: start screen, pick, confirmation, uncut v1, strip on Storyboard, Cancel leaving v1 intact, remembered view, first-cut hint, and a Final 1080p export (119.95 s, 1920x1080). Failed: v2, after a 19-minute run, and the 390 px layout, both fixed in #89. After #89, the rejected output replays as a pass, and a test publishes the corrected word as v2's caption. A fresh real Auto build has not been rerun yet; it is the final check of the skill-stages plan (2026-10-27).
+
+The Result answers the Intent. There is one start screen. Auto asks once and builds the cut and b-roll with the installed agent. Progress and Cancel show on every reel page. The top bar reads Storyboard then Edit. The agent decides cuts, and each cut is editable.
+
+Open: at 390 px the Simple ruler labels crowd and overlap (recorded, not fixed).
+
 ## Changelog
 
 ### 2026-10-26
@@ -72,3 +89,7 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 - Phase C built on `feat/progress-notice`: one persistent b-roll progress strip under each reel page's top bar replaces the Simple mode banner, with stage, elapsed time, Cancel, Retry, ready-version navigation and Copy request fallback. Comment-batch builds remain deferred.
 - Phase D built on `feat/top-bar`: Storyboard and Edit share one top bar, Edit remembers Simple | Editor across tabs, Export holds presets, size, detailed settings, queue and recent files, and More holds the moved tools. Reel origin drives the Storyboard badge and the per-reel Auto hint. All 11 top-bar e2e checks and the full 187-test browser suite pass, with 1440px/390px screenshots. Typecheck, docs and commit checks pass; the unit run has only the sound-skill timeout tracked in #82, and its isolated rerun passes.
 - Phase F built on feat/copy-round-trip: Kinotta watches waiting Copy request jobs for output/DONE, settles writes, validates and publishes automatically as the next version. On startup, copy-ready jobs with DONE are published immediately while others resume watching. The strip updates to "Waiting for your agent" and "Your agent finished" with Open vN.
+- Phase F merged as #88, after the full gate caught a watcher race (565064a) and a repeat-accept regression (7da01bb).
+- Manual run on main `7a3eca4` (port 4318, real Claude Code): see Result. Findings fixed in #89: interpolated asset URLs, transcript word fixes, and the 390 px ruler overflow. Review by agy tightened the URL prefix check and kept the last ruler label visible.
+- Owner decisions: faster-whisper makes the first transcript, and the b-roll agent may correct word text, keeping word count and timings. Only the first Auto build runs the agent in the background; later versions come from Copy all comments pasted to the agent.
+- Plan closed.
