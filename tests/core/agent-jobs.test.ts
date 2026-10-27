@@ -56,6 +56,8 @@ describe('background b-roll request', () => {
       expect(brollJobPrompt(request)).toContain(JSON.stringify({ notes: 'quoted "$HOME"' }));
       expect(brollJobPrompt(request)).toContain(videoType ?? 'decide from the content without asking');
       for (const copy of [false, true]) {
+        expect(brollJobPrompt(request, copy)).toContain('skill/SKILL.md for hard rules');
+        expect(brollJobPrompt(request, copy)).toContain('skill/stages/02-first-build.md for the first-build procedure');
         expect(brollJobPrompt(request, copy)).toContain('You may correct misheard words in output/transcript.json by changing word text only (including punctuation and case). Keep every word, its order, its start/end timings and all other fields; every word text must remain non-empty.');
       }
     }

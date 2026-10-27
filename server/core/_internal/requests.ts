@@ -68,7 +68,7 @@ export function makeBrollJobRequest(id: string, reel: string, baseVersion: numbe
 
 export function brollJobPrompt(request: BrollJobRequest, copyRequest = false): string {
   return [
-    'Kinotta unattended add-b-roll job. Read request.json, then skill/SKILL.md section "Unattended add b-roll" and follow that path.',
+    'Kinotta unattended add-b-roll job. Read request.json, then skill/SKILL.md for hard rules and skill/stages/02-first-build.md for the first-build procedure; follow that path.',
     `Job folder: reels/${request.reel}/.agent/jobs/${request.id}/ (relative to the project). If already in this job folder, read ./request.json; otherwise change to it first.`,
     'You may correct misheard words in output/transcript.json by changing word text only (including punctuation and case). Keep every word, its order, its start/end timings and all other fields; every word text must remain non-empty.',
     'Use the existing input plan and transcript. Author only inside output/. Do not rebuild v1, transcribe, ask questions, publish versions or start subagents.',
