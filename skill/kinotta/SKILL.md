@@ -11,7 +11,7 @@ you. You build the next version from it. Sections 1 to 4 cover code-only reels: 
 HTML page, with no footage. Footage reels are sections 5 and 6.
 
 The project folder is the one you are running in. Every path below is relative to it unless it
-says otherwise.
+says otherwise. Every operation reads the project’s `CONTEXT.md` first when present.
 
 When a plan has `media`, or the request adds sound, changes audio tracks or changes picture layout,
 read `reference/native-media.md` before building or rebuilding. Its native-media rules apply to

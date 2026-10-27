@@ -1,9 +1,11 @@
-Reads: `../SKILL.md`, the brief, brand sources and supplied references.
+Reads: `../SKILL.md`, `reels/.kinotta/<slug>/style.json` when present, the brief, brand sources and supplied references.
 Does: Collect direction and analyse references.
 Writes: Reel notes and choice sheets.
 Owner's check: Choose any requested option.
 
 ## Direction before building
+
+Before asking anything, read `reels/.kinotta/<slug>/style.json` when present and any `direction` in the request. Treat its `rules` as the owner's kept notes and its `form`, `look`, `settings`, `fonts`, `music`, `effects`, and `shots`, along with the request's direction, as already answered. Ask only for missing inputs. Never write `style.json`; the Direction screen owns it.
 
 For a new reel, collect only missing inputs in one round, then record the answers and one
 concept line in the reel's notes: what the viewer understands or feels, and how every shot
