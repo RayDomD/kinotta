@@ -8,6 +8,7 @@ import type { DeadAirStrength } from './dead-air.ts';
 export type { DeadAirStrength } from './dead-air.ts';
 
 export interface ReelSummary {
+  made?: 'auto' | 'direct';
   /** Folder name under reels/. */
   slug: string;
   /** reel.json title, falling back to the slug. */
@@ -613,6 +614,7 @@ export interface MediaEditingModel {
 export type StyleChoice = { id: string } | import('./style.ts').Style;
 
 export interface NewBriefReel {
+  made?: 'auto' | 'direct';
   title: string;
   brief: string;
   /** The reel stores its own copy of this style and the request carries it. */
@@ -777,6 +779,7 @@ export interface VideoEntry {
 }
 
 export interface NewReel extends MakeOptions {
+  made?: 'auto' | 'direct';
   /** Permission to run the installed agent for this build only. */
   agentConfirmed?: boolean;
   /** Project-relative path of the video. */
