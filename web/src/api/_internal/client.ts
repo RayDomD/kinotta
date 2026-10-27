@@ -625,6 +625,8 @@ export interface EditList {
   handedOff?: { version: number; copiedAt: string; reason: string };
   /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and block a freeze. */
   flagged?: Record<string, string>;
+  /** Where each flagged operation acts on the newest version, by id, when it has a place: the time and the shot to show it at. */
+  flaggedAt?: Record<string, { time: number; shot?: string }>;
 }
 
 const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;

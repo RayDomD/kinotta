@@ -10,7 +10,7 @@ const BASE = Number(process.env.KINOTTA_E2E_PORT_BASE ?? DEFAULT_BASE);
 const OFFSETS = {
   shared: 0, pins: 1, batch: 2, footage: 3, versions: 4, editing: 5, contract: 6, sectionBatches: 7, engine: 8,
   broll: 9, newReel: 10, dropVideo: 11, briefReel: 12, review: 13, snipSave: 14, clips: 15, codeOnly: 16,
-  handoff: 17, transcription: 18, picker: 19, renders: 20,
+  handoff: 17, transcription: 18, picker: 19, renders: 20, staleEdit: 21,
 } as const;
 
 export type ServerName = keyof typeof OFFSETS;

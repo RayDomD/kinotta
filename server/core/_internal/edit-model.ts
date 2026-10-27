@@ -1321,8 +1321,10 @@ export function operationMoment(op: Operation, sources: Sources): OperationMomen
   const clip = typeof fields.clip === 'string' ? plan.clips?.find((c) => c.id === fields.clip) : undefined;
   const named = typeof fields.placement === 'string' ? fields.placement : (fields.placement as { id?: unknown } | undefined)?.id ?? fields.target ?? clip?.placement;
   const sourceTime = [fields.at, fields.from, fields.in, clip?.in].find((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  const placement = typeof named === 'string' ? timeline.placements.find((p) => p.id === named) : sourceTime === undefined ? undefined
-    : timeline.placements.find((p) => p.role === 'main' && sourceTime >= p.in && sourceTime < p.out);
+  // A legacy clip names its footage's source id, which is not a placement id: its source time picks the placement in that source.
+  const namedId = typeof named === 'string' ? named : undefined;
+  const placement = timeline.placements.find((p) => p.id === namedId)
+    ?? (sourceTime === undefined ? undefined : timeline.placements.find((p) => p.role === 'main' && sourceTime >= p.in && sourceTime < p.out && (namedId === undefined || p.source === namedId)));
   if (!placement) return clip && clip.placement === undefined ? { time: clip.in } : undefined;
   if (placement.role === 'gap' || sourceTime === undefined) return { time: placement.at, placement: placement.id };
   // A split names its point as seconds into the placement; every other edit names source time.

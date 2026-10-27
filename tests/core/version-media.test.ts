@@ -211,4 +211,20 @@ describe('a flagged edit names where it acts (#93)', () => {
     expect(replayed.flaggedAt).toEqual({ [operations[0]!.id]: { time: 4, shot: '02' } });
     expect((await openProject(dir).readEditList('founder-talk')).flaggedAt).toEqual(replayed.flaggedAt);
   });
+  it('places a legacy clip edit by its source time, and the freeze error names the edit and its shot', async () => {
+    const dir = copyFixture('footage-project');
+    const reelDir = join(dir, 'reels/founder-talk');
+    const project = openProject(dir);
+    const { operations } = await project.addOperation('founder-talk', { kind: 'clip-trim', clip: '04', in: 9.6, out: 12 });
+    cpSync(join(reelDir, 'v1'), join(reelDir, 'v2'), { recursive: true });
+    const file = join(dir, 'motion/plan.json');
+    const plan = JSON.parse(readFileSync(file, 'utf8'));
+    plan.clips = plan.clips.filter((clip: { id: string }) => clip.id !== '04');
+    writeFileSync(file, JSON.stringify(plan));
+
+    const replayed = await openProject(dir).readEditList('founder-talk');
+    expect(Object.keys(replayed.flagged ?? {})).toEqual([operations[0]!.id]);
+    expect(replayed.flaggedAt).toEqual({ [operations[0]!.id]: { time: 9.6, shot: '04' } });
+    await expect(openProject(dir).freezeEdits('founder-talk')).rejects.toThrow(/One edit no longer applies to v2: .*\(shot 04\)\. Remove it or redo it/);
+  });
 });

@@ -30,6 +30,16 @@ interface Workspace {
   setSectionHost: Dispatch<SetStateAction<HTMLDivElement | null>>;
   panelTab: 'edits' | 'comments' | 'clip' | 'sound';
   setPanelTab: Dispatch<SetStateAction<'edits' | 'comments' | 'clip' | 'sound'>>;
+  /** An edit something outside the panel asked to show: its row is scrolled to and lit, and the playhead moves to `time`. `seq` makes a repeat request count. */
+  editFocus: EditFocus | null;
+  setEditFocus: Dispatch<SetStateAction<EditFocus | null>>;
+}
+
+export interface EditFocus {
+  id: string;
+  /** Seconds on the open version's timeline, when the edit has a place on it. */
+  time?: number;
+  seq: number;
 }
 const Context = createContext<Workspace | null>(null);
 
@@ -56,6 +66,7 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
   const [pinHost, setPinHost] = useState<HTMLDivElement | null>(null);
   const [sectionHost, setSectionHost] = useState<HTMLDivElement | null>(null);
   const [panelTab, setPanelTab] = useState<'edits' | 'comments' | 'clip' | 'sound'>('edits');
+  const [editFocus, setEditFocus] = useState<EditFocus | null>(null);
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
     document.documentElement.dataset.accent = settings.accent;
@@ -78,7 +89,7 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [focus, settings.keys, settingsOpen, shortcutsOpen]);
-  return <Context.Provider value={{ focus, setFocus, shortcutsOpen, setShortcutsOpen, settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab }}>
+  return <Context.Provider value={{ focus, setFocus, shortcutsOpen, setShortcutsOpen, settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab, editFocus, setEditFocus }}>
     <div className="editor-workspace" {...verifyAttrs(settings, railOpen, railTab, settingsOpen)} onKeyDown={(event) => {
       const target = event.target as HTMLElement;
       if (event.defaultPrevented || settingsOpen || target.closest('input, textarea, select, [contenteditable="true"]') || !target.closest('[data-review-shell="true"]')) return;

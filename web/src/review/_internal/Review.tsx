@@ -128,6 +128,8 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
   const playback = usePlayback(video, pieces ?? wholeVideo(total), total, hasVideo, previewSnip);
   const { time } = playback;
   useEffect(() => { if (simple?.jump) playback.seek(simple.jump.time); }, [simple?.jump]);
+  // A flagged edit named outside the panel (the error bar) moves the playhead to where it acts.
+  useEffect(() => { if (workspace.editFocus?.time !== undefined) playback.seek(workspace.editFocus.time); }, [workspace.editFocus?.seq]);
   const moved = useMemo(() => remap(savedPieces ?? NO_PIECES, pieces ?? NO_PIECES), [savedPieces, pieces]);
 
   // Clips: the plan's, in source time, with the unsaved trims and slides applied, placed on the edited timeline. A version without a plan shows its shots' clips.
