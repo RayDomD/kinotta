@@ -3,9 +3,11 @@ Does: Check installation and set up the project brand.
 Writes: `reels/brand.md`, project-root `CONTEXT.md`, and copied brand sources when requested.
 Owner's check: Confirm the brand summary.
 
-Run the installation check in section 1 of `new-reel.md` first. For standalone setup, if `reels/brand.md` exists, report it and stop unless the owner wants to redo it. For a first build, follow the existing brand file instructions below instead.
+Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` are relative to the skill root, not this stage folder.
 
-Offer four choices in one question: use the `DESIGN.md` and brand files found here; copy a brand from another Kinotta project; type colours and typefaces; or use the built-in brand. If copying, ask for the source project path. Copy its `DESIGN.md` and the in-project files its `reels/brand.md` points at into this project, preserving relative paths, and record the source folder in the brand file. Write `reels/brand.md` in the shape below, show its summary, and set `checked:` to today's date once the owner confirms. For standalone setup, the selected choice and confirmation above take precedence over the first-build fallback below. Apply the relevant existing instructions below to the selected choice.
+Run the installation check in section 1 of `new-reel.md` first. For standalone setup, if `reels/brand.md` exists, report it and stop unless the owner wants to redo it.
+
+For standalone setup, offer four choices in one question: use the `DESIGN.md` and brand files found here; copy a brand from another Kinotta project; type colours and typefaces; or use the built-in brand. If copying, ask for the source project path. Copy its `DESIGN.md` and the in-project files its `reels/brand.md` points at into this project, preserving relative paths, and record the source folder in the brand file. Write `reels/brand.md` in the shape below, show its summary, and set `checked:` to today's date once the owner confirms.
 
 After the brand file is checked, write a project-root `CONTEXT.md` as a location map. Point to the actual brand sources identified in `reels/brand.md`; do not copy their values or list reels. Use this shape:
 
@@ -23,7 +25,9 @@ This folder is a Kinotta project.
 
 If `CONTEXT.md` already exists, ask the owner before adding a short Kinotta section; never overwrite it. When reached from `/kinotta setup`, the operation ends after the brand file and `CONTEXT.md`. When reached from a new reel, return to `new-reel.md` section 3. References to section 3 below follow this routing.
 
-## 2. Brand file (before any build)
+## Brand file (before any build)
+
+For a new reel, follow the existing brand instructions below. For standalone setup, use the selected choice and confirmation above, then complete the `CONTEXT.md` step.
 
 The **brand file** `reels/brand.md` records where the project's brand sources live. It points at
 them and never copies their values (no hex codes, font sizes or copy lifted from a source).

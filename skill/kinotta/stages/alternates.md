@@ -3,6 +3,8 @@ Does: Build requested parts revisions and alternates.
 Writes: Shot revisions, manifest and answers.
 Owner's check: Choose an alternative in Storyboard.
 
+Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` are relative to the skill root, not this stage folder.
+
 ## Parts batches and alternates
 
 For a parts batch, read the saved batch and its exact frozen manifest. The opening `Rebuild:` line names the shots to change. Write a new revision only for those shots, retain the other revision references, update the root manifest and build. Keep fixed shot names and element names. Kinotta carries frozen owner offsets, sound and later Working operations. Finish when build and check report no issues and each comment has an answer. A changed shared revision affects every shot, so change it only when the batch calls for that.

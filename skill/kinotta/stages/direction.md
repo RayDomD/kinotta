@@ -3,6 +3,8 @@ Does: Collect direction and analyse references.
 Writes: Reel notes and choice sheets.
 Owner's check: Choose any requested option.
 
+Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` are relative to the skill root, not this stage folder.
+
 ## Direction before building
 
 Before asking anything, read `reels/.kinotta/<slug>/style.json` when present and any `direction` in the request. Treat its `rules` as the owner's kept notes and its `form`, `look`, `settings`, `fonts`, `music`, `effects`, and `shots`, along with the request's direction, as already answered. Ask only for missing inputs. Never write `style.json`; the Direction screen owns it.
@@ -21,13 +23,10 @@ On music-led reels, derive event times from tempo and align changes to the beat 
 Speech-led reels retain speech and reading time even with music. The nine new effects in
 `templates/effects/README.md` are optional starting points, never a requirement.
 
-When a reference video is supplied, or a font or palette remains open, use **Reference analysis
-and choice sheets** in `reference/motion-broll.md` before building. The reference supplies
-technique; the brand supplies the story. For a choice sheet, show six to eight numbered
-candidates in the real title treatment and ask the owner to pick a number. Unattended jobs
-use supplied choices or brand defaults and record that decision instead of waiting.
+When a reference video is supplied, or a font or palette remains open, follow **Reference analysis
+and choice sheets** below before building.
 
-## 2. Interview
+## Interview
 
 Use the AskUserQuestion tool; keep it to one round. You need:
 
@@ -42,13 +41,7 @@ Use the AskUserQuestion tool; keep it to one round. You need:
   - Or their brand: colours, and optionally a font. Ask them to drop a logo, screenshots or brand colours into `motion/inputs/`, and read those.
 - **Anything to avoid or include.** Lines to leave on their face, real numbers or names to show, product screenshots to recreate.
 
-Skip any question the user already answered. Before building a new reel, write its concept
-line in the reel's notes: what the viewer understands or feels and how the shots serve it.
-Collect missing inputs by type: explainer audience, ordered steps, length (about 5 s per idea
-as a starting estimate), style and a fact check; launch product and promise, 3 to 5 ordered
-moments, brand hex and font, tempo and ending; showreel concept, tempo and bars, techniques.
-Ask the format (for example 9:16) when absent. On music-led reels derive a tempo grid;
-speech-led reels keep speech and reading time in control even with music.
+Skip any question the user already answered.
 
 ### Reference analysis and choice sheets
 

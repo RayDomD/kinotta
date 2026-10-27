@@ -1,4 +1,4 @@
-Reads: `../SKILL.md`, the owner's video and brief, section 1 preflight and "Direction before building" in `new-reel.md`, and the references named below. Cross-references to section 3 (slug) are in `new-reel.md`; section 6 step 5 (version inputs) is in `04-next-version.md`.
+Reads: `../SKILL.md`, the owner's video and brief, section 1 preflight in `new-reel.md` and "Direction before building" in `direction.md`, and the references named below. Cross-references to section 3 (slug) are in `new-reel.md`; section 6 step 5 (version inputs) is in `04-next-version.md`.
 Does: Build the first footage reel using section 5 below, including transcript, sections, animated clips and checks.
 Writes: The reel metadata and transcript, `motion/` sources, and `reels/<slug>/v1` with its input copies and `shots.json` last.
 Owner's check: Review v1 as the plan in Kinotta and return comments; requested video files use `kinotta render`.
@@ -29,8 +29,8 @@ Rules that differ from code-only reels:
 - **Clips are animated.** Build each clip with its real motion. Kinotta shows stills of it until the
   Review phase; the animation is there for then.
 - **The look:** a `reels/brand.md` with `checked:` set to a date decides colour and type (read its
-  sources). Without one, use the engine's style defaults and say so in the hand-over. Don't stop to
-  write a brand file for a footage reel; run `/kinotta setup` to set one.
+  sources). Without one, use the engine's style defaults and say so in the hand-over, adding that the owner can run `/kinotta setup` to set one. Don't stop to
+  write a brand file for a footage reel.
 
 Below, `$SKILL` is this skill's folder. Sources live in a `motion/` folder in the project; only the
 built page and the shot list go in the version.
@@ -139,7 +139,7 @@ built page and the shot list go in the version.
 11. **Write the shot list last**: `python3 $SKILL/scripts/shots.py motion/plan.json reels/<slug>/v1/shots.json`.
     One shot per clip, or per state of a clip with `stills` (`05a`, `05b`, … with `"clip": "05"`),
     with its section, type (`cutaway` or `panel`) and spoken line. Add `builtBy` (your own agent name,
-    see "Who built it" in section 6) with `--built-by <name>` after the output path.
+    see "Who built it" in `../SKILL.md`) with `--built-by <name>` after the output path.
 12. **Check it**: `kinotta check <slug>`. Fix the sources in `motion/`, compose again, write the shot
     list again, and repeat until it is clean.
 13. **Hand over**: the reel, its sections with their clip counts, one line per clip, what is

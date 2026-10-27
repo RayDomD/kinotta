@@ -74,7 +74,7 @@ Files you may find or write inside a version folder, besides the page and `shots
 
 | File | Who writes it | Meaning |
 |---|---|---|
-| `transcript.json`, `plan.json` | whoever built the version | The transcript and the plan it was built from. Every footage version keeps its own copy (copy them in when you build one; see `SKILL.md` section 6). |
+| `transcript.json`, `plan.json` | whoever built the version | The transcript and the plan it was built from. Every footage version keeps its own copy (copy them in when you build one; see `stages/04-next-version.md` section 6). |
 | `kinotta-edits.css` | Kinotta | A code-only reel's moved and scaled elements. Copy it into your next version and keep the `<link>` to it in the page. |
 | `edits.json` | Kinotta | The operations a Kinotta save applied. Never copy it into a new version. |
 | `answers.md`, `comments*.json` | you, the editor | As above. |

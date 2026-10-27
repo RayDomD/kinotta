@@ -1,6 +1,6 @@
 ---
 name: kinotta
-description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll, native media and audio tracks, and build the next version from a pasted comment batch. Use when the user asks for a Kinotta reel, brand intro, showreel, storyboard, b-roll, audio-track changes or picture layout, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's. Also use when the user asks to set up a Kinotta project.
+description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll, native media and audio tracks, and build the next version from a pasted comment batch. Use when the user asks for a Kinotta reel, brand intro, showreel, storyboard, b-roll, audio-track changes, picture layout, or to set up a Kinotta project, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's.
 ---
 
 # Kinotta

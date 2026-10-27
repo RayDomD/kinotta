@@ -92,6 +92,8 @@ Video/image placements can carry `region: { x, y, width, height }` in fractions 
 
 For side by side, give the main picture `{ "x": 0, "y": 0, "width": 0.5, "height": 1 }` and an insert `{ "x": 0.5, "y": 0, "width": 0.5, "height": 1 }`. Inserts use their own `at`, `in`, `out` and optional image duration. Several inserts may overlap. By default main pictures are behind inserts, and later inserts in `placements` draw in front. An explicit nonnegative integer `layer` on a picture overrides that default, with higher layers in front. Preserve both placement order and explicit layers unless asked to change them. Regions belong to occurrences, including repeated uses of the same source.
 
+## Small changes to Working
+
 Follow [edit.md](../stages/edit.md) for small changes to Working.
 
 ## Build a new frozen version for a picture rebuild

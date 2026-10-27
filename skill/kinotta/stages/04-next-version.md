@@ -7,6 +7,10 @@ Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` ar
 
 Follow [alternates.md](alternates.md) for parts batches and alternates.
 
+For a picture rebuild from a batch, use the exact frozen version named in the batch as your starting point. Later owner edits are already collecting in Working and will replay onto your new version. Do not apply those edits yourself or copy the journal into the build.
+
+## Small changes to Working
+
 Follow [edit.md](edit.md) for small changes to Working.
 
 ## 4. Build the next version from a batch
@@ -62,7 +66,7 @@ On a footage reel (its `reel.json` names footage), follow **section 6** instead 
    Fix every listed contract issue too, and add a line for each under `Contract issues`.
 7. **Write `v<n+1>/shots.json` last**, with the updated shots, `changedSections` listing the ids
    of the sections you changed (a reel with no `sections` has one, id `reel`), and `builtBy` set to
-   your own agent name (see "Who built it" in section 6).
+   your own agent name (see "Who built it" in `../SKILL.md`).
 8. **Check it**: `kinotta check <slug>`, fix, repeat until clean.
 9. **Hand over**: repeat the answers list in chat, and say Kinotta will show `v<n+1>` as ready.
 
