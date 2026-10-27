@@ -1,7 +1,7 @@
 ---
 title: Simpler versions and export
 date: 2026-10-27
-status: In Progress
+status: Done
 summary: Drop "freeze" from the screens, let stale edits be skipped with Undo instead of blocking, bring back the version list, and give Export plain names with a tooltip each.
 spec:
 ---
@@ -67,6 +67,26 @@ spec:
 - `rg -i freeze web/src --glob '*.tsx'` shows no user-facing strings.
 - `npm run typecheck`, `npm run build`.
 
+## Result
+
+All four Goal items shipped as planned. A cloud session built steps 1 to 6 and was stopped before review; the branch was finished locally on 2026-10-28.
+
+- No editor or Simple mode screen says "freeze". Server messages the owner can see now say "saved version" (for example "v1 is a saved version. Only the newest version, v2, takes comments."). Internal names (`editsSinceFreeze`, `frozen`, the `frozen` error code) stay.
+- A save with a stale edit leaves it out, records the skip as one undoable step, and shows a note naming each edit and its shot with Undo and Dismiss. Undo brings the edit back flagged.
+- The rail lists Current, then every saved version newest first. A version opens read-only, and Use this version makes it Working as one `use-version` edit that Undo reverses. A `use-version` chosen before an agent builds a newer version is flagged rather than putting the agent's work back.
+- Export offers Quick preview, Video (the default) and Transparent overlay, each with a tooltip and a "Why this?" line. Preset ids and `kinotta render --preset` are unchanged.
+
+Review (codex on standards, agy on the plan) found two problems, both fixed:
+- Important: saving after Use this version with no edits after it discarded the chosen version and returned the newest one, when the list had no save of its own (an agent build in between). Fixed in `9eadb1a`; the new core test returned v4 before the fix and v5 after.
+- Nit: the Review banner's Use this version stayed on for the version the current reel already is. Rail and banner now share one check (`ef3f8b1`).
+
+Checks:
+- `npm run typecheck`: clean. `npm run build`: ok. `npm run check:docs`, `check:commits`: ok.
+- Core tests the branch touches (`simpler-versions`, `versions`, `working-reversals`, `version-media`, `handoff`, `render-save`, `render-overload`, `code-media-save`, `graphic-media-save`): all pass. `simpler-versions.test.ts` timed out once at 5 s when run beside other files and passed 12 of 12 alone; it is near the default timeout under load.
+- E2e `versions.spec.ts` (9, including the new banner test), `renders.spec.ts` and `stale-edit.spec.ts`: all pass, one worker.
+- `rg -i freeze web/src --glob '*.tsx'`: 8 hits, none user-facing (prop names, a comparison and a code comment).
+- The full suites run on CI; the local machine was short of memory.
+
 ## Changelog
 
 ### 2026-10-27
@@ -75,3 +95,4 @@ spec:
 
 ### 2026-10-28
 - Cloud run paused after all six steps, with its last changes in `842de60` unreviewed. Owner approved finishing it locally: merge main, review the branch, run the plan's checks, fill the Result, open the PR, merge when green.
+- Review fixes landed (`9eadb1a`, `ef3f8b1`); Result filled, status Done.
