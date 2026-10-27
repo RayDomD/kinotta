@@ -343,6 +343,9 @@ export interface Project {
   whenAgentDone(slug: string): Promise<void>;
   close(): Promise<void>;
   mediaStill(source: string, time: number, width: number, saved?: { reel: string; version: number }, footageReel?: string): Promise<string>;
+  /** The effect ids chosen for the Effects box, saved with the project. */
+  effectsBox(): Promise<string[]>;
+  saveEffectsBox(ids: string[]): Promise<string[]>;
   listMarkers(slug: string): Promise<import('./markers.ts').TimelineMarker[]>;
   addMarker(slug: string, input: { time: number; name: string }): Promise<import('./markers.ts').TimelineMarker>;
   changeMarker(slug: string, id: string, changes: Partial<{ time: number; name: string }>): Promise<import('./markers.ts').TimelineMarker>;

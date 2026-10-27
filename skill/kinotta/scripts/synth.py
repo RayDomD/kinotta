@@ -16,6 +16,8 @@ import math
 import os
 import pathlib
 import sys
+import zlib
+from dataclasses import dataclass
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
@@ -68,22 +70,107 @@ def butter_highpass_filter(data: np.ndarray, cutoff: float, fs: int = RATE, orde
 
 
 # ---------------------------------------------------------------------------
+# Per-hit sound settings
+# ---------------------------------------------------------------------------
+
+# Every setting runs 0..1 and 0.5 is the catalogue recipe, so a hit with no settings
+# sounds exactly like the committed catalogue WAV.
+NEUTRAL_SETTING = 0.5
+# Octaves covered from setting 0 to setting 1 (0.5 is no change): pitch moves a recipe's
+# frequencies, length stretches its envelopes and timings.
+PITCH_SPAN_OCTAVES = 1.0
+LENGTH_SPAN_OCTAVES = 1.0
+# Brightness and weight blend a filtered copy of the effect. Cutoffs in Hz.
+BRIGHT_CUTOFF_HZ = 3000.0
+DARK_CUTOFF_HZ = 1500.0
+WEIGHT_CUTOFF_HZ = 200.0
+LIGHT_CUTOFF_HZ = 250.0
+BRIGHT_BOOST = 1.0
+WEIGHT_BOOST = 1.5
+DARK_MAX_MIX = 0.9
+LIGHT_MAX_MIX = 0.8
+SETTING_NAMES = ("pitch", "length", "brightness", "weight")
+
+
+def clamp_unit(value: float) -> float:
+    return min(1.0, max(0.0, float(value)))
+
+
+@dataclass(frozen=True)
+class Sound:
+    """How one hit is shaped: four 0..1 settings, clamped so every effect stays inside its headroom."""
+    pitch: float = NEUTRAL_SETTING
+    length: float = NEUTRAL_SETTING
+    brightness: float = NEUTRAL_SETTING
+    weight: float = NEUTRAL_SETTING
+
+    @property
+    def pitch_ratio(self) -> float:
+        return 2.0 ** ((clamp_unit(self.pitch) - NEUTRAL_SETTING) * PITCH_SPAN_OCTAVES)
+
+    @property
+    def length_ratio(self) -> float:
+        return 2.0 ** ((clamp_unit(self.length) - NEUTRAL_SETTING) * LENGTH_SPAN_OCTAVES)
+
+
+NEUTRAL_SOUND = Sound()
+
+
+def finish(samples: np.ndarray, sound: Sound, peak_dbfs: float = EFFECT_PEAK_DBFS) -> np.ndarray:
+    """Apply brightness and weight, then normalise to the recipe's own peak (so settings never raise the level)."""
+    out = samples
+    brightness = clamp_unit(sound.brightness)
+    weight = clamp_unit(sound.weight)
+    if brightness > NEUTRAL_SETTING:
+        out = out + (brightness - NEUTRAL_SETTING) * 2.0 * BRIGHT_BOOST * butter_highpass_filter(out, BRIGHT_CUTOFF_HZ)
+    elif brightness < NEUTRAL_SETTING:
+        mix = (NEUTRAL_SETTING - brightness) * 2.0 * DARK_MAX_MIX
+        out = (1.0 - mix) * out + mix * butter_lowpass_filter(out, DARK_CUTOFF_HZ)
+    if weight > NEUTRAL_SETTING:
+        out = out + (weight - NEUTRAL_SETTING) * 2.0 * WEIGHT_BOOST * butter_lowpass_filter(out, WEIGHT_CUTOFF_HZ)
+    elif weight < NEUTRAL_SETTING:
+        mix = (NEUTRAL_SETTING - weight) * 2.0 * LIGHT_MAX_MIX
+        out = (1.0 - mix) * out + mix * butter_highpass_filter(out, LIGHT_CUTOFF_HZ)
+    return to_i16(out, peak_dbfs=peak_dbfs)
+
+
+def sound_from_input(raw: object) -> tuple[str | None, str | None, Sound]:
+    """Read a hit's `sound` object: its kind, its id and its settings (missing or non-numeric ones stay neutral)."""
+    if not isinstance(raw, dict):
+        return None, None, NEUTRAL_SOUND
+    values = {}
+    for name in SETTING_NAMES:
+        value = raw.get(name)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+            values[name] = clamp_unit(value)
+    kind = raw.get("kind")
+    ident = raw.get("id")
+    return (kind if isinstance(kind, str) else None, str(ident) if ident not in (None, "") else None, Sound(**values))
+
+
+def hit_seed(base_seed: int, hit_id: str) -> int:
+    """A stable seed from the hit's id, so the same hit sounds the same wherever it sits in the list."""
+    return zlib.crc32(f"{base_seed}:{hit_id}".encode("utf-8")) & 0x7FFFFFFF
+
+
+# ---------------------------------------------------------------------------
 # Effect Recipes
 # ---------------------------------------------------------------------------
 
-def synth_chime(seed: int = 101) -> np.ndarray:
+def synth_chime(seed: int = 101, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Soft melodic chime — pentatonic bell chord with shimmering partials."""
-    dur = 2.2
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 2.2 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     out = np.zeros(n_samples, dtype=np.float64)
 
     # Chime notes: E5, G#5, B5, E6
     notes = [
-        (659.25, 0.0, 0.7),
-        (830.61, 0.05, 0.65),
-        (987.77, 0.11, 0.6),
-        (1318.51, 0.18, 0.55),
+        (659.25 * pitch, 0.0, 0.7 * length),
+        (830.61 * pitch, 0.05 * length, 0.65 * length),
+        (987.77 * pitch, 0.11 * length, 0.6 * length),
+        (1318.51 * pitch, 0.18 * length, 0.55 * length),
     ]
     partials = [(1.0, 1.0), (2.756, 0.32), (5.404, 0.12)]
 
@@ -99,66 +186,69 @@ def synth_chime(seed: int = 101) -> np.ndarray:
             tone += p_amp * np.sin(2.0 * np.pi * (f0 * p_ratio) * sub_t)
         out[idx:] += tone * env
 
-    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(out, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_click(seed: int = 102) -> np.ndarray:
+def synth_click(seed: int = 102, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Crisp UI click — tactile high transient with damped body."""
-    dur = 0.08
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 0.08 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     noise = rng.standard_normal(n_samples)
-    noise_filt = butter_bandpass_filter(noise, 2500.0, 7500.0)
-    noise_env = np.exp(-t / 0.0025)
-    body = np.sin(2.0 * np.pi * 1800.0 * t) * np.exp(-t / 0.007)
+    noise_filt = butter_bandpass_filter(noise, 2500.0 * pitch, 7500.0 * pitch)
+    noise_env = np.exp(-t / (0.0025 * length))
+    body = np.sin(2.0 * np.pi * 1800.0 * pitch * t) * np.exp(-t / (0.007 * length))
     out = 0.7 * (noise_filt * noise_env) + 0.3 * body
-    return to_i16(out, peak_dbfs=-5.0)
+    return finish(out, sound, peak_dbfs=-5.0)
 
 
-def synth_error(seed: int = 103) -> np.ndarray:
+def synth_error(seed: int = 103, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Negative / error tone — two-stage low dissonant rejection buzz."""
-    dur = 0.75
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 0.75 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     out = np.zeros(n_samples, dtype=np.float64)
 
     # Pulse 1: 0.0 to 0.22s, F#3 (185 Hz) + C3 (131 Hz)
     idx1 = 0
-    len1 = int(0.22 * RATE)
+    len1 = int(0.22 * length * RATE)
     t1 = t[idx1:idx1 + len1]
-    saw1 = scipy.signal.sawtooth(2.0 * np.pi * 185.0 * t1) + 0.8 * scipy.signal.sawtooth(2.0 * np.pi * 131.0 * t1)
-    env1 = np.exp(-t1 / 0.12)
+    saw1 = scipy.signal.sawtooth(2.0 * np.pi * 185.0 * pitch * t1) + 0.8 * scipy.signal.sawtooth(2.0 * np.pi * 131.0 * pitch * t1)
+    env1 = np.exp(-t1 / (0.12 * length))
     att1 = int(0.004 * RATE)
     env1[:att1] *= np.linspace(0.0, 1.0, att1)
     out[idx1:idx1 + len1] += saw1 * env1
 
     # Pulse 2: 0.28 to 0.55s, slightly lower E3 (165 Hz) + Bb2 (116 Hz)
-    idx2 = int(0.28 * RATE)
-    len2 = int(0.27 * RATE)
+    idx2 = int(0.28 * length * RATE)
+    len2 = int(0.27 * length * RATE)
     t2 = t[:len2]
-    saw2 = scipy.signal.sawtooth(2.0 * np.pi * 165.0 * t2) + 0.8 * scipy.signal.sawtooth(2.0 * np.pi * 116.0 * t2)
-    env2 = np.exp(-t2 / 0.15)
+    saw2 = scipy.signal.sawtooth(2.0 * np.pi * 165.0 * pitch * t2) + 0.8 * scipy.signal.sawtooth(2.0 * np.pi * 116.0 * pitch * t2)
+    env2 = np.exp(-t2 / (0.15 * length))
     att2 = int(0.004 * RATE)
     env2[:att2] *= np.linspace(0.0, 1.0, att2)
     out[idx2:idx2 + len2] += saw2 * env2
 
-    filtered = butter_lowpass_filter(out, 650.0)
-    return to_i16(filtered, peak_dbfs=EFFECT_PEAK_DBFS)
+    filtered = butter_lowpass_filter(out, 650.0 * pitch)
+    return finish(filtered, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_glitch_1(seed: int = 104) -> np.ndarray:
+def synth_glitch_1(seed: int = 104, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Punchy digital glitch — rapid FM chirp with bit-decimation transient."""
-    dur = 0.55
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 0.55 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     # Carrier frequency modulation
-    carrier_f = 750.0 + 400.0 * np.sin(2.0 * np.pi * 14.0 * t)
-    mod_f = 220.0
-    mod_index = 4.0 * np.exp(-t / 0.15)
+    carrier_f = pitch * (750.0 + 400.0 * np.sin(2.0 * np.pi * 14.0 * t))
+    mod_f = 220.0 * pitch
+    mod_index = 4.0 * np.exp(-t / (0.15 * length))
     phi = 2.0 * np.pi * np.cumsum(carrier_f) / RATE + mod_index * np.sin(2.0 * np.pi * mod_f * t)
     tone = np.sin(phi)
 
@@ -168,34 +258,35 @@ def synth_glitch_1(seed: int = 104) -> np.ndarray:
 
     # Initial punch click
     noise = rng.standard_normal(n_samples)
-    click = butter_bandpass_filter(noise, 1500.0, 6000.0) * np.exp(-t / 0.015)
+    click = butter_bandpass_filter(noise, 1500.0 * pitch, 6000.0 * pitch) * np.exp(-t / 0.015)
 
-    env = np.exp(-t / 0.22)
+    env = np.exp(-t / (0.22 * length))
     out = 0.7 * (held * env) + 0.3 * click
-    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(out, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_glitch_2(seed: int = 105) -> np.ndarray:
+def synth_glitch_2(seed: int = 105, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Harsh, longer glitch — stuttering ring-modulated burst with frequency hops."""
-    dur = 1.2
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.2 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     noise = rng.standard_normal(n_samples)
-    mod = np.sign(np.sin(2.0 * np.pi * 95.0 * t))
+    mod = np.sign(np.sin(2.0 * np.pi * 95.0 * pitch * t))
     ring = noise * mod
 
     # Rhythm gate: 5 bursts
     gate = np.zeros(n_samples)
-    bursts = [(0.0, 0.12), (0.16, 0.30), (0.35, 0.52), (0.58, 0.82), (0.88, 1.10)]
+    bursts = [(start * length, end * length) for start, end in [(0.0, 0.12), (0.16, 0.30), (0.35, 0.52), (0.58, 0.82), (0.88, 1.10)]]
     for start, end in bursts:
         i0, i1 = int(start * RATE), int(end * RATE)
         seg_len = i1 - i0
         gate[i0:i1] = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(seg_len) / seg_len))
 
     # Stepped resonance
-    f_hops = [450.0, 1400.0, 750.0, 2200.0, 600.0]
+    f_hops = [freq * pitch for freq in [450.0, 1400.0, 750.0, 2200.0, 600.0]]
     out = np.zeros(n_samples)
     for (start, end), freq in zip(bursts, f_hops):
         i0, i1 = int(start * RATE), int(end * RATE)
@@ -203,122 +294,127 @@ def synth_glitch_2(seed: int = 105) -> np.ndarray:
         bp = butter_bandpass_filter(seg, freq * 0.7, freq * 1.4)
         out[i0:i1] += bp
 
-    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(out, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_glitch_3(seed: int = 106) -> np.ndarray:
+def synth_glitch_3(seed: int = 106, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Low-key glitch texture — subtle micro-clicks and low FM murmur."""
-    dur = 1.0
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.0 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     out = np.zeros(n_samples)
     # Subtle digital clicks
-    click_times = [0.05, 0.18, 0.31, 0.44, 0.62, 0.75, 0.88]
+    click_times = [ct * length for ct in [0.05, 0.18, 0.31, 0.44, 0.62, 0.75, 0.88]]
     for ct in click_times:
         i0 = int(ct * RATE)
         c_len = int(0.008 * RATE)
         if i0 + c_len < n_samples:
             c_noise = rng.standard_normal(c_len)
-            c_bp = butter_bandpass_filter(c_noise, 2000.0, 5000.0)
+            c_bp = butter_bandpass_filter(c_noise, 2000.0 * pitch, 5000.0 * pitch)
             c_env = np.exp(-np.arange(c_len) / (0.002 * RATE))
             out[i0:i0 + c_len] += c_bp * c_env * 0.4
 
     # Low FM texture
-    sub_fm = np.sin(2.0 * np.pi * 65.0 * t + 1.2 * np.sin(2.0 * np.pi * 18.0 * t))
+    sub_fm = np.sin(2.0 * np.pi * 65.0 * pitch * t + 1.2 * np.sin(2.0 * np.pi * 18.0 * t))
     sub_env = np.sin(np.pi * t / dur) ** 2.0
     out += 0.3 * sub_fm * sub_env
 
-    return to_i16(out, peak_dbfs=-6.0)
+    return finish(out, sound, peak_dbfs=-6.0)
 
 
-def synth_impact_bass_1(seed: int = 107) -> np.ndarray:
+def synth_impact_bass_1(seed: int = 107, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Bass impact hit — punchy snap landing on a deep decaying sub drop."""
-    dur = 1.8
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.8 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     # Sub drop: 130 Hz down to 38 Hz
-    freq = 38.0 + (130.0 - 38.0) * np.exp(-t / 0.08)
+    freq = pitch * (38.0 + (130.0 - 38.0) * np.exp(-t / 0.08))
     phi = 2.0 * np.pi * np.cumsum(freq) / RATE
     sub = np.sin(phi) + 0.2 * np.sin(2.0 * phi)
-    sub_env = np.exp(-t / 0.45)
+    sub_env = np.exp(-t / (0.45 * length))
     att = int(0.003 * RATE)
     sub_env[:att] *= np.linspace(0.0, 1.0, att)
 
     # Punch transient
     noise = rng.standard_normal(n_samples)
-    snap = butter_bandpass_filter(noise, 800.0, 3500.0) * np.exp(-t / 0.012)
+    snap = butter_bandpass_filter(noise, 800.0 * pitch, 3500.0 * pitch) * np.exp(-t / 0.012)
 
     combined = (sub * sub_env) + 0.4 * snap
     saturated = np.tanh(1.3 * combined)
-    return to_i16(saturated, peak_dbfs=-4.0)
+    return finish(saturated, sound, peak_dbfs=-4.0)
 
 
-def synth_impact_bass_2(seed: int = 108) -> np.ndarray:
+def synth_impact_bass_2(seed: int = 108, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Bass impact with short swell — 0.4s reverse build into heavy sub landing."""
-    dur = 2.4
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 2.4 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     out = np.zeros(n_samples)
-    swell_dur = 0.4
+    swell_dur = 0.4 * length
     n_swell = int(swell_dur * RATE)
     t_swell = t[:n_swell]
 
     # Reverse swell: rising noise and sub
     noise = rng.standard_normal(n_swell)
-    swell_filt = butter_bandpass_filter(noise, 250.0, 1400.0)
+    swell_filt = butter_bandpass_filter(noise, 250.0 * pitch, 1400.0 * pitch)
     swell_env = (t_swell / swell_dur) ** 2.5
     out[:n_swell] += 0.6 * swell_filt * swell_env
 
     # Impact at swell_dur
     t_hit = t[n_swell:] - swell_dur
-    freq = 42.0 + (145.0 - 42.0) * np.exp(-t_hit / 0.09)
+    freq = pitch * (42.0 + (145.0 - 42.0) * np.exp(-t_hit / 0.09))
     phi = 2.0 * np.pi * np.cumsum(freq) / RATE
     sub = np.sin(phi) + 0.22 * np.sin(2.0 * phi)
-    sub_env = np.exp(-t_hit / 0.5)
+    sub_env = np.exp(-t_hit / (0.5 * length))
     att = int(0.003 * RATE)
     sub_env[:att] *= np.linspace(0.0, 1.0, att)
 
     hit_noise = rng.standard_normal(len(t_hit))
-    hit_snap = butter_bandpass_filter(hit_noise, 700.0, 4000.0) * np.exp(-t_hit / 0.015)
+    hit_snap = butter_bandpass_filter(hit_noise, 700.0 * pitch, 4000.0 * pitch) * np.exp(-t_hit / 0.015)
 
     hit_combined = (sub * sub_env) + 0.35 * hit_snap
     out[n_swell:] += hit_combined
 
     saturated = np.tanh(1.2 * out)
-    return to_i16(saturated, peak_dbfs=-4.0)
+    return finish(saturated, sound, peak_dbfs=-4.0)
 
 
-def synth_key_press(seed: int = 109) -> np.ndarray:
+def synth_key_press(seed: int = 109, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Single key press — tactile switch click and keycap bottom-out thud."""
-    dur = 0.12
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 0.12 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     # High switch click
     noise = rng.standard_normal(n_samples)
-    click = butter_bandpass_filter(noise, 3200.0, 6500.0) * np.exp(-t / 0.0025)
+    click = butter_bandpass_filter(noise, 3200.0 * pitch, 6500.0 * pitch) * np.exp(-t / 0.0025)
 
     # Keycap bottom-out thud: damped sine
-    thud = np.sin(2.0 * np.pi * 310.0 * t) * np.exp(-t / 0.018)
+    thud = np.sin(2.0 * np.pi * 310.0 * pitch * t) * np.exp(-t / (0.018 * length))
     combined = 0.6 * click + 0.4 * thud
-    return to_i16(combined, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(combined, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_notification(seed: int = 110) -> np.ndarray:
+def synth_notification(seed: int = 110, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Notification chime — uplifting two-note bell chime (F5 -> C6)."""
-    dur = 1.4
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.4 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     out = np.zeros(n_samples)
 
-    notes = [(698.46, 0.0, 0.45), (1046.5, 0.12, 0.75)]
+    notes = [(698.46 * pitch, 0.0, 0.45 * length), (1046.5 * pitch, 0.12 * length, 0.75 * length)]
     for f0, start_t, decay_tau in notes:
         idx = int(start_t * RATE)
         sub_t = t[idx:] - start_t
@@ -329,55 +425,58 @@ def synth_notification(seed: int = 110) -> np.ndarray:
         tone = np.sin(2.0 * np.pi * f0 * sub_t) + 0.22 * np.sin(2.0 * np.pi * (2.0 * f0) * sub_t) + 0.08 * np.sin(2.0 * np.pi * (3.0 * f0) * sub_t)
         out[idx:] += tone * env
 
-    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(out, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_ping(seed: int = 111) -> np.ndarray:
+def synth_ping(seed: int = 111, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Sharp electronic ping — high crystal accent with smooth exponential decay."""
-    dur = 1.0
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.0 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
 
-    freq = 2150.0 + 550.0 * np.exp(-t / 0.008)
+    freq = pitch * (2150.0 + 550.0 * np.exp(-t / 0.008))
     phi = 2.0 * np.pi * np.cumsum(freq) / RATE
     tone = np.sin(phi) + 0.12 * np.sin(2.0 * phi)
-    env = np.exp(-t / 0.3)
+    env = np.exp(-t / (0.3 * length))
     att = int(0.001 * RATE)
     env[:att] *= np.linspace(0.0, 1.0, att)
 
-    return to_i16(tone * env, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(tone * env, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_pop(seed: int = 112) -> np.ndarray:
+def synth_pop(seed: int = 112, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Quick pop — fast upward pitch sweep with tight decay."""
-    dur = 0.10
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 0.10 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
 
-    freq = 180.0 + (720.0 - 180.0) * (1.0 - np.exp(-t / 0.018))
+    freq = pitch * (180.0 + (720.0 - 180.0) * (1.0 - np.exp(-t / 0.018)))
     phi = 2.0 * np.pi * np.cumsum(freq) / RATE
-    env = np.exp(-t / 0.024)
+    env = np.exp(-t / (0.024 * length))
     att = int(0.002 * RATE)
     env[:att] *= np.linspace(0.0, 1.0, att)
 
-    return to_i16(np.sin(phi) * env, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(np.sin(phi) * env, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_riser(seed: int = 113) -> np.ndarray:
+def synth_riser(seed: int = 113, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Long cinematic riser (~6s build, peak at the end)."""
-    dur = 6.0
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 6.0 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     # Exponential pitch sweep from 60 Hz to 2800 Hz
-    freq = 60.0 * (2800.0 / 60.0) ** (t / dur)
+    freq = pitch * 60.0 * (2800.0 / 60.0) ** (t / dur)
     phi = 2.0 * np.pi * np.cumsum(freq) / RATE
     saw = scipy.signal.sawtooth(phi) + 0.5 * np.sin(phi)
 
     # Sweeping filtered noise layer
     noise = rng.standard_normal(n_samples)
-    noise_filt = butter_bandpass_filter(noise, 250.0, 6000.0)
+    noise_filt = butter_bandpass_filter(noise, 250.0 * pitch, 6000.0 * pitch)
 
     # Tremolo accelerating from 2 Hz to 18 Hz
     trem_freq = 2.0 + 16.0 * (t / dur) ** 2.0
@@ -390,23 +489,24 @@ def synth_riser(seed: int = 113) -> np.ndarray:
     # Crisp cut at end with tiny 4 ms fadeout
     fade_len = int(0.004 * RATE)
     combined[-fade_len:] *= np.linspace(1.0, 0.0, fade_len)
-    return to_i16(combined, peak_dbfs=-4.0)
+    return finish(combined, sound, peak_dbfs=-4.0)
 
 
-def synth_sparkle(seed: int = 114) -> np.ndarray:
+def synth_sparkle(seed: int = 114, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Bright sparkle / shimmer — cascading cluster of high bell chimes."""
-    dur = 1.6
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.6 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     out = np.zeros(n_samples)
 
-    frequencies = [2489.0, 3136.0, 3729.0, 4400.0, 4978.0, 5588.0, 6272.0, 7458.0]
-    starts = [0.0, 0.05, 0.11, 0.17, 0.24, 0.32, 0.40, 0.50]
+    frequencies = [freq * pitch for freq in [2489.0, 3136.0, 3729.0, 4400.0, 4978.0, 5588.0, 6272.0, 7458.0]]
+    starts = [st * length for st in [0.0, 0.05, 0.11, 0.17, 0.24, 0.32, 0.40, 0.50]]
 
     for f0, st in zip(frequencies, starts):
         idx = int(st * RATE)
         sub_t = t[idx:] - st
-        env = np.exp(-sub_t / 0.45)
+        env = np.exp(-sub_t / (0.45 * length))
         att = int(0.003 * RATE)
         if len(env) > att:
             env[:att] *= np.linspace(0.0, 1.0, att)
@@ -416,18 +516,19 @@ def synth_sparkle(seed: int = 114) -> np.ndarray:
         tone = np.sin(phi) + 0.15 * np.sin(2.0 * phi)
         out[idx:] += tone * env
 
-    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(out, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_typing(seed: int = 115) -> np.ndarray:
+def synth_typing(seed: int = 115, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Typing burst (~1.5s of keys) — rhythmic keystroke sequence."""
-    dur = 1.5
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 1.5 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     out = np.zeros(n_samples)
     rng = np.random.default_rng(seed)
 
-    key_times = [0.0, 0.10, 0.22, 0.35, 0.46, 0.58, 0.73, 0.88, 1.02, 1.15, 1.30]
+    key_times = [kt * length for kt in [0.0, 0.10, 0.22, 0.35, 0.46, 0.58, 0.73, 0.88, 1.02, 1.15, 1.30]]
     for i, kt in enumerate(key_times):
         idx = int(kt * RATE)
         k_dur = 0.10
@@ -435,50 +536,52 @@ def synth_typing(seed: int = 115) -> np.ndarray:
         if idx + k_samples <= n_samples:
             sub_t = np.linspace(0, k_dur, k_samples, endpoint=False)
             noise = rng.standard_normal(k_samples)
-            click = butter_bandpass_filter(noise, 3000.0 + i * 80.0, 6500.0) * np.exp(-sub_t / 0.0025)
-            pitch = 280.0 + (i % 4) * 25.0
-            thud = np.sin(2.0 * np.pi * pitch * sub_t) * np.exp(-sub_t / 0.018)
+            click = butter_bandpass_filter(noise, (3000.0 + i * 80.0) * pitch, 6500.0 * pitch) * np.exp(-sub_t / 0.0025)
+            key_pitch = (280.0 + (i % 4) * 25.0) * pitch
+            thud = np.sin(2.0 * np.pi * key_pitch * sub_t) * np.exp(-sub_t / 0.018)
             out[idx:idx + k_samples] += 0.55 * click + 0.45 * thud
 
-    return to_i16(out, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(out, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_whoosh(seed: int = 116) -> np.ndarray:
+def synth_whoosh(seed: int = 116, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Punchy whoosh/impact — fast swept transition accent."""
-    dur = 0.50
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 0.50 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
     noise = rng.standard_normal(n_samples)
     # Filter with swept center frequency
-    bp = butter_bandpass_filter(noise, 400.0, 3200.0)
+    bp = butter_bandpass_filter(noise, 400.0 * pitch, 3200.0 * pitch)
     env = (np.sin(np.pi * t / dur)) ** 2.2
-    return to_i16(bp * env, peak_dbfs=EFFECT_PEAK_DBFS)
+    return finish(bp * env, sound, peak_dbfs=EFFECT_PEAK_DBFS)
 
 
-def synth_whoosh_cinematic(seed: int = 117) -> np.ndarray:
+def synth_whoosh_cinematic(seed: int = 117, sound: Sound = NEUTRAL_SOUND) -> np.ndarray:
     """Cinematic whoosh build (~3.5s) — sweeping scene transition."""
-    dur = 3.5
+    pitch, length = sound.pitch_ratio, sound.length_ratio
+    dur = 3.5 * length
     n_samples = int(dur * RATE)
     t = np.linspace(0, dur, n_samples, endpoint=False)
     rng = np.random.default_rng(seed)
 
-    peak_t = 2.4
+    peak_t = 2.4 * length
     noise = rng.standard_normal(n_samples)
-    bp = butter_bandpass_filter(noise, 250.0, 3800.0)
+    bp = butter_bandpass_filter(noise, 250.0 * pitch, 3800.0 * pitch)
 
     # Asymmetric bell envelope peaking at peak_t
     env = np.zeros(n_samples)
     mask_up = t <= peak_t
     env[mask_up] = (t[mask_up] / peak_t) ** 2.5
     mask_down = t > peak_t
-    env[mask_down] = np.exp(-(t[mask_down] - peak_t) / 0.4)
+    env[mask_down] = np.exp(-(t[mask_down] - peak_t) / (0.4 * length))
 
     # Sub underlay swell
-    sub = np.sin(2.0 * np.pi * 55.0 * t) * env * 0.4
+    sub = np.sin(2.0 * np.pi * 55.0 * pitch * t) * env * 0.4
     combined = (bp * env) + sub
-    return to_i16(combined, peak_dbfs=-4.0)
+    return finish(combined, sound, peak_dbfs=-4.0)
 
 
 CATALOGUE_RECIPES = {
@@ -737,14 +840,14 @@ def extract_cuts_and_hits(plan: dict) -> tuple[float, float, list[float], list[d
     if "hits" in plan and isinstance(plan["hits"], list):
         for h in plan["hits"]:
             if isinstance(h, (int, float)):
-                hits.append({"at": float(h), "effect": None})
+                hits.append({"at": float(h), "effect": None, "sound": None})
             elif isinstance(h, dict):
                 t_val = h.get("at", h.get("time", h.get("cut", 0.0)))
-                hits.append({"at": float(t_val), "effect": h.get("effect")})
+                hits.append({"at": float(t_val), "effect": h.get("effect"), "sound": h.get("sound") if isinstance(h.get("sound"), dict) else None})
     else:
         # If no explicit hits, derive one hit per cut
         for c in cuts:
-            hits.append({"at": c, "effect": None})
+            hits.append({"at": c, "effect": None, "sound": None})
 
     return duration, fps, cuts, hits
 
@@ -857,13 +960,17 @@ def run_score(plan_path: pathlib.Path, out_dir: pathlib.Path, tempo: float = 120
         # Quantize starting time to the nearest video frame: guarantees starting within 1 frame of cut
         hit_frame_at = round(round(hit_at * fps) / fps, 4)
 
-        effect_name = hit.get("effect")
+        sound_kind, sound_id, sound = sound_from_input(hit.get("sound"))
+        effect_name = sound_kind if sound_kind in CATALOGUE_RECIPES else hit.get("effect")
         if not effect_name or effect_name not in CATALOGUE_RECIPES:
             effect_name = hit_effect_cycle[i % len(hit_effect_cycle)]
 
         gen_fn, _ = CATALOGUE_RECIPES[effect_name]
-        # Use deterministic seed variation per hit
-        hit_samples = gen_fn(seed=seed + 1000 + i)
+        # A hit with a `sound` object gets its seed from its id; older plans keep the positional seed.
+        if hit.get("sound") is not None:
+            hit_samples = gen_fn(seed=hit_seed(seed, sound_id or f"hit-{i+1:02d}"), sound=sound)
+        else:
+            hit_samples = gen_fn(seed=seed + 1000 + i)
         hit_filename = f"hit-{i+1:02d}.wav"
         hit_filepath = out_dir / hit_filename
         scipy.io.wavfile.write(str(hit_filepath), RATE, hit_samples)

@@ -26,52 +26,7 @@ This checks for Node, Python 3 and ffmpeg, and installs Playwright + Chromium in
 
 ## 2. Interview
 
-Use the AskUserQuestion tool; keep it to one round. You need:
-
-- **The video.** A path. Copy or reference it as `motion/work/source.*`.
-- **The transcript.** Don't ask for one: get word timestamps from the audio with faster-whisper (`pip install faster-whisper`). Use an SRT or VTT only when the owner hands one over.
-- **Density:**
-  - Light: 2–4 clips per minute, only the strongest moments.
-  - Medium (default): 4–7 per minute.
-  - Heavy: most lines covered, with short gaps of face.
-- **Look:**
-  - The default palette: warm gray canvas, black and white components, one orange accent.
-  - Or their brand: colours, and optionally a font. Ask them to drop a logo, screenshots or brand colours into `motion/inputs/`, and read those.
-- **Anything to avoid or include.** Lines to leave on their face, real numbers or names to show, product screenshots to recreate.
-
-Skip any question the user already answered. Before building a new reel, write its concept
-line in the reel's notes: what the viewer understands or feels and how the shots serve it.
-Collect missing inputs by type: explainer audience, ordered steps, length (about 5 s per idea
-as a starting estimate), style and a fact check; launch product and promise, 3 to 5 ordered
-moments, brand hex and font, tempo and ending; showreel concept, tempo and bars, techniques.
-Ask the format (for example 9:16) when absent. On music-led reels derive a tempo grid;
-speech-led reels keep speech and reading time in control even with music.
-
-### Reference analysis and choice sheets
-
-When given a reference video, inspect it before building. Use the existing inspection script
-for metadata, then extract 12 fps frames and a contact sheet with ffmpeg. Example (write into
-the reel's work folder; use numbered pages for a long reference):
-
-```bash
-python3 $SKILL/scripts/inspect_video.py reference.mp4 motion/work/reference
-ffmpeg -i reference.mp4 -vf fps=12 motion/work/reference/frame-%05d.png
-ffmpeg -i reference.mp4 -vf "fps=12,scale=320:-1,tile=4x6" motion/work/reference/sheet-%03d.png
-```
-
-Inspect every sheet. Write cut times, approximate motion curves with measured positions at
-sample times, main colours, and a device map to optional effect templates (or mark a device
-new) in the reel's notes. Name what was measured and what was inferred; 12 fps bounds cut
-precision to about 83 ms. Take technique from the reference and story from the brand.
-Create original implementation and assets; the reference is not a source of reusable code,
-copy or media without permission.
-
-For an open font or palette, render a choice sheet of six to eight numbered candidates using
-the actual title, scale and background treatment, with brand fonts locally available. Use
-`engine/beats.js` on a seek-driven candidate page (one candidate at each sampled time), then
-ask the owner to pick a number. Save the sheet, candidate mapping and answer in the notes;
-apply the answer before the full build. Unattended jobs record supplied choices or defaults.
-
+Follow [direction.md](../stages/direction.md) for the interview and choice sheets.
 
 ## 3. Inspect the footage
 
@@ -124,13 +79,7 @@ Put each state change on its word: clip-local time = word time − clip in-point
 
 ## 6. Check stills on the key words and every beat
 
-```bash
-NODE_PATH=./motion/node_modules node $SKILL/engine/beats.js motion/dist/NN-name.html motion/work/NN.png 0.4 1.2 2.1 …
-```
-
-Before a full render, sample one still per music beat on music-led reels, or per spoken beat
-on speech-led reels. Derive music samples from the track tempo; preserve reading holds.
-Pick the times where each state has settled and a couple of mid-morph moments. Look at every sheet yourself. Fix anything cramped, clipped, unreadable or off-word, or where the cursor leaves the frame. Then check once more. Panel clips render on black in the sheet so you can judge them.
+Follow [check.md](../stages/check.md) for still checks.
 
 ## 7. Render
 

@@ -569,6 +569,10 @@ export function createHandler(project: Project, webRoot: string) {
         if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
         const saved = reel ? { reel, version } : undefined;
         sendJson(res, 200, req.method === 'POST' ? await project.transcribeMedia(source, saved) : await project.mediaSpeech(source, saved));
+      } else if (pathname === '/api/effects/box' && req.method === 'PUT') {
+        if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`))) {
+          sendJson(res, 403, { error: 'The Effects box can only be changed from this editor.' });
+        } else sendJson(res, 200, { ids: await project.saveEffectsBox(((await readJsonBody(req)) as { ids?: unknown } | null)?.ids as string[]) });
       } else if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405).end();
       } else if (pathname === '/api/sound-effects') {
@@ -578,6 +582,8 @@ export function createHandler(project: Project, webRoot: string) {
         if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');
         await sendRanged(req, res, await project.soundEffectFile(id));
       // Effects catalogue routes (effects-library lane)
+      } else if (pathname === '/api/effects/box') {
+        sendJson(res, 200, { ids: await project.effectsBox() });
       } else if (pathname === '/api/effects') {
         const { effectsCatalogue } = await import('../../core/index.ts');
         sendJson(res, 200, { effects: await effectsCatalogue() });

@@ -40,6 +40,7 @@ import { listVideos } from './_internal/videos.ts';
 import { readCapturedVersion, requireReelDir, newestVersionNumber, listVersions } from './_internal/version.ts';
 import { createWatcher } from './_internal/watch.ts';
 import { createTranscriptions } from './_internal/transcription.ts';
+import { effectsBox, saveEffectsBox } from './_internal/effects-box.ts';
 import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/markers.ts';
 import { mediaStill } from './_internal/media-stills.ts';
 export type { TimelineMarker } from './_internal/markers.ts';
@@ -194,6 +195,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     mediaFile: (source, saved, original) => mediaFile(dir, source, saved, original),
     mediaAudioFile: (source, saved) => mediaAudioFile(dir, source, saved),
     mediaStill: (source, time, width, saved, footageReel) => mediaStill(dir, source, time, width, saved, footageReel),
+    effectsBox: () => effectsBox(dir),
+    saveEffectsBox: (ids) => saveEffectsBox(dir, ids),
     listMarkers: (slug) => listMarkers(dir, slug),
     addMarker: (slug, input) => addMarker(dir, slug, input),
     changeMarker: (slug, id, changes) => changeMarker(dir, slug, id, changes),

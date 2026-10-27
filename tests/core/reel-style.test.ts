@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { startServer, type RunningServer } from '../../server/main.ts';
-import { agentTold } from '../../server/core/_internal/direction.ts';
-import { brollJobPrompt, makeBrollJobRequest } from '../../server/core/_internal/requests.ts';
+import { agentTold, DEFAULT_MUSIC_LINE } from '../../server/core/_internal/direction.ts';
+import { CLAUDE_BROLL_ALLOWED_TOOLS } from '../../server/core/_internal/runner.ts';
+import { briefRequest, brollJobPrompt, makeBrollJobRequest } from '../../server/core/_internal/requests.ts';
 import type { Style } from '../../server/core/_internal/style.ts';
 import { copyFixture } from '../helpers/project.ts';
 
@@ -152,4 +153,26 @@ it('Phase 6 request-only: footage and brief requests carry every style line and 
   const briefLines = agentTold(briefCopy);
   expect(briefLines).toContain('Rule: "Keep captions low".');
   for (const line of briefLines) expect(briefRequest).toContain(`- ${line}`);
+});
+it('a reel with no style still gets the default music line in its first-build requests', () => {
+  const defaultLine = 'Music: make a score that fits the cut.';
+  expect(DEFAULT_MUSIC_LINE).toBe(defaultLine);
+  expect(briefRequest('talk', 'Talk', 'A short teaser')).toContain(defaultLine);
+  expect(brollJobPrompt(makeBrollJobRequest('id', 'talk', 1, {}, 30))).toContain(defaultLine);
+  expect(brollJobPrompt(makeBrollJobRequest('id', 'talk', 1, {}, 30), true)).toContain(defaultLine);
+  // With a style, its own music line is the only one: the default is not repeated.
+  const styled = direction({ music: { file: 'music/own.mp3' } });
+  expect(briefRequest('talk', 'Talk', 'A short teaser', agentTold(styled))).not.toContain(defaultLine);
+  expect(brollJobPrompt(makeBrollJobRequest('id', 'talk', 1, {}, 30, { ...styled, scope: 'project' }))).not.toContain(defaultLine);
+  const none = agentTold(direction({ music: {} }));
+  expect(briefRequest('talk', 'Talk', 'A short teaser', none)).toContain('Music: none');
+  expect(briefRequest('talk', 'Talk', 'A short teaser', none)).not.toContain(defaultLine);
+});
+
+it('the unattended first-build run may run the synth score and its instructions say to add sound', () => {
+  expect(CLAUDE_BROLL_ALLOWED_TOOLS).toContain('Bash(python3 skill/scripts/synth.py *)');
+  expect(CLAUDE_BROLL_ALLOWED_TOOLS).toContain('PowerShell(python skill/scripts/synth.py *)');
+  const stage = readFileSync(join('skill/kinotta/stages/02-first-build.md'), 'utf8');
+  expect(stage).toContain('synth.py score');
+  expect(stage).toContain('Music: none');
 });
