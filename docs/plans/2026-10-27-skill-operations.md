@@ -39,7 +39,7 @@ Setup's new behaviour:
 2. If `reels/brand.md` exists, report it and stop unless the owner wants to redo it.
 3. Offer four choices in one question: use the `DESIGN.md` and brand files found here; copy the brand from another Kinotta project (ask its path, copy its `DESIGN.md` and the in-project files its `reels/brand.md` points at into this project, keep their relative paths, and record the source folder in the brand file); type colours and typefaces (the existing "Answers" path); or the built-in brand.
 4. Write `reels/brand.md` in the existing shape, show the summary, and set `checked:` to today's date once the owner confirms.
-5. Write `CONTEXT.md` at the project root: a short map that says the folder is a Kinotta project and points at `reels/brand.md`, the brand sources, `reels/` and `footage/`. It points and never copies values or lists reels, so it cannot go stale. If a `CONTEXT.md` already exists, ask before adding a short Kinotta section to it; never overwrite it. The router tells every operation to read it first when present.
+5. Write `CONTEXT.md` at the project root: a short map that says the folder is a Kinotta project and points at `reels/brand.md`, the brand sources, `reels/` and `footage/`. It points and never copies values or lists reels, so it cannot go stale. It carries no creative instruction: no style, look, effect, template, motion or quality rules and no defaults, so it cannot narrow what the agent makes (the flat-reel gap in `2026-10-25-motion-graphic-quality.md`; style stays opt-in per reel). If a `CONTEXT.md` already exists, ask before adding a short Kinotta section to it; never overwrite it. The router tells every operation to read it first when present.
 
 The footage contract's "say so in the hand-over" line for a missing brand file adds "run `/kinotta setup` to set one". The unattended first build stays on engine defaults when no brand file exists (already in `02-first-build.md`).
 
@@ -70,4 +70,4 @@ The footage contract's "say so in the hand-over" line for a missing brand file a
 - Plan created from the owner's request to give the skill named operations, starting with setup, and to send it to the lanes. Approved with that request.
 
 ### 2026-10-28
-- Owner added a project `CONTEXT.md` written by setup (step 5 under Setup's new behaviour), so each project folder opens with an ICM map. Goes to codex with the review fixes.
+- Owner added a project `CONTEXT.md` written by setup (step 5 under Setup's new behaviour), so each project folder opens with an ICM map. Goes to codex with the review fixes. Owner: it must not change the agent's creative output, so it holds locations only.
