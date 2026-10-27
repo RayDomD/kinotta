@@ -1,7 +1,7 @@
 ---
 title: Effects box and gallery
 date: 2026-10-27
-status: In Progress
+status: Done
 summary: The Effects box starts empty; a full gallery of every effect lets the owner pick which ones go in it, then they drag from the box onto a frame.
 spec:
 ---
@@ -57,8 +57,34 @@ Store the box as a list of effect ids per project at `reels/.kinotta/effects-box
 - Existing pinned-effect e2e suites.
 - `npm run typecheck`, `npm run build`.
 
+## Result
+
+Shipped as planned. A new project's Effects box is empty and says how to fill it; "Browse effects" opens a modal gallery of all 25 effects in six categories; clicking a card adds or removes it; the box is saved with the project; dragging from the box onto a frame is unchanged.
+
+- Server: `server/core/_internal/effects-box.ts` stores the ids at `reels/.kinotta/effects-box.json` (empty when missing, order kept, duplicates and ids no longer in the catalogue dropped on save and on read). `GET /api/effects/box` and `PUT /api/effects/box` in `handler.ts`; the PUT sits before the handler's non-GET gate and refuses cross-site requests like the other mutating routes. Client calls `fetchEffectsBox` and `saveEffectsBox`.
+- Web: `EffectsDrawer` shows the stored effects (drag source and `EFFECT_DRAG_TYPE` untouched) and a "Browse effects" button. `EffectsGallery.tsx` is a native `<dialog>` (focus trap, Escape closes, focus returns to the button), category sections from `Library.tsx`'s `CATEGORIES` (now exported), toggle cards with `aria-pressed`. Saves run in order so quick clicks land correctly; the box updates at once.
+- Previews animate only while the card is on screen (IntersectionObserver pauses the rest); the drawer's own previews stay still as before. Phones keep "Adding effects needs a computer."
+- Verified in the running UI at 1440 wide (Playwright screenshots): empty box, gallery top and bottom, box after reload with the two chosen effects. Drag from the box pinned `big-word` after a reload.
+
+Deviations and additions:
+- Added an HTTP-level test (`tests/core/effects-box-http.test.ts`); it caught a 405 from the handler's non-GET gate on the first PUT.
+- Updated the Pinned effects paragraph in `DESIGN.md` to describe the empty box and gallery.
+- Existing pinned-effect e2e tests now fill the box through `saveEffectsBox` before dragging (the plan's risk).
+- Playwright needs `npm run build` first here (web/dist is not in the checkout).
+- Not built: removing an effect from the box outside the gallery (the plan removes by clicking again in the gallery), and no change to the Direction step's "Effects to try" (out of scope, O2).
+
+Checks (run in the container, `KINOTTA_E2E_PORT_BASE=5099`):
+- `tests/core/effects-box.test.ts` and `effects-box-http.test.ts`: red first, then 2 passed.
+- `pinned-effects.spec.ts`: 6 passed (5 existing, 1 new).
+- `npm run typecheck`: clean. `npm run build`: no errors. `npm run check:docs`: ok. `npm run check:commits -- origin/main`: ok.
+- `npx vitest run --project unit`: 118 files passed, 1 skipped; 1150 tests passed, 3 skipped.
+- Full e2e: 173 passed, 22 failed, 3 did not run. Every failure is in `agent-confirm`, `agent-strip`, `simple-mode` or `playback-stutter`, the specs that fail on unmodified origin/main in this container; none touch the Effects box.
+
 ## Changelog
 
 ### 2026-10-27
 - Plan created with Intent only. Owner confirmed the empty box plus full gallery on 2026-10-27.
 - Owner approved the Intent and its recommended answers; Goal, Approach, Steps, Risks and Checks written. Status Approved.
+
+### 2026-10-27 (build)
+- Built and verified; status Done.
