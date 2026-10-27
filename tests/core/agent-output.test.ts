@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
@@ -54,3 +54,29 @@ for (const extension of ['css', 'html', 'js', 'mjs']) {
     await expect(validateAgentOutput(dir, new AbortController().signal)).rejects.toThrow('Agent output references a missing or escaping asset.');
   });
 }
+
+const frozenTranscript = { language: 'en', words: [{ text: 'Cloud,', start: 1, end: 2, confidence: 0.9 }] };
+it('accepts transcript text corrections including punctuation and case', async () => {
+  const dir = output([]);
+  writeFileSync(join(dir, 'transcript.json'), JSON.stringify({ ...frozenTranscript, words: [{ ...frozenTranscript.words[0], text: 'CLAUDE!' }] }));
+  const plan = JSON.parse(readFileSync(join(dir, 'plan.json'), 'utf8'));
+  await expect(validateAgentOutput(dir, new AbortController().signal, plan, JSON.stringify(frozenTranscript))).resolves.toBeUndefined();
+});
+it.each([
+  ['count', { ...frozenTranscript, words: [] }, 'word count'],
+  ['start timing', { ...frozenTranscript, words: [{ ...frozenTranscript.words[0], start: 0.9 }] }, 'timings'],
+  ['end timing', { ...frozenTranscript, words: [{ ...frozenTranscript.words[0], end: 2.1 }] }, 'timings'],
+  ['extra word field', { ...frozenTranscript, words: [{ ...frozenTranscript.words[0], extra: true }] }, 'fields other than text'],
+  ['changed word field', { ...frozenTranscript, words: [{ ...frozenTranscript.words[0], confidence: 1 }] }, 'fields other than text'],
+  ['removed word field', { ...frozenTranscript, words: [{ text: 'Claude,', start: 1, end: 2 }] }, 'fields other than text'],
+  ['extra top-level key', { ...frozenTranscript, extra: true }, 'fields outside words'],
+  ['changed top-level field', { ...frozenTranscript, language: 'fr' }, 'fields outside words'],
+  ['removed top-level field', { words: frozenTranscript.words }, 'fields outside words'],
+  ['empty text', { ...frozenTranscript, words: [{ ...frozenTranscript.words[0], text: '  ' }] }, 'non-empty text'],
+  ['invalid JSON', '{', 'valid JSON'],
+])('rejects transcript %s changes', async (_, transcript, reason) => {
+  const dir = output([]);
+  writeFileSync(join(dir, 'transcript.json'), typeof transcript === 'string' ? transcript : JSON.stringify(transcript));
+  const plan = JSON.parse(readFileSync(join(dir, 'plan.json'), 'utf8'));
+  await expect(validateAgentOutput(dir, new AbortController().signal, plan, JSON.stringify(frozenTranscript))).rejects.toThrow(reason);
+});
