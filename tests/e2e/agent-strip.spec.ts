@@ -13,7 +13,8 @@ test.beforeEach(() => {
 
 async function auto(page: Page, url: string, title: string) {
   await page.goto(url);
-  await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
   await page.getByLabel('Or use a video in this project').selectOption('media/talk.mp4');
   await page.getByLabel('Reel name', { exact: true }).fill(title);
   await page.getByRole('button', { name: /^Auto/ }).click();
@@ -65,12 +66,13 @@ test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes an
       await expect(strip.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport();
     }
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('button', { name: /^Edit / }).click();
-    await page.getByRole('button', { name: 'Storyboard', exact: true }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Editor', exact: true }).click();
+    await page.getByRole('button', { name: /^Storyboard/ }).click();
     await expect(page.getByRole('region', { name: 'B-roll progress' })).toHaveCount(1);
     await expect(strip).toContainText('Claude Code is choosing and building cutaways');
     await expect(strip.getByRole('timer')).not.toHaveText('Elapsed 0:00');
-    await page.getByRole('button', { name: 'Library', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Library', exact: true }).click();
     await expect(strip).toBeVisible();
     const header = (await page.locator('.library-top').boundingBox())!;
     expect((await strip.boundingBox())!.y).toBeCloseTo(header.y + header.height, 0);
@@ -126,7 +128,8 @@ for (const state of ['queued', 'validating', 'cancelling', 'failed', 'interrupte
         await strip.getByRole('button', { name: 'Dismiss', exact: true }).click();
         await expect(strip).toHaveCount(0);
       }
-      await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
+      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
       await expect(strip).toHaveCount(0);
     } finally { await server.close(); }
   });

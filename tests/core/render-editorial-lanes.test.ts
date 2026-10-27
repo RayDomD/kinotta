@@ -23,7 +23,7 @@ it('edits and retimes native words in lanes, pins their saved occurrences, retyp
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lanes = page.locator('[data-verify-unit="EditorialLanes"]');
     const timeline = page.getByRole('region', { name: 'Media timeline', exact: true });
     expect(await timeline.locator('.native-lane > strong').allTextContents()).toEqual(['Time', 'Reel', 'Graphics', 'Picture 1', 'Captions']);

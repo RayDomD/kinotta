@@ -15,7 +15,7 @@ it('drags code shots with live preview, separates overlaps, trims, extends and s
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lanes = page.locator('[data-verify-unit="EditorialLanes"]');
     const cube = lanes.locator('[data-graphic="cube-lands"]');
     await expect.poll(() => cube.count()).toBe(1);

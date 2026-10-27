@@ -20,7 +20,8 @@ async function serve() {
 
 async function openDirection(page: Page, url: string, title: string) {
   await page.goto(url);
-  await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
   await page.getByLabel('Or use a video in this project').selectOption('media/talk.mp4');
   await page.getByLabel('Reel name', { exact: true }).fill(title);
   await page.getByRole('group', { name: 'How to make it' }).getByRole('button', { name: /^Direct/ }).click();

@@ -62,7 +62,7 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('list', { name: 'Edits' })).not.toContainText('No longer applies');
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
-  await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
 
   // And it saves: v2 is v1 with the snip.
   await freezeWorking(page);

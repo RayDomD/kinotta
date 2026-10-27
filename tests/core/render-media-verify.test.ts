@@ -45,7 +45,7 @@ async function open(page: Page, url: string, route?: (route: Route) => void): Pr
   if (route) { await page.route(SOUND, route); await page.route(SOUND_AUDIO, route); }
   await openDetailedEditor(page, url);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await page.locator(ROOT).waitFor();
 }
 

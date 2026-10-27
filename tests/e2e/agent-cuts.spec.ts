@@ -58,7 +58,7 @@ test('agent cuts: shows in the Editor with its reason, can be resized, and can b
     await page.addInitScript(() => sessionStorage.setItem('kinotta-mode', 'editor'));
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Agent cuts reel', exact: true }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await expect(page.getByRole('main', { name: 'Review' })).toBeVisible();
 
     const editsPanel = page.getByRole('list', { name: 'Edits' });
@@ -69,7 +69,7 @@ test('agent cuts: shows in the Editor with its reason, can be resized, and can b
     await expect(cutCard).toContainText('agent-cut');
 
     // 2. Check in Simple mode timeline that cut can be resized and restored
-    await page.getByRole('button', { name: 'Simple mode', exact: true }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Simple', exact: true }).click();
 
     const timeline = page.locator('section.sm-timeline[aria-label="Simple timeline"]');
     await expect(timeline).toBeVisible();
@@ -97,9 +97,9 @@ test('agent cuts: shows in the Editor with its reason, can be resized, and can b
     }).toBeGreaterThan(1.6);
 
     // The reason must survive the resize when the owner returns to the Editor.
-    await page.getByRole('button', { name: /Edit.*Every shot, in the full editor/ }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Editor', exact: true }).click();
     await expect(page.getByRole('list', { name: 'Edits' }).locator('.c')).toContainText('Long pause before the answer');
-    await page.getByRole('button', { name: 'Simple mode', exact: true }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Simple', exact: true }).click();
 
     // Restore: click the cut, click 'Keep this cut'
     const cutBlock = page.locator('.sm-cut').first().getByRole('button', { name: /^Cut/ });

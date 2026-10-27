@@ -17,7 +17,7 @@ it('shares a keyboard scrubber, persists the viewer divider, and restores focus 
     await page.addInitScript(() => localStorage.setItem('kinotta.editor.settings', JSON.stringify({ keys: { fit: 'F', rail: 'M' } })));
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Product showreel' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const slider = page.getByRole('slider', { name: 'Scrub reel' });
     await slider.waitFor();
     const transport = page.locator('[data-verify-unit="Transport"]');
@@ -70,7 +70,7 @@ it('saves and edits markers, closes a sound gap in one undo, appends prompt chip
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Product showreel' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
     const slider = page.getByRole('slider', { name: 'Scrub reel' });
     await page.getByLabel('Playhead', { exact: true }).fill('4');
@@ -124,7 +124,8 @@ it('saves and edits markers, closes a sound gap in one undo, appends prompt chip
     await page.screenshot({ path: join(screenshots, 'dark-1440.png') });
     const measurements = [];
     for (const theme of ['dark', 'light']) {
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
       await page.getByRole('button', { name: 'Appearance', exact: true }).click();
       await page.getByLabel('Theme', { exact: true }).selectOption(theme);
       await page.getByRole('button', { name: 'Close Settings' }).click();

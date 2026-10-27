@@ -88,7 +88,7 @@ test('Use updates the alternate played in Review while frozen history retains it
     await dialog.getByRole('button', { name: 'Use alternate B', exact: true }).click();
     await expect.poll(async () => (await server.project.readWorkingVersion('parts')).workingParts?.shots[1].revision).toBe('r2');
     await dialog.getByRole('button', { name: /Close/ }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     const graphics = page.frameLocator('.rv-page iframe');
     await expect(graphics.locator('[data-scene="proof"]')).toHaveAttribute('data-revision', 'r2');
     await expect(graphics.locator('[data-scene="close"]')).toHaveAttribute('data-start', '3');
@@ -122,7 +122,7 @@ test('Storyboard offers alternates, previews with keyboard, chooses and dismisse
     await server.project.buildParts('parts');
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
-    await expect(page.getByLabel('Shots needing a choice')).toHaveText('1 shot needs a choice');
+    await expect(page.getByLabel('Shots needing a choice')).toHaveText('1 have other options');
     await expect(page.locator('.grid .shot')).toHaveCount(3);
     await expect(page.locator('.grid .shot.has-alternates')).toHaveCount(1);
     await page.locator('.grid').getByRole('button', { name: /^Shot 02,/ }).click();
@@ -517,7 +517,7 @@ test('Review draws only the pins on the alternate in the reel', async ({ page })
     }
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('button', { name: 'Next shot', exact: true }).click();
     await expect(page.getByRole('slider', { name: 'Scrub reel' })).toHaveAttribute('aria-valuenow', '1');
     const shown = async () => ({
@@ -539,7 +539,7 @@ test('a Review pin asks for options, and the comments column shows the request a
     await server.project.addComment('parts', 1, { pin: { shot: '02', alternate: 'r2', x: 0.5, y: 0.5, element: 'label' }, text: 'On B' });
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('button', { name: 'Next shot', exact: true }).click();
     await page.getByRole('button', { name: 'Next shot', exact: true }).click();
     await expect(page.getByRole('slider', { name: 'Scrub reel' })).toHaveAttribute('aria-valuenow', '2');

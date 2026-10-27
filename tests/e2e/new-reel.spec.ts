@@ -60,7 +60,7 @@ test('a project video picked on the start screen can be removed without touching
   await page.getByRole('group', { name: 'How to make it' }).getByRole('button', { name: /^Auto/ }).click();
 
   // Started from the editor, the reel opens back in the editor's Review.
-  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
+  await expect(phaseTab(page, 'Edit')).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Picked talk' })).toBeVisible();
   await revealReelRail(page);
   await expect(page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Picked talk' })).toHaveAttribute('aria-current', 'true');

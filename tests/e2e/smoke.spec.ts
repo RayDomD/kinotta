@@ -19,8 +19,8 @@ test('phase nav shows Storyboard as current and Review as a tab; Picker is part 
   await page.goto('/');
 
   const phases = page.getByRole('navigation', { name: 'Phase' });
-  await expect(phases.getByRole('button', { name: 'Storyboard' })).toHaveAttribute('aria-current', 'page');
-  await expect(phases.getByRole('button', { name: 'Review' })).not.toHaveAttribute('aria-current', 'page');
+  await expect(phases.getByRole('button', { name: /^Storyboard/ })).toHaveAttribute('aria-current', 'page');
+  await expect(phases.getByRole('button', { name: 'Edit', exact: true })).not.toHaveAttribute('aria-current', 'page');
   await expect(phases.getByRole('button')).toHaveCount(2);
   await expect(phases.getByRole('link')).toHaveCount(0);
 });

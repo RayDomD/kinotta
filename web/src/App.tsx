@@ -8,7 +8,7 @@ import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
-import { RenderMenu, RenderPlayer, VersionActions, outputFile, presetName } from './Renders.tsx';
+import { Popover, RenderMenu, RenderPlayer, outputFile, presetName } from './Renders.tsx';
 import type { RenderMenuProps } from './Renders.tsx';
 import { EditorIcon, EditorRail, EditorWorkspace, Review, ReviewSide, useEditorWorkspace, useEdits } from './review/index.ts';
 import { afterPendingEdits } from './review/_internal/useEdits.ts';
@@ -25,7 +25,7 @@ import { useComments } from './useComments.ts';
 import type { CommentsState } from './useComments.ts';
 import { useNote } from './useNote.ts';
 import type { NoteState } from './useNote.ts';
-import { SimpleMode, startsInSimpleMode } from './SimpleMode.tsx';
+import { MODE_STORAGE_KEY, SimpleMode, startsInSimpleMode } from './SimpleMode.tsx';
 import { Library } from './Library.tsx';
 
 type Load =
@@ -40,6 +40,8 @@ type VersionLoad =
   | { status: 'ready'; slug: string; version: Version };
 
 const PHASES = ['Storyboard', 'Review'] as const;
+const PHASE_LABELS = { Storyboard: 'Storyboard', Review: 'Edit' };
+const FIRST_CUT_HINT_KEY = 'kinotta-first-cut-dismissed:';
 type Phase = (typeof PHASES)[number];
 
 function HexMark() {
@@ -56,7 +58,11 @@ function topBarVerifyAttrs(choices: number) {
 }
 
 function TopBar(props: {
-  onSimple?(): void;
+  simple?: boolean;
+  onMode?(simple: boolean): void;
+  listing?: ReelListing;
+  onOpen?(slug: string): void;
+  onNew?(): void;
   onLibrary?(): void;
   reel: ReelSummary | undefined;
   version: Version | undefined;
@@ -79,6 +85,9 @@ function TopBar(props: {
 }) {
   const { reel, version, commentCount, note, frozen, section = null, onCopied, issues, phase = null, onPhase, creating = false, renders } = props;
   const workspace = useEditorWorkspace();
+  const [more, setMore] = useState(false);
+  const [allReels, setAllReels] = useState(false);
+  const closeMore = useCallback((open: boolean) => { setMore(open); if (!open) setAllReels(false); }, []);
   const choices = (version?.workingParts?.shots ?? version?.shots ?? []).filter((shot) => !shot.choiceMade && (shot.alternates?.filter((alternate) => !alternate.dismissed).length ?? 0) > 1).length;
   return (
     <header className="top" {...topBarVerifyAttrs(choices)}>
@@ -89,15 +98,17 @@ function TopBar(props: {
       </div>
       <nav className="modes" aria-label="Phase">
         {PHASES.map((name) => (
-          <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} onClick={() => onPhase?.(name)}>
-            {name}
+          <button key={name} type="button" aria-current={name === phase ? 'page' : undefined} disabled={!onPhase} onClick={() => onPhase?.(name)}>
+            <span className="step-number num" aria-hidden="true">{name === 'Storyboard' ? 1 : 2}</span> {PHASE_LABELS[name]}
+            {name === 'Storyboard' && choices > 0 && !creating && <span className="alternate-choice-count" data-made={reel?.made ?? 'auto'} aria-label="Shots needing a choice" role="status"><span className="num">{choices}</span>{reel?.made !== 'direct' ? ' have other options' : <span className="sr-only"> {choices === 1 ? 'shot needs' : 'shots need'} a choice</span>}</span>}
           </button>
         ))}
+        {phase === 'Review' && props.onMode && <div className="edit-view" role="group" aria-label="Edit view">
+          <button type="button" aria-pressed={props.simple === true} onClick={() => props.onMode?.(true)}>Simple</button>
+          <button type="button" aria-pressed={props.simple !== true} onClick={() => props.onMode?.(false)}>Editor</button>
+        </div>}
       </nav>
       {renders && <RenderMenu {...renders} />}
-      {props.onSimple && <button type="button" className="c-act" onClick={props.onSimple}>Simple mode</button>}
-      {props.onLibrary && <button type="button" className="c-act" onClick={props.onLibrary}>Library</button>}
-      {choices > 0 && !creating && <span className="alternate-choice-count" aria-label="Shots needing a choice" role="status"><span className="num">{choices}</span>{` ${choices === 1 ? 'shot needs' : 'shots need'} a choice`}</span>}
       {reel && version && !creating && (
         <CopyButton
           slug={reel.slug}
@@ -111,9 +122,39 @@ function TopBar(props: {
           onSaved={onCopied}
         />
       )}
-      <button type="button" className="editor-icon-button editor-gear" aria-label="Settings" title="Settings" onClick={() => workspace.setSettingsOpen(true)}><EditorIcon name="settings" /></button>
+      <Popover label="More" disabled={!props.listing} button={<span aria-hidden="true">···</span>} buttonClass="tb-menu tb-more" className="tb-more-pop" open={more} onOpen={closeMore}>
+        {allReels && props.simple ? <label>Choose reel<select autoFocus aria-label="Choose reel" value={reel?.slug ?? ''} onChange={(event) => { if (event.target.value) props.onOpen?.(event.target.value); closeMore(false); }}>
+          <option value="" disabled>Choose reel</option>
+          {props.listing?.reels.map((item) => <option key={item.slug} value={item.slug}>{item.title}</option>)}
+        </select></label> : <>
+          <button type="button" disabled={!props.onLibrary} onClick={() => { closeMore(false); props.onLibrary?.(); }}>Library</button>
+          <button type="button" onClick={() => { closeMore(false); workspace.setSettingsOpen(true); }}>Settings</button>
+          <button type="button" disabled={!props.listing || props.listing.reels.length === 0} onClick={() => {
+            if (props.simple) { setAllReels(true); return; }
+            closeMore(false); workspace.setFocus(false); workspace.setRailTab('reel'); workspace.setRailOpen(true);
+            requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('nav[aria-label="Reels"] button')?.focus());
+          }}>All reels</button>
+          <button type="button" disabled={!props.onNew} onClick={() => { closeMore(false); props.onNew?.(); }}>New reel</button>
+        </>}
+      </Popover>
     </header>
   );
+}
+
+function FirstCutHint({ slug, onStoryboard }: { slug: string; onStoryboard(): void }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(FIRST_CUT_HINT_KEY + slug) === 'true'; } catch { return false; }
+  });
+  const dismiss = () => {
+    try { localStorage.setItem(FIRST_CUT_HINT_KEY + slug, 'true'); } catch { /* Still dismiss for this visit. */ }
+    setDismissed(true);
+  };
+  if (dismissed) return null;
+  return <div className="first-cut-hint" role="status" aria-label="First cut">
+    <span>This is your first cut. To rearrange shots or pin effects, open Storyboard.</span>
+    <button type="button" className="c-act" onClick={() => { dismiss(); onStoryboard(); }}>Open Storyboard</button>
+    <button type="button" className="c-act" onClick={dismiss}>Dismiss</button>
+  </div>;
 }
 
 /** A render finished: like the version notice, with Play and Show in folder, over any tab until dismissed. */
@@ -312,16 +353,6 @@ function Main(props: MainProps) {
     }
     return (
       <Review
-        actions={shown && (
-          <VersionActions
-            slug={reel.slug}
-            entry={entries.find((e) => e.number === shown.number)}
-            footage={shown.footage !== undefined}
-            working={working}
-            nextVersion={(newest ?? shown.number) + (edits.list?.editsSinceFreeze ? 1 : 0)}
-            onSaved={onFrozen}
-          />
-        )}
         frozen={!working}
         onWorking={onWorking}
         reel={reel}
@@ -430,9 +461,14 @@ function Studio() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   const changeMode = (next: boolean) => {
-    try { sessionStorage.setItem('kinotta-mode', next ? 'simple' : 'editor'); } catch { /* The mode still works for this visit. */ }
+    try { localStorage.setItem(MODE_STORAGE_KEY, next ? 'simple' : 'editor'); } catch { /* The mode still works for this visit. */ }
     setSimple(next);
   };
+  useEffect(() => {
+    const modeChanged = (event: StorageEvent) => { if (event.key === MODE_STORAGE_KEY) setSimple(event.newValue !== 'editor'); };
+    window.addEventListener('storage', modeChanged);
+    return () => window.removeEventListener('storage', modeChanged);
+  }, []);
   const workspace = useEditorWorkspace();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [selected, setSelected] = useState<string | undefined>();
@@ -492,7 +528,7 @@ function Studio() {
     setWorking(true);
     setPlayingRender(null);
     setReady(new Set());
-    setPhase(lastTab(slug) ?? 'Storyboard');
+    setPhase(lastTab(slug) ?? (startsInSimpleMode() ? 'Review' : 'Storyboard'));
   }, []);
 
   const openVersionNumber = useCallback((number: number) => {
@@ -647,10 +683,52 @@ function Studio() {
     }
   }} />;
 
-  // New reel opens the one start screen from either view; starting or opening a reel returns to the view it came from.
-  if (simple || creating) return <SimpleMode agentStripSlot={<div className="agent-strip-slot" ref={setStripTarget} />} isJobActive={agentActive} listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
+  const topBar = <div className="top-region">
+    <TopBar
+        simple={simple} onMode={changeMode}
+        listing={load.listing} onOpen={openReel} onNew={() => setCreating(true)}
+        onLibrary={() => setLibrary(true)}
+        reel={reel}
+        version={openVersion}
+        commentCount={multiSection ? (pinCounts(comments.comments.filter((comment) => !comment.instant), openVersion.shots).get(sectionId) ?? 0) : comments.comments.filter((comment) => !comment.instant).length}
+        note={note}
+        frozen={frozen}
+        issues={issues}
+        onCopied={() => { setVersionTick((n) => n + 1); setVersionsTick((n) => n + 1); }}
+        phase={creating ? undefined : phase}
+        creating={creating}
+        onPhase={(next) => {
+          setCreating(false);
+          setPhase(next);
+          if (reel) rememberTab(reel.slug, next);
+        }}
+        section={multiSection ? { id: sectionId,
+              number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
+        renders={{
+          slug: creating ? undefined : reel?.slug,
+          version: openVersion?.number,
+          working,
+          footage: openVersion?.footage !== undefined,
+          nextVersion: (newest ?? openVersion?.number ?? 0) + (edits.list?.editsSinceFreeze ? 1 : 0),
+          onSaved: () => { setVersionsTick((n) => n + 1); setVersionTick((n) => n + 1); },
+          jobs,
+          titles: new Map(load.listing.reels.map((r) => [r.slug, r.title])),
+          failure: renderFailure,
+          rendersTick,
+          onPlay: (file) => {
+            setPhase('Review');
+            if (reel) rememberTab(reel.slug, 'Review');
+            setPlayingRender(file);
+          },
+        }}
+      />
+    {reel && openVersion && phase === 'Review' && reel.made !== 'direct' && <FirstCutHint key={reel.slug} slug={reel.slug} onStoryboard={() => { setPhase('Storyboard'); rememberTab(reel.slug, 'Storyboard'); }} />}
+  </div>;
+
+  // Both edit views use the same top bar and preserve the open Working or frozen version.
+  if (creating || !reel || (simple && phase === 'Review')) return <SimpleMode topBar={topBar} agentStripSlot={<div className="agent-strip-slot" ref={setStripTarget} />} isJobActive={agentActive} listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
+    renderPlayer={playingRender && reel ? <main className="main rv-main" aria-label="Edit"><RenderPlayer slug={reel.slug} file={playingRender} version={openVersion?.number} onBack={() => setPlayingRender(null)} /></main> : undefined}
     comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted} onBriefStarted={briefStarted}
-    onEditor={() => { setWorking(true); setChosen(newest); setPhase('Review'); changeMode(false); }}
     onRefresh={() => { setVersionTick((tick) => tick + 1); setVersionsTick((tick) => tick + 1); setCommentsTick((tick) => tick + 1); }} />;
 
   const commentsPanel = (
@@ -682,38 +760,7 @@ function Studio() {
 
   return (
     <div className="app">
-      <TopBar
-        onSimple={() => { setWorking(true); setChosen(newest); changeMode(true); }}
-        onLibrary={() => setLibrary(true)}
-        reel={reel}
-        version={openVersion}
-        commentCount={multiSection ? (pinCounts(comments.comments.filter((comment) => !comment.instant), openVersion.shots).get(sectionId) ?? 0) : comments.comments.filter((comment) => !comment.instant).length}
-        note={note}
-        frozen={frozen}
-        issues={issues}
-        onCopied={() => { setVersionTick((n) => n + 1); setVersionsTick((n) => n + 1); }}
-        phase={creating ? undefined : phase}
-        creating={creating}
-        onPhase={(next) => {
-          setCreating(false);
-          setPhase(next);
-          if (reel) rememberTab(reel.slug, next);
-        }}
-        section={multiSection ? { id: sectionId,
-              number: sectionNumber(openVersion.sections.findIndex((s) => s.id === sectionId)) } : null}
-        renders={{
-          slug: creating ? undefined : reel?.slug,
-          jobs,
-          titles: new Map(load.listing.reels.map((r) => [r.slug, r.title])),
-          failure: renderFailure,
-          rendersTick,
-          onPlay: (file) => {
-            setPhase('Review');
-            if (reel) rememberTab(reel.slug, 'Review');
-            setPlayingRender(file);
-          },
-        }}
-      />
+      {topBar}
       <div className="agent-strip-slot" ref={setStripTarget} />
       <div className="body" data-pin-storyboard={String(phase === 'Storyboard' && !creating)} data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
         <Rail

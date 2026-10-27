@@ -35,7 +35,7 @@ it('opens Sound beside an audio clip, applies ducking, undoes it and saves point
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Sound', exact: true }).click();
     const sound = page.getByRole('region', { name: 'Sound settings' });
     const verify = async () => { for (const invariant of invariants) expect(await sound.evaluate(invariant.check), invariant.description).toBe(true); };

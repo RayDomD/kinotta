@@ -23,7 +23,7 @@ it('keeps replayed edits with a visible history reset notice after reopening (AM
       await openDetailedEditor(page, server.url);
       await revealReelRail(page);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-      await page.getByRole('button', { name: 'Review', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
       await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
       await page.getByRole('tab', { name: /^Edits/ }).click();
     };

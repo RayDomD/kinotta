@@ -167,3 +167,9 @@
     animation: none !important;
   }
 }
+
+.sm-app:has(> .top-region) { grid-template-rows: auto minmax(0, 1fr); }
+.sm-app:has(> .top-region):has(> .agent-strip-slot:not(:empty)) { grid-template-rows: auto auto minmax(0, 1fr); }
+
+.sm-app .pk-render .pk-preset { flex-direction: row; align-items: center; }
+.sm-app .pk-render input:is([type="radio"], [type="checkbox"]) { width: auto; padding: 0; }

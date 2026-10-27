@@ -19,7 +19,7 @@ const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' 
 test('drag an element on a code-only reel, Save, and see it moved in the next version; Final freezes the picture', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
   const tools = review(page).getByRole('toolbar', { name: 'Timeline tools' });
   await expect(tools).toBeVisible();

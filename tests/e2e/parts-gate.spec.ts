@@ -27,7 +27,7 @@ test('stop gate: the three-shot assembled page seeks from file, plays in Review 
   try {
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const preview = page.frameLocator('iframe[title="Authored graphics"]');
@@ -37,7 +37,7 @@ test('stop gate: the three-shot assembled page seeks from file, plays in Review 
     expect(pausedTime).toBeGreaterThanOrEqual(1);
     const pausedShot = manifest.shots[Math.min(Math.floor(pausedTime), manifest.shots.length - 1)].name;
     await expect(preview.locator('[data-scene].active')).toHaveAttribute('data-scene', pausedShot);
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Storyboard', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: /^Storyboard/ }).click();
     await page.locator('.grid').getByRole('button', { name: /^Shot 02,/ }).click();
     const dialog = page.getByRole('dialog');
     const frame = dialog.locator('.still');
