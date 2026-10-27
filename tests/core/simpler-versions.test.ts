@@ -158,6 +158,26 @@ describe('Use this version', () => {
     expect((await project.readEditList('founder-talk')).operations.some((op) => op.kind === 'use-version')).toBe(false);
   });
 
+  it('saves a used version as a new version after an agent build, even with no edits after it', async () => {
+    const dir = copyFixture('footage-project');
+    const reelDir = join(dir, 'reels/founder-talk');
+    const project = openProject(dir);
+    const pieces = async (version: number) => ((await project.readVersion('founder-talk', version)).pieces ?? []).map(({ in: start, out }) => [start, out]);
+    await project.addOperation('founder-talk', { kind: 'snip', from: 6, to: 7 });
+    await project.freezeEdits('founder-talk');
+    await project.addOperation('founder-talk', { kind: 'snip', from: 8, to: 9 });
+    await project.freezeEdits('founder-talk');
+    // An agent builds v4, so the list is replayed onto it and no longer records a save of its own.
+    cpSync(join(reelDir, 'v3'), join(reelDir, 'v4'), { recursive: true });
+    expect((await openProject(dir).readEditList('founder-talk')).base).toBe(4);
+
+    await project.addOperation('founder-talk', { kind: 'use-version', version: 2 });
+    const saved = await project.freezeEdits('founder-talk');
+
+    expect(saved.version).toBe(5);
+    expect(await pieces(5)).toEqual(await pieces(2));
+  });
+
   it('uses the first version of a legacy footage reel by the inputs its edits were made on', async () => {
     const dir = copyFixture('footage-project');
     const project = openProject(dir);

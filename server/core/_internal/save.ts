@@ -232,7 +232,8 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
     const identity = await contentIdentity(staged.dir);
     const stored = await workingState(reelDir);
     const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !edit.plan.media?.sources.find((original) => original.id === source.id)?.words) ?? false;
-    if (((applying.length === 0 && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
+    // No edits means unchanged only on the newest inputs; a used version is a change even with nothing after it.
+    if (((applying.length === 0 && applied.base === list.base && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
       await rm(staged.dir, { recursive: true, force: true });
       await recordFreeze(reelDir, number - 1, withoutFlagged(stored, skipped, number - 1), identity);
       return result(number - 1);
