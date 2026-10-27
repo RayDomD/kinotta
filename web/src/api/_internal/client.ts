@@ -708,6 +708,8 @@ export interface EffectCatalogueEntry {
   ask?: string;
 }
 
+export const fetchEffectsBox = async (): Promise<string[]> => (await getJson<{ ids: string[] }>('/api/effects/box')).ids;
+export const saveEffectsBox = async (ids: string[]): Promise<string[]> => (await requestJson<{ ids: string[] }>('/api/effects/box', jsonBody('PUT', { ids }))).ids;
 export const fetchEffects = async (): Promise<EffectCatalogueEntry[]> => (await getJson<{ effects: EffectCatalogueEntry[] }>('/api/effects')).effects;
 
 export const effectPreviewUrl = (id: string, file: string): string =>

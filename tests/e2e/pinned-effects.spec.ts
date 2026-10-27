@@ -16,6 +16,7 @@ test('frame drops make instant Working output, queue speech effects, route notes
   const server = await startServer({ projectDir: dir, port: 0 });
   try {
     await server.project.buildParts('parts');
+    await server.project.saveEffectsBox(['title-card', 'big-word']); // the box starts empty, so the drag sources are filled first
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
     const card = page.locator('.shot').first();
@@ -67,7 +68,7 @@ test('frame drops make instant Working output, queue speech effects, route notes
 test('only frames accept drops; the shown alternate owns its pin and Insert shot goes in the next batch', async ({ page }) => {
   const { dir } = alternatesFixture(); const server = await startServer({ projectDir: dir, port: 0 });
   try {
-    await server.project.buildParts('parts'); await page.goto(server.url);
+    await server.project.buildParts('parts'); await server.project.saveEffectsBox(['title-card']); await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
     const source = page.locator('[data-effect="title-card"]');
     const card = page.locator('.shot').nth(1);
@@ -181,5 +182,48 @@ test('a note survives a section switch that unmounts its card before blur or deb
     await expect(note).toHaveValue('Keep the typed draft');
     await page.reload();
     await expect(note).toHaveValue('Keep the typed draft');
+  } finally { await server.close(); }
+});
+
+test('the Effects box starts empty; the gallery fills it, it survives a reload, and a drag from it pins the effect', async ({ page }) => {
+  const { dir } = alternatesFixture(); const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await server.project.buildParts('parts'); await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    const drawer = page.getByRole('region', { name: 'Effects to pin' });
+    await expect(drawer.locator('[data-effect]')).toHaveCount(0);
+    await expect(drawer).toContainText('Your box is empty');
+    await page.screenshot({ path: join(tmpdir(), 'kinotta-effects-box-empty.png') });
+
+    await drawer.getByRole('button', { name: 'Browse effects', exact: true }).click();
+    const gallery = page.getByRole('dialog', { name: 'Browse effects' });
+    await expect(gallery.locator('[data-gallery-effect]')).toHaveCount(25);
+    await expect(gallery.getByRole('heading', { level: 3 })).toHaveText(['Words on screen', 'Lists and numbers', 'Around the speaker', 'Products and screens', 'Looks and grade', 'Whole reels']);
+    await expect(gallery.locator('[data-gallery-effect="title-card"]')).toContainText('Instant · free');
+    await expect(gallery.locator('[data-gallery-effect="big-word"]')).toHaveAttribute('aria-pressed', 'false');
+    await page.screenshot({ path: join(tmpdir(), 'kinotta-effects-gallery-top.png') });
+    await gallery.locator('[data-gallery-effect="title-card"]').click();
+    await gallery.locator('[data-gallery-effect="big-word"]').click();
+    await gallery.locator('[data-gallery-effect="chart"]').click();
+    await gallery.locator('[data-gallery-effect="chart"]').click(); // clicking again removes it
+    await expect(gallery.locator('[data-gallery-effect="title-card"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(gallery.locator('[data-gallery-effect="chart"]')).toHaveAttribute('aria-pressed', 'false');
+    await gallery.locator('[data-gallery-effect="beat-showreel"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(tmpdir(), 'kinotta-effects-gallery-bottom.png') });
+    await page.keyboard.press('Escape');
+    await expect(gallery).toBeHidden();
+    await expect(drawer.getByRole('button', { name: 'Browse effects', exact: true })).toBeFocused();
+    await expect(drawer.locator('[data-effect]')).toHaveCount(2);
+    await expect.poll(() => server.project.effectsBox()).toEqual(['title-card', 'big-word']);
+
+    await page.reload();
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Parts fixture', exact: true }).click();
+    await expect(drawer.locator('[data-effect]')).toHaveCount(2);
+    await expect(drawer.locator('[data-effect]').first()).toHaveAttribute('data-effect', 'title-card');
+    await page.screenshot({ path: join(tmpdir(), 'kinotta-effects-box-filled.png') });
+
+    await drop(page, 'big-word', page.locator('.shot').first());
+    await expect(page.locator('.fx-pin-card')).toHaveCount(1);
+    await expect.poll(async () => (await server.project.listComments('parts', 1))[0]?.effect).toBe('big-word');
   } finally { await server.close(); }
 });

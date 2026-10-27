@@ -7,7 +7,7 @@ interface LibraryProps {
   agentStripSlot?: ReactNode;
 }
 
-const CATEGORIES: { id: string; name: string }[] = [
+export const CATEGORIES:{ id: string; name: string }[] = [
   { id: 'words', name: 'Words on screen' },
   { id: 'lists', name: 'Lists and numbers' },
   { id: 'speaker', name: 'Around the speaker' },

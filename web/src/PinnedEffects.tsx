@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchEffects } from './api/index.ts';
+import { fetchEffects, fetchEffectsBox, saveEffectsBox } from './api/index.ts';
+import { EffectsGallery } from './EffectsGallery.tsx';
 import type { Comment, EffectCatalogueEntry } from './api/index.ts';
 import { PREVIEW_HTML } from './Library.tsx';
 import type { CommentsState } from './useComments.ts';
@@ -13,16 +14,35 @@ export async function flushPinnedNotes(): Promise<void> { await Promise.all([...
 
 export function EffectsDrawer() {
   const [effects, setEffects] = useState<EffectCatalogueEntry[]>([]);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [browsing, setBrowsing] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { let active = true; fetchEffects().then((entries) => { if (active) setEffects(entries); }, (error: Error) => { if (active) setError(error.message); }); return () => { active = false; }; }, []);
+  const latest = useRef<string[]>([]);
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+  useEffect(() => {
+    let active = true;
+    Promise.all([fetchEffects(), fetchEffectsBox()]).then(([entries, ids]) => { if (!active) return; setEffects(entries); latest.current = ids; setChosen(ids); }, (problem: Error) => { if (active) setError(problem.message); });
+    return () => { active = false; };
+  }, []);
+  /** Adds or removes one effect. The box shows the change at once; saves run one after another so quick clicks land in order. */
+  const toggle = (id: string) => {
+    const before = latest.current;
+    const next = before.includes(id) ? before.filter((item) => item !== id) : [...before, id];
+    latest.current = next; setChosen(next); setError('');
+    saving.current = saving.current.then(() => saveEffectsBox(next)).then(() => {}, (problem: Error) => { setError(problem.message || 'Could not save the Effects box.'); });
+  };
+  const inBox = chosen.map((id) => effects.find((effect) => effect.id === id)).filter((effect): effect is EffectCatalogueEntry => !!effect);
   return <><p className="fx-phone-note meta">Adding effects needs a computer.</p><section className="fx-drawer" aria-label="Effects to pin">
-    <h2>Effects</h2><p className="meta">Drag an effect onto a frame.</p>
+    <h2>Effects</h2>
+    <p className="meta">{inBox.length > 0 ? 'Drag an effect onto a frame.' : 'Your box is empty. Browse effects and click the ones you want here, then drag them onto a frame.'}</p>
     {error && <p role="alert">{error}</p>}
-    <div className="fx-choices">{effects.map((effect) => <div key={effect.id} className="fx-choice" draggable data-effect={effect.id}
+    {inBox.length > 0 && <div className="fx-choices">{inBox.map((effect) => <div key={effect.id} className="fx-choice" draggable data-effect={effect.id}
       onDragStart={(event) => { event.dataTransfer.setData(EFFECT_DRAG_TYPE, effect.id); event.dataTransfer.effectAllowed = 'copy'; }}>
       <div className="still" aria-hidden="true" dangerouslySetInnerHTML={{ __html: PREVIEW_HTML[effect.id] ?? '' }} />
       <strong>{effect.name}</strong><span>{effect.instant ? 'Instant · free' : 'Needs the agent'}</span><small>{effect.needs}</small>
-    </div>)}</div>
+    </div>)}</div>}
+    <button type="button" className="c-act fx-browse" onClick={() => setBrowsing(true)}>Browse effects</button>
+    <EffectsGallery open={browsing} effects={effects} chosen={chosen} toggle={toggle} onClose={() => setBrowsing(false)} />
   </section></>;
 }
 
