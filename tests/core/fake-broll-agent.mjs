@@ -35,6 +35,7 @@ process.stdin.on('end', () => {
       cuts: [{ from: 1.5, to: 2.5, reason: 'Long pause before the answer' }],
     }));
   }
+  if (mode === 'done') writeFileSync('output/DONE', '');
   if (mode === 'change-captions') {
     plan.captions = false;
     writeFileSync('output/plan.json', JSON.stringify(plan));

@@ -57,6 +57,19 @@ describe('background b-roll request', () => {
 });
 
 describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, () => {
+  it('removes a stray DONE from managed output before validation and publication', async () => {
+    const test = await setup('done');
+    const slug = await make(test.project);
+    await test.project.whenAgentDone(slug);
+    const job = (await test.project.agentJob(slug))!;
+    const jobDir = join(test.dir, 'reels', slug, '.agent/jobs', job.id);
+    expect(job).toMatchObject({ state: 'succeeded', version: 2 });
+    expect(existsSync(join(jobDir, 'output/DONE'))).toBe(false);
+    expect(existsSync(join(test.dir, 'reels', slug, 'v2/DONE'))).toBe(false);
+    expect(readFileSync(join(jobDir, 'received-prompt.txt'), 'utf8')).not.toContain('output/DONE');
+    expect(readFileSync(join(jobDir, 'prompt.txt'), 'utf8')).toContain('output/DONE');
+  });
+
   it('keeps v1 playable until validated output publishes v2, with durable events and exact Copy prompt', async () => {
     const test = await setup();
     test.hold();
@@ -76,7 +89,9 @@ describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, ()
       expect(await test.project.agentJob(slug), JSON.stringify(await test.project.agentJob(slug))).toMatchObject({ state: 'succeeded', version: 2, canRetry: false });
       expect((await test.project.readWorkingVersion(slug)).number).toBe(2);
       expect((await test.project.readVersion(slug, 2)).issues).toEqual([]);
-      expect(readFileSync(join(jobDir, 'received-prompt.txt'), 'utf8')).toBe(readFileSync(join(jobDir, 'prompt.txt'), 'utf8'));
+      expect(readFileSync(join(jobDir, 'received-prompt.txt'), 'utf8')).toContain('This is a managed run.');
+      expect(readFileSync(join(jobDir, 'received-prompt.txt'), 'utf8')).not.toContain('output/DONE');
+      expect(readFileSync(join(jobDir, 'prompt.txt'), 'utf8')).toContain('output/DONE');
       expect(readJson(join(jobDir, 'node-inspection.json')).duration).toBeGreaterThan(0);
       expect(events.some((event) => event.type === 'agent-progress' && event.job.state === 'validating')).toBe(true);
       expect(events.some((event) => event.type === 'version-added' && event.version === 2)).toBe(true);
