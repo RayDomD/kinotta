@@ -574,6 +574,10 @@ export function createHandler(project: Project, webRoot: string) {
       } else if (pathname === '/api/effects') {
         const { effectsCatalogue } = await import('../../core/index.ts');
         sendJson(res, 200, { effects: await effectsCatalogue() });
+      } else if (pathname === '/api/effects/box') {
+        if (req.method === 'GET' || req.method === 'HEAD') sendJson(res, 200, { ids: await project.effectsBox() });
+        else if (req.method === 'PUT') sendJson(res, 200, { ids: await project.saveEffectsBox(((await readJsonBody(req)) as { ids?: string[] } | null)?.ids as string[]) });
+        else res.writeHead(405).end();
       } else if (/^\/api\/effects\/([^/]+)\/preview\/(.+)$/.test(pathname)) {
         const match = /^\/api\/effects\/([^/]+)\/preview\/(.+)$/.exec(pathname)!;
         const id = safeDecode(match[1]!);
