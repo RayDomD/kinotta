@@ -93,7 +93,7 @@ version), product principle 5, and the Review phase's scope. Mockup:
 
 | # | Decision |
 |---|---|
-| E1 | Kinotta is a standalone editor. An agent is optional, needed only for new motion graphics. |
+| E1 | Kinotta is a standalone editor. An agent is optional, needed only for new motion graphics. Revised 2026-10-27: Kinotta is agent first, and the owner can still make any mechanical change directly (`PRODUCT.md`). |
 | E2 | Save writes the edits into the sources (`motion/plan.json`, `transcript.json`), then runs the build, exactly as an agent does. |
 | E3 | Kinotta runs the repo's Python scripts (`skill/kinotta/`). Python 3, ffmpeg and faster-whisper are checked at startup. |
 | E4 | Edits collect in an edit list on disk, with undo and redo. An explicit Save builds `v<n+1>`; Discard drops the list. |
