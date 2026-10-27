@@ -39,3 +39,18 @@ it('rejects a batch that removes all surviving authored pieces', async () => {
 it('accepts the documented object shape with a reason at word boundaries', async () => {
   await expect(validateAgentOutput(output([cut(2, 3, 'Long pause before the answer')]), new AbortController().signal)).resolves.toBeUndefined();
 });
+
+for (const extension of ['css', 'html', 'js', 'mjs']) {
+  it(`accepts an interpolated runtime data URL in ${extension}`, async () => {
+    const dir = output([]);
+    const code = 'el("grain").style.backgroundImage = `url(${c.toDataURL()})`;';
+    writeFileSync(join(dir, `grain.${extension}`), extension === 'html' ? `<script>${code}</script>` : code);
+    await expect(validateAgentOutput(dir, new AbortController().signal)).resolves.toBeUndefined();
+  });
+  it.each(['missing.png', '../escape.png'])(`rejects literal url(%s) in ${extension}`, async (reference) => {
+    const dir = output([]);
+    const code = `background-image: url(${reference})`;
+    writeFileSync(join(dir, `grain.${extension}`), extension === 'html' ? `<style>${code}</style>` : code);
+    await expect(validateAgentOutput(dir, new AbortController().signal)).rejects.toThrow('Agent output references a missing or escaping asset.');
+  });
+}

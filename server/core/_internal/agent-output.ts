@@ -47,7 +47,11 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
         }
       }
     }
-    for (const match of code.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)|\b(?:from\s*|import\s*\(\s*|import\s+)["']([^"']+)["']|@import\s+["']([^"']+)["']/g)) await local((match[1] ?? match[2] ?? match[3])!, dirname(file));
+    for (const match of code.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)|\b(?:from\s*|import\s*\(\s*|import\s+)["']([^"']+)["']|@import\s+["']([^"']+)["']/g)) {
+      // Runtime template URLs cannot be resolved as static local asset paths.
+      if (match[1]?.includes('${')) continue;
+      await local((match[1] ?? match[2] ?? match[3])!, dirname(file));
+    }
   }
   const plan = JSON.parse(await readFile(join(root, 'plan.json'), 'utf8'));
   if (expectedPlan) for (const key of ['pieces', 'duration', 'captions', 'sections', 'video', 'transcript']) {
