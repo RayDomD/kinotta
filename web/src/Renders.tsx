@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { cancelRender, fetchOverload, fetchRenders, fetchRenderSettings, queueRender, renderFileUrl, revealRender, renderWorking } from './api/index.ts';
 import type { MixOverload, RenderFile, RenderJob, RenderPreset, RenderSettings, VersionEntry } from './api/index.ts';
@@ -51,8 +51,10 @@ const when = (iso: string): string => new Date(iso).toLocaleString(undefined, { 
  * A button that opens a panel under it: Escape or a press outside closes it and gives focus back to the button. The
  * panel is a dialog named `label`, its first control focused on open.
  */
-function Popover({ label, button, buttonDescriptionId, className, buttonClass, children, open, onOpen }: {
+export function Popover({ label, dialogLabel = label, disabled = false, button, buttonDescriptionId, className, buttonClass, children, open, onOpen }: {
   label: string;
+  dialogLabel?: string;
+  disabled?: boolean;
   button: ReactNode;
   buttonDescriptionId?: string;
   className: string;
@@ -86,14 +88,14 @@ function Popover({ label, button, buttonDescriptionId, className, buttonClass, c
       window.removeEventListener('keydown', key, true);
       window.removeEventListener('pointerdown', press, true);
     };
-  }, [open, onOpen]);
+  }, [open, onOpen, dialogLabel]);
   return (
     <span className="popover-anchor">
-      <button ref={trigger} type="button" className={buttonClass} aria-label={label} aria-describedby={buttonDescriptionId} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
+      <button ref={trigger} type="button" disabled={disabled} className={buttonClass} aria-label={label} aria-describedby={buttonDescriptionId} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
         {button}
       </button>
       {open && (
-        <div ref={panel} className={`popover ${className}`} role="dialog" aria-label={label}>
+        <div ref={panel} className={`popover ${className}`} role="dialog" aria-label={dialogLabel}>
           {children}
         </div>
       )}
@@ -166,9 +168,29 @@ function Choice<T extends string | number>(props: { label: string; value: T; opt
   );
 }
 
-/** Preset settings for Working or the explicit numbered snapshot on show. */
-function RenderPopover({ slug, version, footage, working = false, nextVersion, onSaved }: { slug: string; version: number | undefined; footage: boolean; working?: boolean; nextVersion?: number; onSaved?(version: number): void }) {
+interface RenderFormProps {
+  slug: string;
+  version: number | undefined;
+  footage: boolean;
+  working?: boolean;
+  nextVersion?: number;
+  onSaved?(version: number): void;
+}
+
+/** The detailed form remains available from Export's More settings action. */
+function RenderPopover(props: RenderFormProps) {
   const [open, setOpen] = useState(false);
+  const label = props.working ? 'Render Working' : `Render v${props.version}`;
+  return <Popover label={label} button={<>Render <span aria-hidden="true">▾</span></>} buttonClass="btn" className="pk-render" open={open} onOpen={setOpen}>
+    <RenderForm {...props} detailed />
+  </Popover>;
+}
+
+const EXPORT_SIZES = SIZE_OPTIONS.filter((option) => option.value === '1080p' || option.value === '4k');
+const DEFAULT_EXPORT_SIZE: RenderSettings['size'] = '1080p';
+
+/** One form owns both the quick export settings and the detailed settings. */
+function RenderForm({ slug, version, footage, working = false, nextVersion, onSaved, detailed = false, onMore }: RenderFormProps & { detailed?: boolean; onMore?(): void }) {
   const presetsName = useId();
   const [saved, setSaved] = useState<{ slug: string; settings: Record<RenderPreset, RenderSettings> } | null>(null);
   const [preset, setPreset] = useState<RenderPreset>('draft');
@@ -184,7 +206,7 @@ function RenderPopover({ slug, version, footage, working = false, nextVersion, o
       (loaded) => {
         if (!live) return;
         setSaved({ slug, settings: loaded });
-        setSettings(loaded[preset]);
+        setSettings({ ...loaded[preset], size: DEFAULT_EXPORT_SIZE });
       },
       (err: unknown) => {
         if (live) setSettingsError(err instanceof Error ? err.message : 'Could not load render settings');
@@ -199,7 +221,7 @@ function RenderPopover({ slug, version, footage, working = false, nextVersion, o
   const pickPreset = (next: RenderPreset): void => {
     setPreset(next);
     setRefusal('');
-    if (saved?.slug === slug) setSettings(saved.settings[next]);
+    if (saved?.slug === slug) setSettings((current) => ({ ...saved.settings[next], size: current?.size ?? DEFAULT_EXPORT_SIZE }));
   };
   const set = <K extends keyof RenderSettings>(key: K) => (value: RenderSettings[K]): void => setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
 
@@ -209,14 +231,14 @@ function RenderPopover({ slug, version, footage, working = false, nextVersion, o
   const [accepted, setAccepted] = useState(false);
   useEffect(() => {
     setAccepted(false);
-    if (!open || overloadKey === null) return;
+    if (overloadKey === null) return;
     let live = true;
     // A failed measurement shows nothing here: the render itself still refuses an overloaded mix with the reason.
     fetchOverload(slug, working ? undefined : version).then((overload) => live && setMeasured({ key: overloadKey, overload }), () => undefined);
     return () => {
       live = false;
     };
-  }, [open, overloadKey, slug, target, version]);
+  }, [overloadKey, slug, target, version]);
   const overload = measured !== null && measured.key === overloadKey && measured.overload.spans.length > 0 ? measured.overload : null;
   const render = (): void => {
     if (version === undefined || settings === null) return;
@@ -244,18 +266,22 @@ function RenderPopover({ slug, version, footage, working = false, nextVersion, o
   const label = working ? 'Render Working' : version === undefined ? 'Render' : `Render v${version}`;
   const action = 'Render';
   return (
-    <Popover label={label} button={<>Render <span aria-hidden="true">▾</span></>} buttonClass="btn" className="pk-render" open={open} onOpen={setOpen}>
-      <h2>{label}</h2>
-      <fieldset className="pk-presets">
+    <section className="pk-render" aria-label={label}>
+      <h2>{detailed ? label : 'Export this version'}</h2>
+      <fieldset className="pk-presets" disabled={settings === null || sending}>
         <legend className="label">Preset</legend>
         {PRESETS.map((p) => (
           <label key={p.id} className="pk-preset">
             <input type="radio" name={presetsName} value={p.id} checked={preset === p.id} onChange={() => pickPreset(p.id)} />
-            <span>{working ? p.id === 'draft' ? 'Draft of Working' : `${p.name}, freezes as v${nextVersion ?? version}` : p.name}</span>
+            <span>{detailed && working ? p.id === 'draft' ? 'Draft of Working' : `${p.name}, freezes as v${nextVersion ?? version}` : p.name}</span>
           </label>
         ))}
       </fieldset>
-      {settings !== null && (
+      {!detailed && settings !== null && <div className="edit-view export-size" role="group" aria-label="Export size">
+        {EXPORT_SIZES.map((option) => <button key={option.value} type="button" disabled={sending} aria-pressed={settings.size === option.value} onClick={() => set('size')(option.value)}>{option.name}</button>)}
+      </div>}
+      {!detailed && <button type="button" className="c-act" onClick={onMore}>More settings…</button>}
+      {detailed && settings !== null && (
         <div className="pk-settings">
           <Choice label="Frame rate" value={settings.fps} options={FPS_OPTIONS} onChange={set('fps')} />
           <Choice label="Size" value={settings.size} options={SIZE_OPTIONS} onChange={set('size')} />
@@ -279,11 +305,16 @@ function RenderPopover({ slug, version, footage, working = false, nextVersion, o
       </button>
       {refusal !== '' && <p className="pk-refusal" role="alert">{refusal}</p>}
       <p className="pk-message" role="status">{status}</p>
-    </Popover>
+    </section>
   );
 }
 
 export interface RenderMenuProps {
+  version?: number;
+  working?: boolean;
+  footage?: boolean;
+  nextVersion?: number;
+  onSaved?(version: number): void;
   /** The open reel, whose past renders the menu lists; absent with no reel open. */
   slug: string | undefined;
   /** The project's queue: the running job first, then the waiting ones, for any reel. */
@@ -305,10 +336,12 @@ interface PastRendersState {
   error?: string;
 }
 
-/** `Rendering v2 Draft 42% · 1 waiting`, or Renders: the top bar's button, on every tab, opening the queue and past renders. */
-export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }: RenderMenuProps) {
+/** `Rendering v2 Draft 42% · 1 waiting`, in Export: the top bar's button, on every tab, opening the queue and past renders. */
+export function RenderMenu({ slug, version, working, footage = false, nextVersion, onSaved, jobs, titles, failure, rendersTick, onPlay }: RenderMenuProps) {
+  const [detailed, setDetailed] = useState(false);
   const statusId = useId();
   const [open, setOpen] = useState(false);
+  const changeOpen = useCallback((next: boolean) => { setOpen(next); if (!next) setDetailed(false); }, []);
   const [past, setPast] = useState<PastRendersState | null>(null);
   const [revealError, setRevealError] = useState('');
   const [cancelError, setCancelError] = useState('');
@@ -350,6 +383,7 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
 
   const summary = (
     <span className="tb-render">
+      <span>Export ▾</span>
       {running !== undefined && (
         <span>
           {`Rendering ${jobName(running)} `}
@@ -357,14 +391,16 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
         </span>
       )}
       {waiting > 0 && <span className="meta">{running === undefined ? `${waiting} waiting to render` : `${waiting} waiting`}</span>}
-      {jobs.length === 0 && <span className="meta">{failure !== null ? 'Render failed' : 'Renders'}</span>}
+      {failure !== null && jobs.length === 0 && <span className="meta">Render failed</span>}
     </span>
   );
 
   return (
-    <>
+    <span className="export-controls" {...actionsVerifyAttrs(working === true, false)}>
       <span id={statusId} className="sr-only" role="status" aria-label="Render status">{status}</span>
-      <Popover label="Renders" button={summary} buttonDescriptionId={statusId} buttonClass="tb-menu" className="tb-pop" open={open} onOpen={setOpen}>
+      <Popover label="Export" dialogLabel={detailed ? working ? 'Render Working' : `Render v${version}` : 'Export'} button={summary} buttonDescriptionId={statusId} buttonClass="tb-menu" className="tb-pop" open={open} onOpen={changeOpen}>
+      {slug !== undefined && <RenderForm key={slug} slug={slug} version={version} footage={footage} working={working} nextVersion={nextVersion} onSaved={onSaved} detailed={detailed} onMore={() => setDetailed(true)} />}
+      {detailed && <button type="button" className="c-act" onClick={() => setDetailed(false)}>Back to Export</button>}
       <section className="pk-queue" aria-label="Queue">
         <h2>Queue</h2>
         {jobs.length === 0 ? (
@@ -429,6 +465,6 @@ export function RenderMenu({ slug, jobs, titles, failure, rendersTick, onPlay }:
         </section>
       )}
       </Popover>
-    </>
+    </span>
   );
 }

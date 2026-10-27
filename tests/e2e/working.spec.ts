@@ -16,7 +16,7 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     await server.project.addOperation(reel, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 10, y: 0, scale: 1, by: 'Codex' });
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await revealReelRail(page);
     const versions = page.getByRole('navigation', { name: 'Current reel', exact: true });
     for (const check of railChecks) expect(await versions.evaluate(check.check), check.description).toBe(true);
@@ -26,7 +26,8 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     await expect(page.getByRole('button', { name: /^Save|^Discard/ })).toHaveCount(0);
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Codex');
-    await page.getByRole('button', { name: 'Render Working', exact: true }).click();
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    await page.getByRole('button', { name: 'More settings…', exact: true }).click();
     const render = page.getByRole('dialog', { name: 'Render Working' });
     await expect(render.getByText('Draft of Working', { exact: true })).toBeVisible();
     await expect(render.getByText('Final, freezes as v3', { exact: true })).toBeVisible();
@@ -77,13 +78,13 @@ test('a native mix reopens Current with exact captured inputs and no operations 
     await server.project.freezeEdits('product-showreel');
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await revealReelRail(page);
     await expect(page.locator('[data-current-version="3"]')).toBeVisible();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
     await expect(editor).toBeVisible();
     await expect(editor).toHaveAttribute('data-verify-count', '1');
     expect((await server.project.readVersion('product-showreel', 3)).media!.placements).toHaveLength(1);
-    await expect(page.getByRole('button', { name: 'Render Working', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
   } finally { await server.close(); }
 });

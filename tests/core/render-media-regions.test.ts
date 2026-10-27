@@ -74,7 +74,7 @@ it('holds the shared sound clock when a secondary picture stalls, then resumes a
     await page.route('**/media/demo/1/blue', (route) => holding ? void held.push(route) : void route.continue());
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Regions', exact: true }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
     await editor.waitFor(); await page.getByLabel('Playhead', { exact: true }).fill('1');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
@@ -100,7 +100,7 @@ it('edits custom regions, drags/resizes, undoes, saves frozen history and plays 
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Regions', exact: true }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
     await page.getByLabel('Playhead', { exact: true }).fill('2');
     const layers = page.locator('[data-verify-unit="PictureLayers"]');
@@ -141,7 +141,7 @@ it('edits custom regions, drags/resizes, undoes, saves frozen history and plays 
     expect(saved.media!.tracks).toEqual([{ id: 'music', name: 'Music', order: 0, gain: 0.5, mute: false }]);
     expect(readFileSync(join(version, 'plan.json'), 'utf8')).toBe(before);
     // Reopen the saved version and ensure every video follows its own source offset.
-    await page.reload(); await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.reload(); await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByLabel('Playhead', { exact: true }).fill('1');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect.poll(() => page.locator('[data-verify-unit="MediaEditor"]').getAttribute('data-verify-clock')).not.toBe('1');

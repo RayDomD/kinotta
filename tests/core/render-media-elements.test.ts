@@ -23,7 +23,7 @@ it('keeps moving named elements in a code-only reel once it has sound in the sha
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
     const frame = page.frameLocator('iframe[title="Authored graphics"]');
     const start = Number(await frame.locator('[data-scene="cube-lands"]').getAttribute('data-start'));
@@ -66,7 +66,7 @@ it('reattaches a graphic to the pass of a looping voice under the playhead (A2)'
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const graphics = await inspectGraphic(page);
     await graphics.getByText(/attachment is missing or interrupted/).waitFor();
     // The second pass of the loop runs from 3 s; 3.5 s is 0.5 s into the voice.

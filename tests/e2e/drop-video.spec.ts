@@ -53,7 +53,7 @@ test('a dropped video shows as a row with Remove, which deletes the copy; a copy
   await expect(name).toHaveValue('dropped clip', { timeout: BUILD_WAIT_MS });
   await name.fill('Launch clip');
   await page.getByRole('group', { name: 'How to make it' }).getByRole('button', { name: /^Auto/ }).click();
-  await expect(phases.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
+  await expect(phases.getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Launch clip' })).toBeVisible();
 
   // Dropped again, the same bytes reuse the copy, and Remove leaves it for the reel that uses it.

@@ -43,7 +43,7 @@ function reelWithPicture(): string {
 async function openEditor(page: Page, url: string): Promise<void> {
   await openDetailedEditor(page, url);
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
 }
 

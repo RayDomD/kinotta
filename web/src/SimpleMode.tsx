@@ -12,7 +12,6 @@ import type {
 } from './api/_internal/client.ts';
 import { migrateSimpleOptionsProfile } from './simple-options.ts';
 import { BriefWaiting } from './BriefReel.tsx';
-import { SimpleExport } from './SimpleExport.tsx';
 import { SimpleMake } from './SimpleMake.tsx';
 import { Review } from './review/index.ts';
 import { EditorIcon } from './review/_internal/EditorIcon.tsx';
@@ -64,9 +63,18 @@ export function handleSimpleUndoRedo(
   return false;
 }
 
-/** Simple mode is the default on each new browser tab; an explicit editor switch survives reload. */
+export const MODE_STORAGE_KEY = 'kinotta-mode';
+/** Read the previous tab preference once, then share the choice across tabs and reloads. */
 export function startsInSimpleMode(): boolean {
-  try { return sessionStorage.getItem('kinotta-mode') !== 'editor'; } catch { return true; }
+  try {
+    let mode = localStorage.getItem(MODE_STORAGE_KEY);
+    if (mode === null) {
+      mode = sessionStorage.getItem(MODE_STORAGE_KEY) ?? 'simple';
+      localStorage.setItem(MODE_STORAGE_KEY, mode);
+      sessionStorage.removeItem(MODE_STORAGE_KEY);
+    }
+    return mode !== 'editor';
+  } catch { return true; }
 }
 
 
@@ -168,7 +176,8 @@ export function SimpleMode({
   onNew,
   onStarted,
   onBriefStarted,
-  onEditor,
+  topBar,
+  renderPlayer,
   onRefresh,
 }: {
   agentStripSlot: ReactNode;
@@ -186,7 +195,8 @@ export function SimpleMode({
   onStarted(slug: string): void;
   /** Called with the slug of a reel started from a brief, which waits for its first version. */
   onBriefStarted(slug: string): void;
-  onEditor(): void;
+  topBar: ReactNode;
+  renderPlayer?: ReactNode;
   onRefresh(): void;
 }) {
   const [draft, setDraft] = useState<NewComment['pin'] | null>(null);
@@ -383,39 +393,15 @@ export function SimpleMode({
           <span className="brand">KINOTTA</span>
           <div className="sm-top-actions">{reelMenu}</div>
         </header>
-      ) : (
-        <>
-          <header className="sm-top">
-            <span className="brand">KINOTTA</span>
-            <span>Simple mode</span>
-          </header>
-
-          {agentStripSlot}
-          <div className="sm-heading">
-            <div>
-              <h1>{reel.title}</h1>
-              <p>Watch, pin a moment, and say what should change.</p>
-            </div>
-            <div className="sm-heading-actions">
-              {reelMenu}
-              <div className="dx-after" role="group" aria-label="After the first cut">
-                <button type="button" className="dx-edit" onClick={onEditor}>
-                  <b>Edit <span aria-hidden="true">↗</span></b>
-                  <span>Every shot, in the full editor</span>
-                </button>
-                {state === 'ready' && <SimpleExport slug={reel.slug} />}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      ) : <>{topBar}{agentStripSlot}</>}
+      {!starting && <div className="sm-heading"><div><h1>{reel.title}</h1><p>Watch, pin a moment, and say what should change.</p></div></div>}
 
       {starting ? (
         <SimpleMake onStarted={onStarted} onBriefStarted={onBriefStarted} />
       ) : reel.brief !== undefined && reel.newestVersion === null ? (
         // A reel started from a brief has nothing to play until its first version is written.
         <BriefWaiting reel={{ ...reel, brief: reel.brief }} />
-      ) : (
+      ) : renderPlayer ?? (
         <div className="sm-studio">
           <div className="sm-preview">
             <SimpleCutsContext.Provider value={cutsValue}>

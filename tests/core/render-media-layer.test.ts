@@ -23,7 +23,7 @@ it('brings an insert picture to front, sends it back, undoes it and saves the sa
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     // Keep edits in flight long enough to catch waits that only check picture presence.
     await page.route('**/edits', async (route) => {
       if (route.request().method() === 'POST') await new Promise((resolve) => setTimeout(resolve, 200));

@@ -23,7 +23,7 @@ it('keeps Review inside the viewport with either rail state and theme, and persi
     const page = await browser.newPage({ viewport: { width: 1272, height: 950 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const workspace = page.locator('[data-verify-unit="EditorWorkspace"]');
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
     const lanes = page.locator('[data-verify-unit="NativeLanes"]');
@@ -53,7 +53,8 @@ it('keeps Review inside the viewport with either rail state and theme, and persi
     const closed = await page.locator('[data-verify-unit="EditorSettingsSheet"]').evaluate((root, checks) => checks.map((check) => Boolean((0, eval)(`(${check})`)(root))), settingsChecks.map((rule) => rule.check.toString()));
     expect(closed).toEqual(settingsChecks.map(() => true));
     for (const theme of ['dark', 'light']) {
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
       await page.getByRole('button', { name: 'Appearance', exact: true }).click();
       await page.getByLabel('Theme', { exact: true }).selectOption(theme);
       await page.getByRole('button', { name: 'Close Settings' }).click();
@@ -69,11 +70,13 @@ it('keeps Review inside the viewport with either rail state and theme, and persi
         }
       }
     }
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Keyboard', exact: true }).click();
     await page.getByLabel('Blade shortcut').press('Escape');
     expect(await page.locator('[data-verify-unit="EditorSettingsSheet"]').getAttribute('data-verify-status')).toBe('closed');
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByLabel('Blade shortcut').press('v');
     expect(await page.getByRole('alert').filter({ hasText: 'assigned to Select and Blade' }).count()).toBe(1);
     const verdicts = await page.locator('[data-verify-unit="EditorSettingsSheet"]').evaluate((root, checks) => checks.map((check) => Boolean((0, eval)(`(${check})`)(root))), settingsChecks.map((rule) => rule.check.toString()));
@@ -111,7 +114,8 @@ it('keeps Review inside the viewport with either rail state and theme, and persi
       return rules.map((rule) => Boolean((0, eval)(`(${rule})`)(copy)));
     }, railChecks.map((rule) => rule.check.toString()));
     expect(invalidRail.filter((pass) => !pass)).toHaveLength(1);
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Keyboard', exact: true }).click();
     expect(await page.getByLabel('Toggle Media rail shortcut').inputValue()).toBe('L');
   } finally { await browser.close(); await server.close(); }

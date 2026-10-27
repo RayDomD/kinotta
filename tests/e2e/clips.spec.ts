@@ -41,7 +41,7 @@ async function dragFrom(page: Page, x: number, y: number, dx: number): Promise<v
 test('trim a clip by its edge, slide another by its body, see it flagged, and Save', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
   await expect.poll(() => reviewClockText(page), { timeout: BUILD_WAIT_MS }).toMatch(/\/ 00:12\.0\d$/);
   await expect(review(page).locator('[data-graphic]')).toHaveCount(4);
@@ -98,7 +98,7 @@ test('click an element in the frame, drag it and scale it by its corner, see its
   await undoWorkingEdits(page, 'founder-talk');
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
   await expect.poll(() => reviewClockText(page), { timeout: BUILD_WAIT_MS }).toMatch(/\/ 00:12\.0\d$/);
   const edits = page.getByRole('list', { name: 'Edits' });
@@ -175,7 +175,7 @@ test('a clip follows a slide in the picture while it is dragged, and stays there
   await undoWorkingEdits(page, 'founder-talk');
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();
-  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Review' }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
   await expect(review(page).locator('[data-graphic]')).toHaveCount(4);
   const perSecond = ((await review(page).locator('.editorial-lanes .native-lane-bars').first().boundingBox())!.width) / SAMPLE_SECONDS;

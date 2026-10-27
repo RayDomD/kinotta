@@ -37,7 +37,7 @@ it('generates in the Sound tab with nothing selected, can cancel, and adds the r
     });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Sound', exact: true }).click();
     const panel = page.getByRole('group', { name: 'Generate sound' });
     const verify = async () => { for (const invariant of invariants) expect(await panel.evaluate(invariant.check), invariant.description).toBe(true); };

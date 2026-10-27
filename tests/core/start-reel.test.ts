@@ -176,3 +176,33 @@ describe('Make treatment options', () => {
     expect(readdirSync(join(dir, 'reels'))).toEqual(before);
   });
 });
+
+
+describe('reel origin', () => {
+  it.each(['auto', 'direct'] as const)('persists %s through the reel listing', { timeout: SLOW_MS }, async (made) => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir, { transcriber: fakeTranscriber });
+    const { slug } = await project.startReel({ video: VIDEO, made });
+    await project.whenTranscribed(slug);
+    expect(readJson(join(dir, 'reels', slug, 'reel.json')).made).toBe(made);
+    expect((await project.listReels()).reels.find((reel) => reel.slug === slug)?.made).toBe(made);
+  });
+
+  it('keeps legacy origins absent and rejects invalid origins before creating a reel', async () => {
+    const dir = copyFixture('footage-project');
+    const project = openProject(dir, { transcriber: fakeTranscriber });
+    const before = await project.listReels();
+    expect(before.reels.every((reel) => reel.made === undefined)).toBe(true);
+    await expect(project.startReel({ video: VIDEO, made: 'other' as 'auto' })).rejects.toThrow('Reel origin');
+    await expect(project.startReelFromBrief({ title: 'Invalid', brief: 'Test', made: 'other' as 'auto' })).rejects.toThrow('Reel origin');
+    expect(await project.listReels()).toEqual(before);
+  });
+
+  it('records Direct for a reel started from a brief', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    const { slug } = await project.startReelFromBrief({ title: 'Directed', brief: 'A brief', made: 'direct' });
+    expect(readJson(join(dir, 'reels', slug, 'reel.json')).made).toBe('direct');
+    expect((await project.listReels()).reels.find((reel) => reel.slug === slug)?.made).toBe('direct');
+  });
+});

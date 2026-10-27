@@ -88,6 +88,10 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
   }
 };
 
+function validateMade(made: unknown): void {
+  if (made !== undefined && made !== 'auto' && made !== 'direct') throw new KinottaError('invalid', 'Reel origin must be auto or direct.');
+}
+
 /**
  * Starts a reel from a video that stays where it is: writes reel.json and a plan of one piece with captions on and
  * no clips, and returns. The transcription then runs in the background (the video plays and edits collect meanwhile): its
@@ -96,6 +100,7 @@ export const transcribeWithWhisper: Transcriber = async (videoFile, onProgress) 
  * as a tagged snip after v1 is published. A failure leaves the reel without a version and is reported through `jobs`.
  */
 export async function startReel(projectDir: string, transcriber: Transcriber, jobs: Transcriptions, input: NewReel, afterBuilt?: (slug: string) => Promise<unknown>): Promise<StartedReel> {
+  validateMade(input?.made);
   const given = makeOptions(input);
   checkDeadAir(input.deadAir);
   if (typeof input.video !== 'string' || (input.title !== undefined && typeof input.title !== 'string')) throw new KinottaError('invalid', 'Choose a video and a text title.');
@@ -114,7 +119,7 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
   const planFile = join(reelDir, 'plan.json');
 
   const frame = frameOf(probe.width, probe.height);
-  await writeJson(join(reelDir, 'reel.json'), { title, footage, ...(frame ? { frame } : {}) });
+  await writeJson(join(reelDir, 'reel.json'), { title, footage, ...(input.made ? { made: input.made } : {}), ...(frame ? { frame } : {}) });
   if (chosen) await storeReelStyle(projectDir, slug, chosen);
   const plan = {
     title,
@@ -158,13 +163,14 @@ export async function startReel(projectDir: string, transcriber: Transcriber, jo
  * version until whoever builds it writes one, and shows as waiting until then.
  */
 export async function startReelFromBrief(projectDir: string, input: NewBriefReel): Promise<StartedBriefReel> {
+  validateMade(input?.made);
   const title = typeof input?.title === 'string' ? input.title.trim() : '';
   const brief = typeof input?.brief === 'string' ? input.brief.trim() : '';
   if (title === '') throw new KinottaError('invalid', 'A reel needs a name.');
   if (brief === '') throw new KinottaError('invalid', 'A reel started from a brief needs the brief.');
   const chosen = await chosenStyle(projectDir, input.style);
   const { slug, dir } = await makeReelDir(join(projectDir, REELS_DIR), title);
-  await writeJson(join(dir, 'reel.json'), { title, brief });
+  await writeJson(join(dir, 'reel.json'), { title, brief, ...(input.made ? { made: input.made } : {}) });
   const style = chosen ? await storeReelStyle(projectDir, slug, chosen) : undefined;
   return { slug, request: briefRequest(slug, title, brief, style ? agentTold(style) : undefined) };
 }

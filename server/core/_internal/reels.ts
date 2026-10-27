@@ -72,6 +72,8 @@ async function summarize(reelsDir: string, slug: string): Promise<ReelSummary> {
     .map((m) => Number(m[1]));
   const title = (await readTitle(reelDir)) ?? slug;
   const brief = await readBrief(reelDir);
+  const metadata = await readFile(join(reelDir, REEL_FILE), 'utf8').then((text) => JSON.parse(text) as { made?: unknown }).catch(() => null);
+  const made = metadata?.made === 'auto' || metadata?.made === 'direct' ? metadata.made : undefined;
   // A brief reel's request carries its style, as when it was started; an unreadable style leaves it out.
   const style = brief === null ? null : await readReelStyle(dirname(reelsDir), slug).catch(() => null);
   return {
@@ -79,6 +81,7 @@ async function summarize(reelsDir: string, slug: string): Promise<ReelSummary> {
     title,
     newestVersion: versions.length ? Math.max(...versions) : null,
     lastChange: await newestMtime(reelDir),
+    ...(made !== undefined ? { made } : {}),
     ...(brief !== null ? { brief: { text: brief, request: briefRequest(slug, title, brief, style ? agentTold(style) : undefined) } } : {}),
   };
 }

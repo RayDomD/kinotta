@@ -26,7 +26,7 @@ for (const accepted of [true, false]) test(`a split previews before its reply an
     });
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Playback optimistic', exact: true }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
     await expect(editor).toHaveAttribute('data-verify-loading', 'false');
     const clips = editor.locator('[data-role="main"] button.native-clip');

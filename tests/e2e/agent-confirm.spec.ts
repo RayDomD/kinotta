@@ -14,7 +14,8 @@ async function serve(provider: 'claude' | 'codex' | 'copy') {
 }
 async function startPage(page: Page, url: string) {
   await page.goto(url);
-  await page.getByRole('combobox', { name: 'Choose reel' }).selectOption('');
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
   await page.getByLabel('Or use a video in this project').selectOption('media/talk.mp4');
 }
 async function interceptBuilds(page: Page) {
@@ -127,8 +128,9 @@ test('Settings Agent pane saves the provider and keeps the project yes', async (
   try {
     await server.project.saveAgentSettings({ confirmed: true });
     await page.goto(server.url);
-    await page.getByRole('button', { name: /^Edit / }).click();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Editor', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
     const settings = page.getByRole('dialog', { name: 'Settings' });
     await settings.getByRole('button', { name: 'Agent', exact: true }).click();
     const provider = settings.getByLabel('Agent for background builds');
@@ -139,7 +141,8 @@ test('Settings Agent pane saves the provider and keeps the project yes', async (
     await expect.poll(() => server.project.agentSettings()).toMatchObject({ provider: 'copy', confirmed: true });
     await page.screenshot({ path: 'tests/artifacts/agent-settings-after.png' });
     await settings.getByRole('button', { name: 'Close Settings' }).click();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(settings.getByLabel('Agent for background builds')).toHaveValue('copy');
   } finally { await server.close(); }
 });

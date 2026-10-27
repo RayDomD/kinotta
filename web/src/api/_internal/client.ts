@@ -10,6 +10,7 @@ export const migrateStyleProfile = (profile: unknown): Promise<Style> => request
 import type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, PartsAlternate, PartsManifest, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {
+  made?: 'auto' | 'direct';
   slug: string;
   title: string;
   newestVersion: number | null;
@@ -568,6 +569,7 @@ export const startReelFromBrief = (input: { title: string; brief: string }): Pro
 export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
 
 export interface NewReelInput {
+  made?: 'auto' | 'direct';
   agentConfirmed?: boolean;
   videoType?: 'explainer' | 'interview' | 'tutorial' | 'demo' | 'short' | 'lecture' | 'vlog';
   broll?: 'light' | 'medium' | 'heavy';
@@ -683,7 +685,7 @@ export interface VideoEntry { width?: number; height?: number }
 export type StyleChoice = { id: string } | Style;
 export interface NewReelInput { style?: StyleChoice }
 /** Starts a code-built reel from a brief in a chosen style. */
-export const startStyledBrief = (input: { title: string; brief: string; style: StyleChoice }): Promise<{ slug: string; request: string }> =>
+export const startStyledBrief = (input: { title: string; brief: string; style: StyleChoice; made?: 'auto' | 'direct' }): Promise<{ slug: string; request: string }> =>
   requestJson('/api/reels/brief', jsonBody('POST', input));
 export type { BrandFonts } from '../../../../server/core/index.ts';
 /** The brand fonts Direction preselects: the project's, or Kinotta's built-in brand's. */

@@ -10,8 +10,8 @@ const RENDER_WAIT_MS = 150_000;
 test.use({ baseURL: serverUrl('renders') });
 
 const phases = (page: Page): Locator => page.getByRole('navigation', { name: 'Phase' });
-const menuButton = (page: Page): Locator => page.getByRole('banner').getByRole('button', { name: 'Renders' });
-const menu = (page: Page): Locator => page.getByRole('dialog', { name: 'Renders' });
+const menuButton = (page: Page): Locator => page.getByRole('banner').getByRole('button', { name: 'Export' });
+const menu = (page: Page): Locator => page.getByRole('dialog', { name: 'Export' });
 const queue = (page: Page): Locator => menu(page).getByRole('list', { name: 'Queue' });
 
 async function renderDraft(page: Page, version: number): Promise<void> {
@@ -24,18 +24,18 @@ test('renders run in the background: progress on every tab, a queue with cancel,
   test.setTimeout(RENDER_WAIT_MS + 30_000);
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
-  await phases(page).getByRole('button', { name: 'Review' }).click();
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
 
   await renderDraft(page, 2);
   await renderDraft(page, 1);
 
   // Every tab shows the running render on the top bar's render button.
-  await phases(page).getByRole('button', { name: 'Storyboard' }).click();
+  await phases(page).getByRole('button', { name: /^Storyboard/ }).click();
   await expect(menuButton(page)).toContainText(/Rendering v2 Draft \d+%/);
   await expect(menuButton(page)).toContainText('1 waiting');
   await expect(page.getByRole('status', { name: 'Render status' })).toHaveText('Rendering v2 Draft. 1 waiting.');
   await expect(menuButton(page)).toHaveAttribute('aria-describedby', /.+/);
-  await phases(page).getByRole('button', { name: 'Review' }).click();
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(menuButton(page)).toContainText('Rendering v2 Draft');
 
   // The render menu's queue: the running job with its progress and estimate, then the waiting one.
@@ -56,12 +56,12 @@ test('renders run in the background: progress on every tab, a queue with cancel,
   await expect(menu(page)).toHaveCount(0);
 
   // It finishes: the ready notice, on whatever tab is open, plays the file in Review.
-  await phases(page).getByRole('button', { name: 'Storyboard' }).click();
+  await phases(page).getByRole('button', { name: /^Storyboard/ }).click();
   const notice = page.getByRole('status', { name: 'Render ready' });
   await expect(notice).toContainText('v1 Draft is ready', { timeout: RENDER_WAIT_MS });
   await expect(notice.getByRole('button', { name: 'Show in folder' })).toBeVisible();
   await notice.getByRole('button', { name: 'Play' }).click();
-  await expect(phases(page).getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page');
+  await expect(phases(page).getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('main', { name: 'Review' }).getByLabel('Render product-showreel-v1-draft-540p30.mp4')).toBeVisible();
 
   // The cancelled render left no file: only v1's Draft is in past renders, and nothing is rendering.
@@ -81,9 +81,10 @@ test('a reel switch does not show another reel’s settings or past renders when
   await page.goto('/');
   const reels = page.getByRole('navigation', { name: 'Reels' });
   await reels.getByRole('button', { name: /Product showreel/ }).click();
-  await phases(page).getByRole('button', { name: 'Review' }).click();
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
-  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render Working' }).click();
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'More settings…', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Render Working' }).getByLabel('Size')).toBeVisible();
   await page.keyboard.press('Escape');
   await menuButton(page).click();
@@ -93,14 +94,15 @@ test('a reel switch does not show another reel’s settings or past renders when
   await revealReelRail(page);
   await reels.getByRole('button', { name: /B-roll cutdown/ }).click();
   await menuButton(page).click();
-  await expect(menu(page).getByRole('alert')).toContainText('Render list unavailable');
+  await expect(menu(page).getByRole('region', { name: 'Past renders', exact: true }).getByRole('alert')).toContainText('Render list unavailable');
   await expect(menu(page)).not.toContainText('product-showreel-v2-draft.mp4');
   await page.keyboard.press('Escape');
-  await phases(page).getByRole('button', { name: 'Review' }).click();
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
   await revealReelRail(page);
-  await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render Working' }).click();
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'More settings…', exact: true }).click();
   const form = page.getByRole('dialog', { name: 'Render Working' });
-  await expect(form.getByRole('alert')).toContainText('Settings unavailable');
+  await expect(form.locator('.pk-render').getByRole('alert')).toContainText('Settings unavailable');
   await expect(form.getByLabel('Size')).toHaveCount(0);
   await expect(form.getByRole('button', { name: 'Render', exact: true })).toBeDisabled();
 });

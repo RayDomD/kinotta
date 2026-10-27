@@ -35,7 +35,7 @@ it.skipIf(!HAS_LIBROSA)('shows trimmed loop beats, toggles their display and sna
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lane = page.getByRole('region', { name: 'Media timeline' });
     await browserExpect(lane.locator('.native-beat')).toHaveCount(10);
     expect(await lane.locator('.native-beat').evaluateAll((ticks) => ticks.every((tick) => getComputedStyle(tick).position === 'absolute'))).toBe(true);

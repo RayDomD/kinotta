@@ -25,7 +25,7 @@ it('pans and zooms all native lanes together, seeks on the ruler and keeps edits
     const page = await browser.newPage({ viewport: { width: 1272, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lanes = page.locator('[data-verify-unit="NativeLanes"]');
     const editorial = page.locator('[data-verify-unit="EditorialLanes"]');
     const overview = page.locator('[data-verify-unit="TimelineOverview"]');
@@ -113,7 +113,7 @@ it('anchors timeline viewport, keeps scale, maps playhead through cuts, and only
     const page = await browser.newPage({ viewport: { width: 1272, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lanes = page.locator('[data-verify-unit="NativeLanes"]');
     await expect.poll(() => lanes.getAttribute('data-verify-window-length')).toBe('12');
 

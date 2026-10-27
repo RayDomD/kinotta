@@ -34,7 +34,7 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lanes = page.getByRole('region', { name: 'Media timeline' });
     await page.getByRole('separator', { name: 'Picture and tracks' }).press('Home');
     const last = async () => { await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 5000 }).toBe(true); return (await server.project.readEditList('founder-talk')).operations.at(-1)!; };
@@ -140,7 +140,8 @@ it('drags native sound between owners, detaches insert sound, trims and changes 
     await toolbar.getByRole('button', { name: 'Select', exact: true }).focus();
     await page.keyboard.press('Control+y');
     await expect.poll(last, { timeout: 10_000 }).toMatchObject({ kind: 'placement-snip', from: 1, to: 3 });
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Keyboard', exact: true }).click();
     await page.getByLabel('Blade shortcut').press('x');
     await page.getByRole('button', { name: 'Layout', exact: true }).click();
@@ -183,7 +184,7 @@ it('closes up on Delete, menu Remove, ClipSettings Remove, and Apply snip by def
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const lanes = page.getByRole('region', { name: 'Media timeline' });
     const toolbar = page.getByRole('toolbar', { name: 'Timeline tools' });
     const last = async () => {
@@ -304,7 +305,7 @@ it('previews captions with a main trim, keeps later clips fixed, extends into ga
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled(), { timeout: 10_000 }).toBe(true);
     const lane = page.locator('[data-role="main"] .native-lane-bars');
     const first = lane.locator('[data-placement="first"]');

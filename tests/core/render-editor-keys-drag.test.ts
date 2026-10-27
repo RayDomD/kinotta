@@ -18,7 +18,7 @@ it('hears shortcuts with nothing focused, splits sound on a code-built reel, and
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Product showreel' }).click();
-    const tab = page.getByRole('button', { name: 'Review', exact: true });
+    const tab = page.getByRole('button', { name: 'Edit', exact: true });
     await tab.click();
     const review = page.getByRole('main', { name: 'Review' });
     const lanes = page.getByRole('region', { name: 'Media timeline' });

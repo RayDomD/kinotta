@@ -42,7 +42,7 @@ it('edits EQ on a shared track, bypasses it, undoes it, saves it and includes it
     });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('region', { name: 'Media timeline' }).getByRole('button', { name: /^Tone, audio, 0.00/ }).click();
     await page.getByRole('tab', { name: 'Sound', exact: true }).click();
     const sound = page.getByRole('region', { name: 'Sound settings' });

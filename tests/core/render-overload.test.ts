@@ -64,7 +64,7 @@ it('warns of a pending overload in the editor and asks before rendering one', { 
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await openDetailedEditor(page, server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const warning = page.getByRole('region', { name: 'Mix overload' });
     await warning.getByText(/above full scale at 0\.00–2\.00s \(peak \+1\.6 dB\)/).waitFor();
 
@@ -77,7 +77,8 @@ it('warns of a pending overload in the editor and asks before rendering one', { 
     await warning.waitFor();
     expect((await server.project.readEditList(REEL)).operations).toEqual([]);
 
-    await page.getByRole('group', { name: 'Version actions' }).getByRole('button', { name: 'Render Working' }).click();
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    await page.getByRole('button', { name: 'More settings…', exact: true }).click();
     const form = page.getByRole('dialog', { name: 'Render Working' });
     await form.getByRole('alert').filter({ hasText: 'above full scale at 0.00–2.00s' }).waitFor();
     expect(await form.getByRole('button', { name: 'Render', exact: true }).isDisabled()).toBe(true);

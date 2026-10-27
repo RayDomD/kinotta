@@ -61,7 +61,7 @@ it('previews legacy graphics in source time and saves a deliberate repair after 
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
     await page.getByLabel('Playhead', { exact: true }).fill('1.5');
     const frame = page.frameLocator('iframe[title="Authored graphics"]');
@@ -130,7 +130,7 @@ it('creates native frame and word pins on repeated placements and carries them t
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByLabel('Playhead', { exact: true }).fill('3.5');
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Pin', exact: true }).click();
     const target = page.getByRole('button', { name: 'Choose pin position' });
@@ -219,7 +219,7 @@ it('previews independent native caption positions, timing and duplicated speech 
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByLabel('Playhead', { exact: true }).fill('0.3');
     const handle = page.getByRole('button', { name: /^Move captions/ });
     await handle.press('Alt+ArrowRight');
@@ -274,7 +274,7 @@ it('flags an interrupted graphic in the editor and repairs it with an explicit t
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByLabel('Playhead', { exact: true }).fill('2');
     const split = page.waitForResponse((response) => response.url().endsWith('/edits') && response.request().method() === 'POST');
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Split at playhead', exact: true }).click();
@@ -332,7 +332,7 @@ it('attaches added media to footage, follows reorder and repairs a removed momen
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const placements = await inspectPlacement(page, /^take.mp4, insert/);
     const product = page.getByRole('region', { name: 'Media timeline' }).locator('[data-role="insert"] [data-placement="product"]');
     await page.getByLabel('Playhead', { exact: true }).fill('2.5');
@@ -395,7 +395,7 @@ it('changes picture framing independently, previews it and retains it through Un
       await openDetailedEditor(page, server.url);
       await revealReelRail(page);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-      await page.getByRole('button', { name: 'Review', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
     };
     await review();
     const picture = page.locator('[data-verify-unit="PictureLayer"] > .mv-picture');
@@ -455,7 +455,7 @@ it('plays saved track gain and mute through the actual browser speaker mix', { t
       await openDetailedEditor(page, server.url);
       await revealReelRail(page);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-      await page.getByRole('button', { name: 'Review', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
       await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
       await page.getByRole('button', { name: 'Play', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('[data-verify-unit="MediaEditor"]')?.getAttribute('data-verify-playing') === 'true');
@@ -486,7 +486,7 @@ it('auditions an unsaved volume change, restores playback after seeking and stop
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
     await editor.waitFor();
     await page.getByRole('button', { name: 'Play', exact: true }).click();
@@ -530,7 +530,7 @@ it('imports reusable sound in a legacy reel and saves it using the agent plan fo
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
     await page.getByLabel('Import media', { exact: true }).setInputFiles(file);
     await page.getByLabel('Search media', { exact: true }).fill('music');
@@ -578,7 +578,7 @@ it('keeps preview controls truthful through Undo, Solo removal, silent pictures 
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.locator('[data-verify-unit="MediaEditor"]').waitFor();
 
     // F3: no authored graphics and no picture at the playhead.
@@ -647,7 +647,7 @@ it('transcribes speech when a source is first used, shows a failure with retry, 
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const retry = page.getByRole('button', { name: 'Retry speech for first', exact: true });
     await retry.waitFor();
     expect(await retry.getAttribute('title')).toBe('The speech model is not installed.');
@@ -681,7 +681,7 @@ it('imports by drop, retries a failed import, previews, adds a project file in p
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('tab', { name: 'Media rail', exact: true }).click();
   };
   try {
@@ -756,7 +756,7 @@ it('splits, moves with optional snapping, trims, reorders, duplicates and replac
     await openDetailedEditor(page, server.url);
     await revealReelRail(page);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const placements = page.getByRole('region', { name: 'Media timeline' });
     const bed = placements.getByRole('button', { name: /^Tone, audio, 0\.00 to/ });
     const seek = async (to: string) => { await page.getByLabel('Playhead', { exact: true }).fill(to); };

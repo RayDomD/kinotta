@@ -1087,3 +1087,55 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 @media (prefers-reduced-motion: reduce) {
   .agent-strip[data-active="true"] .agent-strip-track i { animation: none; }
 }
+
+
+/* Shared Storyboard / Edit header (phase D). */
+.app:has(> .top-region) { grid-template-rows: auto minmax(0, 1fr); }
+.app:has(> .top-region):has(> .agent-strip-slot:not(:empty)) { grid-template-rows: auto auto minmax(0, 1fr); }
+.top-region { min-width: 0; }
+.top-region .top { min-height: 52px; gap: 18px; }
+.top-region .reelname { min-width: 0; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-region .modes { align-items: center; flex-shrink: 0; margin-right: auto; }
+.top-region .modes > button { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.top-region .modes span { padding: 0; border: 0; font-size: inherit; }
+.top-region .step-number { font-family: Doto, monospace; font-weight: 800; color: var(--muted); }
+.top-region .alternate-choice-count { margin-left: 4px; color: var(--muted); font-size: 12px; }
+.top-region .alternate-choice-count .num { color: inherit; }
+.top-region .alternate-choice-count[data-made="direct"] { color: var(--changed); border: 1px solid var(--changed); padding: 0 5px; }
+.edit-view { display: inline-flex; border: 1px solid var(--hairline); }
+.edit-view button { font-size: 13px; padding: 4px 10px; color: var(--muted); }
+.edit-view button[aria-pressed="true"] { color: var(--ink); background: var(--card-raised); }
+.top-region .copy { margin-left: 0; }
+.export-controls { display: inline-flex; min-width: 0; }
+.tb-more { font-size: 22px; line-height: 1; min-width: 40px; min-height: 36px; }
+.tb-more-pop { width: 220px; }
+.tb-more-pop > button { text-align: left; padding: 8px; }
+.tb-more-pop > button:hover { background: var(--card-raised); }
+.tb-more-pop select { display: block; width: 100%; margin-top: 8px; background: var(--ground-deep); color: var(--ink); font: inherit; border: 1px solid var(--hairline); padding: 8px; }
+.first-cut-hint { display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); }
+.first-cut-hint > span { margin-right: auto; }
+.first-cut-hint button { white-space: nowrap; }
+.export-size { align-self: flex-start; }
+@media (max-width: 1100px) {
+  .top-region .top { flex-wrap: wrap; padding: 8px 12px; gap: 8px 12px; }
+  .top-region .reelname { flex: 1; }
+  .top-region .modes { order: 2; flex: 1 0 100%; margin: 0; flex-wrap: wrap; gap: 8px; }
+  .top-region .copy { margin-left: auto; }
+  .top-region .tb-render > span:not(:first-child) { display: none; }
+}
+@media (max-width: 600px) {
+  .top-region .brand { font-size: 12px; gap: 4px; }
+  .top-region .reelname { font-size: 13px; max-width: 16ch; }
+  .top-region .reelname .num { display: none; }
+  .top-region .copy { display: flex; order: 3; flex: 1 0 100%; flex-wrap: wrap; min-width: 0; margin: 0; }
+  .top-region .copy-error { max-width: 100%; overflow-wrap: anywhere; }
+  .top-region .modes > button { padding: 6px 3px; font-size: 13px; gap: 4px; }
+  .top-region .modes .alternate-choice-count { font-size: 11px; max-width: 12ch; white-space: normal; line-height: 1.2; }
+  .top-region .edit-view { margin-left: auto; }
+  .top-region .edit-view button { padding: 5px 7px; }
+  .top-region .tb-render { font-size: 13px; }
+  .top-region .tb-menu { padding: 6px; }
+  .top-region .popover { position: fixed; left: 12px; right: 12px; top: 56px; width: auto; max-height: calc(100dvh - 76px); box-shadow: none; }
+  .first-cut-hint { flex-wrap: wrap; padding: 12px; gap: 8px 16px; }
+  .first-cut-hint > span { flex-basis: 100%; }
+}

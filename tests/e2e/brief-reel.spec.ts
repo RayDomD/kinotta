@@ -15,12 +15,12 @@ test.use({ baseURL: serverUrl('briefReel'), permissions: ['clipboard-read', 'cli
 test.describe.configure({ mode: 'serial' });
 
 const reelsRail = (page: Page) => page.getByRole('navigation', { name: 'Reels' });
-const phaseTab = (page: Page, name: string) => page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name });
+const phaseTab = (page: Page, name: string) => page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name, exact: true });
 const readClipboard = (page: Page): Promise<string> => page.evaluate(() => navigator.clipboard.readText());
 
 async function startVideoReel(page: Page, title: string): Promise<void> {
   await startReelInEditor(page, title);
-  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
+  await expect(phaseTab(page, 'Edit')).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   // Storyboard opens only once v1 follows the transcription in the background.
   await expect(page.locator('[data-working-row][data-current-version="1"]')).toBeAttached({ timeout: BUILD_WAIT_MS });
 }
@@ -83,8 +83,8 @@ test('a reel with no clips shows the empty state, its lanes, and takes a word pi
 test('a reel reopens in the tab last used for it', async ({ page }) => {
   await page.goto('/');
   await reelsRail(page).getByRole('button', { name: 'Bare talk' }).click();
-  await phaseTab(page, 'Review').click();
-  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
+  await phaseTab(page, 'Edit').click();
+  await expect(phaseTab(page, 'Edit')).toHaveAttribute('aria-current', 'page');
 
   // Another reel has no tab remembered, so it opens in Storyboard.
   await revealReelRail(page);
@@ -92,12 +92,12 @@ test('a reel reopens in the tab last used for it', async ({ page }) => {
   await expect(phaseTab(page, 'Storyboard')).toHaveAttribute('aria-current', 'page');
 
   await reelsRail(page).getByRole('button', { name: 'Bare talk' }).click();
-  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
+  await expect(phaseTab(page, 'Edit')).toHaveAttribute('aria-current', 'page');
 
   // And after a reload, which opens the newest reel.
   await page.reload();
-  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
+  await expect(phaseTab(page, 'Edit')).toHaveAttribute('aria-current', 'page');
   await revealReelRail(page);
   await expect(reelsRail(page).getByRole('button', { name: 'Bare talk' })).toHaveAttribute('aria-current', 'true');
-  await expect(phaseTab(page, 'Review')).toHaveAttribute('aria-current', 'page');
+  await expect(phaseTab(page, 'Edit')).toHaveAttribute('aria-current', 'page');
 });

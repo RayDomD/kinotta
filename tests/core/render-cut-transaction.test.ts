@@ -24,7 +24,7 @@ for (const mode of ['accepted-playing', 'refused-playing', 'refused-paused'] as 
       const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
       await openDetailedEditor(page, server.url);
       await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Founder talk: going local-first' }).click();
-      await page.getByRole('button', { name: 'Review', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
       const editor = page.locator('[data-verify-unit="MediaEditor"]');
       const lanes = page.locator('[data-verify-unit="NativeLanes"]');
       await expect.poll(() => page.getByRole('button', { name: 'Add track', exact: true }).isEnabled()).toBe(true);
