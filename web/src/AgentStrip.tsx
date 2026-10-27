@@ -22,7 +22,7 @@ const STAGE_LABELS: Partial<Record<AgentJobState, string>> = {
   failed: 'Failed',
   interrupted: 'Failed',
   cancelled: 'Cancelled',
-  'copy-ready': 'Request ready to paste',
+  'copy-ready': 'Waiting for your agent',
 };
 const isActive = (job: AgentJob | null) => job !== null && ACTIVE_JOB_STATES.includes(job.state);
 
@@ -160,7 +160,7 @@ export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, o
     <section className="agent-strip" data-state={currentJob.state} data-active={active} aria-label="B-roll progress">
       <div className="agent-strip-row">
         <div className="agent-strip-what" role="status">
-          <b>{ready ? `B-roll for ${displayTitle} is ready` : failed ? 'Failed' : cancelled ? 'Cancelled' : copy ? `B-roll for ${displayTitle}` : `Adding b-roll to ${displayTitle}`}</b>
+          <b>{ready ? (currentJob.provider === 'copy' ? 'Your agent finished' : `B-roll for ${displayTitle} is ready`) : failed ? 'Failed' : cancelled ? 'Cancelled' : copy ? `B-roll for ${displayTitle}` : `Adding b-roll to ${displayTitle}`}</b>
           {!ready && !failed && !cancelled && <span className="agent-strip-stage">{stage}</span>}
           {currentJob.quiet && active && <span className="agent-strip-quiet">Running, no recent output</span>}
           {currentJob.error && <span className="agent-strip-error">{currentJob.error}</span>}

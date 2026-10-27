@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { copyFile, cp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { brollJobPrompt, makeBrollJobRequest, type BrollJobRequest } from './requests.ts';
+import { COPY_SETTLE_MS, DONE_MARKER, watchCopyOutput, type CopyWatchHandle } from './copy-watch.ts';
 import type { Frame } from './direction.ts';
 import { readReelStyle } from './style.ts';
 import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch } from './runner.ts';
@@ -41,6 +43,7 @@ export interface AgentJobsOptions {
   launch?: (input: AgentLaunch) => Promise<void>;
   ceilingMs?: number;
   quietMs?: number;
+  settleMs?: number;
 }
 const activeState = (state: AgentJobState): boolean => ['queued', 'running', 'validating', 'cancelling'].includes(state);
 const json = async <T>(file: string): Promise<T> => JSON.parse(await readFile(file, 'utf8')) as T;
@@ -50,9 +53,38 @@ const names = (dir: string): Promise<string[]> => readdir(dir).catch((error: Nod
 export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) => void, options: AgentJobsOptions = {}) {
   const latest = new Map<string, AgentJob>();
   const running = new Map<string, Active>();
+  const copyWatchers = new Map<string, CopyWatchHandle>();
   let closed = false;
   const jobDir = (job: Pick<AgentJob, 'reel' | 'id'>): string => join(projectDir, 'reels', job.reel, '.agent/jobs', job.id);
   const writes = new Map<string, Promise<void>>();
+
+  function stopWatching(reel: string): void {
+    const watcher = copyWatchers.get(reel);
+    if (watcher) {
+      watcher.stop();
+      copyWatchers.delete(reel);
+    }
+  }
+
+  function startWatchingCopyJob(job: AgentJob): void {
+    if (closed || job.state !== 'copy-ready') return;
+    stopWatching(job.reel);
+    const outputDir = join(jobDir(job), 'output');
+    const watcher = watchCopyOutput(
+      outputDir,
+      async () => {
+        copyWatchers.delete(job.reel);
+        try {
+          await runAcceptOutput(job.reel, job.id);
+        } catch {
+          // Handled within runAcceptOutput
+        }
+      },
+      { settleMs: options.settleMs ?? COPY_SETTLE_MS },
+    );
+    copyWatchers.set(job.reel, watcher);
+  }
+
   const set = (job: AgentJob): Promise<void> => {
     const snapshot = { ...job };
     latest.set(job.reel, job);
@@ -63,6 +95,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     writes.set(job.id, task);
     return task;
   };
+
   async function applyPendingCuts(job: AgentJob, version: number): Promise<void> {
     const reelDir = await requireReelDir(projectDir, job.reel);
     const file = join(reelDir, `v${version}`, 'cuts.json');
@@ -106,7 +139,17 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
         jobs.push(latest.get(reel)?.id === id ? latest.get(reel)! : job);
       }
       const newest = jobs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-      if (newest) latest.set(reel, newest);
+      if (newest) {
+        latest.set(reel, newest);
+        if (newest.state === 'copy-ready') {
+          const marker = join(jobDir(newest), 'output', DONE_MARKER);
+          if (existsSync(marker)) {
+            if (!closed) await runAcceptOutput(reel, newest.id).catch(() => {});
+          } else if (!closed) {
+            startWatchingCopyJob(newest);
+          }
+        }
+      }
     }
   })();
 
@@ -131,6 +174,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     await ready;
     if (closed) throw new KinottaError('invalid', 'The server is shutting down.');
     if (running.has(reel) || (latest.get(reel) && activeState(latest.get(reel)!.state))) throw new KinottaError('frozen', 'This reel already has an agent run.');
+    stopWatching(reel);
     const controller = new AbortController();
     // Claim before the first filesystem await: two HTTP submissions cannot both launch.
     let finish!: () => void;
@@ -169,7 +213,13 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       void execute(current, source, plan, controller, request).catch(() => {
         // A status-write failure leaves the durable unfinished job recoverable as interrupted.
         current.state = 'failed'; current.canRetry = true; current.error = 'Could not save agent status. Check available disk space.';
-      }).finally(() => { running.delete(reel); finish(); });
+      }).finally(() => {
+        running.delete(reel);
+        finish();
+        if (current.state === 'copy-ready' && !closed) {
+          startWatchingCopyJob(current);
+        }
+      });
       return { ...current };
     } catch (error) {
       running.delete(reel); finish();
@@ -265,6 +315,33 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     }
   }
 
+  async function runAcceptOutput(reel: string, id: string): Promise<AgentJob> {
+    if (closed || running.has(reel)) throw new KinottaError('frozen', 'Wait for the managed run to stop before submitting output.');
+    const job = latest.get(reel);
+    if (!job || job.id !== id || !job.canRetry) throw new KinottaError('invalid', 'This is not the current unfinished request.');
+    stopWatching(reel);
+    let finish!: () => void;
+    const done = new Promise<void>((resolveDone) => { finish = resolveDone; });
+    const controller = new AbortController();
+    running.set(reel, { controller, done });
+    try {
+      const outputDir = join(jobDir(job), 'output');
+      await rm(join(outputDir, DONE_MARKER), { force: true });
+      const request = await json<BrollJobRequest>(join(jobDir(job), 'request.json'));
+      job.state = 'validating'; await set(job);
+      await validateAndPublish(job, request, controller, await json<Record<string, unknown>>(join(jobDir(job), 'input/plan.json')), await readFile(join(jobDir(job), 'input/transcript.json'), 'utf8'));
+      job.canRetry = false;
+    } catch (error) {
+      job.state = controller.signal.aborted ? 'cancelled' : 'failed';
+      job.error = (error instanceof Error ? error.message : 'Output validation failed.').slice(0, ERROR_LENGTH);
+      job.canRetry = true;
+    } finally {
+      job.updatedAt = new Date().toISOString();
+      await set(job).finally(() => { running.delete(reel); finish(); });
+    }
+    return { ...job };
+  }
+
   return {
     ready,
     start,
@@ -278,27 +355,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     },
     async acceptOutput(reel: string, id: string): Promise<AgentJob> {
       await ready;
-      if (closed || running.has(reel)) throw new KinottaError('frozen', 'Wait for the managed run to stop before submitting output.');
-      const job = latest.get(reel);
-      if (!job || job.id !== id || !job.canRetry) throw new KinottaError('invalid', 'This is not the current unfinished request.');
-      let finish!: () => void;
-      const done = new Promise<void>((resolveDone) => { finish = resolveDone; });
-      const controller = new AbortController();
-      running.set(reel, { controller, done });
-      try {
-        const request = await json<BrollJobRequest>(join(jobDir(job), 'request.json'));
-        job.state = 'validating'; await set(job);
-        await validateAndPublish(job, request, controller, await json<Record<string, unknown>>(join(jobDir(job), 'input/plan.json')), await readFile(join(jobDir(job), 'input/transcript.json'), 'utf8'));
-        job.canRetry = false;
-      } catch (error) {
-        job.state = controller.signal.aborted ? 'cancelled' : 'failed';
-        job.error = (error instanceof Error ? error.message : 'Output validation failed.').slice(0, ERROR_LENGTH);
-        job.canRetry = true;
-      } finally {
-        job.updatedAt = new Date().toISOString();
-        await set(job).finally(() => { running.delete(reel); finish(); });
-      }
-      return { ...job };
+      return runAcceptOutput(reel, id);
     },
     async cancel(reel: string): Promise<AgentJob | null> {
       await ready;
@@ -309,9 +366,20 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
         if (active && job && activeState(job.state)) { job.state = 'cancelling'; active.controller.abort(); await set(job); }
       });
       await running.get(reel)?.done;
-      return latest.get(reel) ?? null;
+      const job = latest.get(reel);
+      if (job && !activeState(job.state) && job.state !== 'copy-ready') {
+        stopWatching(reel);
+      }
+      return job ?? null;
     },
     async whenDone(reel: string): Promise<void> { await ready; await running.get(reel)?.done; },
-    async close(): Promise<void> { closed = true; await ready; for (const active of running.values()) active.controller.abort(); await Promise.all([...running.values()].map((a) => a.done)); },
+    async close(): Promise<void> {
+      closed = true;
+      for (const watcher of copyWatchers.values()) watcher.stop();
+      copyWatchers.clear();
+      await ready;
+      for (const active of running.values()) active.controller.abort();
+      await Promise.all([...running.values()].map((a) => a.done));
+    },
   };
 }
