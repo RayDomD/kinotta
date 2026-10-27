@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { fetchEffects, fetchSoundEffects, type EffectCatalogueEntry, type SoundEffect } from './api/index.ts';
 
 interface LibraryProps {
   onBack(): void;
   reelTitle?: string;
+  agentStripSlot?: ReactNode;
 }
 
 const CATEGORIES: { id: string; name: string }[] = [
@@ -79,7 +80,7 @@ function saveFavourites(favs: Set<string>): void {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export function Library(props: LibraryProps) {
-  const { onBack, reelTitle = 'The pin' } = props;
+  const { onBack, reelTitle = 'The pin', agentStripSlot } = props;
   const [tab, setTab] = useState<'effects' | 'looks' | 'camera' | 'transitions' | 'sounds'>('effects');
   const [effects, setEffects] = useState<EffectCatalogueEntry[]>([]);
   const [sounds, setSounds] = useState<SoundEffect[]>([]);
@@ -203,6 +204,8 @@ export function Library(props: LibraryProps) {
           Back to editor
         </button>
       </header>
+
+      {agentStripSlot}
 
       {tab === 'effects' ? (
         <div className="library-shell">
