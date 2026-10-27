@@ -23,12 +23,17 @@ async function auto(page: Page, url: string, title: string) {
 test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes and Open selects v2', async ({ page }) => {
   test.setTimeout(120_000);
   let release = () => {};
+  let notifySecondLaunch = () => {};
+  const secondLaunch = new Promise<void>((done) => { notifySecondLaunch = done; });
+  let launchCount = 0;
   const server = await startServer({
     projectDir: copyFixture('footage-project'), port: 0,
     transcriber: async () => [{ text: 'hello', start: 0.5, end: 0.9 }, { text: 'world', start: 1, end: 1.4 }],
     agent: { quietMs: 100, launch: async (input) => {
+      launchCount++;
       await new Promise<void>((done) => {
         release = done;
+        if (launchCount === 2) notifySecondLaunch();
         input.signal.addEventListener('abort', () => done(), { once: true });
         if (input.signal.aborted) done();
       });
@@ -79,6 +84,7 @@ test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes an
     expect(await server.project.readEditList(slug)).toEqual(edits);
     await strip.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(strip).toContainText('Claude Code is choosing and building cutaways');
+    await secondLaunch;
     release();
     await expect(strip).toContainText('B-roll for Strip test is ready', { timeout: 60_000 });
     await strip.getByRole('button', { name: 'Open v2', exact: true }).click();
@@ -97,6 +103,7 @@ test('Copy mode explains the next step and exposes the request if clipboard fail
     await auto(page, server.url, 'Copy strip');
     const strip = page.getByRole('region', { name: 'B-roll progress' });
     await expect(strip).toContainText("Paste it into your agent. Kinotta loads v2 when it's done.");
+    await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toBeVisible();
     await strip.getByRole('button', { name: 'Copy request', exact: true }).click();
     await expect(strip.getByRole('textbox', { name: 'Agent request' })).toBeVisible();
     await expect(strip.getByRole('textbox', { name: 'Agent request' })).toHaveValue((await server.project.copyAgentRequest('copy-strip')).request);
@@ -124,6 +131,39 @@ for (const state of ['queued', 'validating', 'cancelling', 'failed', 'interrupte
       await page.getByRole('button', { name: 'More', exact: true }).click();
       await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'New reel', exact: true }).click();
       await expect(strip).toHaveCount(0);
+    } finally { await server.close(); }
+  });
+}
+
+for (const state of ['queued', 'cancelled', 'failed', 'copy-ready'] as const) {
+  test(`Copy provider in ${state} state handles paste instructions and copy button`, async ({ page }) => {
+    const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+    try {
+      const isReady = state === 'copy-ready';
+      const job: AgentJob = {
+        id: `copy-${state}`,
+        reel: 'product-showreel',
+        provider: 'copy',
+        state,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        elapsedSeconds: 3,
+        quiet: false,
+        canRetry: state !== 'queued',
+        canCopy: isReady,
+        ...(isReady ? { version: 2 } : {}),
+        ...(state === 'failed' ? { error: 'Could not prepare the agent request' } : {}),
+      };
+      await page.route('**/api/reels/*/agent', (route) => route.fulfill({ json: { job } }));
+      await page.goto(server.url);
+      const strip = page.getByRole('region', { name: 'B-roll progress' });
+      if (isReady) {
+        await expect(strip).toContainText("Paste it into your agent. Kinotta loads v2 when it's done.");
+        await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toBeVisible();
+      } else {
+        await expect(strip).not.toContainText('Paste it into your agent');
+        await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toHaveCount(0);
+      }
     } finally { await server.close(); }
   });
 }

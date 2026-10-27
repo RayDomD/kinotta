@@ -1,3 +1,6 @@
+import { applyOperations, type Plan, type SnipOperation } from './edit-model.ts';
+import { AGENT_CUT_BY } from './dead-air.ts';
+import { validateOperationInput } from './edit-list.ts';
 import { pieceMap, type Piece } from './pieces.ts';
 import { lstat, readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -55,6 +58,67 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
   for (const key of ['video', 'transcript']) if (typeof plan[key] === 'string') await local(plan[key], root);
   for (const clip of plan.clips) if (typeof clip.clip === 'string') await local(clip.clip, root, !!clip.template);
   for (const source of plan.media?.sources ?? []) if (typeof source.path === 'string') await local(source.path, root);
+  const cutsPath = join(root, 'cuts.json');
+  const cutsExist = await stat(cutsPath).then((s) => s.isFile(), () => false);
+  if (cutsExist) {
+    let parsed: any;
+    try {
+      parsed = JSON.parse(await readFile(cutsPath, 'utf8'));
+    } catch {
+      throw new Error('Agent output cuts.json is not valid JSON.');
+    }
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.cuts) || parsed.cuts.length > 200) {
+      throw new Error('Agent output cuts must be an array of at most 200 items.');
+    }
+    const cuts = parsed.cuts;
+    const duration = Number(expectedPlan?.duration ?? plan.duration);
+    for (const cut of cuts) {
+      if (
+        !cut ||
+        typeof cut !== 'object' ||
+        typeof cut.from !== 'number' ||
+        !Number.isFinite(cut.from) ||
+        typeof cut.to !== 'number' ||
+        !Number.isFinite(cut.to) ||
+        cut.from < 0 ||
+        cut.from >= cut.to ||
+        cut.to > duration
+      ) {
+        throw new Error('Agent output cut times must be finite numbers with 0 <= from < to <= plan duration.');
+      }
+      if (typeof cut.reason !== 'string' || !cut.reason.trim() || cut.reason.length > 120) {
+        throw new Error('Agent output cut reason must be a non-empty string of at most 120 characters.');
+      }
+    }
+    for (let i = 1; i < cuts.length; i++) {
+      if (cuts[i].from <= cuts[i - 1].from || cuts[i].from < cuts[i - 1].to) {
+        throw new Error('Agent output cuts must be sorted by from and not overlap.');
+      }
+    }
+    let words: { start?: number; end?: number }[] = [];
+    try {
+      const transcriptRaw = expectedTranscript ?? (await readFile(join(root, 'transcript.json'), 'utf8').catch(() => ''));
+      if (transcriptRaw) {
+        const parsedTranscript = JSON.parse(transcriptRaw);
+        if (Array.isArray(parsedTranscript?.words)) words = parsedTranscript.words;
+      }
+    } catch {}
+    for (const cut of cuts) {
+      for (const word of words) {
+        if (typeof word.start === 'number' && typeof word.end === 'number') {
+          if (cut.from > word.start && cut.from < word.end) {
+            throw new Error('Agent output cut from (' + cut.from + ') starts inside a transcript word (' + word.start + ' to ' + word.end + ').');
+          }
+          if (cut.to > word.start && cut.to < word.end) {
+            throw new Error('Agent output cut to (' + cut.to + ') ends inside a transcript word (' + word.start + ' to ' + word.end + ').');
+          }
+        }
+      }
+    }
+    const operations: SnipOperation[] = cuts.map((cut: { from: number; to: number; reason: string }, index: number) => ({ kind: 'snip', from: cut.from, to: cut.to, reason: cut.reason, by: AGENT_CUT_BY, id: `validation:${index}` }));
+    for (const operation of operations) validateOperationInput(operation);
+    applyOperations({ plan: plan as Plan, words: [] }, operations);
+  }
   const manifest = JSON.parse(await readFile(join(root, 'shots.json'), 'utf8'));
   const shots = checkShotsFile(manifest, null);
   if (expectedPlan && Math.abs(manifest.duration - pieceMap(expectedPlan.pieces as Piece[] | undefined, Number(expectedPlan.duration)).length) > 0.01) throw new Error('Agent output changed the reel timeline duration.');

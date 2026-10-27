@@ -1063,7 +1063,7 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .agent-strip-stage, .agent-strip-quiet, .agent-strip-next, .agent-strip-message { color: var(--muted); font-size: 13px; }
 .agent-strip-track { flex: 1; height: 3px; background: var(--rule); position: relative; overflow: hidden; min-width: 80px; }
 .agent-strip-track i { display: block; width: 28%; height: 100%; background: var(--light); }
-.agent-strip[data-active="true"] .agent-strip-track i { animation: agent-strip-sweep var(--agent-sweep-duration) linear infinite; }
+.agent-strip[data-active="true"] .agent-strip-track i { animation: agent-strip-sweep var(--agent-sweep-duration) var(--ease) infinite; }
 @keyframes agent-strip-sweep { from { transform: translateX(-110%); } to { transform: translateX(360%); } }
 .agent-strip[data-active="false"] .agent-strip-track i { width: 100%; }
 .agent-strip[data-state="failed"] .agent-strip-track i, .agent-strip[data-state="interrupted"] .agent-strip-track i { background: var(--changed); }
@@ -1075,12 +1075,8 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .agent-strip-next, .agent-strip-message { margin: 8px 0 0; }
 .agent-strip-error { color: var(--ink-2); font-size: 13px; overflow-wrap: anywhere; }
 .agent-strip-request { display: block; margin-top: 12px; }
-.agent-strip-request textarea { display: block; width: 100%; margin-top: 6px; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--hairline); border-radius: 0; font: inherit; }
+.agent-strip-request textarea { display: block; width: 100%; margin-top: 6px; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--hairline); border-radius: 0; font: inherit; resize: vertical; }
 .agent-strip-request textarea:focus-visible { outline: 1px solid var(--light); outline-offset: 2px; }
-.agent-library-shell { min-height: 100vh; display: flex; flex-direction: column; }
-.agent-library-shell > .library-page { display: contents; }
-.agent-library-shell .library-top { order: -2; }
-.agent-library-shell > .agent-strip-slot { order: -1; }
 @media (max-width: 680px) {
   .agent-strip { padding: 12px 16px; }
   .agent-strip-row { flex-wrap: wrap; gap: 10px 16px; }

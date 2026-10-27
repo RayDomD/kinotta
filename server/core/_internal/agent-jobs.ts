@@ -6,12 +6,14 @@ import type { Frame } from './direction.ts';
 import { readReelStyle } from './style.ts';
 import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch } from './runner.ts';
 import { readAgentSettings, type AgentProvider } from './agent-settings.ts';
-import { readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { appendAgentCutsNow, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { AGENT_CUT_BY } from './dead-air.ts';
 import { requireReelDir, newestVersionNumber } from './version.ts';
 import { publishVersion } from './version-build.ts';
 import { settleNewest } from './carry.ts';
 import { validateAgentOutput } from './agent-output.ts';
 import { KinottaError } from './errors.ts';
+import type { SnipOperation } from './edit-model.ts';
 import type { ProjectEvent } from './types.ts';
 
 export const AGENT_CEILING_MS = 45 * 60 * 1000;
@@ -61,6 +63,19 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     writes.set(job.id, task);
     return task;
   };
+  async function applyPendingCuts(job: AgentJob, version: number): Promise<void> {
+    const reelDir = await requireReelDir(projectDir, job.reel);
+    const file = join(reelDir, `v${version}`, 'cuts.json');
+    const pending = await json<{ cuts: { from: number; to: number; reason: string }[] }>(file).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (!pending) return;
+    const cuts: SnipOperation[] = pending.cuts.map((cut, index) => ({ kind: 'snip', from: cut.from, to: cut.to, reason: cut.reason, by: AGENT_CUT_BY, id: `${job.id}:cut:${index}` }));
+    await appendAgentCutsNow(projectDir, job.reel, cuts);
+    await rm(file);
+  }
+
   const ready = (async () => {
     for (const reel of await names(join(projectDir, 'reels'))) {
       const jobs: AgentJob[] = [];
@@ -68,14 +83,21 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
         if (!/^[a-f0-9-]{36}$/.test(id)) continue;
         const job = await json<AgentJob>(join(projectDir, 'reels', reel, '.agent/jobs', id, 'state.json')).catch(() => null);
         if (!job || job.id !== id || job.reel !== reel) continue;
-        if (activeState(job.state)) {
+        if (activeState(job.state) || job.state === 'failed') {
           const published = await Promise.all((await names(join(projectDir, 'reels', reel))).filter((name) => /^v[1-9]\d*$/.test(name)).map(async (name) => {
             const manifest = await json<{ agentJobId?: string }>(join(projectDir, 'reels', reel, name, 'shots.json')).catch(() => null);
             return manifest?.agentJobId === id ? Number(name.slice(1)) : 0;
           }));
           const version = Math.max(0, ...published);
           if (version) {
-            await set({ ...job, state: 'succeeded', version, canRetry: false, error: undefined });
+            try {
+              const reelDir = await requireReelDir(projectDir, reel);
+              await withReelLock(reelDir, () => applyPendingCuts(job, version));
+              await settleNewest(projectDir, reel);
+              await set({ ...job, state: 'succeeded', version, canRetry: false, canCopy: false, error: undefined });
+            } catch (error) {
+              await set({ ...job, state: 'failed', version, canRetry: true, error: (error instanceof Error ? error.message : 'Could not recover agent cuts.').slice(0, ERROR_LENGTH) });
+            }
             jobs.push(latest.get(reel)!);
             continue;
           }
@@ -157,18 +179,19 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   async function validateAndPublish(job: AgentJob, request: BrollJobRequest, controller: AbortController, frozenPlan: Record<string, unknown>, inputTranscript: string): Promise<void> {
-    await validateAgentOutput(join(jobDir(job), 'output'), controller.signal, frozenPlan, inputTranscript);
+    const output = join(jobDir(job), 'output');
+    await validateAgentOutput(output, controller.signal, frozenPlan, inputTranscript);
     const reelDir = await requireReelDir(projectDir, job.reel);
     await withReelLock(reelDir, async () => {
       if (controller.signal.aborted) throw new Error('Agent cancelled.');
       const newest = await newestVersionNumber(reelDir);
       if (newest !== request.baseVersion) throw new Error('A newer version appeared during this run. Retry against the latest version.');
-      const output = join(jobDir(job), 'output');
       const manifest = await json<Record<string, unknown>>(join(output, 'shots.json'));
       await writeJsonAtomic(join(output, 'shots.json'), { ...manifest, agentJobId: job.id });
       await publishVersion(reelDir, { dir: output }, newest + 1);
       // Replay every still-pending owner operation; publication does not consume the owner's journal.
       await readEditListNow(projectDir, job.reel);
+      await applyPendingCuts(job, newest + 1);
       job.version = newest + 1;
       job.state = 'succeeded';
       job.canRetry = false;

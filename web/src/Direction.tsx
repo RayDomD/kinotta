@@ -193,7 +193,7 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
       if (!confirmed) { setBusy(false); return; }
       const chosen = sendable(style);
       const started = footage
-        ? startReel({ made: 'direct', agentConfirmed: true, video: video.path, title, deadAir: 'normal', ...(about.trim() ? { notes: about.trim() } : {}), style: chosen })
+        ? startReel({ made: 'direct', agentConfirmed: true, video: video.path, title, ...(about.trim() ? { notes: about.trim() } : {}), style: chosen })
         : startStyledBrief({ made: 'direct', title, brief: about.trim(), style: chosen }).then(async (reel) => {
             // As with any brief: the request is on the clipboard when the browser allows it, and on the reel's page anyway.
             await navigator.clipboard.writeText(reel.request).catch(() => undefined);

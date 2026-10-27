@@ -676,12 +676,12 @@ function Studio() {
   const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
   const frozen = openVersion !== undefined && !working;
 
-  if (library) return <div className="agent-library-shell"><div className="agent-strip-slot" ref={setStripTarget} /><Library reelTitle={reel?.title ?? 'The pin'} onBack={() => {
+  if (library) return <Library agentStripSlot={<div className="agent-strip-slot" ref={setStripTarget} />} reelTitle={reel?.title ?? 'The pin'} onBack={() => {
     setLibrary(false);
     if (typeof window !== 'undefined' && window.location.hash === '#library') {
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
-  }} /></div>;
+  }} />;
 
   const topBar = <div className="top-region">
     <TopBar

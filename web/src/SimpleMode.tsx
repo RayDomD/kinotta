@@ -151,9 +151,9 @@ export function computeSimpleCuts(
     },
     replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
       await edits.remove(oldOp.id);
-      const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+      const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by, reason: oldOp.reason });
       if (!ok) {
-        await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+        await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by, reason: oldOp.reason });
         return false;
       }
       return true;
@@ -249,13 +249,13 @@ export function SimpleMode({
     return {
       ...base,
       replaceCut: async (oldOp: SnipOperation, from: number, to: number) => {
-        const newOp: SnipOperation = { kind: 'snip', from, to, by: oldOp.by, id: `pending:${crypto.randomUUID()}` };
+        const newOp: SnipOperation = { kind: 'snip', from, to, by: oldOp.by, reason: oldOp.reason, id: `pending:${crypto.randomUUID()}` };
         setReplacingCut({ oldId: oldOp.id, newOp });
         try {
           await edits.remove(oldOp.id);
-          const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by });
+          const ok = await edits.add({ kind: 'snip', from, to, by: oldOp.by, reason: oldOp.reason });
           if (!ok) {
-            await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by });
+            await edits.add({ kind: 'snip', from: oldOp.from, to: oldOp.to, by: oldOp.by, reason: oldOp.reason });
             return false;
           }
           return true;
