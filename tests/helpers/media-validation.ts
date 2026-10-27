@@ -92,10 +92,28 @@ export function malformedMediaCases() {
   ];
 }
 
+/** A brand that embeds one font, so a caption can name it. */
+const BRAND = { fonts: [{ family: 'Fraunces', file: 'fonts/Fraunces.woff2' }] };
+
+/** Native plans whose caption font or background must be accepted: a built-in font, a brand font, and each background form. */
+export function validCaptionPlans(): { name: string; value: unknown }[] {
+  const media = { schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 3 }], placements: [{ id: 'take', role: 'main', source: 'a', in: 0, out: 3 }], sequence: ['take'] };
+  return [
+    { font: 'Geist' },
+    { font: { family: 'Geist', weight: 800, size: 64 } },
+    { font: { family: 'fraunces' } },
+    { background: 'none' },
+    { background: '#0B0B0B' },
+    { background: '#0B0B0BB8' },
+    { background: 'rgba(11, 11, 11, .72)' },
+    { background: 'hsl(210 40% 10% / 0.5)' },
+  ].map((captions) => ({ name: JSON.stringify(captions), value: { duration: 3, media, captions, brand: BRAND } }));
+}
+
 /** Native plans whose clips, sections or caption settings are malformed, shared by the editor and engine contract tests. */
 export function malformedPlanCases() {
   const media = { schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 3 }], placements: [{ id: 'take', role: 'main', source: 'a', in: 0, out: 3 }], sequence: ['take'] };
-  const plan = { duration: 3, media, clips: [{ id: '01', clip: 'card.html', in: 0.5, out: 1.5, placement: 'take' }], sections: [{ id: 'all', name: 'All', start: 0, end: 3, placement: 'take' }], captions: { look: 'phrase' } };
+  const plan = { duration: 3, media, clips: [{ id: '01', clip: 'card.html', in: 0.5, out: 1.5, placement: 'take' }], sections: [{ id: 'all', name: 'All', start: 0, end: 3, placement: 'take' }], captions: { look: 'phrase' }, brand: BRAND };
   const clip = (changes: object) => ({ ...plan, clips: [{ ...plan.clips[0], ...changes }] });
   const section = (changes: object) => ({ ...plan, sections: [{ ...plan.sections[0], ...changes }] });
   const captions = (value: unknown) => ({ ...plan, captions: value });
@@ -117,6 +135,14 @@ export function malformedPlanCases() {
     { name: 'string captions', value: captions('pill'), error: 'captions' },
     { name: 'unknown caption look', value: captions({ look: 'neon' }), error: 'captions' },
     { name: 'numeric caption color', value: captions({ color: 5 }), error: 'captions' },
+    { name: 'numeric caption font', value: captions({ font: 5 }), error: 'font' },
+    { name: 'unknown caption font', value: captions({ font: 'Comic Sans' }), error: 'font' },
+    { name: 'unknown caption font family', value: captions({ font: { family: 'Papyrus' } }), error: 'font' },
+    { name: 'text caption font weight', value: captions({ font: { family: 'Geist', weight: 'bold' } }), error: 'font' },
+    { name: 'zero caption font size', value: captions({ font: { family: 'Geist', size: 0 } }), error: 'font' },
+    { name: 'numeric caption background', value: captions({ background: 5 }), error: 'background' },
+    { name: 'word caption background', value: captions({ background: 'dark' }), error: 'background' },
+    { name: 'caption background that breaks out of the style', value: captions({ background: '#000;color:red' }), error: 'background' },
     { name: 'string caption position', value: captions({ position: { x: '1', y: 0 } }), error: 'captions' },
     { name: 'object phrase positions', value: captions({ phrases: {} }), error: 'captions' },
     { name: 'null phrase position', value: captions({ phrases: [null] }), error: 'captions' },

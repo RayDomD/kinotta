@@ -108,8 +108,11 @@ before, and moves every unsent comment forward by itself, to the same moment of 
      done and say so. On a cutaway the point is on the clip's own canvas: change what is drawn there.
    - **Caption pin** (`element` is `caption`): about the caption said at the shot's time. Fix a wrong
      word in `transcript.json` (only words inside the batch's section). A phrase breaks at pauses and
-     clause ends, so a comma or full stop added to a word moves a break. A change of look or colour is
-     the plan's `captions` and changes every section, so do it only when the batch asks and say so.
+     clause ends, so a comma or full stop added to a word moves a break. A change of look, colour, font or
+     background is the plan's `captions` and changes every section, so do it only when the batch asks and say
+     so. "Change the caption font" is `captions.font` (Geist, or a family from the plan's `brand.fonts`; never
+     a font the page does not embed) and "no box behind the captions" is `captions.background: "none"`; see
+     `reference/engine-api.md`.
    - **Word pin** (`word` set, with its time): about that spoken moment. Move the clip's change onto
      the word (clip-local time = word time − the clip's `in`), start or end the clip there, or show the
      word's idea, whichever the comment asks.
@@ -149,7 +152,7 @@ you rebuild; losing one undoes an edit the owner made:
   remove the element, drop its entry and say so in `answers.md`. Never bake an offset into the clip's code
   and leave the entry behind: it would apply twice.
 - `captions.position` (`{ "x", "y" }`) and `captions.phrases` (`[{ "at", "x", "y" }]`, `at` the first word's
-  source start): where the owner moved the captions. Keep both, and keep `look` and `color` beside them.
+  source start): where the owner moved the captions. Keep both, and keep `look`, `color`, `font` and `background` beside them.
   Don't change a phrase's first word's time unless a comment asks; the position follows the word.
 - `slid: true` on a clip: the owner slid it off its words. When you re-sync that clip to its words (a word
   pin or a comment asks, or you move its `in` and `out` back onto the words it was written for), delete
