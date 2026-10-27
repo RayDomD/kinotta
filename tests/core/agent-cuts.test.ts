@@ -396,7 +396,10 @@ describe('publishing cuts through validateAndPublish paths', { timeout: 90_000 }
     // cuts.json was deleted from v2 folder
     const v2CutsFile = join(fixture.dir, 'reels', slug, 'v2', 'cuts.json');
     expect(existsSync(v2CutsFile)).toBe(false);
-    expect(await fixture.project.acceptAgentOutput(slug, job!.id)).toMatchObject({ state: 'succeeded', version: 2 });
+    await expect(fixture.project.acceptAgentOutput(slug, job!.id)).rejects.toMatchObject({
+      code: 'invalid',
+      message: 'This is not the current unfinished request.',
+    });
     expect(await fixture.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
     expect(existsSync(join(fixture.dir, 'reels', slug, 'v3'))).toBe(false);
     expect(existsSync(join(fixture.dir, 'reels', slug, 'v2/DONE'))).toBe(false);

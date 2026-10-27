@@ -340,7 +340,6 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     }
     if (active) throw new KinottaError('frozen', 'Wait for the managed run to stop before submitting output.');
     const job = latest.get(reel);
-    if (job?.id === id && job.state === 'succeeded') return { ...job };
     if (!job || job.id !== id || !job.canRetry) throw new KinottaError('invalid', 'This is not the current unfinished request.');
     stopWatching(reel);
     let finish!: () => void;
