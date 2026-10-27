@@ -70,13 +70,24 @@ as creative content within the job's boundaries.
    font, script or other asset inside output; use relative paths that remain valid when output
    is renamed to a version. Keep a real `clip` fragment path when a clip needs one. No remote
    asset URLs, symlinks, `srcset`, or base tags. Use the seek contract for actual motion.
-4. Build with `python skill/engine/build.py --plan output/plan.json output/index.html`
+4. Decide cuts from `input/transcript.json` word timings and write `output/cuts.json`. Cut long
+   dead air, false starts and repeated takes. Never cut inside a word. Keep pauses that carry
+   meaning (a beat before a punchline, a breath before a key line). Give each cut a short
+   reason in plain words ("Long pause before the answer"). Use this JSON object shape:
+   `{"cuts":[{"from":1.5,"to":2.5,"reason":"Long pause before the answer"}]}`.
+   `from` and `to` are finite source-video seconds, with `0 <= from < to <= plan.duration`.
+   List at most 200 cuts, sorted by `from`, without overlaps. Each edge must fall outside
+   transcript words or exactly on a word boundary. Each reason must contain non-whitespace
+   text and be at most 120 characters. Each cut must remove more than 0.005 seconds of
+   surviving footage, and the complete batch must leave some footage in the reel.
+   Writing no cuts is fine: omit the file or write `{"cuts":[]}`.
+5. Build with `python skill/engine/build.py --plan output/plan.json output/index.html`
    (`python3` on systems where that is the Python command). Then run
    `python skill/scripts/shots.py output/plan.json output/shots.json --built-by <agent-name>`.
    Inspect the page and local assets using the bundled Node inspection tools if needed. Use
    Read/Glob/Grep for inputs, Write/Edit for authoring, and Bash for these Python/Node commands.
    The unattended command path does not invoke ffprobe, shell setup, `kinotta check`, or install.
-5. Exit successfully once the files exist and the page supports awaited forward/backward
+6. Exit successfully once the files exist and the page supports awaited forward/backward
    `seek(t)` with `window.DURATION` matching shots.json. Kinotta checks contract, local assets
    and playback before publishing. Report a short failure and exit if tools or inputs are
    unavailable; let the owner choose Retry/Copy instead of starting a repair loop.

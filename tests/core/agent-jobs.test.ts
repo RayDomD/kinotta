@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -16,7 +16,7 @@ async function until(check: () => boolean | Promise<boolean>): Promise<void> {
   const end = Date.now() + 15_000;
   while (!(await check())) { if (Date.now() > end) throw new Error('Condition did not arrive'); await delay(); }
 }
-async function setup(mode = 'success', ceilingMs = 60_000, confirmed = true) {
+async function setup(mode = 'success', ceilingMs = 60_000, confirmed = true, afterLaunch?: (cwd: string) => void) {
   const dir = mkdtempSync(join(tmpdir(), 'Kinotta space \u65e5\u672c\u8a9e '));
   cpSync(copyFixture('footage-project'), dir, { recursive: true });
   const fake = join(dir, 'fake agent.mjs');
@@ -28,7 +28,8 @@ async function setup(mode = 'success', ceilingMs = 60_000, confirmed = true) {
     transcriber: async () => [{ text: 'hello', start: 0.5, end: 1 }],
     agent: { ceilingMs, quietMs: 100, launch: async (input) => {
       await gate;
-      return launchAgent({ ...input, executable: { command: process.execPath, prefix: [fake, nextMode] } });
+      await launchAgent({ ...input, executable: { command: process.execPath, prefix: [fake, nextMode] } });
+      afterLaunch?.(input.cwd);
     } },
   });
   projects.push(project);
@@ -156,6 +157,79 @@ describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, ()
     const reopened = openProject(test.dir); projects.push(reopened);
     expect(await reopened.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2, canRetry: false });
     expect(existsSync(join(test.dir, 'reels', slug, 'v3'))).toBe(false);
+  });
+  it.each(['before append', 'after append', 'after owner restore'] as const)('recovers published cuts idempotently after a stop %s', async (crashPoint) => {
+    const test = await setup('cuts');
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    const job = (await test.project.agentJob(slug))!;
+    expect(job.state).toBe('succeeded');
+    const reelDir = join(test.dir, 'reels', slug);
+    const original = (await test.project.readEditList(slug)).operations[0]!;
+    await test.project.close();
+    // Reconstruct the durable disk state at the stop: published v2, pending batch, unfinished status.
+    writeFileSync(join(reelDir, 'v2/cuts.json'), JSON.stringify({ cuts: [{ from: 1.5, to: 2.5, reason: 'Long pause before the answer' }] }));
+    if (crashPoint === 'before append') rmSync(join(reelDir, 'edit-list.json'));
+    if (crashPoint === 'after owner restore') {
+      const stored = readJson(join(reelDir, 'edit-list.json'));
+      writeFileSync(join(reelDir, 'edit-list.json'), JSON.stringify({ ...stored, operations: [], undo: [...stored.undo, stored.operations] }));
+    }
+    writeFileSync(join(reelDir, '.agent/jobs', job.id, 'state.json'), JSON.stringify({ ...job, state: 'validating' }));
+    const reopened = openProject(test.dir); projects.push(reopened);
+    expect(await reopened.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    const operations = (await reopened.readEditList(slug)).operations;
+    if (crashPoint === 'after owner restore') expect(operations).toEqual([]);
+    else expect(operations).toEqual([original]);
+    expect(existsSync(join(reelDir, 'v2/cuts.json'))).toBe(false);
+    expect(existsSync(join(reelDir, 'v3'))).toBe(false);
+  });
+  it.each([
+    ['whole reel', [{ from: 0, to: 12, reason: 'Everything' }], 'whole reel'],
+    ['whole reel batch', [{ from: 0, to: 6, reason: 'First' }, { from: 6, to: 12, reason: 'Second' }], 'whole reel'],
+    ['blank reason', [{ from: 1.5, to: 2.5, reason: '   ' }], 'non-empty'],
+    ['tiny cut', [{ from: 1.5, to: 1.501, reason: 'Too short' }], 'stretch of footage'],
+  ])('fails a %s batch before publication with its refusal', async (_, cuts, reason) => {
+    const test = await setup('cuts', 60_000, true, (cwd) => writeFileSync(join(cwd, 'output/cuts.json'), JSON.stringify({ cuts })));
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'failed', error: expect.stringContaining(reason as string) });
+    expect(existsSync(join(test.dir, 'reels', slug, 'v2'))).toBe(false);
+  });
+  it('fails visibly on append storage failure and retains pending cuts', async () => {
+    const test = await setup('cuts', 60_000, true, (cwd) => {
+      // An occupied target permits validation/publication but makes the journal rename fail.
+      mkdirSync(resolve(cwd, '../../..', 'edit-list.json'));
+    });
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'failed', canRetry: true, error: expect.any(String) });
+    const reelDir = join(test.dir, 'reels', slug);
+    expect(existsSync(join(reelDir, 'v2/cuts.json'))).toBe(true);
+    await test.project.close();
+    // Recovery also surfaces a repeated storage failure instead of declaring success.
+    const reopened = openProject(test.dir); projects.push(reopened);
+    expect(await reopened.agentJob(slug)).toMatchObject({ state: 'failed', error: expect.any(String) });
+    expect(existsSync(join(reelDir, 'v2/cuts.json'))).toBe(true);
+    await reopened.close();
+    rmdirSync(join(reelDir, 'edit-list.json'));
+    const recovered = openProject(test.dir); projects.push(recovered);
+    expect(await recovered.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    expect((await recovered.readEditList(slug)).operations).toHaveLength(1);
+    expect(existsSync(join(reelDir, 'v2/cuts.json'))).toBe(false);
+  });
+  it('skips only cuts superseded by an owner edit and appends the rest', async () => {
+    const test = await setup('cuts', 60_000, true, (cwd) => writeFileSync(join(cwd, 'output/cuts.json'), JSON.stringify({ cuts: [
+      { from: 1.5, to: 2.5, reason: 'Owner already cut this' },
+      { from: 3, to: 4, reason: 'Another pause' },
+    ] })));
+    test.hold();
+    const slug = await make(test.project);
+    try {
+      await test.project.addOperation(slug, { kind: 'snip', from: 1.4, to: 2.6, by: 'you' });
+      test.release(); await test.project.whenAgentDone(slug);
+      expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded' });
+      expect((await test.project.readEditList(slug)).operations).toMatchObject([
+        { kind: 'snip', from: 1.4, to: 2.6, by: 'you' },
+        { kind: 'snip', from: 3, to: 4, reason: 'Another pause' },
+      ]);
+    } finally { test.release(); }
   });
   it('refuses stale output if an owner freeze publishes a new version mid-run', async () => {
     const test = await setup(); test.hold();

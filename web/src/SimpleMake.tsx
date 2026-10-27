@@ -160,7 +160,7 @@ export function SimpleMake({ onStarted, onBriefStarted }: { onStarted(slug: stri
     void confirmation.confirm().then(async (confirmed) => {
       if (!confirmed) { setBusy(false); return; }
       const style = await usualStyle();
-      const { slug } = await startReel({ agentConfirmed: true, video: picked, title: title.trim(), deadAir: 'normal', ...(style ? { style: { id: style.id } } : {}) });
+      const { slug } = await startReel({ agentConfirmed: true, video: picked, title: title.trim(), ...(style ? { style: { id: style.id } } : {}) });
       onStarted(slug);
     }).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : 'Could not make the reel. Try again.');

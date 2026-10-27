@@ -30,6 +30,11 @@ process.stdin.on('end', () => {
   const inspect = spawnSync(process.execPath, ['skill/engine/render.js', 'output/index.html', '--info'], { encoding: 'utf8', windowsHide: true });
   if (inspect.status !== 0) { writeFileSync('fake-error.txt', inspect.stderr); process.exit(1); }
   writeFileSync('node-inspection.json', inspect.stdout);
+  if (mode === 'cuts') {
+    writeFileSync('output/cuts.json', JSON.stringify({
+      cuts: [{ from: 1.5, to: 2.5, reason: 'Long pause before the answer' }],
+    }));
+  }
   if (mode === 'change-captions') {
     plan.captions = false;
     writeFileSync('output/plan.json', JSON.stringify(plan));

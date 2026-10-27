@@ -182,6 +182,7 @@ export interface SnipOperation extends AuthoredOperation {
   kind: 'snip';
   from: number;
   to: number;
+  reason?: string;
 }
 
 /** Splits the piece holding a source time into two at it. Removes nothing. */
