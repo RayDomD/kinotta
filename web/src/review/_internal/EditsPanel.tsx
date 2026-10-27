@@ -108,6 +108,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
                     <span className="dot">{i + 1}</span>
                     {`${codeOnly ? target.replace(/^Clip/, 'Scene') : target}${pieces && gone === undefined ? ` · ${whereOn(pieces, applied, applied.indexOf(op), clips)}` : ''}`}
                   </div>
+                  {op.kind === 'snip' && op.reason && <p className="meta">{op.reason}</p>}
                   <p>{text}</p><span className="rv-edit-author">{op.by}</span>
                   {gone !== undefined && <div className="note">{`No longer applies to v${edits?.list?.base ?? ''}: ${gone} Remove it, or make the edit again.`}</div>}
                   {gone === undefined && op.kind === 'clip-slide' && <div className="note">Off its words: its changes no longer land on the words they were placed on. Keep it, or ask your agent to re-sync.</div>}

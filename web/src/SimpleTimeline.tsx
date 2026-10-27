@@ -846,6 +846,7 @@ export function SimpleTimeline({
         const maxFrom = cut.to - (MIN_SNIP + 0.001);
         const minTo = cut.from + (MIN_SNIP + 0.001);
         const maxTo = nextCut ? nextCut.from - MIN_SNIP : cuts.sourceDuration;
+        const reason = cut.ops.find((op) => Boolean(op.reason))?.reason;
 
         return (
           <div
@@ -916,6 +917,7 @@ export function SimpleTimeline({
                 }}
               >
                 <span className="sm-cut-length num">{formatDuration(cut.to - cut.from)}</span>
+                {reason && <span className="sm-cut-reason">{reason}</span>}
                 {cut.ops.length > 0 && (
                   <button
                     type="button"
