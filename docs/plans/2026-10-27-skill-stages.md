@@ -1,7 +1,7 @@
 ---
 title: Split the Kinotta skill into a router and one contract per step
 date: 2026-10-27
-status: Draft
+status: Approved
 summary: SKILL.md becomes a short router; each step an agent runs (first build, next version, storyboard, footage section) gets its own contract file, so a job reads only what its step needs.
 spec:
 ---
@@ -14,7 +14,7 @@ spec:
 - Affected: `skill/kinotta/SKILL.md`, new `skill/kinotta/stages/*.md`, prompts in `server/core/_internal/requests.ts` that name skill sections, skill tests in `tests/core` that read the skill text, `CONTEXT.md` if it names skill sections.
 - Constraints: the reel folder layout (`reels/<slug>/v<n>/`, `.agent/jobs/<id>/input|output`) does not change; the server owns it. The skill is copied into each job's `skill/` folder, so stage files must live inside `skill/kinotta/`. No rule is dropped or reworded in meaning; this is a move, not a rewrite. The skill's frontmatter description keeps triggering the same requests.
 - Out of scope: changing what any step does; the engine, templates and scripts; the interactive `kinotta` CLI; the motion-graphic craft guidance (separate memory item).
-- Open questions: (1) Do hard rules stay in the router (read by every step) or move to `reference/hard-rules.md` linked from each contract? Default: stay in the router, since every step needs them.
+- Open questions: none. Hard rules stay in the router, since every step needs them (default accepted with the plan).
 
 ## Goal
 
@@ -67,3 +67,4 @@ skill/kinotta/
 
 ### 2026-10-27
 - Plan created from the owner's request to ICM the reel process. Lane-side runs were restructured the same day under `.herdr/runs/` (local, not in the repo).
+- Owner approved the plan, including one real Auto build with Claude Code as the final check. Work starts after phase G of the start-to-export plan merges, because both touch `server/core/_internal/requests.ts`.
