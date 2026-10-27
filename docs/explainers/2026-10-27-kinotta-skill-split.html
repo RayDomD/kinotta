@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Splitting the Skill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@800&family=Outfit:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  /* Tokens verbatim from Kinotta's DESIGN.md (dark) and web/src/styles.css:33 (light). */
+  :root {
+    --ground: oklch(.184 .004 106);
+    --ground-deep: oklch(.150 .003 106);
+    --card: oklch(.214 .005 90);
+    --card-raised: oklch(.246 .005 90);
+    --ink: oklch(.945 .004 106);
+    --ink-2: oklch(.820 .007 106);
+    --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14);
+    --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225);
+    --light-wash: oklch(.84 .11 225 / .07);
+    --gutter: 22px;
+    --sans: Outfit, "Segoe UI", sans-serif;
+    --num: Doto, monospace;
+    --code: "JetBrains Mono", Consolas, monospace;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --ground: oklch(.965 .004 106);
+      --ground-deep: oklch(.920 .005 106);
+      --card: oklch(.985 .003 106);
+      --card-raised: oklch(.890 .006 106);
+      --ink: oklch(.220 .004 106);
+      --ink-2: oklch(.350 .006 106);
+      --muted: oklch(.460 .008 106);
+      --rule: oklch(.220 .004 106 / .18);
+      --hairline: oklch(.220 .004 106 / .35);
+      --light: oklch(.440 .105 225);
+      --light-wash: oklch(.440 .105 225 / .09);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink-2); font: 400 17px/1.65 var(--sans); }
+  main { max-width: 72ch; margin: 0 auto; padding: 56px var(--gutter) 96px; }
+  h1 { color: var(--ink); font-weight: 500; font-size: clamp(30px, 6vw, 42px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; }
+  h2 { color: var(--ink); font-weight: 500; font-size: 22px; letter-spacing: -.4px; line-height: 1.2; margin: 56px 0 12px; }
+  p { margin: 0 0 14px; }
+  .lede { font-size: 19px; color: var(--ink); }
+  .meta { font-size: 13px; color: var(--muted); }
+  .num { font-family: var(--num); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--light); }
+  code { font-family: var(--code); font-size: .86em; color: var(--ink); background: var(--ground-deep); padding: 1px 5px; }
+  pre { font-family: var(--code); font-size: 13.5px; line-height: 1.55; color: var(--ink-2); background: var(--ground-deep); border: 1px solid var(--rule); padding: 14px 16px; overflow-x: auto; margin: 0 0 8px; }
+  pre b { color: var(--light); font-weight: 400; }
+  .caption { font-size: 13px; color: var(--muted); margin: 0 0 22px; }
+  .badge { display: inline-block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ground); background: var(--light); padding: 2px 8px; margin-bottom: 14px; }
+  .scroll { overflow-x: auto; margin: 0 0 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 520px; }
+  th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td:first-child { color: var(--ink); }
+  tr.hot td { background: var(--light-wash); }
+  .bar { display: flex; height: 44px; border: 1px solid var(--hairline); margin: 8px 0 6px; }
+  .bar span { display: block; height: 100%; border-right: 1px solid var(--ground); background: var(--card-raised); }
+  .bar span.need { background: var(--light); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; background: var(--card-raised); border: 1px solid var(--hairline); }
+  .legend i.need { background: var(--light); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+  .pair pre { margin: 0; }
+  .pair h3 { color: var(--ink); font-weight: 500; font-size: 15px; margin: 0 0 6px; }
+  .card { background: var(--card); border: 1px solid var(--rule); padding: 14px 16px; margin: 0 0 12px; }
+  .card strong { color: var(--ink); font-weight: 500; }
+  ul { padding-left: 20px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; }
+  a { color: var(--light); }
+  @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } body { font-size: 16px; } }
+</style>
+</head>
+<body>
+<main>
+  <span class="badge">Planned · not built yet</span>
+  <h1>Splitting the Kinotta skill</h1>
+  <p class="lede">Every agent that works on a reel reads one instruction file, <code>skill/kinotta/SKILL.md</code>, which is <span class="num">535</span> lines long and describes every job the agent can do. We're splitting it into a short "start here" file plus one file per step, so each job reads only its own instructions. No rule gets added, dropped or changed in meaning. The rules only move.</p>
+  <p class="meta">Before: <a href="2026-10-27-kinotta-skill-before-split.md">saved copy of SKILL.md</a> (origin/main, 2026-10-27). Plan: <code>docs/plans/2026-10-27-skill-stages.md</code>, approved by the owner on 2026-10-27.</p>
+
+  <h2>What one job actually needs</h2>
+  <p>The most common job is Auto's first build. The agent works unattended, adding b-roll over the video, fixing misheard words and deciding cuts. Of the 535 lines, it needs the intro, the "Unattended add b-roll" section and the hard rules. That's <span class="num">91</span> lines, about one-sixth of the file. The other <span class="num">444</span> lines describe jobs that don't apply to it.</p>
+  <div class="bar" role="img" aria-label="535 lines split by section; 91 lines highlighted as needed by the first build">
+    <span class="need" style="flex:23" title="Intro, 23 lines"></span>
+    <span style="flex:28" title="Direction before building, 28"></span>
+    <span class="need" style="flex:43" title="Unattended add b-roll, 43"></span>
+    <span class="need" style="flex:25" title="Hard rules, 25"></span>
+    <span style="flex:8" title="Parts workflow, 8"></span>
+    <span style="flex:8" title="Preflight, 8"></span>
+    <span style="flex:53" title="Brand file, 53"></span>
+    <span style="flex:35" title="Storyboard v1, 35"></span>
+    <span style="flex:12" title="Small changes, 12"></span>
+    <span style="flex:60" title="Next version from a batch, 60"></span>
+    <span style="flex:144" title="Footage reels, 144"></span>
+    <span style="flex:85" title="Next footage version, 85"></span>
+    <span style="flex:11" title="Examples, 11"></span>
+  </div>
+  <div class="legend"><span><i class="need"></i>Needed by Auto's first build (91)</span><span><i></i>Other jobs (444)</span></div>
+  <p class="caption">Section sizes counted from the saved copy, by <code>##</code> heading. Hover a block for its section.</p>
+
+  <h2>The steps a reel goes through</h2>
+  <p>The owner described the process like this. Each step an agent runs gets its own file, which states what the step reads, what it does, what it writes and what the owner checks.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Step</th><th>Who</th><th>Instructions</th></tr>
+    <tr><td><span class="num">01</span></td><td>Transcribe the video (faster-whisper)</td><td>Kinotta</td><td>none, it's server code</td></tr>
+    <tr class="hot"><td><span class="num">02</span></td><td>First build: b-roll, word fixes, cuts</td><td>agent, in the background after Auto</td><td><code>stages/02-first-build.md</code></td></tr>
+    <tr><td><span class="num">03</span></td><td>Watch it and pin comments</td><td>owner</td><td>none</td></tr>
+    <tr><td><span class="num">04</span></td><td>Next version from pasted comments</td><td>agent, when you paste</td><td><code>stages/04-next-version.md</code></td></tr>
+  </table></div>
+  <p>Two more files cover reels started by hand rather than with Auto: <code>stages/new-reel.md</code> for brief-only reels and <code>stages/footage-reel.md</code> for b-roll built interactively.</p>
+
+  <h2>Before and after</h2>
+  <div class="pair">
+    <div><h3>Today</h3>
+<pre>skill/kinotta/
+├── <b>SKILL.md</b>      535 lines, every job
+├── reference/
+├── templates/
+├── engine/
+├── scripts/
+├── assets/
+└── examples/</pre></div>
+    <div><h3>Planned</h3>
+<pre>skill/kinotta/
+├── <b>SKILL.md</b>      ~80 lines: start here
+├── <b>stages/</b>
+│   ├── 02-first-build.md
+│   ├── 04-next-version.md
+│   ├── new-reel.md
+│   └── footage-reel.md
+├── reference/    unchanged
+├── templates/    unchanged
+└── engine/ scripts/ assets/ examples/</pre></div>
+  </div>
+  <p class="caption">The "start here" file keeps what every job needs: what Kinotta is, a "which step am I on?" table, and the hard rules.</p>
+
+  <h2>Where each section goes</h2>
+  <div class="scroll"><table>
+    <tr><th>Section in today's file</th><th>Lines</th><th>New home</th></tr>
+    <tr><td>Intro</td><td><span class="num">1–23</span></td><td><code>SKILL.md</code></td></tr>
+    <tr><td>Direction before building</td><td><span class="num">24–51</span></td><td><code>new-reel.md</code></td></tr>
+    <tr class="hot"><td>Unattended add b-roll</td><td><span class="num">52–94</span></td><td><code>02-first-build.md</code></td></tr>
+    <tr><td>Hard rules</td><td><span class="num">95–119</span></td><td><code>SKILL.md</code></td></tr>
+    <tr><td>Parts workflow</td><td><span class="num">120–127</span></td><td>split: new reels → <code>new-reel.md</code>, batches → <code>04-next-version.md</code></td></tr>
+    <tr><td>§1 Preflight</td><td><span class="num">128–135</span></td><td>split: "pick the branch" → the <code>SKILL.md</code> table, the rest → <code>new-reel.md</code></td></tr>
+    <tr><td>§2 Brand file</td><td><span class="num">136–188</span></td><td><code>new-reel.md</code></td></tr>
+    <tr><td>§3 Build storyboard v1</td><td><span class="num">189–223</span></td><td><code>new-reel.md</code></td></tr>
+    <tr><td>Small changes to Working</td><td><span class="num">224–235</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>§4 Next version from a batch</td><td><span class="num">236–295</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>§5 Footage reels</td><td><span class="num">296–439</span></td><td><code>footage-reel.md</code></td></tr>
+    <tr><td>§6 Next footage version</td><td><span class="num">440–524</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>Examples of the format</td><td><span class="num">525–535</span></td><td><code>reference/</code> or <code>SKILL.md</code>, decided during the move</td></tr>
+  </table></div>
+  <p class="caption">This is the planned mapping. The lane doing the move records the final line-by-line table.</p>
+
+  <h2>What changes in the code</h2>
+  <p>Kinotta's prompt for the first build currently points the agent at a section inside the big file:</p>
+<pre>'Kinotta unattended add-b-roll job. Read request.json, then <b>skill/SKILL.md section "Unattended add b-roll"</b> and follow that path.'</pre>
+  <p class="caption"><code>server/core/_internal/requests.ts:71</code></p>
+  <p>After the split, it points at <code>skill/stages/02-first-build.md</code> and at the short <code>skill/SKILL.md</code> for the hard rules. The engine, templates, scripts and the reel folder layout stay exactly as they are.</p>
+
+  <h2>Why it's worth doing</h2>
+  <div class="card"><strong>Less to read, less to misread.</strong> A job reads the rules for its own step instead of five other paths, so a rule meant for footage reels can't get mixed into a first build.</div>
+  <div class="card"><strong>One place per rule.</strong> When a rule for one step changes, you edit that step's file. On 2026-10-27 the owner decided the agent may fix misheard words (keeping count and timing). In the split layout, that rule lives only in <code>02-first-build.md</code>.</div>
+  <div class="card"><strong>You can see where a reel is.</strong> The steps are numbered and match how the owner describes the process. Anyone can open the file for a step and see what goes in, what comes out and what gets checked.</div>
+
+  <h2>How we make sure nothing gets lost</h2>
+  <ul>
+    <li>Text is moved word for word. A script compares the saved copy with the new files and lists every old line that doesn't appear in exactly one new file. Only the new "start here" wording is allowed to be unmatched.</li>
+    <li>The skill's name and description stay byte-identical, so the same requests still trigger it.</li>
+    <li>The last check is one real Auto build with Claude Code on a fresh project, compared with the 2026-10-27 manual run.</li>
+  </ul>
+
+  <h2>Gotchas</h2>
+  <ul>
+    <li>Kinotta copies the whole skill folder into each agent job (<code>server/core/_internal/runner.ts:627</code>), so the step files must live inside <code>skill/kinotta/</code>, not elsewhere in the repo.</li>
+    <li>The hard rules stay in the "start here" file because every step needs them. Moving them into a step file would hide them from the other steps.</li>
+    <li>This page describes the plan. The line counts are verified from the saved copy, and the "about 80 lines" target comes from the plan. Once the split lands, compare it with the saved copy.</li>
+  </ul>
+</main>
+</body>
+</html>
