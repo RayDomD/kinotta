@@ -5,23 +5,9 @@ Owner's check: Review Working edits in Edits, choose alternatives in Storyboard,
 
 Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` are relative to the skill root, not this stage folder. Numbered section references use the original section numbers: sections 1-3 are in `new-reel.md`, section 4 and section 6 in `04-next-version.md`, and section 5 in `footage-reel.md`. Shared hard rules and "Who built it" are in `../SKILL.md`.
 
-## Parts batches and alternates
+Follow [alternates.md](alternates.md) for parts batches and alternates.
 
-For a parts batch, read the saved batch and its exact frozen manifest. The opening `Rebuild:` line names the shots to change. Write a new revision only for those shots, retain the other revision references, update the root manifest and build. Keep fixed shot names and element names. Kinotta carries frozen owner offsets, sound and later Working operations. Finish when build and check report no issues and each comment has an answer. A changed shared revision affects every shot, so change it only when the batch calls for that.
-
-When a heading asks for `2`, `3` or `4 alternates`, write exactly that many animated shot revisions using the alternate manifest rules in `reference/contract.md`. Recommend one first, with a title and a one-line note for every answer. Keep the rest of the reel's references. Answer feedback using the batch's alternate labels, including Not this reasons. The owner chooses in Storyboard and plays the chosen revision in Working Review, so a choice is not another version you build for them.
-
-## Small changes to Working
-
-For gain, mute, track controls, timing, captions, words, element offsets and supported media placements, add an operation instead of copying a version. Use your actual agent name:
-
-```text
-kinotta edit <slug> --by Codex '{"kind":"placement-change","placement":"music-bed","changes":{"gain":0.35}}'
-```
-
-Use existing source and placement identities. An added source path must resolve from the working input folder, or be the absolute path returned by the import/generation tool. The command returns the durable edit list. Confirm the operation and its `by` name in that result. The owner sees it in Edits and can undo it. Report the change as an edit to Working, without inventing a version number. Do not manipulate the journal, cancel a hand-off or create a manual checkpoint.
-
-For a picture rebuild from a batch, use the exact frozen version named in the batch as your starting point. Later owner edits are already collecting in Working and will replay onto your new version. Do not apply those edits yourself or copy the journal into the build.
+Follow [edit.md](edit.md) for small changes to Working.
 
 ## 4. Build the next version from a batch
 

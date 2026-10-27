@@ -1,6 +1,6 @@
 ---
 name: kinotta
-description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll, native media and audio tracks, and build the next version from a pasted comment batch. Use when the user asks for a Kinotta reel, brand intro, showreel, storyboard, b-roll, audio-track changes or picture layout, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's.
+description: Build reels for the Kinotta review editor inside a project, including motion-graphic b-roll, native media and audio tracks, and build the next version from a pasted comment batch. Use when the user asks for a Kinotta reel, brand intro, showreel, storyboard, b-roll, audio-track changes or picture layout, or pastes text that starts with "Kinotta comments:". B-roll that won't be reviewed in Kinotta is motion-broll's job, not this skill's. Also use when the user asks to set up a Kinotta project.
 ---
 
 # Kinotta
@@ -27,10 +27,16 @@ Read only the contract for the current step, plus the references it names. Paths
 
 | Step / request | Contract |
 | --- | --- |
+| 00 Setup / set up a Kinotta project | [stages/00-setup.md](stages/00-setup.md) |
+| Direction / pick a look | [stages/direction.md](stages/direction.md) |
+| Alternates / make alternates | [stages/alternates.md](stages/alternates.md) |
+| Sound / add sound | [stages/sound.md](stages/sound.md) |
+| Check / check a reel | [stages/check.md](stages/check.md) |
+| Edit / make a small Working change | [stages/edit.md](stages/edit.md) |
 | 01 Transcribe | Kinotta server (no agent contract) |
 | 02 Unattended first build from Auto or Copy | [stages/02-first-build.md](stages/02-first-build.md) |
 | 03 Review | Owner in Kinotta (no agent contract) |
-| 04 Comment batch, parts alternates, or small Working changes (sections 4 and 6) | [stages/04-next-version.md](stages/04-next-version.md) |
+| 04 Comment batch (sections 4 and 6) | [stages/04-next-version.md](stages/04-next-version.md) |
 | New code-built reel: direction, preflight, brand, storyboard (sections 1-3); format examples | [stages/new-reel.md](stages/new-reel.md) |
 | New footage reel / interactive b-roll over video (section 5) | [stages/footage-reel.md](stages/footage-reel.md) |
 

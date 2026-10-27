@@ -30,7 +30,7 @@ Rules that differ from code-only reels:
   Review phase; the animation is there for then.
 - **The look:** a `reels/brand.md` with `checked:` set to a date decides colour and type (read its
   sources). Without one, use the engine's style defaults and say so in the hand-over. Don't stop to
-  write a brand file for a footage reel.
+  write a brand file for a footage reel; run `/kinotta setup` to set one.
 
 Below, `$SKILL` is this skill's folder. Sources live in a `motion/` folder in the project; only the
 built page and the shot list go in the version.

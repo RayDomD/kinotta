@@ -92,9 +92,7 @@ Video/image placements can carry `region: { x, y, width, height }` in fractions 
 
 For side by side, give the main picture `{ "x": 0, "y": 0, "width": 0.5, "height": 1 }` and an insert `{ "x": 0.5, "y": 0, "width": 0.5, "height": 1 }`. Inserts use their own `at`, `in`, `out` and optional image duration. Several inserts may overlap. By default main pictures are behind inserts, and later inserts in `placements` draw in front. An explicit nonnegative integer `layer` on a picture overrides that default, with higher layers in front. Preserve both placement order and explicit layers unless asked to change them. Regions belong to occurrences, including repeated uses of the same source.
 
-## Small changes to Working
-
-Use `kinotta edit <slug> --by <your name> <operation json>` for supported track, gain, mute, placement, framing, layer, word, caption, offset and timing changes. Do not rewrite a frozen plan or copy a version for these changes. Preserve identity fields and keep unrelated values out of the operation. The command validates against current Working, persists the edit with your name and leaves it undoable. Final/Overlay renders and comment hand-offs preserve exact media and dependencies through the core freeze boundary. Drafts use temporary job captures.
+Follow [edit.md](../stages/edit.md) for small changes to Working.
 
 ## Build a new frozen version for a picture rebuild
 

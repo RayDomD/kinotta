@@ -32,6 +32,8 @@ Run `kinotta build <slug> --by <your name>`, then `kinotta check <slug>`. Kinott
 
 ### Converting a single-page reel to parts
 
+For alternate requests, follow [alternates.md](../stages/alternates.md).
+
 Convert the same reel. Never create a new reel to hold the alternates: the owner's comments, Working edits and version history stay with the reel they were made on. The conversion is the reel's next version, so a reel at v18 becomes parts at v19.
 
 1. Start from the newest version's `index.html` and `shots.json`. Give each scene a fixed portable `name`, using its `data-scene` value.

@@ -50,7 +50,8 @@ it. Both are Windows junctions (symlinks elsewhere), so editing the skill here u
 
 Then, inside any project:
 
-- Ask Claude for a reel. The skill writes `reels/brand.md` on first use and stops for you to check it.
+- Ask Claude to set up a Kinotta project with `/kinotta setup`, or ask for a reel. The skill records the project brand in `reels/brand.md`.
+- Ask for direction, alternates, sound, a check, or a small Working edit using `/kinotta direction`, `/kinotta alternates`, `/kinotta sound`, `/kinotta check`, or `/kinotta edit`.
 - `kinotta` opens the editor on the project's `reels/` folder.
 - `kinotta check <reel> [version]` prints a version's contract issues and exits non-zero when there
   are any. Claude runs it before saying a version is ready.
