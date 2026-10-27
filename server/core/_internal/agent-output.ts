@@ -49,8 +49,20 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
       }
     }
     for (const match of code.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)|\b(?:from\s*|import\s*\(\s*|import\s+)["']([^"']+)["']|@import\s+["']([^"']+)["']/g)) {
-      // Runtime template URLs cannot be resolved as static local asset paths.
-      if (match[1]?.includes('${')) continue;
+      // Only the interpolated suffix is unknowable; validate the literal prefix.
+      if (match[1]?.includes('${')) {
+        const prefix = decodeURIComponent(match[1].split('${')[0]!);
+        if (/^(?:data:|#)/i.test(prefix)) continue;
+        if (isAbsolute(prefix) || /^(?:[a-z][a-z\d+.-]*:|[\\/])/i.test(prefix)) throw new Error('Agent output references an external asset.');
+        if (prefix.split(/[\\/]/).includes('..')) throw new Error('Agent output references a missing or escaping asset.');
+        const path = prefix.split(/[?#]/)[0]!;
+        const directory = path.slice(0, path.lastIndexOf('/') + 1);
+        if (directory) {
+          await local(directory, dirname(file), true);
+          if (!(await stat(resolve(dirname(file), directory))).isDirectory()) throw new Error('Agent output references a missing or escaping asset.');
+        }
+        continue;
+      }
       await local((match[1] ?? match[2] ?? match[3])!, dirname(file));
     }
   }

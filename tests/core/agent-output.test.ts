@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
@@ -45,6 +45,23 @@ for (const extension of ['css', 'html', 'js', 'mjs']) {
     const dir = output([]);
     const code = 'el("grain").style.backgroundImage = `url(${c.toDataURL()})`;';
     writeFileSync(join(dir, `grain.${extension}`), extension === 'html' ? `<script>${code}</script>` : code);
+    await expect(validateAgentOutput(dir, new AbortController().signal)).resolves.toBeUndefined();
+  });
+  it.each([
+    '../secret.png?x=${y}', 'assets/../${name}', '%2e%2e/${name}',
+    '/abs/${a}', '//host/${a}', 'C:\\abs\\${a}', 'https://host/${a}', 'custom+asset:/${a}',
+    'missing/${name}', '01.html/${name}',
+  ])(`rejects unsafe interpolated url(%s) in ${extension}`, async (reference) => {
+    const dir = output([]);
+    const code = `background-image: url('${reference}')`;
+    writeFileSync(join(dir, `grain.${extension}`), extension === 'html' ? `<style>${code}</style>` : code);
+    await expect(validateAgentOutput(dir, new AbortController().signal)).rejects.toThrow(/Agent output references (an external|a missing or escaping) asset/);
+  });
+  it.each(['${name}', 'grain-${name}.png', 'assets/${name}.png', 'assets/grain-${name}.png', 'data:image/png,${data}', '#${id}'])(`accepts safe interpolated url(%s) in ${extension}`, async (reference) => {
+    const dir = output([]);
+    mkdirSync(join(dir, 'assets'));
+    const code = `background-image: url('${reference}')`;
+    writeFileSync(join(dir, `grain.${extension}`), extension === 'html' ? `<style>${code}</style>` : code);
     await expect(validateAgentOutput(dir, new AbortController().signal)).resolves.toBeUndefined();
   });
   it.each(['missing.png', '../escape.png'])(`rejects literal url(%s) in ${extension}`, async (reference) => {
