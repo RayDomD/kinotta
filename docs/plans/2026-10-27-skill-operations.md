@@ -1,7 +1,7 @@
 ---
 title: Named operations in the Kinotta skill
 date: 2026-10-27
-status: Approved
+status: Done
 summary: The skill gains setup, direction, alternates, sound, check and edit as named steps, so a project can be set up from the agent and a one-off job reads only its own contract.
 spec:
 ---
@@ -64,6 +64,24 @@ The footage contract's "say so in the hand-over" line for a missing brand file a
 - `node scripts/check-skill-coverage.mjs <old file> skill/kinotta` for each file text moved out of, no leftovers.
 - The two-folder setup run in step 6.
 
+## Result
+
+Shipped as planned on `feat/skill-operations`. The router (`SKILL.md`, 72 lines) lists six new operations, each a contract opening with Reads / Does / Writes / Owner's check: `stages/00-setup.md` (82 lines), `direction.md` (71), `alternates.md` (14), `sound.md` (10), `check.md` (23), `edit.md` (19). The places text left keep a heading and a one-line pointer. Setup offers four choices, writes `reels/brand.md` and a project-root `CONTEXT.md` that lists locations only, and stops; reached from a new reel it keeps the built-in-brand fallback and returns to section 3. Direction reads the reel's saved style first and never writes `style.json`.
+
+Deviations:
+- Added the project `CONTEXT.md` (owner, 2026-10-28) with no creative rules, and Direction reading the reel's style first, both after the first build.
+- Duplicates found while moving (direction inputs, choice sheets, still checks, small Working changes) were merged into one copy, so the coverage check reports those as count changes rather than zero leftovers.
+- The picture-rebuild rule stayed in `04-next-version.md` instead of moving to `edit.md`.
+
+Checks run:
+- Coverage (`scripts/check-skill-coverage.mjs`, old stages + references + router against new): leftovers are only intended changes and merged duplicates (listed in the lane's Results).
+- `npm run typecheck`, `npm run check:docs`, and the skill-text tests `tests/core/agent-jobs.test.ts`, `tests/engine/sound-skill.test.ts`, `tests/engine/native-media-skill.test.ts`: 53/53.
+- Two read-only reviews by agy: 14 findings, all resolved, no new problems.
+- Local full gate did not pass: run starved for memory (1.8 GB free), 16 unit failures in server and render tests this text-only change does not touch, e2e skipped. CI on the PR runs the full suite.
+- Real Claude Code setup in two scratch folders: folder A used its own `DESIGN.md`; folder B copied folder A's brand. Both ended with a checked brand file and a locations-only `CONTEXT.md`; the server's `readBrandFonts` read Inter from both.
+
+The Result answers the Intent: any folder can be set up from the agent, including from another project's brand, and each operation reads only its own contract.
+
 ## Changelog
 
 ### 2026-10-27
@@ -71,3 +89,4 @@ The footage contract's "say so in the hand-over" line for a missing brand file a
 
 ### 2026-10-28
 - Owner added a project `CONTEXT.md` written by setup (step 5 under Setup's new behaviour), so each project folder opens with an ICM map. Goes to codex with the review fixes. Owner: it must not change the agent's creative output, so it holds locations only.
+- Closed: six operations built by codex, reviewed twice by agy, setup tested in two folders. Status Done.
