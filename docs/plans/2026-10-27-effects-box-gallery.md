@@ -42,9 +42,9 @@ Store the box as a list of effect ids per project at `reels/.kinotta/effects-box
 
 1. [x] Core test (red): the box reads empty for a new project; save and read back; unknown ids dropped.
 2. [x] Server module, routes, client call.
-3. [ ] Drawer: empty state, chosen effects, "Browse effects" button.
-4. [ ] Gallery dialog: categories, toggle cards, keyboard and focus handling, close on Escape.
-5. [ ] E2e: open the gallery, add two effects, reload, both still in the box, drag one onto a frame, pin saved.
+3. [x] Drawer: empty state, chosen effects, "Browse effects" button.
+4. [x] Gallery dialog: categories, toggle cards, keyboard and focus handling, close on Escape.
+5. [x] E2e: open the gallery, add two effects, reload, both still in the box, drag one onto a frame, pin saved.
 
 ## Risks
 

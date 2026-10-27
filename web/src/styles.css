@@ -1139,3 +1139,25 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
   .first-cut-hint { flex-wrap: wrap; padding: 12px; gap: 8px 16px; }
   .first-cut-hint > span { flex-basis: 100%; }
 }
+
+/* Effects gallery: every catalogue effect by category; a card is a toggle for the Effects box. */
+.fx-browse { margin-top: 10px; padding: 6px 12px; border: 1px solid var(--hairline); font-size: 13px; }
+.fx-browse:hover, .fx-browse:focus-visible { border-color: var(--ink); }
+.fx-gallery { width: min(1040px, calc(100vw - 32px)); }
+.fx-gallery > header { position: sticky; top: 0; z-index: 2; background: var(--ground); }
+.fx-gallery-note { margin: 0; padding: 12px 20px 0; font-size: 13px; }
+.fx-gallery section { padding: 16px 20px 4px; }
+.fx-gallery h3 { margin-bottom: 12px; }
+.fx-gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.fx-gallery-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; text-align: left; min-width: 0; border: 1.4px solid var(--hairline); background: var(--card); padding: 0 0 6px; }
+.fx-gallery-card:hover { border-color: var(--ink); }
+.fx-gallery-card:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
+.fx-gallery-card[aria-pressed="true"] { border-color: var(--light); box-shadow: 0 0 0 1px var(--light); }
+.fx-gallery-card .still { aspect-ratio: 16/10; pointer-events: none; margin-bottom: 4px; }
+.fx-gallery-card strong, .fx-gallery-card span, .fx-gallery-card small, .fx-gallery-card em { display: block; margin: 3px 8px; font-size: 13px; overflow-wrap: anywhere; }
+.fx-gallery-card strong { font-weight: 500; }
+.fx-gallery-card span, .fx-gallery-card small { font-size: 12px; color: var(--ink-2); }
+.fx-gallery-state { font-style: normal; font-size: 12px; color: var(--muted); }
+.fx-gallery-card[aria-pressed="true"] .fx-gallery-state { color: var(--light); }
+/* Previews play only while their card is on screen. */
+.fx-gallery-card:not([data-visible]) *, .fx-gallery-card:not([data-visible]) *::before, .fx-gallery-card:not([data-visible]) *::after { animation-play-state: paused; }
