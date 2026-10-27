@@ -2,9 +2,9 @@ import { pinnedEffectPage } from './pinned-effect-page.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { BUILT_BY_YOU, applyOperations, describeOperation, operationTouches } from './edit-model.ts';
+import { BUILT_BY_YOU, applyOperations, describeOperation, inputsVersion, operationTouches, workingOperations } from './edit-model.ts';
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
-import { readEditListNow, recordFreeze, workingInputs, workingState, withPreservedMediaHashes, withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { readEditListNow, recordFreeze, workingInputs, workingState, withoutFlagged, withPreservedMediaHashes, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { contentIdentity } from './content-identity.ts';
 import { MEDIA_SIDECAR_FILE, assertCodeOnlyOperations, changedScenes, codeSources, copyVersion, isCodeOnly, offsetsOf, sceneForShot, stillTime, writeEdits, writeSceneTiming } from './code-edits.ts';
 import { freezePageDependencies } from './graphic-preservation.ts';
@@ -15,7 +15,7 @@ import { beginSave, endSave } from './save-journal.ts';
 import { settleNewest } from './carry.ts';
 import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
-import type { SavedVersion } from './types.ts';
+import type { EditList, SavedVersion, SkippedEdit } from './types.ts';
 import { STAGE_DIR, publishVersion, snapshotLegacyVersion, stageVersion } from './version-build.ts';
 import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 import { checkPartsManifest } from './parts.ts';
@@ -79,7 +79,7 @@ export function changedSectionsOf(before: Plan, after: Plan, operations: readonl
  * element offsets (the ones the newest version already had, with the list applied over them) and is linked from the copied
  * page. Built in the stage folder, `edits.json` then `shots.json` last, and renamed to `v<n+1>` in one step.
  */
-async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string, list: { base: number; operations: readonly Operation[] }, options: CaptureOptions = {}): Promise<SavedVersion> {
+async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string, list: { base: number; operations: readonly Operation[] }, skipped: readonly SkippedEdit[], options: CaptureOptions = {}): Promise<SavedVersion> {
   assertCodeOnlyOperations(list.operations);
   const newest = await newestVersionNumber(reelDir);
   const from = join(reelDir, `v${list.base}`);
@@ -159,7 +159,7 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
   }
   const number = newest + 1;
   try {
-    await beginSave(reelDir, number, [], list.operations.map((op) => op.id), await workingState(reelDir));
+    await beginSave(reelDir, number, [], list.operations.map((op) => op.id), withoutFlagged(await workingState(reelDir), skipped, number));
     await publishVersion(reelDir, { dir: stage }, number);
   } catch (failure) {
     await endSave(reelDir);
@@ -168,6 +168,13 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
   }
   await settleNewest(projectDir, slug);
   return { version: number };
+}
+
+/** The edits a save leaves out because they no longer apply, named by what they did and the shot they acted at. */
+function staleEdits(list: EditList): SkippedEdit[] {
+  return list.operations
+    .filter((op) => list.flagged?.[op.id] !== undefined)
+    .map((op) => ({ id: op.id, text: describeOperation(op).text, ...(list.flaggedAt?.[op.id]?.shot ? { shot: list.flaggedAt[op.id]!.shot } : {}) }));
 }
 
 /**
@@ -179,27 +186,26 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
   const task = async (): Promise<SavedVersion> => {
     const list = await readEditListNow(projectDir, slug);
     if ((await newestVersionNumber(reelDir)) === 0) throw new KinottaError('invalid', 'This reel has no version yet. Working renders wait until its transcript is done and v1 is built. Edits still collect.');
-    if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Check its flagged edits before freezing it.`);
-    const flagged = list.operations.filter((op) => list.flagged?.[op.id] !== undefined);
-    if (flagged.length > 0) {
-      const one = flagged.length === 1;
-      const named = flagged.map((op) => { const shot = list.flaggedAt?.[op.id]?.shot; return `${describeOperation(op).text}${shot ? ` (shot ${shot})` : ''}`; }).join('; ');
-      throw new KinottaError('invalid', `${one ? 'One edit no longer applies' : `${flagged.length} edits no longer apply`} to v${list.base}: ${named}. Remove ${one ? 'it' : 'them'} or redo ${one ? 'it' : 'them'}, then freeze Working.`);
-    }
-
+    if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Check its flagged edits before saving it.`);
+    // An edit that no longer applies is left out, not a reason to refuse. Undo brings it back, flagged. A Draft changes nothing, so it records no skip.
+    const skipped = options.capture ? [] : staleEdits(list);
+    const applying = workingOperations(list);
+    // What the version records is what it applied, on the inputs it applied them to, so its edit list replays to the same result.
+    const applied = { base: inputsVersion(list), operations: applying };
+    const result = (version: number): SavedVersion => ({ version, ...(skipped.length > 0 ? { skipped } : {}) });
 
     if (await isCodeOnly(projectDir, reelDir)) {
-      const saved = await freezeCodeOnly(projectDir, slug, reelDir, list, options);
+      const saved = await freezeCodeOnly(projectDir, slug, reelDir, applied, skipped, options);
       if (options.capture) return saved;
-      await recordFreeze(reelDir, saved.version, await workingState(reelDir), await contentIdentity(join(reelDir, `v${saved.version}`)));
+      await recordFreeze(reelDir, saved.version, withoutFlagged(await workingState(reelDir), skipped, saved.version), await contentIdentity(join(reelDir, `v${saved.version}`)));
       await endSave(reelDir);
       await settleNewest(projectDir, slug);
-      return saved;
+      return result(saved.version);
     }
     const { sources, planDir, transcript } = await workingInputs(projectDir, reelDir);
     const { plan, words } = sources;
-    const applied: Sources = await withPreservedMediaHashes(reelDir, applyOperations(sources, list.operations));
-    const edited: Sources = applied.plan.media ? { ...applied, plan: { ...applied.plan, media: await withSpeech(projectDir, planDir, mediaWithTracks(applied.plan.media)) } } : applied;
+    const edit: Sources = await withPreservedMediaHashes(reelDir, applyOperations(sources, applying));
+    const edited: Sources = edit.plan.media ? { ...edit, plan: { ...edit.plan, media: await withSpeech(projectDir, planDir, mediaWithTracks(edit.plan.media)) } } : edit;
     const number = (await newestVersionNumber(reelDir)) + 1;
 
     const staged = await stageVersion(reelDir, {
@@ -210,8 +216,8 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
       words: edited.words,
       transcript,
       builtBy: BUILT_BY_YOU,
-      changedSections: changedSectionsOf(plan, edited.plan, list.operations),
-      operations: { base: list.base, list: list.operations },
+      changedSections: changedSectionsOf(plan, edited.plan, applying),
+      operations: { base: applied.base, list: applying },
     });
 
     if (options.reason) {
@@ -225,26 +231,26 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
     }
     const identity = await contentIdentity(staged.dir);
     const stored = await workingState(reelDir);
-    const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !applied.plan.media?.sources.find((original) => original.id === source.id)?.words) ?? false;
-    if (((list.operations.length === 0 && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
+    const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !edit.plan.media?.sources.find((original) => original.id === source.id)?.words) ?? false;
+    if (((applying.length === 0 && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
       await rm(staged.dir, { recursive: true, force: true });
-      await recordFreeze(reelDir, number - 1, stored, identity);
-      return { version: number - 1 };
+      await recordFreeze(reelDir, number - 1, withoutFlagged(stored, skipped, number - 1), identity);
+      return result(number - 1);
     }
 
     try {
-      if (!plan.media && edited.plan.media) await snapshotLegacyVersion(planDir, join(reelDir, `v${list.base}`), plan, { ...transcript, words });
-      await beginSave(reelDir, number, [], list.operations.map((op) => op.id), await workingState(reelDir));
+      if (!plan.media && edited.plan.media) await snapshotLegacyVersion(planDir, join(reelDir, `v${applied.base}`), plan, { ...transcript, words });
+      await beginSave(reelDir, number, [], applying.map((op) => op.id), withoutFlagged(await workingState(reelDir), skipped, number));
       await publishVersion(reelDir, staged, number);
     } catch (error) {
       await endSave(reelDir);
       await rm(staged.dir, { recursive: true, force: true });
       throw error;
     }
-    await recordFreeze(reelDir, number, await workingState(reelDir), identity);
+    await recordFreeze(reelDir, number, withoutFlagged(await workingState(reelDir), skipped, number), identity);
     await endSave(reelDir);
     await settleNewest(projectDir, slug);
-    return { version: number };
+    return result(number);
   };
   return options.locked ? task() : withReelLock(reelDir, task);
 }

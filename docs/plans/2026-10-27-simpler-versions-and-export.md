@@ -1,7 +1,7 @@
 ---
 title: Simpler versions and export
 date: 2026-10-27
-status: Approved
+status: In Progress
 summary: Drop "freeze" from the screens, let stale edits be skipped with Undo instead of blocking, bring back the version list, and give Export plain names with a tooltip each.
 spec:
 ---

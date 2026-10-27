@@ -24,6 +24,7 @@ const WORKING_RENDER_API = /^\/api\/reels\/([^/]+)\/working-render$/;
 const OVERLOAD_API = /^\/api\/reels\/([^/]+)\/overload$/;
 const MEDIA_MODEL_API = /^\/api\/reels\/([^/]+)\/media-model$/;
 const HANDOFF_API = /^\/api\/reels\/([^/]+)\/handoff$/;
+const SKIPPED_API = /^\/api\/reels\/([^/]+)\/skipped-edits$/;
 const TRANSCRIPTION_API = /^\/api\/reels\/([^/]+)\/transcription$/;
 const RENDER_API = /^\/api\/renders\/([^/]+)$/;
 const RENDER_SETTINGS_API = /^\/api\/reels\/([^/]+)\/render-settings$/;
@@ -404,6 +405,7 @@ export function createHandler(project: Project, webRoot: string) {
       const overloadRoute = OVERLOAD_API.exec(pathname);
       const mediaModelRoute = MEDIA_MODEL_API.exec(pathname);
       const handoffRoute = HANDOFF_API.exec(pathname);
+      const skippedRoute = SKIPPED_API.exec(pathname);
       const transcriptionRoute = TRANSCRIPTION_API.exec(pathname);
       const renderRoute = RENDER_API.exec(pathname);
       const renderSettingsRoute = RENDER_SETTINGS_API.exec(pathname);
@@ -472,6 +474,11 @@ export function createHandler(project: Project, webRoot: string) {
         const slug = safeDecode(handoffRoute[1]!);
         if (slug === null) sendJson(res, 404, { error: 'Not found' });
         else sendJson(res, 200, await project.cancelHandoff(slug));
+      } else if (skippedRoute && req.method === 'DELETE') {
+        // Dismisses the note about edits the last save left out; the edits stay in Undo.
+        const slug = safeDecode(skippedRoute[1]!);
+        if (slug === null) sendJson(res, 404, { error: 'Not found' });
+        else sendJson(res, 200, await project.dismissSkipped(slug));
       } else if (overloadRoute && req.method === 'GET') {
         // `?version=<n>` measures that frozen version. Without it, measure Working.
         const slug = safeDecode(overloadRoute[1]!);

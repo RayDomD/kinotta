@@ -147,7 +147,7 @@ export async function writeSceneTiming(dir: string, before: Sources, after: Sour
 
 /** Code pages take free shot timing, element offsets, and sound edits, without cutting the whole reel. */
 export function assertCodeOnlyOperations(operations: readonly Operation[]): void {
-  const allowed = new Set(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'clip-slide', 'clip-trim', 'source-beats', 'element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-replace', 'placement-split', 'word-text', 'word-timing', 'phrase-text']);
+  const allowed = new Set(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'clip-slide', 'clip-trim', 'source-beats', 'element-offset', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-replace', 'placement-split', 'word-text', 'word-timing', 'phrase-text', 'use-version']);
   if (operations.some((op) => !allowed.has(op.kind) || ((op.kind === 'placement-add' || op.kind === 'placement-replace') && op.placement.role !== 'audio'))) {
     throw new KinottaError('invalid', 'This reel is built from code. Move or trim its shots, move or scale its elements, or edit its sound.');
   }

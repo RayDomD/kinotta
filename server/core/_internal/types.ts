@@ -457,6 +457,8 @@ export interface Project {
   cancelHandoff(slug: string): Promise<EditList>;
   /** Freeze changed Working atomically, reusing identical content and retaining Undo/Redo. */
   freezeEdits(slug: string): Promise<SavedVersion>;
+  /** Clears the note about edits the last save left out; the edits stay in Undo. */
+  dismissSkipped(slug: string): Promise<EditList>;
   /** Assembles the authored root parts manifest and publishes the next version without copying revisions. */
   buildParts(slug: string, by?: string): Promise<BuiltPartsVersion>;
   /**
@@ -533,11 +535,23 @@ export interface EditList {
   handedOff?: { version: number; copiedAt: string; reason: string };
   /**
    * Operations that no longer apply to the version they were replayed onto, by id, with the reason. They stay in the list so
-   * the owner can drop or redo them; they are left out of the preview, and freezing is blocked while any remain.
+   * the owner can drop or redo them; they are left out of the preview, and a save leaves them out (see `skipped`).
    */
   flagged?: Record<string, string>;
   /** Where each flagged operation acts on the newest version, by id, when it has a place: the shot and time to show it at. */
   flaggedAt?: Record<string, FlaggedPlace>;
+  /**
+   * The last save left these edits out, because they no longer applied. Undo brings them back, flagged. Kept until the owner
+   * dismisses it, or the list changes.
+   */
+  skipped?: { version: number; edits: SkippedEdit[] };
+}
+
+/** An edit a save left out, in words, with the shot it acts at when it has one. */
+export interface SkippedEdit {
+  id: string;
+  text: string;
+  shot?: string;
 }
 
 /** Where a flagged edit acts: a moment of the newest version's timeline and the shot playing then. */
@@ -554,8 +568,10 @@ export interface BuiltPartsVersion {
 }
 
 export interface SavedVersion {
-  /** The frozen version, new or reused. */
+  /** The saved version, new or reused. */
   version: number;
+  /** Edits left out because they no longer applied; Undo brings them back. */
+  skipped?: SkippedEdit[];
 }
 
 export interface ImportedVideo {

@@ -78,7 +78,7 @@ describe('a hand-off freezes a snapshot while Working continues', () => {
   });
 
   // It waits up to EVENT_WAIT_MS for the watcher, then builds twice, so the default 5 s is too short under a full run.
-  it('replays only post-hand-off edits, flags a removed target and refuses a freeze until it is resolved', { timeout: EVENT_WAIT_MS * 2 }, async () => {
+  it('replays only post-hand-off edits, flags a removed target and saves without it', { timeout: EVENT_WAIT_MS * 2 }, async () => {
     const { reelDir, project } = await withEdits();
     await project.copyBatch(REEL, 1, { section: 'cold-open' });
     await project.addOperation(REEL, { kind: 'clip-trim', clip: '04', in: 9.8, out: 12 });
@@ -96,9 +96,7 @@ describe('a hand-off freezes a snapshot while Working continues', () => {
     expect(list.handedOff).toBeUndefined();
     expect(list.operations.map((operation) => operation.id)).toEqual(later.map((operation) => operation.id));
     expect(list.flagged).toEqual({ [later[0]!.id]: expect.stringContaining('no clip "04"') });
-    await expect(project.freezeEdits(REEL)).rejects.toMatchObject({ code: 'invalid', message: expect.stringContaining('One edit no longer applies to v3') });
-    await project.removeOperation(REEL, later[0]!.id);
-    expect(await project.freezeEdits(REEL)).toEqual({ version: 4 });
+    expect(await project.freezeEdits(REEL)).toMatchObject({ version: 4, skipped: [{ id: later[0]!.id }] });
     const plan = readJson(join(reelDir, 'v4', 'plan.json'));
     expect(plan.clips.find((clip: { id: string }) => clip.id === '01')).toMatchObject({ in: 0.4, slid: true });
     expect(plan.clips.find((clip: { id: string }) => clip.id === '02')).toMatchObject({ in: 3.4, slid: true });

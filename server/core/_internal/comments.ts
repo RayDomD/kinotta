@@ -10,7 +10,7 @@ import { readState, serialized, stateFilePath, writeState } from './state.ts';
 import type { StateFile, StoredComment } from './state.ts';
 import type { AddedComment, Comment, CommentList, FramePin, NewComment, NewWordPin, NoteSaved, Shot, Version, WordPin } from './types.ts';
 import { assertTakesComments } from './version.ts';
-import { applyOperations, mediaEditingPlan, mediaPlanTimeline } from './edit-model.ts';
+import { applyOperations, inputsVersion, mediaEditingPlan, mediaPlanTimeline, workingOperations } from './edit-model.ts';
 import { withSpeech } from './media-speech.ts';
 import { stillTime } from './code-edits.ts';
 import { mediaWords, mediaTimeline } from './media-model.ts';
@@ -136,9 +136,9 @@ export async function commentsForVersion(projectDir: string, slug: string, numbe
     const list = await readEditListNow(projectDir, slug);
     const history = await workingState(reelDir);
     for (const op of [...history.operations, ...history.undo.flat(), ...history.redo.flat()]) if (op.kind === 'pin-comment') managed.add(op.commentId);
-    const captured = await readPinRecord<import('./state.ts').StoredComment | null>(join(reelDir, `v${list.base}`, 'pin-comments.json'), 'pin comments');
+    const captured = await readPinRecord<import('./state.ts').StoredComment | null>(join(reelDir, `v${inputsVersion(list)}`, 'pin-comments.json'), 'pin comments');
     if (!managed.size && !Object.keys(captured).length && !history.anchor?.sources.plan.pinComments) return ordinary.filter((comment) => !comment.instant);
-    pinComments = applyOperations(await workingSources(projectDir, reelDir), list.operations.filter((op) => !list.flagged?.[op.id])).plan.pinComments ?? {};
+    pinComments = applyOperations(await workingSources(projectDir, reelDir), workingOperations(list)).plan.pinComments ?? {};
   } else {
     pinComments = await readPinRecord<StoredComment | null>(join(reelDir, `v${number}`, 'pin-comments.json'), 'pin comments');
   }
@@ -375,12 +375,13 @@ async function commentVersion(projectDir: string, slug: string, number: number):
   await takesComments(projectDir, slug, number);
   const list = await readEditListNow(projectDir, slug);
   const reelDir = await requireReelDir(projectDir, slug);
-  const base = await readCapturedVersion(projectDir, slug, number, join(reelDir, `v${list.base}`));
+  const inputsDir = join(reelDir, `v${inputsVersion(list)}`);
+  const base = await readCapturedVersion(projectDir, slug, number, inputsDir);
   const sources = await workingSources(projectDir, reelDir);
-  const applied = applyOperations(sources, list.operations.filter((operation) => !list.flagged?.[operation.id]));
+  const applied = applyOperations(sources, workingOperations(list));
   if (applied.plan.parts) {
     const manifest = applied.plan.parts;
-    const media = applied.plan.media ? await withSpeech(projectDir, join(reelDir, `v${list.base}`), applied.plan.media, false) : undefined;
+    const media = applied.plan.media ? await withSpeech(projectDir, inputsDir, applied.plan.media, false) : undefined;
     const words = media ? mediaWords(media, manifest.duration) : [];
     const shots = checkPartsManifest(manifest as unknown as Record<string, unknown>).shots.map((shot) => {
       const spoken = words.filter((word) => word.start >= shot.start && word.start < shot.start + shot.duration);
@@ -397,7 +398,7 @@ async function commentVersion(projectDir: string, slug: string, number: number):
     return { ...base, shots, duration: applied.plan.duration ?? base.duration };
   }
   const plan = mediaPlanTimeline(mediaEditingPlan(applied));
-  const inputs = base.code ? { planDir: join(reelDir, `v${list.base}`) } : await workingInputs(projectDir, reelDir);
+  const inputs = base.code ? { planDir: inputsDir } : await workingInputs(projectDir, reelDir);
   plan.media = await withSpeech(projectDir, inputs.planDir, plan.media!, false);
   const words = mediaWords(plan.media, plan.duration);
   const beforeTimeline = mediaTimeline(mediaEditingPlan(sources).media!, sources.plan.duration);
