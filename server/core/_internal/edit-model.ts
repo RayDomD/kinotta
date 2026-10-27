@@ -17,8 +17,59 @@ const ATTACHED_RANGE_TOLERANCE = 1e-6;
 /** Caption looks the page builder draws: the same list as the engine's CAPTION_LOOKS. */
 const CAPTION_LOOKS: readonly string[] = ['highlight', 'phrase', 'words'];
 
+/** Fonts the page always embeds (skill/kinotta/engine/fonts); a brand's fonts come on top. Mirrors CAPTION_BUILT_IN_FONTS. */
+const CAPTION_BUILT_IN_FONTS: readonly string[] = ['Geist'];
+/** CSS font-weight runs 1 to 1000. */
+const CAPTION_WEIGHT_MAX = 1000;
+/** Pixels of the 1920x1080 page; past it a phrase no longer fits the frame. */
+const CAPTION_SIZE_MAX = 300;
+/** The weight, size and line height of a caption font that names a family alone: the engine's CAPTION_CSS fallback. */
+const CAPTION_WEIGHT = 600;
+const CAPTION_SIZE = 50;
+const CAPTION_LINE = 1.18;
+/** A hex colour, or rgb()/hsl() with the characters of a colour only: nothing that could end the style value early. */
+const CAPTION_COLOUR = /^(?:#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:rgb|hsl)a?\([0-9a-z.,%/\s+-]*\))$/i;
+
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isOffset = (value: unknown): boolean => isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.y);
+
+/** The captions `font` as a family with optional weight and size, or a `invalid` error naming what is wrong. */
+function captionFont(font: unknown): { family: string; weight?: number; size?: number } {
+  const given = typeof font === 'string' ? { family: font } : font;
+  if (!isRecord(given) || typeof given.family !== 'string' || given.family.trim() === '') {
+    throw new KinottaError('invalid', 'The captions font must be a family name in text, or an object with a family and optional weight and size.');
+  }
+  const { weight, size } = given;
+  if (weight !== undefined && !(Number.isFinite(weight) && (weight as number) > 0 && (weight as number) <= CAPTION_WEIGHT_MAX)) throw new KinottaError('invalid', `The captions font weight must be a number from 1 to ${CAPTION_WEIGHT_MAX}.`);
+  if (size !== undefined && !(Number.isFinite(size) && (size as number) > 0 && (size as number) <= CAPTION_SIZE_MAX)) throw new KinottaError('invalid', `The captions font size must be a number of pixels from 1 to ${CAPTION_SIZE_MAX}.`);
+  return { family: given.family.trim(), ...(weight === undefined ? {} : { weight: weight as number }), ...(size === undefined ? {} : { size: size as number }) };
+}
+
+/**
+ * The CSS `font` value (the page's `--cap-font`) for a captions `font`, as the engine writes it. The editor preview
+ * sets the same value, so the two draw alike. Does not check the family: `checkCaptionStyle` does.
+ */
+export function captionFontCss(font: string | CaptionFont): string {
+  const { family, weight, size } = captionFont(font);
+  return `${weight ?? CAPTION_WEIGHT} ${size ?? CAPTION_SIZE}px/${CAPTION_LINE} '${family.replace(/[\\']/g, '\\$&')}',system-ui,sans-serif`;
+}
+
+/**
+ * Refuses a captions `font` the page would not embed (anything but Geist or a family of the plan's brand fonts, which
+ * would silently fall back) and a `background` that is not "none" or a CSS colour. Mirrors the engine's check_caption_style.
+ */
+function checkCaptionStyle(captions: Record<string, unknown>, brand: unknown): void {
+  if (captions.font !== undefined) {
+    const { family } = captionFont(captions.font);
+    const brandFonts = isRecord(brand) && Array.isArray(brand.fonts) ? brand.fonts.flatMap((f) => (isRecord(f) && typeof f.family === 'string' ? [f.family] : [])) : [];
+    const known = [...CAPTION_BUILT_IN_FONTS, ...brandFonts];
+    if (!known.some((name) => name.toLowerCase() === family.toLowerCase())) throw new KinottaError('invalid', `The captions font "${family}" is not available: use ${known.join(' or ')}.`);
+  }
+  const background = captions.background;
+  if (background !== undefined && !(typeof background === 'string' && (background === 'none' || CAPTION_COLOUR.test(background.trim())))) {
+    throw new KinottaError('invalid', 'The captions background must be "none" or a CSS colour such as #0B0B0BB8 or rgba(11, 11, 11, .72).');
+  }
+}
 
 /**
  * Refuses a native plan whose clips, sections or caption settings are not the shapes the editor and the page builder
@@ -49,6 +100,7 @@ function checkPlanParts(plan: Plan): void {
   if (captions.look !== undefined && !CAPTION_LOOKS.includes(captions.look as string)) throw new KinottaError('invalid', `The captions look must be one of ${CAPTION_LOOKS.join(', ')}.`);
   if (captions.color !== undefined && typeof captions.color !== 'string') throw new KinottaError('invalid', 'The captions color must be a CSS color in text.');
   if (captions.position !== undefined && !isOffset(captions.position)) throw new KinottaError('invalid', 'The captions position needs a numeric x and y.');
+  checkCaptionStyle(captions, plan.brand);
   if (captions.phrases === undefined) return;
   if (!Array.isArray(captions.phrases) || !captions.phrases.every((p) => isOffset(p) && Number.isFinite((p as Record<string, unknown>).at) && ['string', 'undefined'].includes(typeof (p as Record<string, unknown>).placement))) {
     throw new KinottaError('invalid', 'The captions phrase positions must be a list, each with a numeric at, x and y.');
@@ -73,10 +125,21 @@ export interface PhrasePosition extends CaptionOffset {
   placement?: string;
 }
 
-/** The plan's `captions` once it is more than `true`: the look and colour pass through. */
+/** A caption font: a family the page embeds (Geist or a brand font), with the weight and pixel size it is drawn at. */
+export interface CaptionFont {
+  family: string;
+  weight?: number;
+  size?: number;
+}
+
+/** The plan's `captions` once it is more than `true`: the look, colour, font and background pass through. */
 export interface CaptionsPlan {
   look?: string;
   color?: string;
+  /** A family name, or a family with weight and size. Absent: Geist, 600, 50px. */
+  font?: string | CaptionFont;
+  /** The box behind the caption: a CSS colour (alpha allowed) or "none". Absent: the dark box. */
+  background?: string;
   position?: CaptionOffset;
   phrases?: PhrasePosition[];
 }

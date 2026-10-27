@@ -6,7 +6,7 @@ import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
 import { captionPhrases, mediaWords } from '../../server/core/model.ts';
 import type { MediaPlan } from '../../server/core/model.ts';
-import { malformedMediaCases, malformedPlanCases } from '../helpers/media-validation.ts';
+import { malformedMediaCases, malformedPlanCases, validCaptionPlans } from '../helpers/media-validation.ts';
 
 const ENGINE = resolve(import.meta.dirname, '../../skill/kinotta/engine');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
@@ -68,6 +68,23 @@ print(json.dumps(results))`, ENGINE], { input: JSON.stringify(cases), encoding: 
     expect(run.status, run.stderr).toBe(0);
     const messages: string[] = JSON.parse(run.stdout);
     cases.forEach((test, i) => expect(messages[i], test.name).toContain(test.error));
+  });
+  it('accepts caption fonts and backgrounds the engine can draw', () => {
+    const cases = validCaptionPlans();
+    const run = spawnSync(PYTHON, ['-c', `import json, sys
+sys.path.insert(0, sys.argv[1])
+from pieces import timeline_plan
+results = []
+for case in json.load(sys.stdin):
+    try:
+        timeline_plan(case['value'])
+        results.append('accepted')
+    except SystemExit as error:
+        results.append(str(error))
+print(json.dumps(results))`, ENGINE], { input: JSON.stringify(cases), encoding: 'utf8' });
+    expect(run.status, run.stderr).toBe(0);
+    const messages: string[] = JSON.parse(run.stdout);
+    cases.forEach((test, i) => expect(messages[i], test.name).toBe('accepted'));
   });
   it('maps looping speech attachments to their named cycle exactly like the editor', () => {
     const plan = {

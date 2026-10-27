@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyOperation, applyOperations, captionPhrases, legacyMedia, mediaPlanTimeline, mediaTimeline, mediaWords, placementTime, timelineMoment } from '../../server/core/model.ts';
 import type { MediaPlan, Plan } from '../../server/core/model.ts';
-import { malformedMediaCases, malformedPlanCases } from '../helpers/media-validation.ts';
+import { malformedMediaCases, malformedPlanCases, validCaptionPlans } from '../helpers/media-validation.ts';
 
 describe('media placement mapping', () => {
   it.each(malformedMediaCases())('rejects $name with a readable model error', ({ value, error }) => {
@@ -15,6 +15,15 @@ describe('media placement mapping', () => {
     const plan = malformedPlanCases()[0]!.value as unknown as Plan;
     expect(() => mediaPlanTimeline({ ...plan, clips: [] })).not.toThrow();
     expect(() => mediaPlanTimeline({ ...plan, clips: [], captions: true } as unknown as Plan)).not.toThrow();
+  });
+  it.each(validCaptionPlans())('accepts caption settings $name', ({ value }) => {
+    expect(() => mediaPlanTimeline(value as Plan)).not.toThrow();
+  });
+  it('keeps font and background through a caption move, so a saved edit list replays to the same plan', () => {
+    const captions = { font: { family: 'Geist', weight: 800 }, background: 'none' };
+    const words = [{ text: 'hello', start: 0.5, end: 0.9 }];
+    const moved = applyOperation({ plan: { captions }, words }, { by: 'you', id: 'a', kind: 'caption-position', x: 4, y: 5 });
+    expect(moved.plan.captions).toEqual({ ...captions, position: { x: 4, y: 5 } });
   });
   it('keeps an explicit main video duration consistent when its source range is trimmed', () => {
     const media: MediaPlan = { schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 3 }], placements: [{ id: 'take', role: 'main', source: 'a', in: 0, out: 3, duration: 3 }], sequence: ['take'] };

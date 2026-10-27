@@ -20,7 +20,7 @@ snipped stretch is dropped, one straddling a snip is trimmed to its edge, and wo
 import base64, html, json, re, sys, pathlib
 E = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(E))
-from pieces import CAPTION_LOOKS, layout, media_spans, media_words, timeline_plan, timeline_words
+from pieces import CAPTION_LOOKS, caption_font, check_caption_style, layout, media_spans, media_words, timeline_plan, timeline_words
 from templates import template_parts
 from brand import brand_assets
 b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
@@ -73,6 +73,9 @@ def clip_source(plan_dir, c):
     if not found: sys.exit(f'clip {c["id"]}: no "clip" path and no clips/{c["id"]}-*.html beside the plan')
     return found[0]
 CAPTION_COLOR = '#FF5A1F'   # the engine's accent
+CAPTION_WEIGHT = 600        # the weight and size of a caption font that names a family alone (CAPTION_CSS's fallback)
+CAPTION_SIZE = 50
+CAPTION_LINE = 1.18
 CAPTION_WORDS = 6           # a phrase's usual cap; it runs up to two over to reach a clause end
 CAPTION_PAUSE = 0.3         # a gap between words this long ends a phrase
 CAPTION_AT = 0.005          # a phrase position names its first word's source start to within this
@@ -80,17 +83,26 @@ CAPTION_HOLD = 0.6          # a phrase stays up until the next starts when the g
 # Bottom centre, clear of left-side panels; the scene lets clicks through to the clips under it, the caption takes them.
 CAPTION_CSS = ('[data-caption]{pointer-events:none}'
     '[data-caption] .caption{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);width:max-content;max-width:1180px;'
-    'text-align:center;font:600 50px/1.18 "Geist",system-ui,sans-serif;letter-spacing:-.01em;color:#fff;pointer-events:auto}'
-    '.caption .ph{padding:.08em .32em;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:rgba(11,11,11,.72);border-radius:10px}'
+    'text-align:center;font:var(--cap-font,600 50px/1.18 "Geist",system-ui,sans-serif);letter-spacing:-.01em;color:#fff;pointer-events:auto}'
+    '.caption .ph{padding:.08em .32em;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--cap-bg,rgba(11,11,11,.72));border-radius:10px}'
     '.caption[data-look=highlight] .now{color:var(--cap-color)}'
     '.caption[data-look=words] .ph{padding:0;background:none}'
-    '.caption[data-look=words] [data-t]{display:inline-block;padding:.08em .22em;margin:0 -.06em .14em;background:rgba(11,11,11,.72);border-radius:10px;opacity:0}'
+    '.caption[data-look=words] [data-t]{display:inline-block;padding:.08em .22em;margin:0 -.06em .14em;background:var(--cap-bg,rgba(11,11,11,.72));border-radius:10px;opacity:0}'
     '.caption[data-look=words] .said{opacity:1}')
-def caption_style(value):
+def caption_style(value, brand=None):
+    """(look, colour, vars): `vars` is the style text for the plan's font and background, empty when it gives neither,
+    so a plan without them builds the page it always did."""
     opts = {} if value is True else value
     look = opts.get('look', 'highlight')
     if look not in CAPTION_LOOKS: sys.exit(f'captions look must be one of {", ".join(CAPTION_LOOKS)}')
-    return look, opts.get('color', CAPTION_COLOR)
+    check_caption_style(opts, brand)
+    vars = ''
+    if 'font' in opts:
+        family, weight, size = caption_font(opts['font'])
+        css_family = family.replace('\\', '\\\\').replace("'", "\\'")
+        vars += f";--cap-font:{weight or CAPTION_WEIGHT:g} {size or CAPTION_SIZE:g}px/{CAPTION_LINE} '{css_family}',system-ui,sans-serif"
+    if 'background' in opts: vars += f";--cap-bg:{opts['background'].strip()}"
+    return look, opts.get('color', CAPTION_COLOR), html.escape(vars, quote=True)
 def caption_shift(value, first, placement=None):
     """The offset (x, y) of the phrase whose first word starts at source second `first`: the reel-wide position plus
     that phrase's own, or None when it is not moved."""
@@ -116,7 +128,7 @@ def phrases(words):
     return out
 def caption_scenes(plan_dir, P, pieces=None):
     if not P.get('transcript') and not P.get('media'): sys.exit('captions need "transcript", the transcript path from the plan')
-    look, color = caption_style(P['captions'])
+    look, color, vars = caption_style(P['captions'], P.get('brand'))
     if P.get('media'): words = media_words(P['media'])
     else:
         words = [{**w, 'at': w['start']} for w in json.load(open(plan_dir/P['transcript'], encoding='utf-8'))['words']]
@@ -128,7 +140,7 @@ def caption_scenes(plan_dir, P, pieces=None):
         moved = f';translate:{shift[0]:g}px {shift[1]:g}px' if shift else ''
         placement = f' data-placement="{html.escape(ph["words"][0]["placement"], quote=True)}"' if 'placement' in ph['words'][0] else ''
         scenes.append(f'<section data-scene="cap-{n:03d}" data-caption{placement} data-source-start="{ph["words"][0]["at"]}" data-start="{ph["start"]}" data-duration="{round(ph["end"] - ph["start"], 6)}">'
-                      f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}{moved}"><span class="ph">{spans}</span></div></section>')
+                      f'<div class="caption" data-el="caption" data-look="{look}" style="--cap-color:{color}{vars}{moved}"><span class="ph">{spans}</span></div></section>')
     return scenes
 def compose(plan_path, dst):
     plan_dir = pathlib.Path(plan_path).resolve().parent; source = json.load(open(plan_path, encoding='utf-8')); P = timeline_plan(source)

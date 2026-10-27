@@ -3,11 +3,16 @@ Source time is the video's own clock; timeline time is the reel's, with the piec
 Whatever lies outside every piece is snipped. A plan without "pieces" is one piece covering the whole video.
 Plans keep clip in/out, word times and section bounds in source time; build.py and shots.py call timeline_plan() and
 timeline_words() to get them on the timeline. server/core/_internal/pieces.ts does the same mapping for Kinotta."""
-import math, sys
+import math, re, sys
 
 EPS = 1e-9
 ATTACHED_RANGE_TOLERANCE = 1e-6
 CAPTION_LOOKS = ('highlight', 'phrase', 'words')   # the looks build.py draws; the editor checks the same list
+CAPTION_BUILT_IN_FONTS = ('Geist',)                # fonts the page always embeds (engine/fonts); a brand's fonts come on top
+CAPTION_WEIGHT_MAX = 1000                          # CSS font-weight runs 1 to 1000
+CAPTION_SIZE_MAX = 300                             # px of the 1920x1080 page; past it a phrase no longer fits the frame
+# A hex colour, or rgb()/hsl() with the characters of a colour only: nothing that could end the style value early.
+CAPTION_COLOUR = re.compile(r'#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(?:rgb|hsl)a?\([0-9a-zA-Z.,%/\s+-]*\)')
 
 def _number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
@@ -17,6 +22,30 @@ def _whole(value):
 
 def _offset(value):
     return isinstance(value, dict) and _number(value.get('x')) and _number(value.get('y'))
+
+def caption_font(font):
+    """The captions `font` as (family, weight, size), the last two None when not given. Exits on any other shape."""
+    if isinstance(font, str): font = {'family': font}
+    if not isinstance(font, dict) or not isinstance(font.get('family'), str) or not font['family'].strip():
+        sys.exit('The captions font must be a family name in text, or an object with a family and optional weight and size.')
+    weight, size = font.get('weight'), font.get('size')
+    if weight is not None and not (_number(weight) and 0 < weight <= CAPTION_WEIGHT_MAX): sys.exit(f'The captions font weight must be a number from 1 to {CAPTION_WEIGHT_MAX}.')
+    if size is not None and not (_number(size) and 0 < size <= CAPTION_SIZE_MAX): sys.exit(f'The captions font size must be a number of pixels from 1 to {CAPTION_SIZE_MAX}.')
+    return font['family'].strip(), weight, size
+
+def check_caption_style(captions, brand):
+    """Refuses a captions `font` the page would not embed (anything but Geist or a family of the plan's brand fonts,
+    which would silently fall back) and a `background` that is not "none" or a CSS colour. Mirrors checkCaptionStyle
+    in server/core/_internal/edit-model.ts."""
+    if 'font' in captions:
+        family = caption_font(captions['font'])[0]
+        brand_fonts = [f['family'] for f in (brand or {}).get('fonts', []) if isinstance(f, dict) and isinstance(f.get('family'), str)]
+        known = [*CAPTION_BUILT_IN_FONTS, *brand_fonts]
+        if family.lower() not in (k.lower() for k in known): sys.exit(f'The captions font "{family}" is not available: use {" or ".join(known)}.')
+    if 'background' in captions:
+        background = captions['background']
+        if not isinstance(background, str) or not (background == 'none' or CAPTION_COLOUR.fullmatch(background.strip())):
+            sys.exit('The captions background must be "none" or a CSS colour such as #0B0B0BB8 or rgba(11, 11, 11, .72).')
 
 def check_plan_parts(plan):
     """Refuses a native plan whose clips, sections or caption settings are not the shapes the builder reads, naming
@@ -45,6 +74,7 @@ def check_plan_parts(plan):
     if 'look' in captions and captions['look'] not in CAPTION_LOOKS: sys.exit(f'The captions look must be one of {", ".join(CAPTION_LOOKS)}.')
     if 'color' in captions and not isinstance(captions['color'], str): sys.exit('The captions color must be a CSS color in text.')
     if 'position' in captions and not _offset(captions['position']): sys.exit('The captions position needs a numeric x and y.')
+    check_caption_style(captions, plan.get('brand'))
     if 'phrases' not in captions: return
     phrases = captions['phrases']
     if not isinstance(phrases, list) or not all(_offset(p) and _number(p.get('at')) and isinstance(p.get('placement', ''), str) for p in phrases):
