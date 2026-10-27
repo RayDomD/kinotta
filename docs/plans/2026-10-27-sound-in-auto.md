@@ -46,8 +46,8 @@ spec:
 
 1. [x] Synth tests (red): default settings reproduce the committed catalogue bytes; two hits with different settings differ; the same input twice is byte-identical; peaks stay at −4 dBFS or below across the settings range.
 2. [x] `synth.py`: recipe parameters, `sound` object in hits, seed from hit id.
-3. [ ] `sound.md`: event-to-sound table and variation rule. `02-first-build.md`: sound step. `tests/engine/sound-skill.test.ts` updated.
-4. [ ] Server: default music line when there is no style; core test for the request text.
+3. [x] `sound.md`: event-to-sound table and variation rule. `02-first-build.md`: sound step. `tests/engine/sound-skill.test.ts` updated.
+4. [x] Server: default music line when there is no style; core test for the request text.
 5. [ ] Import check: `npx vitest run tests/core/media-http.test.ts`, the Direction music e2e (`tests/e2e/direction.spec.ts:141`), and one manual MP3 import on the Media panel; record results.
 6. [ ] Manual run: an Auto build on a scratch reel; confirm the tracks, listen, run `kinotta check` and a Draft render.
 

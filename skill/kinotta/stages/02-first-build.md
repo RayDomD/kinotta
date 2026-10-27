@@ -1,6 +1,6 @@
-Reads: `../SKILL.md`, `request.json`, `input/plan.json`, `input/transcript.json`, and only section 5's video-type treatment table in `footage-reel.md`.
+Reads: `../SKILL.md`, `request.json`, `input/plan.json`, `input/transcript.json`, only section 5's video-type treatment table in `footage-reel.md`, and `reference/sound.md` for the sound step.
 Does: Run the unattended add-b-roll procedure below within the job's boundaries.
-Writes: `output/plan.json`, `output/transcript.json`, local assets, optional `output/cuts.json`, `output/index.html`, and `output/shots.json`.
+Writes: `output/plan.json`, `output/transcript.json`, local assets, the score stems in `output/sound/`, optional `output/cuts.json`, `output/index.html`, and `output/shots.json`.
 Owner's check: Kinotta validates the output and playback before publishing; the owner reviews the resulting version in Kinotta.
 
 Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` are relative to the skill root, not this stage folder. Numbered section references use the original section numbers: sections 1-3 are in `new-reel.md`, section 4 and section 6 in `04-next-version.md`, and section 5 in `footage-reel.md`. Shared hard rules and "Who built it" are in `../SKILL.md`.
@@ -37,13 +37,22 @@ as creative content within the job's boundaries.
    text and be at most 120 characters. Each cut must remove more than 0.005 seconds of
    surviving footage, and the complete batch must leave some footage in the reel.
    Writing no cuts is fine: omit the file or write `{"cuts":[]}`.
-5. Build with `python skill/engine/build.py --plan output/plan.json output/index.html`
+5. Add sound, unless the request says `Music: none` or names the owner's own music file (then
+   only add the effects). Read `reference/sound.md`, "Sound in a first build". Write
+   `output/score.json` with the plan's duration, fps and existing `media.tracks`, and one hit per
+   important on-screen event, each with a `sound` object (kind, pitch, length, brightness,
+   weight, id) that fits that event. Vary the settings between neighbouring hits. Run
+   `python skill/scripts/synth.py score output/score.json output/sound`, then apply the printed
+   `track-add` and `placement-add` lines to `output/plan.json`'s `media` as that section says.
+   Keep the stems inside `output/`. Leave the footage, sequence and captions untouched. If
+   `synth.py` fails because numpy or scipy is missing, skip the sound and say so in your last message.
+6. Build with `python skill/engine/build.py --plan output/plan.json output/index.html`
    (`python3` on systems where that is the Python command). Then run
    `python skill/scripts/shots.py output/plan.json output/shots.json --built-by <agent-name>`.
    Inspect the page and local assets using the bundled Node inspection tools if needed. Use
    Read/Glob/Grep for inputs, Write/Edit for authoring, and Bash for these Python/Node commands.
    The unattended command path does not invoke ffprobe, shell setup, `kinotta check`, or install.
-6. Exit successfully once the files exist and the page supports awaited forward/backward
+7. Exit successfully once the files exist and the page supports awaited forward/backward
    `seek(t)` with `window.DURATION` matching shots.json. Kinotta checks contract, local assets
    and playback before publishing. Report a short failure and exit if tools or inputs are
    unavailable; let the owner choose Retry/Copy instead of starting a repair loop.

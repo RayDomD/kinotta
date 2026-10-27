@@ -131,3 +131,23 @@ it('score gives hits with different sound settings different audio, byte-identic
     expect(first[0]!.equals(first[2]!)).toBe(true);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+it('runs the sound.md score input example and applies its operations', () => {
+  const reference = readFileSync(resolve('skill/kinotta/reference/sound.md'), 'utf8');
+  const blocks = [...reference.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)].map((match) => match[1]!);
+  const input = blocks.find((block) => block.includes('"hits"'));
+  expect(input, 'sound.md should show a score input with hits').toBeDefined();
+  const dir = mkdtempSync(resolve(tmpdir(), 'kinotta-score-example-'));
+  try {
+    const file = resolve(dir, 'score.json');
+    writeFileSync(file, input!);
+    const run = spawnSync(python, [resolve('skill/kinotta/scripts/synth.py'), 'score', file, resolve(dir, 'sound')], { encoding: 'utf8' });
+    expect(run.status, run.stderr).toBe(0);
+    const operations = run.stdout.trim().split('\n').map((line) => JSON.parse(line) as Operation);
+    const plan: Plan = { duration: 12, clips: [], media: { schema: 1, sources: [], tracks: [], placements: [], sequence: [] } };
+    let sources: Sources = { plan, words: [] };
+    operations.forEach((op, index) => { sources = applyOperation(sources, { ...op, id: `score-${index}`, by: 'test' }); });
+    const placements = mediaTimeline(sources.plan.media!, 12).placements.filter((p) => p.role === 'audio');
+    expect(placements.map((p) => [p.id, p.track])).toEqual([['score-bed', 'music'], ['hit-01', 'sfx'], ['hit-02', 'sfx']]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

@@ -3,6 +3,7 @@
 Read this when adding sound effects, voiceover or a generated bed. Follow
 `native-media.md` for tracks, placement timing and source preservation.
 Ask the owner once per reel before adding sound. Reuse their answer for that reel.
+A first build is the exception: it adds sound by default (see "Sound in a first build").
 
 ## Synthesized score and effects
 
@@ -20,7 +21,7 @@ python <skill>/scripts/synth.py score <plan.json> <out-dir> [--tempo 120] [--see
 
 It reads cut and hit times from the plan and writes:
 - A bed stem (`bed.wav`) with an exact `beats` grid, ducking under the kick drum inside the stem, and peak near −6 dBFS.
-- One effect stem per cut or hit (`hit-01.wav`, `hit-02.wav`, etc.), each starting within one frame of its cut, peaked well below full scale.
+- One effect stem per cut or hit (`hit-01.wav`, `hit-02.wav`, etc.), each starting within one frame of its cut, peaked well below full scale. A hit may carry a `sound` object that picks and shapes the effect (see "Sound in a first build").
 - Prints `track-add` operations for missing `music` and `sfx` tracks, then `placement-add` operations to stdout, ready to apply to Working via `kinotta edit`.
 
 ### Synthesized effects catalogue
@@ -60,6 +61,76 @@ relative to the authoring plan. The pop starts at the reveal at one second.
 For an existing reel, add `track-add` and `placement-add` operations through `kinotta edit <slug> --by <your name> <operation json>` using the imported source identity and path. Adjust gain or mute with `placement-change`. Do not copy a version for sound changes. A render or comment hand-off preserves exact source bytes. For an initial build or a picture rebuild, follow `native-media.md` and keep the authored timing contract.
 
 Old reels keep their copied Pixabay files and still play from those preserved files.
+
+## Sound in a first build
+
+Sound is part of every first build (Auto or Copy, footage or code-only) unless the request says
+`Music: none` or names the owner's own music file. In those two cases skip the score. With the
+owner's file, place that file on the `music` track as the request says and still add the effects.
+A request with no Direction style still carries `Music: make a score that fits the cut.`
+
+The result is ordinary placements: a `score-bed` on the `music` track and one effect per hit on
+the `sfx` track. The owner can move, trim, mute and comment on each one.
+
+### Describing each hit
+
+Write a score input beside the authoring plan, with the plan's `duration`, `fps`, the `media.tracks`
+it already has, and a `hits` list. Each hit has its reel time `at` and a `sound` object filled from
+the on-screen event it lands on:
+
+```json
+{
+  "duration": 12, "fps": 30, "media": { "tracks": [] },
+  "hits": [
+    { "at": 1.2, "sound": { "id": "send-click", "kind": "click", "pitch": 0.7, "length": 0.3, "brightness": 0.7, "weight": 0.3 } },
+    { "at": 2.8, "sound": { "id": "card-land", "kind": "impact-bass-1", "pitch": 0.4, "length": 0.5, "brightness": 0.4, "weight": 0.8 } }
+  ]
+}
+```
+
+- `kind` is any catalogue effect in `assets/sfx-synth/manifest.json`.
+- `pitch`, `length`, `brightness` and `weight` run from 0 to 1. 0.5 (or leaving one out) is the
+  catalogue sound. Pitch moves the frequencies by up to half an octave either way. Length
+  stretches the effect and its decay (about 0.7 to 1.4 times). Brightness trades dull for crisp.
+  Weight trades thin for heavy. Values outside 0 to 1 are clamped, and every effect is
+  normalised, so settings never push it past its peak.
+- `id` is a short name for the event. Its seed comes from the id, so the same id and settings
+  always give the same bytes. Use a different id for each distinct event.
+- A hit without `sound` still works: it uses `effect` (or the default cycle) and its position.
+
+### What each on-screen event sounds like
+
+| On screen | `kind` | Settings to start from |
+| --- | --- | --- |
+| Button click | `click` | Small button: pitch 0.7, length 0.3. Large button: pitch 0.35, weight 0.6 |
+| Toggle or switch | `click` or `pop` | pitch 0.3, weight 0.6, brightness 0.4 (a softer thunk) |
+| Key press | `key-press` | Vary pitch 0.3 to 0.7 from key to key |
+| Text typing in | `typing` | `at` is the first character. Length 0.5 for 1.5 s |
+| Text reveal | `ping` or `sparkle` | Brightness 0.6 to 0.9. Higher pitch for a smaller word |
+| Card or panel landing | `impact-bass-1`, `pop` for a small chip | Weight 0.3 (small) to 0.9 (full-screen). Pitch falls as it gets bigger |
+| Notification or toast in | `notification` | pitch 0.5, brightness 0.6 |
+| Chart rise or counter climb | `riser` | `at` is where the riser starts: the climax time minus the riser length (6 s at length 0.5, 4.2 s at 0, 8.5 s at 1) |
+| Transition | `whoosh`, `whoosh-cinematic` for a scene change, `glitch-1` for a hard cut | `at` for whoosh-cinematic is the cut time minus its swell (2.4 s at length 0.5) |
+| Error or wrong beat | `error` | weight 0.4 |
+
+Vary the settings between neighbouring hits of the same kind: two clicks on different things must
+not sound the same. Leave quiet stretches. Aim for a hit on the moments that matter, not on every
+shot. Keep the speech clear: the bed is already near −6 dBFS and effects at −4 dBFS or below at
+placement gain 0.35.
+
+### Run it and apply it
+
+```text
+python <skill>/scripts/synth.py score <score-input.json> <out-dir> [--tempo 120] [--seed 42]
+```
+
+Use an out directory inside the job's `output/` so the paths stay relative (for example
+`output/sound`, with the score input at `output/score.json`). It prints one JSON operation per
+line. For an authoring plan, apply them by editing `output/plan.json`'s `media` by hand: each
+`track-add` adds its `track` to `media.tracks` (skip ids that exist), each `placement-add` adds
+its `source` to `media.sources` and its `placement` to `media.placements`. Never touch the
+`sequence`. For an existing reel, pass them to `kinotta edit <slug> --by <your name>` instead.
+Run the score before `shots.json` is written.
 
 ## Ducking music under speech
 
