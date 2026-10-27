@@ -89,6 +89,16 @@ test('the rail offers Use this version for the open version, and the current ree
   await expect(current(page).getByRole('button')).toContainText('0 edits');
 });
 
+test('Use this version is off in the banner and the rail on the version the current reel already is', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
+  await revealReelRail(page);
+  await saved(page).getByRole('button', { name: /^v3/ }).click();
+  await expect(page.locator('.frozen-version-line').getByRole('button', { name: 'Use this version', exact: true })).toBeDisabled();
+  await expect(page.getByRole('complementary').getByRole('button', { name: 'Use this version', exact: true })).toBeDisabled();
+});
+
 test('Export lists Quick preview, Video and Transparent overlay, each with what it does and why', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('banner').getByRole('button', { name: 'Export', exact: true }).click();

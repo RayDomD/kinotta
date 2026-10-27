@@ -212,10 +212,21 @@ function versionTag(entry: VersionEntry, sectionIds: string[] | null): string {
 }
 
 /** The current reel with Undo and Redo, then every saved version, newest first. A saved version opens read-only. */
+/** The version the current reel was last saved as, and how many edits it has had since. */
+interface ReelPosition { frozenVersion: number; editsSinceFreeze: number }
+
+const reelPosition = (edits: EditsState, newest: number | undefined): ReelPosition => ({
+  frozenVersion: edits.list?.frozen ?? newest ?? 0,
+  editsSinceFreeze: edits.list?.editsSinceFreeze ?? edits.list?.operations.length ?? 0,
+});
+
+/** True when the current reel already is saved version `number`, so using it would change nothing. */
+const isCurrentReel = ({ frozenVersion, editsSinceFreeze }: ReelPosition, number: number | undefined): boolean => number === frozenVersion && editsSinceFreeze === 0;
+
 function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edits, entries, selected, ready, sectionIds, onOpen, onUse }: VersionRailProps) {
   const newestFirst = [...entries].sort((a, b) => b.number - a.number);
   // Using the version the current reel already is changes nothing.
-  const same = selected === frozenVersion && editsSinceFreeze === 0;
+  const same = isCurrentReel({ frozenVersion, editsSinceFreeze }, selected);
   return <div data-verify-unit="VersionRail" data-verify-working={String(working)} data-verify-count={entries.length}><div className="label">Reel</div><nav className="versions" aria-label="Current reel">
     <button type="button" data-working-row data-current-version={frozenVersion} aria-current={working ? 'true' : undefined} onClick={onWorking}>
       <span>Current<span className="rv-who">{editsSinceFreeze} {editsSinceFreeze === 1 ? 'edit' : 'edits'}</span></span>
@@ -400,6 +411,7 @@ function Main(props: MainProps) {
     return (
       <Review
         frozen={!working}
+        current={isCurrentReel(reelPosition(edits, newest), shown?.number)}
         onWorking={onWorking}
         onUse={onUse}
         reel={reel}
@@ -839,8 +851,7 @@ function Studio() {
           versions={{
             edits,
             working,
-            editsSinceFreeze: edits.list?.editsSinceFreeze ?? edits.list?.operations.length ?? 0,
-            frozenVersion: edits.list?.frozen ?? newest ?? 0,
+            ...reelPosition(edits, newest),
             onWorking: () => { setWorking(true); setChosen(newest); },
             onUse: adoptVersion,
             entries: entries ?? [],

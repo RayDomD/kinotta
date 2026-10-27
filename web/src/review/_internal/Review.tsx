@@ -59,6 +59,8 @@ export interface ReviewProps {
     jump: { time: number; seq: number } | null;
   };
   frozen?: boolean;
+  /** The saved version on screen already is the current reel, so Use this version is off. */
+  current?: boolean;
   onWorking?(): void;
   /** Makes the saved version on screen the current reel, as one edit Undo reverses. */
   onUse?(number: number): void;
@@ -565,7 +567,7 @@ function reviewVerifyAttrs(props: ReviewProps) {
 
 export function Review(props: ReviewProps) {
   return <div className="rv-review-stack" {...reviewVerifyAttrs(props)}>
-    {props.frozen && props.version && <div className="frozen-version-line"><span>{`You are viewing v${props.version.number}, a saved version. It cannot be edited.`}</span><button type="button" className="btn" onClick={() => props.onUse?.(props.version!.number)}>Use this version</button><button type="button" className="btn quiet" onClick={props.onWorking}>Back to Working</button></div>}
+    {props.frozen && props.version && <div className="frozen-version-line"><span>{`You are viewing v${props.version.number}, a saved version. It cannot be edited.`}</span><button type="button" className="btn" disabled={props.current} title={props.current ? `The current reel already is v${props.version.number}.` : undefined} onClick={() => props.onUse?.(props.version!.number)}>Use this version</button><button type="button" className="btn quiet" onClick={props.onWorking}>Back to Working</button></div>}
     <ReviewContent {...props} />
   </div>;
 }
