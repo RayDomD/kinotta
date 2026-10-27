@@ -24,7 +24,7 @@ spec:
   - Simple mode keeps working.
 - Out of scope: New editor features, phone layout (Effects already says it needs a computer), and the changes in the other 2026-10-27 plans.
 - Open questions:
-  - O1: Which sidebar collapses: the left rail (Reel, Sections) only, or also the right panel (Effects, Comments)? Recommended: both, each with its own toggle.
+  - O1: Resolved 2026-10-27. Both the left rail (Reel, Sections) and the right panel (Effects, Comments) collapse, each with its own toggle.
   - O2: Exactly which elements resize when the divider moves. To verify in the running editor and from agy's audit before building.
 
 ## Goal
@@ -41,3 +41,4 @@ spec:
 
 ### 2026-10-27
 - Plan created with Intent only. Owner asked for a collapsible sidebar with a light animation, proper scaling, and an impeccable pass by agy.
+- O1 resolved: both side panels collapse.
