@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
 import { copyFixture } from '../helpers/project.ts';
 import { startServer } from '../../server/main.ts';
 import { launchAgent } from '../../server/core/_internal/runner.ts';
@@ -105,6 +106,19 @@ test('agent cuts: shows in the Editor with its reason, can be resized, and can b
     await cutBlock.click();
     const popover = page.getByRole('dialog', { name: 'Cut details' });
     await expect(popover).toBeVisible();
+    await expect(popover).toContainText('Long pause before the answer');
+
+    const artifactDir = resolve('tests/artifacts/agent-cuts');
+    mkdirSync(artifactDir, { recursive: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(popover).toBeVisible();
+    await page.screenshot({ path: resolve(artifactDir, 'popover-1440.png') });
+    await page.screenshot({ path: resolve(artifactDir, 'cut-reason-1440.png') });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(popover).toBeVisible();
+    await page.screenshot({ path: resolve(artifactDir, 'popover-390.png') });
+    await page.screenshot({ path: resolve(artifactDir, 'cut-reason-390.png') });
     await popover.getByRole('button', { name: 'Keep this cut' }).click();
 
     await expect(timeline).toHaveAttribute('data-verify-cuts', '0');
