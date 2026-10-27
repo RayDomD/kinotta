@@ -134,3 +134,81 @@ describe('a version with independent media placements', () => {
     expect(readFileSync(resolve(reelDir, 'v2', saved.media!.sources[0]!.path))).toEqual(original);
   });
 });
+
+describe('owner edits on footage an agent copied into its version (#93)', () => {
+  it('carries a word edit from v1 onto a v2 that names the same footage by a different path', async () => {
+    const dir = copyFixture('footage-project');
+    const reelDir = join(dir, 'reels/founder-talk');
+    writeFileSync(join(dir, 'motion/plan.json'), JSON.stringify({ video: '../media/talk.mp4', duration: 12, clips: [], sections: [{ id: 'all', name: 'All', start: 0, end: 12 }] }));
+    writeFileSync(join(reelDir, 'transcript.json'), JSON.stringify({ words: [{ text: 'management', start: 1, end: 1.5 }] }));
+    const project = openProject(dir);
+    const model = await project.readMediaModel('founder-talk');
+    expect(model.media.sequence[0]).toBe('legacy:../media/talk.mp4:0:12');
+    await project.addOperation('founder-talk', { kind: 'word-text', placement: model.media.sequence[0]!, at: 1, text: 'managements' });
+
+    // The agent's v2 copies the same bytes into its own folder and names them by a path relative to it.
+    mkdirSync(join(reelDir, 'v2'));
+    cpSync(join(reelDir, 'v1/index.html'), join(reelDir, 'v2/index.html'));
+    cpSync(join(reelDir, 'v1/shots.json'), join(reelDir, 'v2/shots.json'));
+    cpSync(join(dir, 'media/talk.mp4'), join(reelDir, 'v2/footage.mp4'));
+    writeFileSync(join(reelDir, 'v2/plan.json'), JSON.stringify({ video: 'footage.mp4', duration: 12, clips: [], sections: [{ id: 'all', name: 'All', start: 0, end: 12 }] }));
+    writeFileSync(join(reelDir, 'v2/transcript.json'), JSON.stringify({ words: [{ text: 'management', start: 1, end: 1.5 }] }));
+
+    const replayed = await openProject(dir).readEditList('founder-talk');
+    expect(replayed.base).toBe(2);
+    expect(replayed.flagged).toBeUndefined();
+    expect(replayed.operations[0]).toMatchObject({ kind: 'word-text', placement: 'legacy:footage.mp4:0:12', text: 'managements' });
+    expect(await openProject(dir).freezeEdits('founder-talk')).toEqual({ version: 3 });
+    const saved = await openProject(dir).readVersion('founder-talk', 3);
+    expect(saved.transcript?.map((w) => w.text)).toEqual(['managements']);
+  });
+
+  it('still flags an edit whose footage the new version replaced with different bytes', async () => {
+    const dir = copyFixture('footage-project');
+    const reelDir = join(dir, 'reels/founder-talk');
+    writeFileSync(join(dir, 'motion/plan.json'), JSON.stringify({ video: '../media/talk.mp4', duration: 12, clips: [], sections: [{ id: 'all', name: 'All', start: 0, end: 12 }] }));
+    writeFileSync(join(reelDir, 'transcript.json'), JSON.stringify({ words: [{ text: 'management', start: 1, end: 1.5 }] }));
+    const project = openProject(dir);
+    const model = await project.readMediaModel('founder-talk');
+    await project.addOperation('founder-talk', { kind: 'word-text', placement: model.media.sequence[0]!, at: 1, text: 'managements' });
+
+    mkdirSync(join(reelDir, 'v2'));
+    cpSync(join(reelDir, 'v1/index.html'), join(reelDir, 'v2/index.html'));
+    cpSync(join(reelDir, 'v1/shots.json'), join(reelDir, 'v2/shots.json'));
+    writeFileSync(join(reelDir, 'v2/footage.mp4'), 'other footage');
+    writeFileSync(join(reelDir, 'v2/plan.json'), JSON.stringify({ video: 'footage.mp4', duration: 12, clips: [], sections: [{ id: 'all', name: 'All', start: 0, end: 12 }] }));
+    writeFileSync(join(reelDir, 'v2/transcript.json'), JSON.stringify({ words: [{ text: 'management', start: 1, end: 1.5 }] }));
+
+    const replayed = await openProject(dir).readEditList('founder-talk');
+    expect(Object.values(replayed.flagged ?? {})).toEqual(['Speech placement legacy:../media/talk.mp4:0:12 is missing.']);
+  });
+});
+
+describe('a flagged edit names where it acts (#93)', () => {
+  it('returns the shot and time on the newest version for an edit whose footage use the agent removed', async () => {
+    const dir = copyFixture('footage-project');
+    const reelDir = join(dir, 'reels/founder-talk');
+    const media = {
+      schema: 1,
+      sources: [{ id: 'a', kind: 'video', path: '../../media/talk.mp4', duration: 12, words: [{ text: 'hello', start: 1, end: 1.5 }] }],
+      placements: [
+        { id: 'first', role: 'main', source: 'a', in: 0, out: 3 },
+        { id: 'second', role: 'main', source: 'a', in: 0, out: 3 },
+        { id: 'third', role: 'main', source: 'a', in: 6, out: 12 },
+      ],
+      sequence: ['first', 'second', 'third'],
+    };
+    writeFileSync(join(reelDir, 'plan.json'), JSON.stringify({ media }));
+    const project = openProject(dir);
+    const { operations } = await project.addOperation('founder-talk', { kind: 'word-text', placement: 'second', at: 1, text: 'world' });
+    mkdirSync(join(reelDir, 'v2'));
+    cpSync(join(reelDir, 'v1/index.html'), join(reelDir, 'v2/index.html'));
+    cpSync(join(reelDir, 'v1/shots.json'), join(reelDir, 'v2/shots.json'));
+    writeFileSync(join(reelDir, 'plan.json'), JSON.stringify({ media: { ...media, placements: [media.placements[0], media.placements[2]], sequence: ['first', 'third'] } }));
+
+    const replayed = await openProject(dir).readEditList('founder-talk');
+    expect(Object.keys(replayed.flagged ?? {})).toEqual([operations[0]!.id]);
+    expect(replayed.flaggedAt).toEqual({ [operations[0]!.id]: { time: 4, shot: '02' } });
+    expect((await openProject(dir).readEditList('founder-talk')).flaggedAt).toEqual(replayed.flaggedAt);
+  });
+});

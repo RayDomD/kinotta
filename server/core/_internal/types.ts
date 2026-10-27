@@ -536,6 +536,16 @@ export interface EditList {
    * the owner can drop or redo them; they are left out of the preview, and freezing is blocked while any remain.
    */
   flagged?: Record<string, string>;
+  /** Where each flagged operation acts on the newest version, by id, when it has a place: the shot and time to show it at. */
+  flaggedAt?: Record<string, FlaggedPlace>;
+}
+
+/** Where a flagged edit acts: a moment of the newest version's timeline and the shot playing then. */
+export interface FlaggedPlace {
+  /** Seconds on the newest version's timeline. */
+  time: number;
+  /** The shot's number ("01"), when the version has shots. */
+  shot?: string;
 }
 
 export interface BuiltPartsVersion {

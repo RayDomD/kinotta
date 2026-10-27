@@ -1302,6 +1302,34 @@ const clock = (seconds: number): string => {
 };
 
 /** What the Edits panel shows for an operation: the part of the reel it is about, and what it did, in plain words. */
+/** Where an edit acts on the reel the sources build, before it applies: a timeline time and, when it names one, the footage use and the source time in it. */
+export interface OperationMoment {
+  time: number;
+  placement?: string;
+  sourceTime?: number;
+}
+
+/**
+ * Where `op` acts on the timeline `sources` lay out: the source time it names inside the placement (or clip) it names, else
+ * that placement's start, else the main footage use that holds its source time. Undefined for an edit with no place (a
+ * track change, the reel-wide caption position) or whose target `sources` do not have.
+ */
+export function operationMoment(op: Operation, sources: Sources): OperationMoment | undefined {
+  const plan = mediaEditingPlan(sources);
+  const timeline = mediaTimeline(plan.media!, plan.duration);
+  const fields = op as unknown as Record<string, unknown>;
+  const clip = typeof fields.clip === 'string' ? plan.clips?.find((c) => c.id === fields.clip) : undefined;
+  const named = typeof fields.placement === 'string' ? fields.placement : (fields.placement as { id?: unknown } | undefined)?.id ?? fields.target ?? clip?.placement;
+  const sourceTime = [fields.at, fields.from, fields.in, clip?.in].find((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const placement = typeof named === 'string' ? timeline.placements.find((p) => p.id === named) : sourceTime === undefined ? undefined
+    : timeline.placements.find((p) => p.role === 'main' && sourceTime >= p.in && sourceTime < p.out);
+  if (!placement) return clip && clip.placement === undefined ? { time: clip.in } : undefined;
+  if (placement.role === 'gap' || sourceTime === undefined) return { time: placement.at, placement: placement.id };
+  // A split names its point as seconds into the placement; every other edit names source time.
+  const offset = Math.min(Math.max(0, op.kind === 'placement-split' ? sourceTime : sourceTime - placement.in), placement.duration);
+  return { time: placement.at + offset, placement: placement.id, sourceTime: placement.in + offset };
+}
+
 export function describeOperation(op: Operation): { target: string; text: string } {
   if (op.reversal) {
     const { reversal: _reversal, ...original } = op;

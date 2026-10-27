@@ -140,17 +140,39 @@ export function trackGain(media: MediaPlan, placement: SourcePlacement): number 
   return track?.mute ? 0 : track?.gain ?? 1;
 }
 
+/** What a legacy source id starts with. Its placement ids are `${source}:${in}:${out}`. */
+export const LEGACY_PREFIX = 'legacy:';
+/** The sources of a media plan that a legacy plan's `video` became. */
+export const legacySourcesOf = (media: MediaPlan | null | undefined): MediaSource[] => (media?.sources ?? []).filter((s) => s.id.startsWith(LEGACY_PREFIX));
+
 /** Read-only migration of old source ranges. Range-derived IDs survive reordering of legacy pieces. */
 export function legacyMedia(plan: { video?: unknown; duration?: number; pieces?: Piece[] }): MediaPlan | null {
   if (typeof plan.video !== 'string' || !plan.video) return null;
   const mapped = pieceMap(plan.pieces, plan.duration ?? 0);
-  const source = `legacy:${plan.video}`;
+  const source = `${LEGACY_PREFIX}${plan.video}`;
   const placements: SourcePlacement[] = mapped.pieces.map((p) => ({ id: `${source}:${p.in}:${p.out}`, origin: source, role: 'main', source, in: p.in, out: p.out }));
   return {
     schema: 1, legacy: true,
     sources: [{ id: source, kind: 'video', path: plan.video, duration: Math.max(plan.duration ?? 0, ...mapped.pieces.map((p) => p.out)) }],
     placements, sequence: placements.map((p) => p.id),
   };
+}
+
+/** The legacy source a legacy placement id was built from (`${source}:${in}:${out}`), or undefined for any other id. */
+export const legacySourceOfPlacement = (placement: string): string | undefined => /^(legacy:.*):[^:]*:[^:]*$/.exec(placement)?.[1];
+
+/**
+ * The value with a legacy source renamed: the source id itself and every placement id built from it. The range part of a
+ * placement id is kept, so a placement maps onto the new source's placement over the same range.
+ */
+export function renameLegacySource<T>(value: T, from: string, to: string): T {
+  const rename = (item: unknown): unknown => {
+    if (typeof item === 'string') return item === from ? to : item.startsWith(`${from}:`) ? `${to}${item.slice(from.length)}` : item;
+    if (Array.isArray(item)) return item.map(rename);
+    if (item && typeof item === 'object') return Object.fromEntries(Object.entries(item).map(([key, entry]) => [key, rename(entry)]));
+    return item;
+  };
+  return rename(value) as T;
 }
 
 export interface MediaTimeline {
