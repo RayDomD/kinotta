@@ -1,7 +1,7 @@
 ---
 title: Simpler versions and export
 date: 2026-10-27
-status: Draft
+status: Approved
 summary: Drop "freeze" from the screens, let stale edits be skipped with Undo instead of blocking, bring back the version list, and give Export plain names with a tooltip each.
 spec:
 ---
@@ -22,20 +22,53 @@ spec:
 - Constraints: Versions on disk stay frozen and replay the same (ADR 0003); only the wording and blocking change. Render preset ids (`draft`, `final`, `overlay`) and the `kinotta render --preset` CLI stay the same. Preserve the animated revisions and the Review fix that loads the chosen Working revision. Simple mode keeps working.
 - Out of scope: Deleting versions, comparing two versions side by side, and new render presets.
 - Open questions:
-  - O1: Other "complicated things" the owner wants gone besides freeze (asked 2026-10-27, waiting).
-  - O2: Does "Use this version" replace Working's edits as one undoable step, or start a fresh Working? Recommended: one undoable edit.
+  - O1: Resolved 2026-10-27: nothing else besides freeze for now.
+  - O2: Does "Use this version" replace Working's edits as one undoable step, or start a fresh Working? Resolved 2026-10-27, owner approved: one undoable edit.
 
 ## Goal
 
+1. No screen in the editor or Simple mode shows the word "freeze".
+2. Saving with a stale edit succeeds: the edit is skipped, a note names it and its shot, and Undo restores it.
+3. The rail lists Current, then every saved version newest first; clicking one opens it read-only; "Use this version" makes it Working in one undoable step.
+4. Export shows Quick preview, Video (the default) and Transparent overlay, each with a tooltip and a "Why this?" line.
+
 ## Approach
+
+**Wording.** Replace user-facing "freeze" strings (`save.ts`, `Renders.tsx:276`, `MediaEditor.tsx:632`, labels in `App.tsx`) with plain text such as "Saved as v4". Internal names (`editsSinceFreeze`, `frozen`) stay.
+
+**Stale edits.** In `buildWorking` (`save.ts:182-185`), instead of throwing on flagged edits, save without them and record one undoable "skipped" step in the edit list, so Undo puts them back as flagged. The reply names the skipped edits; the carry plan's clickable entries show them.
+
+**Version list.** Bring back the rows removed in `0bffa46`, using `GET /api/reels/<slug>/versions` (`handler.ts:650`) and the existing read-only version view. "Use this version" adds one edit-list operation that sets Working's base inputs to that version's; Undo removes it. `23f782e` (the original rail) has markup and tests to reuse.
+
+**Export.** Rename the labels in `Renders.tsx:9-11`, default to `final`, and add a tooltip plus a one-line "Why this?" under each choice:
+- Quick preview: "A fast, lower-quality video of Working. Why this? Cheap and fast to render; for checking timing or sending a quick look. Doesn't save a version."
+- Video: "The full-quality video. Why this? The one to publish. Saves Working as the next version."
+- Transparent overlay: "Only the motion graphics, on a transparent background. Why this? To lay over your footage in another editor such as Premiere."
 
 ## Steps
 
+1. [ ] Tests (red): no "freeze" in rendered editor text; save with a flagged edit succeeds and Undo restores it; the rail lists versions; "Use this version" then Undo leaves Working unchanged.
+2. [ ] Wording changes.
+3. [ ] Skip-and-undo for stale edits in `save.ts` and `edit-list.ts`.
+4. [ ] Version rail rows, read-only open, "Use this version".
+5. [ ] Export labels, default, tooltips and "Why this?" lines.
+6. [ ] E2e: open v1 from the rail, use it, Undo; the export menu shows three choices with their descriptions.
+
 ## Risks
 
+- A skipped edit can go unnoticed: the note stays until dismissed, and Undo always restores it.
+- "Use this version" touches the edit list's base version; test with parts and alternates reels, and keep the Review fix that loads the chosen Working revision.
+- Simple mode shares components; check it for leftover "freeze" text.
+
 ## Checks to run
+
+- New core and render tests, full core suite.
+- Version rail and export e2e.
+- `rg -i freeze web/src --glob '*.tsx'` shows no user-facing strings.
+- `npm run typecheck`, `npm run build`.
 
 ## Changelog
 
 ### 2026-10-27
 - Plan created with Intent only. Owner chose: keep all three export choices with plain names, a tooltip each and a "Why this?" line; bring back the version list; remove freeze from the screens.
+- Owner approved the Intent and its recommended answers; Goal, Approach, Steps, Risks and Checks written. Status Approved.
