@@ -59,8 +59,17 @@ test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes an
     const edits = await server.project.readEditList(slug);
     mkdirSync(resolve('tests/artifacts/agent-strip'), { recursive: true });
     for (const width of [1440, 390]) {
-      await page.setViewportSize({ width, height: 900 });
+      await page.setViewportSize({ width, height: 844 });
       await page.screenshot({ path: `tests/artifacts/agent-strip/running-${width}.png` });
+      const app = page.locator('.app.sm-app');
+      await expect(app).toBeVisible();
+      await expect(strip).toBeVisible();
+      const overflow = await app.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        children: [...element.querySelectorAll('*')].filter((child) => child.getBoundingClientRect().right > element.getBoundingClientRect().left + element.clientWidth).map((child) => ({ className: child.className, right: child.getBoundingClientRect().right, width: child.getBoundingClientRect().width })),
+      }));
+      expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.clientWidth);
       const bounds = (await strip.boundingBox())!;
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       await expect(strip.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport();

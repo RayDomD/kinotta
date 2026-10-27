@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mkdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startServer } from '../../server/main.ts';
@@ -252,5 +252,35 @@ test('the shared bar and menus fit at 1440px and 390px', async ({ page }) => {
       await page.screenshot({ animations: 'disabled', path: join(ARTIFACTS, `storyboard-${width}.png`) });
       await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
     }
+  } finally { await server.close(); }
+});
+
+test('Simple Edit has no internal horizontal scroll at 390px with progress and a two-minute ruler', async ({ page }) => {
+  const dir = copyFixture('footage-project');
+  const version = join(dir, 'reels/founder-talk/v1');
+  // Match the manual run length: its last major tick falls just beyond the reel end.
+  const duration = 119.954;
+  cpSync(join(dir, 'media/talk.mp4'), join(version, 'footage.mp4'));
+  cpSync(join(dir, 'reels/founder-talk/transcript.json'), join(version, 'transcript.json'));
+  writeFileSync(join(version, 'plan.json'), JSON.stringify({ duration, video: 'footage.mp4', transcript: 'transcript.json', pieces: [{ in: 0, out: duration }], clips: [], captions: true }));
+  cpSync(join(version, 'plan.json'), join(dir, 'reels/founder-talk/plan.json'));
+  writeFileSync(join(version, 'shots.json'), JSON.stringify({ contract: 1, duration, shots: [] }));
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    await page.route('**/api/reels/*/agent', (route) => route.fulfill({ json: { job: {
+      id: 'phone-progress', reel: 'founder-talk', provider: 'claude', state: 'running',
+      createdAt: new Date().toISOString(), elapsedSeconds: 30, canCopy: false, canRetry: false,
+    } } }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(server.url);
+    await expect(page.getByRole('region', { name: 'B-roll progress' })).toBeVisible();
+    await expect(page.getByLabel('Simple timeline ruler')).toBeVisible();
+    await expect(page.locator('[data-verify-unit=Transport]')).toHaveAttribute('data-verify-total', String(duration));
+    const app = page.locator('.app.sm-app');
+    const overflow = await app.evaluate((element) => ({
+      clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
+      children: [...element.querySelectorAll('*')].filter((child) => child.getBoundingClientRect().right > element.getBoundingClientRect().left + element.clientWidth).map((child) => ({ className: child.className, right: child.getBoundingClientRect().right })),
+    }));
+    expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.clientWidth);
   } finally { await server.close(); }
 });
