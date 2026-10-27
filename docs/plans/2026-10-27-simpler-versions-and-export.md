@@ -72,3 +72,6 @@ spec:
 ### 2026-10-27
 - Plan created with Intent only. Owner chose: keep all three export choices with plain names, a tooltip each and a "Why this?" line; bring back the version list; remove freeze from the screens.
 - Owner approved the Intent and its recommended answers; Goal, Approach, Steps, Risks and Checks written. Status Approved.
+
+### 2026-10-28
+- Cloud run paused after all six steps, with its last changes in `842de60` unreviewed. Owner approved finishing it locally: merge main, review the branch, run the plan's checks, fill the Result, open the PR, merge when green.
