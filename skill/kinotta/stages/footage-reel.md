@@ -123,6 +123,10 @@ built page and the shot list go in the version.
    it, give `{ "look": "highlight" | "phrase" | "words", "color": "<hex>" }`: `phrase` is the phrase
    alone, `words` shows each word as it is said; `color` is the lit word's colour (the brand file's
    accent when there is one). Phrases break at pauses and clause ends by themselves.
+   `font` and `background` are optional and change nothing when absent (Geist 600 50px on a dark box):
+   `"font": "Geist"` or `{ "family": "<name>", "weight": 700, "size": 56 }`, where the family is Geist or a
+   family named in the plan's `brand.fonts`, and `"background": "rgba(11, 11, 11, .72)"` (any hex or
+   rgb/hsl colour, alpha allowed) or `"none"` for captions with no box. Set them only when the owner asks.
    Author phrase captions at at most 42 characters per line and about 20 characters per second;
    inspect the generated phrases and revise breaks or placement when needed.
    A template clip names `template` and supplies `fill` with copy and source-second `at` times.
