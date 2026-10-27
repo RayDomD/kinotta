@@ -91,6 +91,67 @@ describe('captions in a composed plan', () => {
   });
 });
 
+describe('caption font and background', () => {
+  const css = (html: ReturnType<typeof parse>): string => html.querySelectorAll('style').map((el) => el.text).join('');
+  const style = (html: ReturnType<typeof parse>): string => html.querySelector('[data-el="caption"]')!.getAttribute('style') ?? '';
+  /** A one-font brand: the file is only read and embedded, so its bytes need not be a real font here. */
+  function withBrand(captions: unknown): ReturnType<typeof parse> {
+    const { dir, plan } = project(captions);
+    writeFileSync(join(dir, 'Fraunces.woff2'), 'not-a-font');
+    writeFileSync(plan, JSON.stringify({ ...JSON.parse(readFileSync(plan, 'utf8')), brand: { fonts: [{ family: 'Fraunces', weight: 700, file: 'Fraunces.woff2' }] } }));
+    composePlan(plan, join(dir, 'page.html'));
+    return parse(readFileSync(join(dir, 'page.html'), 'utf8'));
+  }
+
+  it('builds the same page and the same caption CSS for a plan without them', () => {
+    const plain = composed(true);
+
+    expect(composed({ look: 'highlight' }).toString()).toBe(plain.toString());
+    expect(style(plain)).not.toContain('--cap-font');
+    expect(style(plain)).not.toContain('--cap-bg');
+    // Today's literals stay as the fallbacks of the variables.
+    expect(css(plain)).toContain('font:var(--cap-font,600 50px/1.18 "Geist",system-ui,sans-serif)');
+    expect(css(plain)).toContain('background:var(--cap-bg,rgba(11,11,11,.72))');
+  });
+
+  it('puts the font on each caption: a family alone, or with weight and size', () => {
+    expect(style(composed({ font: 'Geist' }))).toContain(`--cap-font:600 50px/1.18 'Geist',system-ui,sans-serif`);
+    expect(style(composed({ font: { family: 'Geist', weight: 800, size: 64 } }))).toContain(`--cap-font:800 64px/1.18 'Geist',system-ui,sans-serif`);
+  });
+
+  it('puts the background on each caption, none included', () => {
+    expect(style(composed({ background: 'rgba(0, 0, 0, .5)' }))).toContain('--cap-bg:rgba(0, 0, 0, .5)');
+    expect(style(composed({ background: 'none' }))).toContain('--cap-bg:none');
+  });
+
+  it('draws the words look box and the phrase box from the same background variable', () => {
+    const rules = css(composed({ look: 'words' }));
+
+    expect(rules.match(/var\(--cap-bg,/g)).toHaveLength(2);
+    expect(rules).not.toMatch(/background:rgba\(11,11,11,\.72\)/);
+  });
+
+  it('accepts a brand font family the page embeds', () => {
+    const html = withBrand({ font: { family: 'Fraunces', weight: 700 } });
+
+    expect(style(html)).toContain(`--cap-font:700 50px/1.18 'Fraunces',system-ui,sans-serif`);
+    expect(html.toString()).toContain('Fraunces');
+  });
+
+  it('stops on a font the project neither bundles nor brands, and on a malformed background', () => {
+    for (const [captions, message] of [
+      [{ font: 'Comic Sans' }, /captions font "Comic Sans" is not available.*Geist/],
+      [{ font: { family: 'Fraunces' } }, /captions font "Fraunces" is not available/],
+      [{ font: 5 }, /captions font must be/],
+      [{ background: 'dark' }, /captions background must be "none" or a CSS colour/],
+      [{ background: '#000;color:red' }, /captions background must be/],
+    ] as const) {
+      const { dir, plan } = project(captions);
+      expect(() => composePlan(plan, join(dir, 'page.html'))).toThrow(message);
+    }
+  });
+});
+
 describe('caption positions', () => {
   const shifts = (html: ReturnType<typeof parse>): (string | null)[] =>
     html.querySelectorAll('[data-caption]').map((scene) => /translate:([^;"]+)/.exec(scene.querySelector('.caption')!.getAttribute('style') ?? '')?.[1] ?? null);
