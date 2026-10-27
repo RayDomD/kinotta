@@ -1,7 +1,7 @@
 ---
 title: Sound in every first build
 date: 2026-10-27
-status: Approved
+status: Done
 summary: Auto and Copy first builds write a synthesized score and sound effects onto the audio tracks by default, and each effect is shaped by what is on screen at that moment.
 spec:
 ---
@@ -44,12 +44,12 @@ spec:
 
 ## Steps
 
-1. [ ] Synth tests (red): default settings reproduce the committed catalogue bytes; two hits with different settings differ; the same input twice is byte-identical; peaks stay at −4 dBFS or below across the settings range.
-2. [ ] `synth.py`: recipe parameters, `sound` object in hits, seed from hit id.
-3. [ ] `sound.md`: event-to-sound table and variation rule. `02-first-build.md`: sound step. `tests/engine/sound-skill.test.ts` updated.
-4. [ ] Server: default music line when there is no style; core test for the request text.
-5. [ ] Import check: `npx vitest run tests/core/media-http.test.ts`, the Direction music e2e (`tests/e2e/direction.spec.ts:141`), and one manual MP3 import on the Media panel; record results.
-6. [ ] Manual run: an Auto build on a scratch reel; confirm the tracks, listen, run `kinotta check` and a Draft render.
+1. [x] Synth tests (red): default settings reproduce the committed catalogue bytes; two hits with different settings differ; the same input twice is byte-identical; peaks stay at −4 dBFS or below across the settings range.
+2. [x] `synth.py`: recipe parameters, `sound` object in hits, seed from hit id.
+3. [x] `sound.md`: event-to-sound table and variation rule. `02-first-build.md`: sound step. `tests/engine/sound-skill.test.ts` updated.
+4. [x] Server: default music line when there is no style; core test for the request text.
+5. [x] Import check: `npx vitest run tests/core/media-http.test.ts`, the Direction music e2e (`tests/e2e/direction.spec.ts:141`), and one manual MP3 import on the Media panel; record results.
+6. [ ] (Skipped: needs the owner's real Auto run and agent quota.) Manual run: an Auto build on a scratch reel; confirm the tracks, listen, run `kinotta check` and a Draft render.
 
 ## Risks
 
@@ -69,3 +69,36 @@ spec:
 ### 2026-10-27
 - Plan created with Intent only. Owner asked for sound by default in Auto and for per-event variation on 2026-10-27.
 - Owner approved the Intent and its recommended answers; Goal, Approach, Steps, Risks and Checks written. Status Approved.
+
+## Result
+
+Shipped steps 1 to 5. Step 6 (a real Auto build) was skipped: it needs the owner's agent run and quota.
+
+What shipped:
+- `skill/kinotta/scripts/synth.py`: every catalogue recipe takes a `sound` argument (`Sound`: pitch, length, brightness, weight, each 0..1 with 0.5 as the catalogue sound). Pitch scales frequencies by up to half an octave either way, length scales durations and decays (about 0.7 to 1.4 times), brightness and weight blend filtered copies, and every effect is re-normalised to its own peak, so settings never raise the level. Score hits accept `sound: { kind, id, pitch, length, brightness, weight }`; `kind` picks the recipe and the seed comes from a CRC32 of the base seed and the hit's id. Hits without `sound` keep the old positional seed and effect cycle. The committed catalogue WAVs still render byte-identically (checked against all 17).
+- `reference/sound.md`: a "Sound in a first build" section with the score input shape, the settings meanings, the event-to-sound table (button click, toggle, key press, typing, text reveal, card landing, notification, chart rise, transition, error) and the rule to vary neighbouring hits. It also says how to apply the printed operations to an authoring plan by hand.
+- `stages/02-first-build.md`: a sound step before the build and `shots.json` (renumbering build and exit to 6 and 7). It skips the score for "Music: none" and for the owner's own file, and skips sound if numpy or scipy is missing.
+- Server: `DEFAULT_MUSIC_LINE` in `direction.ts`; `briefRequest` (Auto/Direct brief starts via `reels.ts` and `start.ts`) and `brollJobPrompt` (Auto and Copy first builds) carry it when the reel has no style. With a style, its own music line is the only one.
+- Import check (O2): see Checks. Imports work today; nothing needed fixing.
+
+Deviations and findings:
+- Added to `server/core/_internal/runner.ts`: the unattended Claude run's allowlist (`BROLL_COMMANDS`) now includes `python`/`python3 skill/scripts/synth.py *`. The plan did not list this file, but without it the new sound step cannot run in an Auto build (any other command is refused). Not built beyond that.
+- Tests were written before the code for the synth and server steps and fail on `origin/main` as expected (4 synth tests, 1 request test). The synth code was written before the test file in the working tree, so the red state was confirmed by running the tests against `origin/main`'s `synth.py`.
+- Not built: no explicit sound step in `stages/new-reel.md` (code-only brief reels). They get the default `Music:` line and the router's pointer to `sound.md`, but not the first-build procedure. Not in the plan's Affected list; record for a follow-up if the owner wants it enforced there.
+- Not verified end to end: that an agent follows the new step, the added Auto build time (synth alone is about 1.8 s for a 30 s reel with 10 hits), and the overload check on a render with speech. Headroom is covered by the peak test (at most -4 dBFS across the settings range).
+- The agent applies the printed operations to `output/plan.json` by hand, because the unattended path has no `kinotta edit`. A run that skips this leaves the reel silent. Cuts that Kinotta applies afterwards are not re-timed for hits placed on the plan timeline; not examined.
+- Environment: the container's apt scipy was broken. Fixed with `pip install --user 'numpy<2'` and a binary `scipy 1.14.1`; the committed catalogue still reproduces byte-for-byte under it.
+
+Checks:
+- `npx vitest run tests/engine/sound-skill.test.ts`: 10 passed (5 existing, 5 new).
+- `npx vitest run tests/core/reel-style.test.ts`: 10 of 10 after the change, including the 2 new request tests.
+- `npx vitest run tests/core/media-http.test.ts`: 2 passed.
+- `npx playwright test tests/e2e/direction.spec.ts`: 3 passed, including line 141 (own font and music on Direction).
+- Manual import in the running editor (a throwaway Playwright spec, not committed): Media rail > Import `tests/fixtures/legacy-effect.mp3` copied it to `footage/legacy-effect.mp3`, listed it in the library, and Add at playhead created an "Added media" edit and an audio lane "legacy-effect.mp3" with mute and solo. Playback and render of it were not exercised by this check; `media-audio` and the render-sound core tests cover those.
+- `npm run typecheck`: clean. `npm run check:docs`: ok.
+- `npx vitest run --project unit`: 115 files passed, 1 skipped, 1 failed (`proxy-audio.test.ts` file failed to load under full-suite load; 7 of 7 pass when run alone). 1148 tests passed, 10 skipped.
+- `tests/core/agent-jobs.test.ts`: "cancel / timeout / shutdown stops a process tree" fail in this container, identically on a clean `origin/main` export (3 failed, 44 passed). They passed inside the full unit run, so they are environment-flaky.
+- `npx playwright test` (full): 171 passed, 23 failed, 3 did not run. All failures are in the known container failures: agent-confirm (3), agent-strip (9), simple-mode (10), playback-stutter (1).
+
+Skipped (needs the owner):
+- Step 6: an Auto build on a scratch reel with the real agent; confirm the Music and Sound effects tracks, listen, `kinotta check`, a Draft render, the overload check on the render, and the added build time.

@@ -62,6 +62,9 @@ export const lookById = (id?: string): LookDefinition | undefined => LOOKS.find(
 export const styleLook = (style: Pick<Style, 'look' | 'basedOn' | 'id'>): string | undefined =>
   style.look ?? (lookById(style.basedOn) ? style.basedOn : lookById(style.id) ? style.id : undefined);
 
+/** What the agent is told about music when Kinotta picks it, with or without a Direction style. */
+export const DEFAULT_MUSIC_LINE = 'Music: make a score that fits the cut.';
+
 /** A style's music: absent means Kinotta picks, an empty record means no music, a file means your own track. */
 export type MusicChoice = 'kinotta' | 'none' | 'file';
 export function musicChoice(style: Pick<Style, 'music'>): MusicChoice {
@@ -106,7 +109,7 @@ export function agentTold(style: Style, context: ToldContext = {}): string[] {
     : 'Fonts: the brand fonts.');
   const music = musicChoice(style);
   if (music === 'none') lines.push(form?.footage === false ? 'Music: none.' : 'Music: none; only the sound in the video.');
-  else if (music === 'kinotta') lines.push('Music: make a score that fits the cut.');
+  else if (music === 'kinotta') lines.push(DEFAULT_MUSIC_LINE);
   else {
     const fit = style.music?.fit === 'under' ? 'play it under the cut' : 'cut on its beat';
     lines.push(`Music: ${style.music!.file}; ${fit}${style.music?.duck === false ? '; leave it at full level under the voice' : '; lower it under the voice'}.`);
