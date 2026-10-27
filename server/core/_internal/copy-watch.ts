@@ -83,7 +83,7 @@ function snapshotsEqual(a: Map<string, string>, b: Map<string, string>): boolean
 
 /**
  * Watches a copy-ready job's output directory. When DONE appears and writes have settled
- * (no further change for settleMs), deletes DONE and triggers the onSettle callback.
+ * (no further change for settleMs), triggers the onSettle callback. Acceptance removes DONE.
  */
 export function watchCopyOutput(
   jobDir: string,
@@ -106,7 +106,6 @@ export function watchCopyOutput(
     settling = true;
     stop();
     try {
-      await removeCopyDoneMarker(jobDir, outputDir);
       await onSettle();
     } catch (error) {
       await onFailure(error);
@@ -118,7 +117,9 @@ export function watchCopyOutput(
     void (async () => {
       try {
         await assertSafeCopyOutput(jobDir, outputDir);
-        if (await hasRegularDoneMarker(outputDir)) {
+        const hasDone = await hasRegularDoneMarker(outputDir);
+        if (closed || settling) return;
+        if (hasDone) {
           if (settleTimer) clearTimeout(settleTimer);
           settleTimer = setTimeout(() => { void triggerSettle(); }, settleMs);
         } else if (settleTimer) {
@@ -126,6 +127,7 @@ export function watchCopyOutput(
           settleTimer = null;
         }
       } catch (error) {
+        if (closed || settling) return;
         stop();
         await onFailure(error);
       }

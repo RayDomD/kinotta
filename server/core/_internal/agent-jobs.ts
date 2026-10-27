@@ -37,7 +37,7 @@ export interface AgentJob {
   canRetry: boolean;
   canCopy: boolean;
 }
-interface Active { controller: AbortController; done: Promise<void> }
+interface Active { jobId?: string; controller: AbortController; done: Promise<void> }
 export interface AgentJobsOptions {
   launch?: (input: AgentLaunch) => Promise<void>;
   ceilingMs?: number;
@@ -84,7 +84,8 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
           }
         },
         async (error) => {
-          if (latest.get(job.reel)?.id !== job.id) return;
+          if (copyWatchers.get(job.reel) !== watcher || latest.get(job.reel)?.id !== job.id || job.state !== 'copy-ready') return;
+          stopWatching(job.reel);
           job.state = 'failed';
           job.error = (error instanceof Error ? error.message : 'Could not accept Copy request output.').slice(0, ERROR_LENGTH);
           job.canRetry = true;
@@ -331,14 +332,21 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   async function runAcceptOutput(reel: string, id: string): Promise<AgentJob> {
-    if (closed || running.has(reel)) throw new KinottaError('frozen', 'Wait for the managed run to stop before submitting output.');
+    if (closed) throw new KinottaError('frozen', 'Wait for the managed run to stop before submitting output.');
+    const active = running.get(reel);
+    if (active?.jobId === id) {
+      await active.done;
+      return { ...latest.get(reel)! };
+    }
+    if (active) throw new KinottaError('frozen', 'Wait for the managed run to stop before submitting output.');
     const job = latest.get(reel);
+    if (job?.id === id && job.state === 'succeeded') return { ...job };
     if (!job || job.id !== id || !job.canRetry) throw new KinottaError('invalid', 'This is not the current unfinished request.');
     stopWatching(reel);
     let finish!: () => void;
     const done = new Promise<void>((resolveDone) => { finish = resolveDone; });
     const controller = new AbortController();
-    running.set(reel, { controller, done });
+    running.set(reel, { jobId: id, controller, done });
     try {
       const outputDir = join(jobDir(job), 'output');
       await removeCopyDoneMarker(jobDir(job), outputDir);

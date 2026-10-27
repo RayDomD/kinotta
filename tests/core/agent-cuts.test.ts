@@ -342,7 +342,7 @@ describe('publishing cuts through validateAndPublish paths', { timeout: 90_000 }
     expect(afterUndo.operations[0].id).toBe(editList.operations[0].id);
   });
 
-  it('acceptAgentOutput publishes agent cuts with by agent-cut and reason, removing cuts.json from v2', async () => {
+  it.each([false, true])('acceptAgentOutput publishes agent cuts once with concurrent DONE watcher %s', async (withDone) => {
     const fixture = await setupJob('cuts');
     await fixture.project.saveAgentSettings({ provider: 'copy' });
 
@@ -364,9 +364,24 @@ describe('publishing cuts through validateAndPublish paths', { timeout: 90_000 }
     const res = spawnSync(process.execPath, [fake, 'cuts'], { cwd: jobDir, input: 'prompt', env: { ...process.env, NODE_PATH: resolve('node_modules') }, windowsHide: true });
     expect(res.status).toBe(0);
 
-    // Accept output
-    const acceptedJob = await fixture.project.acceptAgentOutput(slug, job!.id);
-    expect(acceptedJob).toMatchObject({ state: 'succeeded', version: 2 });
+    if (withDone) writeFileSync(join(jobDir, 'output/DONE'), '');
+    // Make a manual accept arrive while the watcher is already validating.
+    let concurrentAccept: ReturnType<typeof fixture.project.acceptAgentOutput> | undefined;
+    const stop = fixture.project.subscribe((event) => {
+      if (withDone && event.type === 'agent-progress' && event.job.state === 'validating') {
+        concurrentAccept = fixture.project.acceptAgentOutput(slug, job!.id);
+      }
+    });
+    let acceptedJob;
+    try {
+      if (withDone) {
+        await until(() => concurrentAccept !== undefined);
+        acceptedJob = await concurrentAccept!;
+      } else {
+        acceptedJob = await fixture.project.acceptAgentOutput(slug, job!.id);
+      }
+    } finally { stop(); }
+    expect(acceptedJob, JSON.stringify(acceptedJob)).toMatchObject({ state: 'succeeded', version: 2 });
 
     const editList = await fixture.project.readEditList(slug);
     expect(editList.operations).toHaveLength(1);
@@ -381,5 +396,9 @@ describe('publishing cuts through validateAndPublish paths', { timeout: 90_000 }
     // cuts.json was deleted from v2 folder
     const v2CutsFile = join(fixture.dir, 'reels', slug, 'v2', 'cuts.json');
     expect(existsSync(v2CutsFile)).toBe(false);
+    expect(await fixture.project.acceptAgentOutput(slug, job!.id)).toMatchObject({ state: 'succeeded', version: 2 });
+    expect(await fixture.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    expect(existsSync(join(fixture.dir, 'reels', slug, 'v3'))).toBe(false);
+    expect(existsSync(join(fixture.dir, 'reels', slug, 'v2/DONE'))).toBe(false);
   });
 });
