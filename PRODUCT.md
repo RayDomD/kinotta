@@ -16,7 +16,7 @@ One person for now: the owner, who makes motion graphics and footage edits with 
 
 ## Product Purpose
 
-Kinotta is an editor for motion graphics and footage edits that works with or without AI (E1, E20). The owner can drop in a video, cut it, fix its words and move its captions and elements, then save a new version with no agent involved. When they want motion graphics, an agent such as Claude builds a reel inside a project. The owner comments on it in context, pinned to a moment, a spot on the frame and the element under it, and Claude builds the next version from that comment batch. It succeeds when feedback can be given as precisely as "change the color of this", at this second, without being described in prose, and each round lands in a new frozen version.
+Kinotta is an agent-first editor for motion graphics and footage edits (owner decision, 2026-10-27, revising E1). An agent such as Claude builds each reel inside a project, and new features may assume one is present. The owner can still make any mechanical change directly, with no agent involved: drop in a video, cut it, fix its words and move its captions and elements (E20). The owner comments on it in context, pinned to a moment, a spot on the frame and the element under it, and Claude builds the next version from that comment batch. It succeeds when feedback can be given as precisely as "change the color of this", at this second, without being described in prose, and each round lands in a new frozen version.
 
 ## Positioning
 
@@ -57,7 +57,7 @@ The name: *kino* (film) + Ilonggo *kinot ta* ("let's save"). Film and edit with 
 2. **Pin, don't describe.** Every feedback affordance should land on a moment and an element, so comments stay short and unambiguous.
 3. **Versions are history, not drafts.** Nothing edits a version in place. The UI makes it obvious which frozen version is on screen.
 4. **One hand-off, no friction.** Getting a comment batch from the editor to Claude and the next version back is a single, predictable step.
-5. **The owner decides; an agent is optional.** The owner can make any mechanical change directly. An agent builds what needs judgement or new motion, suggests taste rules and brand sources, and only the owner confirms them.
+5. **The agent builds; the owner decides.** An agent builds what needs judgement or new motion and suggests taste rules and brand sources, and only the owner confirms them. The owner can still make any mechanical change directly, because a one-second fix should not cost an agent run.
 
 ## Accessibility & Inclusion
 
