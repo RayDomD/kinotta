@@ -1,7 +1,7 @@
 ---
 title: Split the Kinotta skill into a router and one contract per step
 date: 2026-10-27
-status: Approved
+status: Done
 summary: SKILL.md becomes a short router; each step an agent runs (first build, next version, storyboard, footage section) gets its own contract file, so a job reads only what its step needs.
 spec:
 ---
@@ -63,8 +63,27 @@ skill/kinotta/
 - The step 4 coverage script with no leftover lines.
 - One real Auto build reaching v2.
 
+## Result
+
+Shipped as planned in #91. `skill/kinotta/SKILL.md` went from 535 lines to a 66-line router (identity, a "Which step am I on?" table, hard rules, Who built it). Four step files hold the moved text, each opening with Reads / Does / Writes / Owner's check: `stages/02-first-build.md` (49 lines), `04-next-version.md` (163), `new-reel.md` (146) and `footage-reel.md` (150). The unattended prompt names `skill/SKILL.md` for hard rules and `skill/stages/02-first-build.md` for the procedure. A first build now reads 115 lines instead of 535.
+
+Deviations:
+- The coverage check counts occurrences: a line the old file repeated (code fences, one style line, one completion sentence) must appear as many times across the new files. A strict "exactly one file" check could not pass on the original text.
+- Section 1's "pick the branch" lines moved to `new-reel.md` with the rest of Preflight; the router's step table answers the same question.
+- The explainer `docs/explainers/2026-10-27-kinotta-skill-split.html` was updated with the real counts and mapping.
+
+Checks run:
+- `npm run typecheck`, `npm run check:docs` and `tests/core/agent-jobs.test.ts` (47/47; changing the prompt path makes it fail).
+- `node scripts/check-skill-coverage.mjs docs/explainers/2026-10-27-kinotta-skill-before-split.md skill/kinotta`: exit 0, no leftover lines (419 non-blank lines matched with their counts). Frontmatter byte-identical.
+- Read-only review by a second lane: no findings.
+- Verify gate on 287a0da: typecheck, both Playwright shards and mojibake ok; unit 1410 passed, 3 failed, all known #82. CI passed on rerun after one flaky `viewer-state` test.
+- Real Auto build, 2026-10-27, on main `897a7fb`, fresh scratch project, `footage/sample vid .mp4`, real Claude Code: v2 published after 16 min 46 s with 14 cutaways, one corrected word ("Cloud," → "Claude,") and no cuts. No server errors. The 2026-10-27 run before the fixes failed after 19 minutes. Whether the agent opened `02-first-build.md` cannot be shown, because Kinotta runs Claude Code without session persistence; the prompt names it.
+
+The Result answers the Intent: a first-build job reads the router and its own step file, and every path keeps the same rules.
+
 ## Changelog
 
 ### 2026-10-27
 - Plan created from the owner's request to ICM the reel process. Lane-side runs were restructured the same day under `.herdr/runs/` (local, not in the repo).
 - Owner approved the plan, including one real Auto build with Claude Code as the final check. Work starts after phase G of the start-to-export plan merges, because both touch `server/core/_internal/requests.ts`.
+- Closed: split merged in #91; the real Auto build reached v2. Status Done.
