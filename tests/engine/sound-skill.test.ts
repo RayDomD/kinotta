@@ -147,7 +147,7 @@ it('runs the sound.md score input example and applies its operations', () => {
     const plan: Plan = { duration: 12, clips: [], media: { schema: 1, sources: [], tracks: [], placements: [], sequence: [] } };
     let sources: Sources = { plan, words: [] };
     operations.forEach((op, index) => { sources = applyOperation(sources, { ...op, id: `score-${index}`, by: 'test' }); });
-    const placements = mediaTimeline(sources.plan.media!, 12).placements.filter((p) => p.role === 'audio');
-    expect(placements.map((p) => [p.id, p.track])).toEqual([['score-bed', 'music'], ['hit-01', 'sfx'], ['hit-02', 'sfx']]);
+    const placements = sources.plan.media!.placements.filter((p) => p.role === 'audio');
+    expect(placements.map((p) => [p.id, 'track' in p ? p.track : undefined])).toEqual([['score-bed', 'music'], ['hit-01', 'sfx'], ['hit-02', 'sfx']]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
