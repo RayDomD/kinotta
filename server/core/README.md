@@ -56,7 +56,7 @@ The optional parts `alpha: true` emits the existing transparent-page class for O
   `version`, `section` and `time` (the shot's start). `x` and `y` are fractions of the frame, rounded to 3
   decimals; `element` is the `data-el` name or null. Empty or whitespace text, an unknown shot and a position
   outside the frame throw `KinottaError` `invalid`; an unknown reel or version throws `not-found`; a version that is
-  not the newest throws `frozen` ("v1 is frozen. Only the newest version, v2, takes comments."). Every comment change
+  not the newest throws `frozen` ("v1 is a saved version. Only the newest version, v2, takes comments."). Every comment change
   goes through one guard (`assertTakesComments`).
 - `editComment(slug, n, id, text)` changes a comment's text (trimmed, not empty) and returns `{ comment, comments }`.
   `deleteComment(slug, n, id)` removes it with its pin and returns `{ comments }`, renumbered without gaps.

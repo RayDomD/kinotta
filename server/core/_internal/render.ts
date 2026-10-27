@@ -266,7 +266,7 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
       const graphics = join(work, 'graphics.mov');
       const firstVideo = native.sources.find((s) => s.kind === 'video');
       const ownPlan = await exists(join(versionDir, VERSION_PLAN_FILE)) || await exists(join(versionDir, 'media.json'));
-      if (!ownPlan) throw new Error('Save this media version before rendering so its source paths are frozen.');
+      if (!ownPlan) throw new Error('Save this media version before rendering so its source paths are kept.');
       const source = firstVideo ? await probeFootage(join(versionDir, firstVideo.path)) : info;
       if (settings.fps === 'source' && 'fps' in source) fps = source.fps;
       // The authored page owns the reel canvas. A differently shaped source must be framed inside it.

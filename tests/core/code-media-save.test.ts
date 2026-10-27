@@ -81,7 +81,7 @@ it('freezes page files outside the version folder on a code-only Save, and refus
   cpSync(join(reel, 'v3'), join(reel, 'v4'), { recursive: true });
   writeFileSync(join(reel, 'v4/index.html'), saved.replace('</head>', '<link rel="stylesheet" href="https://fonts.example.com/brand.css"></head>'));
   await project.addOperation('product-showreel', { ...move, x: 8 });
-  await expect(project.freezeEdits('product-showreel')).rejects.toThrow('cannot be frozen');
+  await expect(project.freezeEdits('product-showreel')).rejects.toThrow('cannot be kept in a saved version');
   expect((await project.listVersions('product-showreel')).map((v) => v.number)).toEqual([1, 2, 3, 4]);
   expect((await project.readEditList('product-showreel')).operations).toHaveLength(1);
 });

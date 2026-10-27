@@ -74,7 +74,7 @@ describe('frozen versions', () => {
     await expect(project.addComment(REEL, 1, { pin: PIN, text: 'Too late.' })).rejects.toMatchObject({
       name: 'KinottaError',
       code: 'frozen',
-      message: 'v1 is frozen. Only the newest version, v2, takes comments.',
+      message: 'v1 is a saved version. Only the newest version, v2, takes comments.',
     });
     expect(existsSync(join(dir, 'reels', '.kinotta', REEL, 'v1.json'))).toBe(false);
     expect(await project.listComments(REEL, 1)).toEqual([]);

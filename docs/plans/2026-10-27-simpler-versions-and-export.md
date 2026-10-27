@@ -47,12 +47,12 @@ spec:
 
 ## Steps
 
-1. [ ] Tests (red): no "freeze" in rendered editor text; save with a flagged edit succeeds and Undo restores it; the rail lists versions; "Use this version" then Undo leaves Working unchanged.
-2. [ ] Wording changes.
-3. [ ] Skip-and-undo for stale edits in `save.ts` and `edit-list.ts`.
-4. [ ] Version rail rows, read-only open, "Use this version".
-5. [ ] Export labels, default, tooltips and "Why this?" lines.
-6. [ ] E2e: open v1 from the rail, use it, Undo; the export menu shows three choices with their descriptions.
+1. [x] Tests (red): no "freeze" in rendered editor text; save with a flagged edit succeeds and Undo restores it; the rail lists versions; "Use this version" then Undo leaves Working unchanged.
+2. [x] Wording changes.
+3. [x] Skip-and-undo for stale edits in `save.ts` and `edit-list.ts`.
+4. [x] Version rail rows, read-only open, "Use this version".
+5. [x] Export labels, default, tooltips and "Why this?" lines.
+6. [x] E2e: open v1 from the rail, use it, Undo; the export menu shows three choices with their descriptions.
 
 ## Risks
 

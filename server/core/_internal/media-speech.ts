@@ -71,7 +71,7 @@ export async function withSpeech(projectDir: string, planDir: string, media: Med
     const hash = source.contentHash ?? await hashOf(resolve(planDir, source.path)).catch(() => null);
     const words = hash === null ? null : await cachedWords(projectDir, hash);
     if (!words) {
-      if (requireReady) throw new KinottaError('invalid', `Speech for ${source.name ?? source.id} is not transcribed yet. Wait for it, or retry it, before freezing.`);
+      if (requireReady) throw new KinottaError('invalid', `Speech for ${source.name ?? source.id} is not transcribed yet. Wait for it, or retry it, before saving a version.`);
       continue;
     }
     filled.set(source.id, words);

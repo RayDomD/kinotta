@@ -81,7 +81,7 @@ export async function assertTakesComments(projectDir: string, slug: string, numb
   const version = await readVersion(projectDir, slug, number);
   if (!version.isNewest) {
     const newest = await newestVersionNumber(join(projectDir, REELS_DIR, slug));
-    throw new KinottaError('frozen', `v${number} is frozen. Only the newest version, v${newest}, takes comments.`);
+    throw new KinottaError('frozen', `v${number} is a saved version. Only the newest version, v${newest}, takes comments.`);
   }
   return version;
 }

@@ -86,7 +86,7 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
   const { sources, scenes } = await codeSources(from);
   const shots = JSON.parse(await readFile(join(from, 'shots.json'), 'utf8')) as Record<string, unknown>;
   const parts = shots.contract === 2 ? checkPartsManifest(shots).manifest : null;
-  if (shots.contract === 2 && !parts) throw new KinottaError('invalid', 'The parts manifest must pass check before it can be frozen.');
+  if (shots.contract === 2 && !parts) throw new KinottaError('invalid', 'The parts manifest must pass check before it can be saved in a version.');
   const applied = await withPreservedMediaHashes(reelDir, applyOperations(sources, list.operations));
   const edited = applied.plan.media ? { ...applied, plan: { ...applied.plan, media: mediaWithTracks(applied.plan.media) } } : applied;
   const stage = join(reelDir, STAGE_DIR);
