@@ -1,7 +1,7 @@
 ---
 title: Carry edits across footage copies
 date: 2026-10-27
-status: Approved
+status: In Progress
 summary: Owner edits keep applying when the agent's new version names the same footage by a different path, and a stale edit is one click away from the error that reports it.
 spec:
 ---
