@@ -1,5 +1,8 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import { chromium } from 'playwright';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { openProject, type Project } from '../../server/core/index.ts';
@@ -52,6 +55,9 @@ describe('background b-roll request', () => {
       expect(request.options).toMatchObject({ captions, notes: 'quoted "$HOME"' });
       expect(brollJobPrompt(request)).toContain(JSON.stringify({ notes: 'quoted "$HOME"' }));
       expect(brollJobPrompt(request)).toContain(videoType ?? 'decide from the content without asking');
+      for (const copy of [false, true]) {
+        expect(brollJobPrompt(request, copy)).toContain('You may correct misheard words in output/transcript.json by changing word text only (including punctuation and case). Keep every word, its order, its start/end timings and all other fields; every word text must remain non-empty.');
+      }
     }
   });
 });
@@ -68,6 +74,31 @@ describe('managed b-roll jobs with a real fake process', { timeout: 90_000 }, ()
     expect(existsSync(join(test.dir, 'reels', slug, 'v2/DONE'))).toBe(false);
     expect(readFileSync(join(jobDir, 'received-prompt.txt'), 'utf8')).not.toContain('output/DONE');
     expect(readFileSync(join(jobDir, 'prompt.txt'), 'utf8')).toContain('output/DONE');
+  });
+
+  it('publishes corrected transcript words in v2 and displays them in v2 captions', async () => {
+    const test = await setup('success', 60_000, true, (cwd) => {
+      const file = join(cwd, 'output/transcript.json');
+      const transcript = readJson(file);
+      transcript.words[0].text = 'Claude,';
+      writeFileSync(file, JSON.stringify(transcript));
+      const build = spawnSync(process.platform === 'win32' ? 'python' : 'python3', ['skill/engine/build.py', '--plan', 'output/plan.json', 'output/index.html'], { cwd, encoding: 'utf8', windowsHide: true });
+      expect(build.status, build.stderr).toBe(0);
+    });
+    const slug = await make(test.project);
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    const reel = join(test.dir, 'reels', slug);
+    expect(readJson(join(reel, 'v1/transcript.json')).words[0].text).toBe('hello');
+    expect(readJson(join(reel, 'v2/transcript.json')).words[0].text).toBe('Claude,');
+    expect((await test.project.readVersion(slug, 2)).transcript?.[0].text).toBe('Claude,');
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      await page.goto(pathToFileURL(join(reel, 'v2/index.html')).href);
+      await page.evaluate(async () => { await (window as unknown as { seek: (time: number) => unknown }).seek(0.75); });
+      expect(await page.locator('body').innerText()).toContain('Claude,');
+    } finally { await browser.close(); }
   });
 
   it('keeps v1 playable until validated output publishes v2, with durable events and exact Copy prompt', async () => {

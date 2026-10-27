@@ -78,6 +78,11 @@
 .sm-preview .rv-picture-stage > .rv-frame { width: min(100%, calc(58dvh * var(--sm-frame-ratio))); max-height: none; height: auto; aspect-ratio: var(--sm-frame-ratio); flex: none; }
 .sm-preview .rv-frame iframe, .sm-preview .rv-frame .rv-video { pointer-events: none; }
 .sm-preview .rv-transport { padding: 12px 0; }
+/* Ruler labels near the reel end must stay within the timeline width. */
+.sm-preview .sm-ruler-wrap .sm-tick { right: 0; width: auto; background: none; border-left: 1px solid var(--hairline); }
+.sm-preview .sm-ruler-wrap .sm-tick.major { background: none; border-left-color: var(--ink-2); }
+/* Each tick spans its remaining ruler width; a five-character timestamp shifts left when needed. */
+.sm-preview .sm-ruler-wrap .sm-tick span { width: 5ch; left: min(3px, calc(100% - 5ch - 3px)); }
 .sm-timeline-label { display: flex; justify-content: space-between; gap: 16px; margin: 8px 0 18px; color: var(--muted); font-size: 12px; }
 .sm-pin-track { height: 64px; position: relative; }
 .sm-timeline-target { position: absolute; inset: 0; background: var(--card); border: 1px solid var(--hairline); width: 100%; cursor: var(--cur-pin), crosshair; overflow: hidden; color: var(--ink-2); }

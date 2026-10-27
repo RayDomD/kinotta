@@ -5,6 +5,7 @@ import { pieceMap, type Piece } from './pieces.ts';
 import { lstat, readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parse } from 'node-html-parser';
+import { isDeepStrictEqual } from 'node:util';
 import { checkShotsAgainstPage, checkShotsFile, scanVersionPage } from './contract.ts';
 import { validateAgentPage } from './runner.ts';
 
@@ -47,13 +48,52 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
         }
       }
     }
-    for (const match of code.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)|\b(?:from\s*|import\s*\(\s*|import\s+)["']([^"']+)["']|@import\s+["']([^"']+)["']/g)) await local((match[1] ?? match[2] ?? match[3])!, dirname(file));
+    for (const match of code.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)|\b(?:from\s*|import\s*\(\s*|import\s+)["']([^"']+)["']|@import\s+["']([^"']+)["']/g)) {
+      // Only the interpolated suffix is unknowable; validate the literal prefix.
+      if (match[1]?.includes('${')) {
+        const prefix = decodeURIComponent(match[1].split('${')[0]!);
+        if (/^(?:data:|#)/i.test(prefix)) continue;
+        if (isAbsolute(prefix) || /^(?:[a-z][a-z\d+.-]*:|[\\/])/i.test(prefix)) throw new Error('Agent output references an external asset.');
+        if (prefix.split(/[\\/]/).includes('..')) throw new Error('Agent output references a missing or escaping asset.');
+        const path = prefix.split(/[?#]/)[0]!;
+        const directory = path.slice(0, path.lastIndexOf('/') + 1);
+        if (directory) {
+          await local(directory, dirname(file), true);
+          if (!(await stat(resolve(dirname(file), directory))).isDirectory()) throw new Error('Agent output references a missing or escaping asset.');
+        }
+        continue;
+      }
+      await local((match[1] ?? match[2] ?? match[3])!, dirname(file));
+    }
   }
   const plan = JSON.parse(await readFile(join(root, 'plan.json'), 'utf8'));
   if (expectedPlan) for (const key of ['pieces', 'duration', 'captions', 'sections', 'video', 'transcript']) {
     if (JSON.stringify(plan[key]) !== JSON.stringify(expectedPlan[key])) throw new Error(`Agent output changed the existing ${key}.`);
   }
-  if (expectedTranscript !== undefined && await readFile(join(root, 'transcript.json'), 'utf8') !== expectedTranscript) throw new Error('Agent output changed the existing transcript.');
+  if (expectedTranscript !== undefined) {
+    let transcript: any;
+    let frozen: any;
+    try {
+      transcript = JSON.parse(await readFile(join(root, 'transcript.json'), 'utf8'));
+      frozen = JSON.parse(expectedTranscript);
+    } catch {
+      throw new Error('Agent output transcript must be valid JSON.');
+    }
+    if (!transcript || !frozen || !Array.isArray(transcript.words) || !Array.isArray(frozen.words)) throw new Error('Agent output transcript must contain a words array.');
+    const { words, ...metadata } = transcript;
+    const { words: frozenWords, ...frozenMetadata } = frozen;
+    if (!isDeepStrictEqual(metadata, frozenMetadata)) throw new Error('Agent output changed transcript fields outside words.');
+    if (words.length !== frozenWords.length) throw new Error('Agent output changed the transcript word count.');
+    for (let index = 0; index < words.length; index++) {
+      const word = words[index];
+      const original = frozenWords[index];
+      if (!word || typeof word.text !== 'string' || !word.text.trim()) throw new Error(`Agent output transcript word ${index + 1} must have non-empty text.`);
+      if (word.start !== original.start || word.end !== original.end) throw new Error(`Agent output changed transcript word ${index + 1} timings.`);
+      const { text, ...fields } = word;
+      const { text: originalText, ...originalFields } = original;
+      if (!isDeepStrictEqual(fields, originalFields)) throw new Error(`Agent output changed fields other than text on transcript word ${index + 1}.`);
+    }
+  }
   if (!Array.isArray(plan.clips) || !plan.clips.length) throw new Error('Agent output has no b-roll clips.');
   for (const key of ['video', 'transcript']) if (typeof plan[key] === 'string') await local(plan[key], root);
   for (const clip of plan.clips) if (typeof clip.clip === 'string') await local(clip.clip, root, !!clip.template);
