@@ -5,33 +5,7 @@ Owner's check: Confirm an unchecked brand file when requested, then review the f
 
 Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` are relative to the skill root, not this stage folder. Numbered section references use the original section numbers: sections 1-3 are in `new-reel.md`, section 4 and section 6 in `04-next-version.md`, and section 5 in `footage-reel.md`. Shared hard rules and "Who built it" are in `../SKILL.md`.
 
-## Direction before building
-
-For a new reel, collect only missing inputs in one round, then record the answers and one
-concept line in the reel's notes: what the viewer understands or feels, and how every shot
-serves it. Ask the format (such as 9:16) when absent; a reference does not decide the format.
-
-| Reel type | Brief inputs |
-|---|---|
-| Explainer | Audience, ordered steps with a clear start and result, length (start near 5 s per idea), style, and sources for a fact check. |
-| Launch | Product and promise, 3 to 5 moments in order, brand hex and font, tempo, and ending. |
-| Showreel | Concept, tempo and bars, and techniques to demonstrate. |
-
-On music-led reels, derive event times from tempo and align changes to the beat grid.
-Speech-led reels retain speech and reading time even with music. The nine new effects in
-`templates/effects/README.md` are optional starting points, never a requirement.
-
-When a reference video is supplied, or a font or palette remains open, use **Reference analysis
-and choice sheets** in `reference/motion-broll.md` before building. The reference supplies
-technique; the brand supplies the story. For a choice sheet, show six to eight numbered
-candidates in the real title treatment and ask the owner to pick a number. Unattended jobs
-use supplied choices or brand defaults and record that decision instead of waiting.
-
-Before a full render, follow **Check stills** in that reference: inspect one still per beat
-(music beats for music-led reels, spoken beats for speech-led reels), plus mid-move frames.
-Before hand-over, verify tags remain readable on screen at least 0.8 s and titles at least
-1.5 s; nothing covers the speaker or key words. Check a short sample on light and dark grounds.
-Record the measured intervals and any intentional full-frame cutaways in the reel's notes.
+Follow [direction.md](direction.md) for direction before building and [check.md](check.md) for stills and readability.
 
 ## Parts workflow
 
@@ -47,56 +21,7 @@ For new code-built reels, follow **Parts reels** in `reference/contract.md`. Wri
 
 ## 2. Brand file (before any build)
 
-The **brand file** `reels/brand.md` records where the project's brand sources live. It points at
-them and never copies their values (no hex codes, font sizes or copy lifted from a source).
-
-**If `reels/brand.md` exists:**
-
-- `checked:` holds a date: read the file and the sources it points at, then go to section 3.
-- `checked: no`: don't build. Show the owner the file's summary and ask them to check it. When they
-  say it is right (or tell you what to fix and you fix it), set `checked:` to today's date
-  (`YYYY-MM-DD`) and go to section 3.
-
-**If it doesn't exist (first use in this project):**
-
-1. Look for `DESIGN.md` at the project root. If it is missing or empty, use the **built-in brand**
-   instead of stopping: `assets/brand/brand.md` in this skill (Geist and Geist Mono, the effect
-   templates' default colours; fonts and licenses beside it). Write `reels/brand.md` with
-   `- Colour and type: built-in brand (Kinotta assets/brand/brand.md)` as its colour and type
-   source, set `checked:` to today's date, and tell the owner in one short message: the reel uses
-   Kinotta's built-in brand; to replace it, add a `DESIGN.md` (for example `/impeccable init` then
-   `/impeccable document`) and delete `reels/brand.md`, or type their own colours and typefaces.
-   If they want to type their own, ask for the colours and typefaces, record their answers in the
-   brand file under `## Answers (standing in for a missing DESIGN.md)` in place of the built-in
-   brand, and set `checked:` once they confirm. Then continue with steps 2 to 4.
-2. Find the other sources: logo files, brand guidelines, voice or tone notes, product context,
-   imagery, font files. Look at the root and in folders like `brand-guidelines/`, `Assets/`,
-   `context/`, `docs/`. Note what you could not find.
-3. Write `reels/brand.md` in this shape:
-
-   ```markdown
-   # Brand file
-
-   checked: no
-
-   ## Sources
-
-   - Colour and type: `DESIGN.md`
-   - Logo: `Assets/logo.svg` (also `Assets/logo-light.svg` for dark grounds)
-   - Guidelines: `BRAND-GUIDELINES.md`, `brand-guidelines/`
-   - Voice: `context/voice.md`
-   - Font files: `Assets/fonts/`
-
-   ## Answers
-
-   Only for what the project has no source for, in the owner's words.
-   ```
-
-4. Summarise the file in chat (what each source is, what is missing) and **stop without
-   building**. The owner checks it once. On the built-in brand, summarise it the same way but
-   don't stop: it is already checked.
-
-Done when `reels/brand.md` exists with `checked:` set to a date, or you have stopped and asked.
+Follow [00-setup.md](00-setup.md) for the brand file.
 
 ## 3. Build storyboard v1
 

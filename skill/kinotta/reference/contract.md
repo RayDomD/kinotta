@@ -32,6 +32,8 @@ Run `kinotta build <slug> --by <your name>`, then `kinotta check <slug>`. Kinott
 
 ### Converting a single-page reel to parts
 
+For alternate requests, follow [alternates.md](../stages/alternates.md).
+
 Convert the same reel. Never create a new reel to hold the alternates: the owner's comments, Working edits and version history stay with the reel they were made on. The conversion is the reel's next version, so a reel at v18 becomes parts at v19.
 
 1. Start from the newest version's `index.html` and `shots.json`. Give each scene a fixed portable `name`, using its `data-scene` value.
@@ -72,7 +74,7 @@ Files you may find or write inside a version folder, besides the page and `shots
 
 | File | Who writes it | Meaning |
 |---|---|---|
-| `transcript.json`, `plan.json` | whoever built the version | The transcript and the plan it was built from. Every footage version keeps its own copy (copy them in when you build one; see `SKILL.md` section 6). |
+| `transcript.json`, `plan.json` | whoever built the version | The transcript and the plan it was built from. Every footage version keeps its own copy (copy them in when you build one; see `stages/04-next-version.md` section 6). |
 | `kinotta-edits.css` | Kinotta | A code-only reel's moved and scaled elements. Copy it into your next version and keep the `<link>` to it in the page. |
 | `edits.json` | Kinotta | The operations a Kinotta save applied. Never copy it into a new version. |
 | `answers.md`, `comments*.json` | you, the editor | As above. |
