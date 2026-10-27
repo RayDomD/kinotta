@@ -70,6 +70,10 @@ const PICKER_PORT = fixturePort('picker');
 /** A nineteenth for renders.spec.ts: the showreel sample, where renders are queued, followed from other tabs and cancelled. */
 const RENDERS_PORT = fixturePort('renders');
 
+/** A twenty-first for stale-edit.spec.ts: the footage sample, whose plan loses a clip after an edit was made on it. */
+const STALE_EDIT_PORT = fixturePort('staleEdit');
+const STALE_EDIT_PROJECT_FILE = projectFile('stale-edit');
+
 // Servers start through a shell, so they watch the Playwright runner's pid, not their parent's, to exit with it.
 const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: String(process.pid) });
 
@@ -233,6 +237,13 @@ export default defineConfig({
       command: 'node tests/e2e/start-server.mjs',
       url: `http://localhost:${RENDERS_PORT}`,
       env: { ...serverEnv(RENDERS_PORT), KINOTTA_E2E_FIXTURE: 'showreel-project' },
+      timeout: 120_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: 'node tests/e2e/start-server.mjs',
+      url: `http://localhost:${STALE_EDIT_PORT}`,
+      env: { ...serverEnv(STALE_EDIT_PORT), KINOTTA_E2E_FIXTURE: 'footage-project', KINOTTA_E2E_PROJECT_FILE: STALE_EDIT_PROJECT_FILE },
       timeout: 120_000,
       reuseExistingServer: false,
     },

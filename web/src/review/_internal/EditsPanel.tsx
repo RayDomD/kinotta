@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { applyOperations, describeOperation, pieceMap, toTimeline, toTimelineSpan } from '../../../../server/core/model.ts';
 import type { Operation, Piece, PlanClip } from '../../../../server/core/model.ts';
@@ -70,7 +71,16 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
   // Flagged edits are not part of the preview, so where an edit landed is worked out from the ones that apply.
   const applied = operations.filter((op) => flagged[op.id] === undefined);
   const idle = edits !== undefined && !edits.busy;
-
+  const { editFocus } = useEditorWorkspace();
+  const lit = editFocus?.id;
+  const rows = useRef<HTMLOListElement>(null);
+  // An edit named in the error bar is scrolled into view and focused, so its row is where the owner lands.
+  useEffect(() => {
+    if (!editFocus) return;
+    const row = [...(rows.current?.children ?? [])].find((el): el is HTMLElement => el instanceof HTMLElement && el.dataset.editId === editFocus.id);
+    row?.scrollIntoView({ block: 'nearest' });
+    row?.focus({ preventScroll: true });
+  }, [editFocus?.seq, operations.length]);
 
   return (
     <>
@@ -98,12 +108,12 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
           </div>
         )}
         {operations.length > 0 && (
-          <ol className="clist" aria-label="Edits">
+          <ol className="clist" aria-label="Edits" ref={rows}>
             {operations.map((op, i) => {
               const { target, text } = describeOperation(op);
               const gone = flagged[op.id];
               return (
-                <li key={op.id} className={op.kind === 'clip-slide' || gone !== undefined ? 'c flag' : 'c'}>
+                <li key={op.id} data-edit-id={op.id} tabIndex={-1} className={`${op.kind === 'clip-slide' || gone !== undefined ? 'c flag' : 'c'}${lit === op.id ? ' lit' : ''}`} aria-current={lit === op.id ? 'true' : undefined}>
                   <div className="where">
                     <span className="dot">{i + 1}</span>
                     {`${codeOnly ? target.replace(/^Clip/, 'Scene') : target}${pieces && gone === undefined ? ` · ${whereOn(pieces, applied, applied.indexOf(op), clips)}` : ''}`}

@@ -143,6 +143,8 @@ input { font: inherit; color: inherit; cursor: text; }
 /* copy the comment batch for your agent */
 .copy { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .copy-error { max-width: 46ch; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
+.copy-stale { list-style: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 4px; }
+.copy-stale .quiet-link { font-size: 13px; color: var(--ink); text-align: left; text-decoration: underline; text-underline-offset: 2px; }
 .btn { background: var(--ink); color: var(--ground); font-weight: 600; font-size: 14px; padding: 8px 16px; border: 1.6px solid var(--ink); box-shadow: var(--sheet-press); transition: transform var(--t-lift) var(--ease), box-shadow var(--t-shadow) var(--ease); }
 .btn:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: var(--sheet-rest); }
 .btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; transition-duration: var(--t-press); }

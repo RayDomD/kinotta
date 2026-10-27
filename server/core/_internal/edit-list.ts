@@ -14,18 +14,20 @@ import { writeFileAtomic } from './state.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
-import { applyOperation, applyOperations, describeOperation, mediaEditingPlan } from './edit-model.ts';
-import type { NewOperation, Operation, SnipOperation, Sources } from './edit-model.ts';
+import { applyOperation, applyOperations, describeOperation, editableMedia, mediaEditingPlan, operationMoment } from './edit-model.ts';
+import type { NewOperation, Operation, OperationMoment, SnipOperation, Sources } from './edit-model.ts';
+import { mediaTimeline, remapMediaMoment, renameLegacySource } from './media-model.ts';
 import type { MediaPlan } from './media-model.ts';
+import { legacyFootageRenames } from './legacy-footage.ts';
 import { KinottaError } from './errors.ts';
-import type { EditList, MediaEditingModel } from './types.ts';
+import type { EditList, FlaggedPlace, MediaEditingModel } from './types.ts';
 import { assertCodeOnlyOperations, codeSources, isCodeOnly } from './code-edits.ts';
 import { clearHandoff, handoffReason, readHandoff } from './handoff.ts';
 import type { Handoff } from './handoff.ts';
 import { readReelPlan, readReelTranscript, readReelWords, readSourceAudio } from './sources.ts';
 import { preservedSourceHashes } from './media-preservation.ts';
 import { recoverSave } from './save-journal.ts';
-import { newestVersionNumber, requireReelDir } from './version.ts';
+import { newestVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
@@ -63,6 +65,8 @@ export interface Stored {
   redo: Operation[][];
   /** Operations a replay onto a newer version found no longer apply, by id, with why. */
   flagged: Record<string, string>;
+  /** Where each flagged operation acts on the version it was replayed onto, when it has a place. */
+  flaggedAt?: Record<string, FlaggedPlace>;
   /** The older base whose history was reset by replay. Kept until Save or Discard. */
   replayedFrom?: number;
 }
@@ -78,7 +82,8 @@ async function readStored(reelDir: string): Promise<Stored | null> {
     const parsed = JSON.parse(await readFile(join(reelDir, EDIT_LIST_FILE), 'utf8')) as Record<string, unknown>;
     if (!Number.isInteger(parsed.base) || !Array.isArray(parsed.operations)) return null;
     const flagged = parsed.flagged && typeof parsed.flagged === 'object' ? (parsed.flagged as Record<string, string>) : {};
-    return { ...(parsed.anchor && typeof parsed.anchor === 'object' ? { anchor: parsed.anchor as WorkingInputs } : {}), ...(parsed.sourceHashes && typeof parsed.sourceHashes === 'object' ? { sourceHashes: parsed.sourceHashes as Record<string, string> } : {}), ...(Number.isInteger(parsed.frozen) ? { frozen: Number(parsed.frozen), ...(typeof parsed.frozenIdentity === 'string' ? { frozenIdentity: parsed.frozenIdentity } : {}), frozenOperations: Array.isArray(parsed.frozenOperations) ? parsed.frozenOperations.filter((id): id is string => typeof id === 'string') : [] } : {}), base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged, ...(Number.isInteger(parsed.replayedFrom) && Number(parsed.replayedFrom) >= 0 && Number(parsed.replayedFrom) < Number(parsed.base) ? { replayedFrom: Number(parsed.replayedFrom) } : {}) };
+    const flaggedAt = parsed.flaggedAt && typeof parsed.flaggedAt === 'object' ? (parsed.flaggedAt as Record<string, FlaggedPlace>) : undefined;
+    return { ...(parsed.anchor && typeof parsed.anchor === 'object' ? { anchor: parsed.anchor as WorkingInputs } : {}), ...(parsed.sourceHashes && typeof parsed.sourceHashes === 'object' ? { sourceHashes: parsed.sourceHashes as Record<string, string> } : {}), ...(Number.isInteger(parsed.frozen) ? { frozen: Number(parsed.frozen), ...(typeof parsed.frozenIdentity === 'string' ? { frozenIdentity: parsed.frozenIdentity } : {}), frozenOperations: Array.isArray(parsed.frozenOperations) ? parsed.frozenOperations.filter((id): id is string => typeof id === 'string') : [] } : {}), base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged, ...(flaggedAt ? { flaggedAt } : {}), ...(Number.isInteger(parsed.replayedFrom) && Number(parsed.replayedFrom) >= 0 && Number(parsed.replayedFrom) < Number(parsed.base) ? { replayedFrom: Number(parsed.replayedFrom) } : {}) };
   } catch {
     return null;
   }
@@ -90,6 +95,7 @@ const handoffOf = (handoff: Handoff | null): Pick<EditList, 'handedOff'> => (han
 /** The list as the API shows it: operations, whether Undo and Redo have anything to step to, and what holds Save back. */
 function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditList {
   const flagged = Object.fromEntries(stored.operations.filter((op) => stored.flagged[op.id] !== undefined).map((op) => [op.id, stored.flagged[op.id]!]));
+  const flaggedAt = Object.fromEntries(stored.operations.filter((op) => stored.flagged[op.id] !== undefined && stored.flaggedAt?.[op.id] !== undefined).map((op) => [op.id, stored.flaggedAt![op.id]!]));
   return {
     base: stored.base,
     ...(stored.frozen !== undefined ? { frozen: stored.frozen } : {}),
@@ -101,6 +107,7 @@ function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditLis
     ...(stale ? { stale: true as const } : {}),
     ...handoffOf(handoff),
     ...(Object.keys(flagged).length > 0 ? { flagged } : {}),
+    ...(Object.keys(flaggedAt).length > 0 ? { flaggedAt } : {}),
   };
 }
 
@@ -153,7 +160,7 @@ export async function readMediaModel(projectDir: string, slug: string): Promise<
  * why, and is left out of what the later ones are checked against. Undo and Redo history belongs to the old version and goes.
  * A list that cannot be replayed at all (the sources are unreadable) is left as it was, stale.
  */
-async function replayOntoNewest(projectDir: string, reelDir: string, stored: Stored, newest: number): Promise<Stored> {
+async function replayOntoNewest(projectDir: string, reelDir: string, slug: string, stored: Stored, newest: number): Promise<Stored> {
   let sources: Sources;
   try {
     sources = await currentSources(projectDir, reelDir, true);
@@ -162,7 +169,9 @@ async function replayOntoNewest(projectDir: string, reelDir: string, stored: Sto
   }
   const flagged: Record<string, string> = {};
   const consumed = new Set(stored.frozenOperations ?? []);
-  const operations = stored.operations.filter((op) => {
+  const newestSources = sources;
+  const renames = await footageRenames(projectDir, reelDir, stored, newest);
+  const operations = stored.operations.map((op) => [...renames].reduce((renamed, [from, to]) => renameLegacySource(renamed, from, to), op)).filter((op) => {
     if (consumed.has(op.id)) return false;
     if (op.kind === 'shot-alternate' || op.kind === 'shot-alternate-dismiss') {
       const shot = sources.plan.parts?.shots.find((shot) => shot.name === op.shot);
@@ -204,10 +213,62 @@ async function replayOntoNewest(projectDir: string, reelDir: string, stored: Sto
       flagged[op.id] = op.reversal ? `${describeOperation(op).text}. The agent changed the same part of the reel. Review this undo against the new version.` : err instanceof Error ? err.message : 'It no longer applies.';
     }
   }
+  const flaggedAt = Object.keys(flagged).length > 0 ? await flaggedPlaces(projectDir, reelDir, slug, stored, newest, newestSources, new Set(Object.keys(flagged)), renames) : {};
   const anchor = await isCodeOnly(projectDir, reelDir) ? undefined : await resolveWorkingInputs(projectDir, reelDir, newest);
-  const next: Stored = { ...(anchor ? { anchor } : {}), base: newest, operations, undo: [], redo: [], flagged, replayedFrom: stored.base };
+  const next: Stored = { ...(anchor ? { anchor } : {}), base: newest, operations, undo: [], redo: [], flagged, ...(Object.keys(flaggedAt).length > 0 ? { flaggedAt } : {}), replayedFrom: stored.base };
   await writeStored(reelDir, next);
   return next;
+}
+
+/**
+ * Where each flagged edit acts, on the newest version: worked out on the version the edit was made on (where its target
+ * still exists), then followed to the newest timeline, and the newest version's shot that plays there. An edit with no place
+ * (a track change, say) or that cannot be followed is left out. Never throws: the places only help the owner find an edit.
+ */
+async function flaggedPlaces(projectDir: string, reelDir: string, slug: string, stored: Stored, newest: number, newestSources: Sources, ids: ReadonlySet<string>, renames: ReadonlyMap<string, string>): Promise<Record<string, FlaggedPlace>> {
+  try {
+    if (await isCodeOnly(projectDir, reelDir)) return {};
+    let before = (stored.anchor ?? await resolveWorkingInputs(projectDir, reelDir, stored.base)).sources;
+    const moments = new Map<string, OperationMoment>();
+    for (const op of stored.operations) {
+      if (ids.has(op.id) && !op.reversal) {
+        const moment = operationMoment(op, before);
+        if (moment) moments.set(op.id, moment);
+      }
+      try { before = applyOperations(before, [op]); } catch { /* Left out of what later edits are placed against, as in replay. */ }
+    }
+    if (moments.size === 0) return {};
+    const shots = [...(await readVersionFiles(projectDir, slug, newest)).shots].sort((a, b) => a.start - b.start);
+    const oldPlan = mediaEditingPlan((stored.anchor ?? await resolveWorkingInputs(projectDir, reelDir, stored.base)).sources);
+    const newPlan = mediaEditingPlan(newestSources);
+    const oldTimeline = mediaTimeline(oldPlan.media!, oldPlan.duration);
+    const newTimeline = mediaTimeline(newPlan.media!, newPlan.duration);
+    const places: Record<string, FlaggedPlace> = {};
+    for (const [id, moment] of moments) {
+      const renamed = moment.placement ? [...renames].reduce((placement, [from, to]) => renameLegacySource(placement, from, to), moment.placement) : undefined;
+      const { time } = remapMediaMoment(oldTimeline, newTimeline, moment.time, renamed ? { placement: renamed, sourceTime: moment.sourceTime } : undefined);
+      const shot = [...shots].reverse().find((s) => s.start <= time) ?? shots[0];
+      places[id] = { time, ...(shot ? { shot: shot.number } : {}) };
+    }
+    return places;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * The legacy footage the list's base names that the newest version holds under another path (an agent's copy in its own
+ * folder), by content hash: old source id to new. Empty for a code-only reel or when either side cannot be read.
+ */
+async function footageRenames(projectDir: string, reelDir: string, stored: Stored, newest: number): Promise<Map<string, string>> {
+  try {
+    if (await isCodeOnly(projectDir, reelDir)) return new Map();
+    const before = stored.anchor ?? await resolveWorkingInputs(projectDir, reelDir, stored.base);
+    const after = await resolveWorkingInputs(projectDir, reelDir, newest);
+    return await legacyFootageRenames(projectDir, { media: editableMedia(before.sources), planDir: before.planDir }, { media: editableMedia(after.sources), planDir: after.planDir });
+  } catch {
+    return new Map();
+  }
 }
 
 /** The reel's edit list, without waiting for other changes to it. Replays a list made on an earlier version first. */
@@ -220,7 +281,7 @@ export async function readEditListNow(projectDir: string, slug: string): Promise
   if (stored === null) {
     return { base: newest, operations: [], canUndo: false, canRedo: false, ...handoffOf(handoff) };
   }
-  if ((stored.frozen ?? stored.base) < newest) stored = await replayOntoNewest(projectDir, reelDir, stored, newest);
+  if ((stored.frozen ?? stored.base) < newest) stored = await replayOntoNewest(projectDir, reelDir, slug, stored, newest);
   return shown(stored, (stored.frozen ?? stored.base) !== newest, handoff);
 }
 

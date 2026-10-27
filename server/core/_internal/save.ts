@@ -2,7 +2,7 @@ import { pinnedEffectPage } from './pinned-effect-page.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { BUILT_BY_YOU, applyOperations, operationTouches } from './edit-model.ts';
+import { BUILT_BY_YOU, applyOperations, describeOperation, operationTouches } from './edit-model.ts';
 import type { Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import { readEditListNow, recordFreeze, workingInputs, workingState, withPreservedMediaHashes, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { contentIdentity } from './content-identity.ts';
@@ -180,9 +180,11 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
     const list = await readEditListNow(projectDir, slug);
     if ((await newestVersionNumber(reelDir)) === 0) throw new KinottaError('invalid', 'This reel has no version yet. Working renders wait until its transcript is done and v1 is built. Edits still collect.');
     if (list.stale) throw new KinottaError('frozen', `The edit list was made on v${list.base}, which is no longer the newest version. Check its flagged edits before freezing it.`);
-    const flagged = Object.keys(list.flagged ?? {}).length;
-    if (flagged > 0) {
-      throw new KinottaError('invalid', `${flagged === 1 ? 'One edit no longer applies' : `${flagged} edits no longer apply`} to v${list.base}. Remove ${flagged === 1 ? 'it' : 'them'} or redo ${flagged === 1 ? 'it' : 'them'}, then freeze Working.`);
+    const flagged = list.operations.filter((op) => list.flagged?.[op.id] !== undefined);
+    if (flagged.length > 0) {
+      const one = flagged.length === 1;
+      const named = flagged.map((op) => { const shot = list.flaggedAt?.[op.id]?.shot; return `${describeOperation(op).text}${shot ? ` (shot ${shot})` : ''}`; }).join('; ');
+      throw new KinottaError('invalid', `${one ? 'One edit no longer applies' : `${flagged.length} edits no longer apply`} to v${list.base}: ${named}. Remove ${one ? 'it' : 'them'} or redo ${one ? 'it' : 'them'}, then freeze Working.`);
     }
 
 

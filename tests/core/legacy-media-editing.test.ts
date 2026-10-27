@@ -134,3 +134,22 @@ it('flags old footage pins when a native rebuild has no lineage to the old sourc
   writeFileSync(join(reel, 'v2/plan.json'), JSON.stringify({ media: { schema: 1, sources: [{ id: 'new', kind: 'video', path: '../../../media/talk.mp4', duration: 12 }], placements: [{ id: 'new-use', role: 'main', source: 'new', in: 0, out: 12 }], sequence: ['new-use'] } }));
   expect((await project.listComments('founder-talk', 2))[0]?.state).toBe('moment-removed');
 });
+
+it('carries old footage pins onto the legacy source that holds the same bytes, not the first one named (#93)', async () => {
+  const dir = copyFixture('footage-project');
+  const reel = join(dir, 'reels/founder-talk');
+  const project = openProject(dir);
+  await project.addComment('founder-talk', 1, { text: 'Old footage', pin: { kind: 'frame', shot: '', time: 1.25, x: 0.2, y: 0.3, element: null } });
+  mkdirSync(join(reel, 'v2'));
+  writeFileSync(join(reel, 'v2/index.html'), readFileSync(join(reel, 'v1/index.html')));
+  writeFileSync(join(reel, 'v2/shots.json'), readFileSync(join(reel, 'v1/shots.json')));
+  writeFileSync(join(reel, 'v2/decoy.mp4'), 'other footage');
+  writeFileSync(join(reel, 'v2/footage.mp4'), readFileSync(join(dir, 'media/talk.mp4')));
+  writeFileSync(join(reel, 'v2/plan.json'), JSON.stringify({ media: { schema: 1,
+    sources: [{ id: 'legacy:decoy.mp4', kind: 'video', path: 'decoy.mp4', duration: 12 }, { id: 'legacy:footage.mp4', kind: 'video', path: 'footage.mp4', duration: 12 }],
+    placements: [{ id: 'legacy:decoy.mp4:0:12', role: 'main', source: 'legacy:decoy.mp4', in: 0, out: 12 }, { id: 'legacy:footage.mp4:0:12', role: 'main', source: 'legacy:footage.mp4', in: 0, out: 12 }],
+    sequence: ['legacy:decoy.mp4:0:12', 'legacy:footage.mp4:0:12'] } }));
+  const [carried] = await project.listComments('founder-talk', 2);
+  expect(carried?.state).toBeUndefined();
+  expect(carried?.pin).toMatchObject({ time: 13.25, placement: 'legacy:footage.mp4:0:12', sourceTime: 1.25 });
+});

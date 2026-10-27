@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { scanPage } from './contract.ts';
 import { readState, serialized, stateFilePath, writeState } from './state.ts';
 import { ELEMENT_REMOVED, MOMENT_REMOVED } from './state.ts';
@@ -9,7 +9,8 @@ import { pieceMap, toSource, toTimeline } from './pieces.ts';
 import type { PieceMap } from './pieces.ts';
 import type { Shot, Version } from './types.ts';
 import type { PlacementPin } from './types.ts';
-import { legacyMedia, mediaTimeline, remapMediaMoment, timelineMoment } from './media-model.ts';
+import { LEGACY_PREFIX, legacyMedia, legacySourceOfPlacement, mediaTimeline, remapMediaMoment, renameLegacySource, timelineMoment } from './media-model.ts';
+import { sameLegacyFootage } from './legacy-footage.ts';
 import { newestVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
 
 /** The id of the section a shot belongs to. Every shot of a version has one, but a shot can be missing from a version. */
@@ -45,17 +46,20 @@ function mapOf(version: Version): PieceMap {
 /**
  * Where a moment of `from`'s timeline is on `to`'s: through the source time both versions' pieces share. A moment in a
  * snipped stretch has no place; `removed` then says so, and `time` is where the snip closed up (the start of the next
- * piece in the source, else the end).
+ * piece in the source, else the end). `footage` is the legacy source of `to` that holds `from`'s footage, when known by
+ * content (see `footageOf`); otherwise the first legacy source is taken.
  */
-export function remapMoment(from: Version, to: Version, time: number, anchor?: PlacementPin): { time: number; removed: boolean } {
+export function remapMoment(from: Version, to: Version, time: number, anchor?: PlacementPin, footage?: string): { time: number; removed: boolean } {
   if (from.media || to.media) {
     // First conversion keeps the adapter's original source root. Old pins have reel times, not occurrence IDs.
-    const legacySource = !from.media && from.footage ? to.media?.sources.find((s) => s.id.startsWith('legacy:')) : undefined;
+    const legacySource = !from.media && from.footage ? to.media?.sources.find((s) => (footage === undefined ? s.id.startsWith(LEGACY_PREFIX) : s.id === footage)) : undefined;
     if (!from.media && from.footage && !legacySource) return { time: Math.min(time, to.duration), removed: true };
-    const legacy = legacySource ? legacyMedia({ video: legacySource.id.slice('legacy:'.length), pieces: from.pieces, duration: from.duration }) : null;
+    const legacy = legacySource ? legacyMedia({ video: legacySource.id.slice(LEGACY_PREFIX.length), pieces: from.pieces, duration: from.duration }) : null;
     const before = from.media ? mediaTimeline(from.media, from.duration) : legacy ? mediaTimeline(legacy, from.duration) : { placements: [], duration: from.duration };
     const after = to.media ? mediaTimeline(to.media, to.duration) : { placements: [], duration: to.duration };
-    return remapMediaMoment(before, after, time, anchor);
+    // A pin made on the old footage path names its placement by that path; it follows the footage to its new name.
+    const oldRoot = footage !== undefined && anchor?.placement ? legacySourceOfPlacement(anchor.placement) : undefined;
+    return remapMediaMoment(before, after, time, oldRoot ? renameLegacySource(anchor, oldRoot, footage!) : anchor);
   }
   const target = mapOf(to);
   const anchored = anchor?.sourceTime;
@@ -105,12 +109,12 @@ function elementGone(page: PageView | null, time: number, name: string): boolean
  * The comment as the new version holds it: a new id, its pin on the remapped moment. Marked when that moment is gone, else
  * when the element it is pinned on is (an element pin follows its element); a mark it already had stays.
  */
-export function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null, preserveOptions = false): StoredComment {
+export function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null, preserveOptions = false, footage?: string): StoredComment {
   const oldShot = from.shots.find((shot) => shot.number === comment.pin.shot);
   const name = comment.pin.kind === 'frame' ? comment.pin.shotName ?? oldShot?.name ?? (to.parts ? oldShot?.scene : undefined) : undefined;
   const named = name ? to.shots.find((shot) => (shot.name ?? shot.scene) === name) : undefined;
   const localTime = Math.max(0, comment.pin.time - (oldShot?.start ?? 0));
-  const moment = name ? { time: named ? named.start + Math.min(localTime, Math.max(0, named.duration - JOIN_NUDGE)) : Math.min(comment.pin.time, to.duration), removed: !named } : remapMoment(from, to, comment.pin.time, comment.pin);
+  const moment = name ? { time: named ? named.start + Math.min(localTime, Math.max(0, named.duration - JOIN_NUDGE)) : Math.min(comment.pin.time, to.duration), removed: !named } : remapMoment(from, to, comment.pin.time, comment.pin, footage);
   const shot = name ? named : shotAt(to, moment.time);
   const section = shot?.section ?? (to.media ? to.sections.find((s) => s.start <= moment.time && s.end > moment.time)?.id ?? null : null);
   // Converting a single-page reel to parts: a pin with no scene to follow takes the name of the parts shot it lands on.
@@ -124,6 +128,17 @@ export function carriedComment(comment: StoredComment, from: Version, to: Versio
   const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : alternateGone || comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elementGone(page, moment.time, target)) ? ELEMENT_REMOVED : undefined;
   const { options, ...carried } = comment;
   return { ...carried, ...(preserveOptions && options !== undefined ? { options } : {}), id: randomUUID(), pin: { ...comment.pin, ...place, ...anchor }, ...(state ? { state } : {}), ...(alternateGone ? { stateReason: `The pinned alternate ${revision} is no longer offered on this shot.` } : {}) };
+}
+
+/**
+ * On first conversion (a legacy footage version followed by one with media), the legacy source of `to` that holds the same
+ * bytes as `from`'s footage, so pins follow the footage even when the new version names a copy of it. Undefined when that
+ * does not apply or no source matches; `remapMoment` then takes the first legacy source.
+ */
+async function footageOf(projectDir: string, slug: string, from: Version, to: Version): Promise<string | undefined> {
+  if (from.media || !from.footage || !to.media) return undefined;
+  const planDir = join(await requireReelDir(projectDir, slug), `v${to.number}`);
+  return sameLegacyFootage(projectDir, resolve(projectDir, from.footage.path), { media: to.media, planDir });
 }
 
 /**
@@ -147,13 +162,14 @@ async function settle(projectDir: string, slug: string, n: number): Promise<void
     const version = await readVersionFiles(projectDir, slug, n);
     const changed = new Set(version.changedSections ?? []);
     const page = await readPage(projectDir, slug, n);
+    const footage = await footageOf(projectDir, slug, previous, version);
 
     // Every unsent comment goes with its moment; sent ones stay with their batch.
     const carried: string[] = [];
     const moved: StoredComment[] = [];
     for (const comment of previousState.comments) {
       if (isSent(previousState.handedOff, comment.id)) continue;
-      moved.push(carriedComment(comment, previous, version, page));
+      moved.push(carriedComment(comment, previous, version, page, false, footage));
       carried.push(comment.id);
     }
     const stillWaiting = [...new Set([...(previousState.waiting ?? []), ...Object.keys(previousState.handedOff ?? {})])].filter(

@@ -141,6 +141,8 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
   const { time, playing, ready } = playback;
   useEffect(() => { if (simple?.jump) playback.seek(simple.jump.time); }, [simple?.jump]);
+  // A flagged edit named outside the panel (the error bar) moves the playhead to where it acts.
+  useEffect(() => { if (workspace.editFocus?.time !== undefined) playback.seek(workspace.editFocus.time); }, [workspace.editFocus?.seq]);
   const selectSnip = (range: { from: number; to: number } | null) => {
     setSnipRange(range);
     if (range) playback.seek(range.to);

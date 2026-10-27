@@ -87,6 +87,13 @@ function TopBar(props: {
   const workspace = useEditorWorkspace();
   const [more, setMore] = useState(false);
   const [allReels, setAllReels] = useState(false);
+  // A refused save names the edits that no longer apply: each opens the Edits panel in the editor, on its row.
+  const showEdit = (id: string, time?: number): void => {
+    if (props.simple) props.onMode?.(false);
+    onPhase?.('Review');
+    workspace.setPanelTab('edits');
+    workspace.setEditFocus((before) => ({ id, ...(time !== undefined ? { time } : {}), seq: (before?.seq ?? 0) + 1 }));
+  };
   const closeMore = useCallback((open: boolean) => { setMore(open); if (!open) setAllReels(false); }, []);
   const choices = (version?.workingParts?.shots ?? version?.shots ?? []).filter((shot) => !shot.choiceMade && (shot.alternates?.filter((alternate) => !alternate.dismissed).length ?? 0) > 1).length;
   return (
@@ -120,6 +127,7 @@ function TopBar(props: {
           issues={issues && { all: issues.messages, runtime: issues.runtime }}
           section={section}
           onSaved={onCopied}
+          onShowEdit={showEdit}
         />
       )}
       <Popover label="More" disabled={!props.listing} button={<span aria-hidden="true">···</span>} buttonClass="tb-menu tb-more" className="tb-more-pop" open={more} onOpen={closeMore}>

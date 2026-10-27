@@ -1,7 +1,7 @@
 ---
 title: Carry edits across footage copies
 date: 2026-10-27
-status: Approved
+status: Done
 summary: Owner edits keep applying when the agent's new version names the same footage by a different path, and a stale edit is one click away from the error that reports it.
 spec:
 ---
@@ -40,12 +40,12 @@ spec:
 
 ## Steps
 
-1. [ ] Carry test (red): a v1 plan naming `../../footage/x.mp4` and a v2 naming `footage.mp4` with the same bytes; a word edit from v1 applies to v2. Anchor: `tests/core/version-media.test.ts:14`.
-2. [ ] Hash-based source matching in `media-model.ts`, `carry.ts` and edit-list replay.
-3. [ ] Flagged edits carry shot and time; core test.
-4. [ ] Error bar and Edits panel: clickable entries; e2e that forces a stale edit and clicks through.
-5. [ ] Flaky test: loop 50 runs, find the cause, fix, loop 50 runs again.
-6. [ ] Read-only check on the owner's `sample-vid` reel that the "managements" edit now applies to v3.
+1. [x] Carry test (red): a v1 plan naming `../../footage/x.mp4` and a v2 naming `footage.mp4` with the same bytes; a word edit from v1 applies to v2. Anchor: `tests/core/version-media.test.ts:14`.
+2. [x] Hash-based source matching in `media-model.ts`, `carry.ts` and edit-list replay.
+3. [x] Flagged edits carry shot and time; core test.
+4. [x] Error bar and Edits panel: clickable entries; e2e that forces a stale edit and clicks through.
+5. [x] Flaky test: loop 50 runs, find the cause, fix, loop 50 runs again.
+6. [ ] Skipped (the owner's `sample-vid` reel is unreachable from the build session). Read-only check on the owner's `sample-vid` reel that the "managements" edit now applies to v3.
 
 ## Risks
 
@@ -59,6 +59,26 @@ spec:
 - The stale-edit e2e.
 - `npx vitest run tests/core/viewer-state.test.ts` 50 times in a loop.
 - `npm run typecheck`, `npm run build`.
+
+## Result
+
+Steps 1 to 5 shipped on `fix/carry-edits-across-copies`. Step 6 was skipped: the owner's `sample-vid` reel cannot be reached from the build session, so the "managements" edit on v3 still needs checking on the owner's machine.
+
+- Carry (#93): a legacy footage source is matched by content hash, so edits made on v1 apply to a version that copies the footage under another path. Saved ids keep their format (ADR 0003). Core tests in `tests/core/version-media.test.ts` and `tests/core/legacy-media-editing.test.ts`.
+- Flagged edits carry `flaggedAt` (time and shot). The freeze error names each edit and its shot. The save error bar lists each flagged edit as a button that opens the Edits panel on its row (focused, Tally outline) and moves the playhead to its time; in Simple mode it switches to the editor first. Covered by `tests/e2e/stale-edit.spec.ts` (own server, port offset 21).
+- Flaky test (#94): the cause was not a lost write. `markers.ts` checked the reel before taking its place in the write queue, so two simultaneous additions reached the queue in either order and were stored swapped; the test reads index 0 as the first. The queue slot is now taken before anything is awaited. Before the fix `viewer-state.test.ts` failed 2 of 50 runs (runs 38 and 39); after it, 0 of 50.
+
+Deviations and findings:
+- `operationMoment` was extended: a legacy clip names its source id, not a placement id, so it is placed by source time. Found by the e2e.
+- The Storyboard "Build next version" button (`CommentsPanel`) shows the plain error without buttons; only the top bar Copy button lists them.
+
+Checks:
+- `npm run typecheck`: clean. `npm run build`: ok. `npm run check:docs`: ok.
+- Core suites for handoff, working-reversals, version-media, legacy-media-editing: 4 files, 60 passed before the last test was added; version-media 9 passed after.
+- `npx vitest run --project unit`: 3 failed, 1138 passed, 10 skipped. Not caused here: `tests/engine/sound-skill.test.ts` (3 tests; the container's pip numpy 2.5.3 breaks apt scipy). `tests/core/proxy-audio.test.ts` hit a 10 s hook timeout under load and passed alone.
+- `tests/e2e/stale-edit.spec.ts`: 1 passed.
+- Full `npx playwright test` (port base shifted because another run held the default ports): 170 passed, 25 failed, 3 did not run. The failures are in agent-confirm, agent-strip, simple-mode, playback-stutter, and once each optimistic-edits, parts-gate, pinned-effects. Re-run on this branch, 16 failed in those files (parts-gate, pinned-effects and optimistic-edits passed). On unmodified main, the same files fail 17 and 17 in two runs, with the same agent-strip, simple-mode and playback-stutter tests failing. They are flaky or environment-bound here, not caused by this change.
+- The dashboard (`docs/plans/index.html`) was not regenerated: `pwsh` is not installed.
 
 ## Changelog
 
