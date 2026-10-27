@@ -83,9 +83,9 @@
 </head>
 <body>
 <main>
-  <span class="badge">Planned · not built yet</span>
+  <span class="badge">Built · real Auto build pending</span>
   <h1>Splitting the Kinotta skill</h1>
-  <p class="lede">Every agent that works on a reel reads one instruction file, <code>skill/kinotta/SKILL.md</code>, which is <span class="num">535</span> lines long and describes every job the agent can do. We're splitting it into a short "start here" file plus one file per step, so each job reads only its own instructions. No rule gets added, dropped or changed in meaning. The rules only move.</p>
+  <p class="lede">Every agent that worked on a reel read one instruction file, <code>skill/kinotta/SKILL.md</code>, which was <span class="num">535</span> lines long and described every job the agent can do. It is now a <span class="num">66</span>-line "start here" file plus one file per step, so each job reads only its own instructions. No rule was added, dropped or changed in meaning. The rules only moved.</p>
   <p class="meta">Before: <a href="2026-10-27-kinotta-skill-before-split.md">saved copy of SKILL.md</a> (origin/main, 2026-10-27). Plan: <code>docs/plans/2026-10-27-skill-stages.md</code>, approved by the owner on 2026-10-27.</p>
 
   <h2>What one job actually needs</h2>
@@ -107,6 +107,7 @@
   </div>
   <div class="legend"><span><i class="need"></i>Needed by Auto's first build (91)</span><span><i></i>Other jobs (444)</span></div>
   <p class="caption">Section sizes counted from the saved copy, by <code>##</code> heading. Hover a block for its section.</p>
+  <p>After the split, the first build reads the <span class="num">66</span>-line start file and the <span class="num">49</span>-line <code>02-first-build.md</code>: <span class="num">115</span> lines in place of 535. The extra lines over 91 are the step table and each file's Reads / Does / Writes / Owner's check header.</p>
 
   <h2>The steps a reel goes through</h2>
   <p>The owner described the process like this. Each step an agent runs gets its own file, which states what the step reads, what it does, what it writes and what the owner checks.</p>
@@ -121,7 +122,7 @@
 
   <h2>Before and after</h2>
   <div class="pair">
-    <div><h3>Today</h3>
+    <div><h3>Before</h3>
 <pre>skill/kinotta/
 ├── <b>SKILL.md</b>      535 lines, every job
 ├── reference/
@@ -130,14 +131,14 @@
 ├── scripts/
 ├── assets/
 └── examples/</pre></div>
-    <div><h3>Planned</h3>
+    <div><h3>After</h3>
 <pre>skill/kinotta/
-├── <b>SKILL.md</b>      ~80 lines: start here
+├── <b>SKILL.md</b>      66 lines: start here
 ├── <b>stages/</b>
-│   ├── 02-first-build.md
-│   ├── 04-next-version.md
-│   ├── new-reel.md
-│   └── footage-reel.md
+│   ├── 02-first-build.md   49
+│   ├── 04-next-version.md 163
+│   ├── new-reel.md        146
+│   └── footage-reel.md    150
 ├── reference/    unchanged
 ├── templates/    unchanged
 └── engine/ scripts/ assets/ examples/</pre></div>
@@ -151,23 +152,25 @@
     <tr><td>Direction before building</td><td><span class="num">24–51</span></td><td><code>new-reel.md</code></td></tr>
     <tr class="hot"><td>Unattended add b-roll</td><td><span class="num">52–94</span></td><td><code>02-first-build.md</code></td></tr>
     <tr><td>Hard rules</td><td><span class="num">95–119</span></td><td><code>SKILL.md</code></td></tr>
-    <tr><td>Parts workflow</td><td><span class="num">120–127</span></td><td>split: new reels → <code>new-reel.md</code>, batches → <code>04-next-version.md</code></td></tr>
-    <tr><td>§1 Preflight</td><td><span class="num">128–135</span></td><td>split: "pick the branch" → the <code>SKILL.md</code> table, the rest → <code>new-reel.md</code></td></tr>
-    <tr><td>§2 Brand file</td><td><span class="num">136–188</span></td><td><code>new-reel.md</code></td></tr>
-    <tr><td>§3 Build storyboard v1</td><td><span class="num">189–223</span></td><td><code>new-reel.md</code></td></tr>
-    <tr><td>Small changes to Working</td><td><span class="num">224–235</span></td><td><code>04-next-version.md</code></td></tr>
-    <tr><td>§4 Next version from a batch</td><td><span class="num">236–295</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>Parts workflow, new reels</td><td><span class="num">120–123</span></td><td><code>new-reel.md</code></td></tr>
+    <tr><td>Parts workflow, batches and alternates</td><td><span class="num">124–127</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>§1 Preflight, §2 Brand file, §3 Storyboard v1</td><td><span class="num">128–223</span></td><td><code>new-reel.md</code></td></tr>
+    <tr><td>Small changes to Working, §4 Next version from a batch</td><td><span class="num">224–295</span></td><td><code>04-next-version.md</code></td></tr>
     <tr><td>§5 Footage reels</td><td><span class="num">296–439</span></td><td><code>footage-reel.md</code></td></tr>
-    <tr><td>§6 Next footage version</td><td><span class="num">440–524</span></td><td><code>04-next-version.md</code></td></tr>
-    <tr><td>Examples of the format</td><td><span class="num">525–535</span></td><td><code>reference/</code> or <code>SKILL.md</code>, decided during the move</td></tr>
+    <tr><td>§6 Next footage version, The plan</td><td><span class="num">440–515</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>Who built it (shared by every step)</td><td><span class="num">516–521</span></td><td><code>SKILL.md</code></td></tr>
+    <tr><td>§6 completion check</td><td><span class="num">522–524</span></td><td><code>04-next-version.md</code></td></tr>
+    <tr><td>Examples of the format</td><td><span class="num">525–535</span></td><td><code>new-reel.md</code></td></tr>
   </table></div>
-  <p class="caption">This is the planned mapping. The lane doing the move records the final line-by-line table.</p>
+  <p class="caption">The mapping as built, from the lane's results. "Pick the branch" from Preflight is now answered by the start file's "Which step am I on?" table; the original lines moved with Preflight.</p>
 
   <h2>What changes in the code</h2>
-  <p>Kinotta's prompt for the first build currently points the agent at a section inside the big file:</p>
+  <p>Kinotta's prompt for the first build used to point the agent at a section inside the big file:</p>
 <pre>'Kinotta unattended add-b-roll job. Read request.json, then <b>skill/SKILL.md section "Unattended add b-roll"</b> and follow that path.'</pre>
+  <p>It now points at the start file for the hard rules and at the step file for the procedure:</p>
+<pre>'Kinotta unattended add-b-roll job. Read request.json, then <b>skill/SKILL.md</b> for hard rules and <b>skill/stages/02-first-build.md</b> for the first-build procedure; follow that path.'</pre>
   <p class="caption"><code>server/core/_internal/requests.ts:71</code></p>
-  <p>After the split, it points at <code>skill/stages/02-first-build.md</code> and at the short <code>skill/SKILL.md</code> for the hard rules. The engine, templates, scripts and the reel folder layout stay exactly as they are.</p>
+  <p>The only other code change is a comment in <code>runner.ts</code>. The engine, templates, scripts and the reel folder layout are unchanged.</p>
 
   <h2>Why it's worth doing</h2>
   <div class="card"><strong>Less to read, less to misread.</strong> A job reads the rules for its own step instead of five other paths, so a rule meant for footage reels can't get mixed into a first build.</div>
@@ -176,7 +179,7 @@
 
   <h2>How we make sure nothing gets lost</h2>
   <ul>
-    <li>Text is moved word for word. A script compares the saved copy with the new files and lists every old line that doesn't appear in exactly one new file. Only the new "start here" wording is allowed to be unmatched.</li>
+    <li>Text is moved word for word. <code>scripts/check-skill-coverage.mjs</code> compares the saved copy with the new files and counts copies: a line that appeared twice in the old file (a code fence, a repeated completion check) must appear exactly twice across the new files. It reports nothing missing and nothing duplicated.</li>
     <li>The skill's name and description stay byte-identical, so the same requests still trigger it.</li>
     <li>The last check is one real Auto build with Claude Code on a fresh project, compared with the 2026-10-27 manual run.</li>
   </ul>
@@ -185,7 +188,7 @@
   <ul>
     <li>Kinotta copies the whole skill folder into each agent job (<code>server/core/_internal/runner.ts:627</code>), so the step files must live inside <code>skill/kinotta/</code>, not elsewhere in the repo.</li>
     <li>The hard rules stay in the "start here" file because every step needs them. Moving them into a step file would hide them from the other steps.</li>
-    <li>This page describes the plan. The line counts are verified from the saved copy, and the "about 80 lines" target comes from the plan. Once the split lands, compare it with the saved copy.</li>
+    <li>The "before" counts come from the saved copy and the "after" counts from the split branch. The review and the real Auto build were still running when this page was updated.</li>
   </ul>
 </main>
 </body>
