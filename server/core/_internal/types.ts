@@ -547,11 +547,13 @@ export interface EditList {
   skipped?: { version: number; edits: SkippedEdit[] };
 }
 
-/** An edit a save left out, in words, with the shot it acts at when it has one. */
+/** An edit a save left out, in words, with the shot and time it acts at when it has a place. */
 export interface SkippedEdit {
   id: string;
   text: string;
   shot?: string;
+  /** Seconds on the newest version's timeline. */
+  time?: number;
 }
 
 /** Where a flagged edit acts: a moment of the newest version's timeline and the shot playing then. */

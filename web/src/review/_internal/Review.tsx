@@ -60,6 +60,8 @@ export interface ReviewProps {
   };
   frozen?: boolean;
   onWorking?(): void;
+  /** Makes the saved version on screen the current reel, as one edit Undo reverses. */
+  onUse?(number: number): void;
   reel: ReelSummary;
   /** `none`: the reel has no version yet, so its footage plays alone. */
   state: 'loading' | 'error' | 'none' | 'ready';
@@ -563,7 +565,7 @@ function reviewVerifyAttrs(props: ReviewProps) {
 
 export function Review(props: ReviewProps) {
   return <div className="rv-review-stack" {...reviewVerifyAttrs(props)}>
-    {props.frozen && props.version && <div className="frozen-version-line"><span>{`You are viewing v${props.version.number}, a frozen version.`}</span><button type="button" className="btn quiet" onClick={props.onWorking}>Back to Working</button></div>}
+    {props.frozen && props.version && <div className="frozen-version-line"><span>{`You are viewing v${props.version.number}, a saved version. It cannot be edited.`}</span><button type="button" className="btn" onClick={() => props.onUse?.(props.version!.number)}>Use this version</button><button type="button" className="btn quiet" onClick={props.onWorking}>Back to Working</button></div>}
     <ReviewContent {...props} />
   </div>;
 }

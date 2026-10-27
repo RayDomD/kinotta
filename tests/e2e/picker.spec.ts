@@ -40,14 +40,14 @@ test('a refused render shows its reason; a Draft renders and the finished file p
   const form = page.getByRole('dialog', { name: 'Render Working' });
   await expect(form).toBeVisible();
 
-  // The showreel's pages are opaque, so they have no Overlay.
-  await form.getByRole('radio', { name: 'Overlay' }).check();
+  // The showreel's pages are opaque, so they have no transparent overlay.
+  await form.getByRole('radio', { name: 'Transparent overlay' }).check();
   await expect(form.getByLabel('Size')).toHaveValue('1080p');
   await form.getByRole('button', { name: 'Render', exact: true }).click();
   // The refusal waits on a browser reading the page, slow when the machine is busy.
   await expect(form.getByRole('alert')).toContainText('no transparent background', { timeout: 30_000 });
 
-  await form.getByRole('radio', { name: 'Draft of Working' }).check();
+  await form.getByRole('radio', { name: 'Quick preview' }).check();
   await form.getByRole('combobox', { name: 'Size', exact: true }).selectOption('half');
   await form.getByRole('button', { name: 'Render', exact: true }).click();
   await expect(form.locator('.pk-render').getByRole('status')).toContainText('queued');

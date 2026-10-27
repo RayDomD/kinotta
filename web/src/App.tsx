@@ -6,6 +6,7 @@ import { BUILT_BY_YOU } from '../../server/core/model.ts';
 import { BriefWaiting } from './BriefReel.tsx';
 import { CommentsPanel } from './CommentsPanel.tsx';
 import { CopyButton } from './CopyButton.tsx';
+import { SkippedNote } from './SkippedNote.tsx';
 import { Empty } from './Empty.tsx';
 import { lastTab, rememberTab } from './lastTab.ts';
 import { Popover, RenderMenu, RenderPlayer, outputFile, presetName } from './Renders.tsx';
@@ -87,13 +88,6 @@ function TopBar(props: {
   const workspace = useEditorWorkspace();
   const [more, setMore] = useState(false);
   const [allReels, setAllReels] = useState(false);
-  // A refused save names the edits that no longer apply: each opens the Edits panel in the editor, on its row.
-  const showEdit = (id: string, time?: number): void => {
-    if (props.simple) props.onMode?.(false);
-    onPhase?.('Review');
-    workspace.setPanelTab('edits');
-    workspace.setEditFocus((before) => ({ id, ...(time !== undefined ? { time } : {}), seq: (before?.seq ?? 0) + 1 }));
-  };
   const closeMore = useCallback((open: boolean) => { setMore(open); if (!open) setAllReels(false); }, []);
   const choices = (version?.workingParts?.shots ?? version?.shots ?? []).filter((shot) => !shot.choiceMade && (shot.alternates?.filter((alternate) => !alternate.dismissed).length ?? 0) > 1).length;
   return (
@@ -127,7 +121,6 @@ function TopBar(props: {
           issues={issues && { all: issues.messages, runtime: issues.runtime }}
           section={section}
           onSaved={onCopied}
-          onShowEdit={showEdit}
         />
       )}
       <Popover label="More" disabled={!props.listing} button={<span aria-hidden="true">···</span>} buttonClass="tb-menu tb-more" className="tb-more-pop" open={more} onOpen={closeMore}>
@@ -201,18 +194,60 @@ interface VersionRailProps {
   editsSinceFreeze: number;
   frozenVersion: number;
   onWorking(): void;
+  /** Makes a saved version the current reel, as one edit Undo reverses. */
+  onUse(number: number): void;
 }
 
-/** The current Working reel; frozen folders remain available to the storage API. */
-function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edits }: VersionRailProps) {
-  return <div><div className="label">Reel</div><nav className="versions" aria-label="Current reel" data-verify-unit="VersionRail" data-verify-working={String(working)} data-verify-count="0">
+/** Who made a version, as the rail says it: "Saved by you" for one Kinotta built, else the agent's name. */
+function whoMade(builtBy: string | undefined): string | null {
+  if (builtBy === undefined) return null;
+  return builtBy === BUILT_BY_YOU ? 'Saved by you' : `Built by ${builtBy}`;
+}
+
+/** `changed 01, 02`, `storyboard`: what a version row says besides its number. */
+function versionTag(entry: VersionEntry, sectionIds: string[] | null): string {
+  const label = entry.isStoryboard ? 'storyboard' : '';
+  const numbers = (entry.changedSections ?? []).map((id) => sectionIds?.indexOf(id) ?? -1).filter((i) => i >= 0).sort((a, b) => a - b).map(sectionNumber);
+  return [label, numbers.length > 0 ? `changed ${numbers.join(', ')}` : ''].filter((part) => part !== '').join(' · ');
+}
+
+/** The current reel with Undo and Redo, then every saved version, newest first. A saved version opens read-only. */
+function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edits, entries, selected, ready, sectionIds, onOpen, onUse }: VersionRailProps) {
+  const newestFirst = [...entries].sort((a, b) => b.number - a.number);
+  // Using the version the current reel already is changes nothing.
+  const same = selected === frozenVersion && editsSinceFreeze === 0;
+  return <div><div className="label">Reel</div><nav className="versions" aria-label="Current reel" data-verify-unit="VersionRail" data-verify-working={String(working)} data-verify-count={entries.length}>
     <button type="button" data-working-row data-current-version={frozenVersion} aria-current={working ? 'true' : undefined} onClick={onWorking}>
       <span>Current<span className="rv-who">{editsSinceFreeze} {editsSinceFreeze === 1 ? 'edit' : 'edits'}</span></span>
     </button>
   </nav><div className="rv-undo" role="group" aria-label="Current reel history">
     <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canUndo} onClick={() => void edits.undo()}>Undo</button>
     <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canRedo} onClick={() => void edits.redo()}>Redo</button>
-  </div></div>;
+  </div>
+  <div className="label">Saved versions</div>
+  <nav className="versions" aria-label="Versions">
+    {newestFirst.map((entry) => {
+      const who = entry.frozenBy ?? whoMade(entry.builtBy);
+      const tag = versionTag(entry, sectionIds);
+      return (
+        <button key={entry.number} type="button" data-version={entry.number} aria-current={!working && entry.number === selected ? 'true' : undefined} onClick={() => onOpen(entry.number)}>
+          <span>
+            <span className="num">{`v${entry.number}`}</span>
+            {who !== null && <span className="rv-who">{who}</span>}
+          </span>
+          <span className="tags">
+            {tag !== '' && <small className="num">{tag}</small>}
+            {ready.has(entry.number) && <small className="ready-mark">new</small>}
+          </span>
+        </button>
+      );
+    })}
+  </nav>
+  {!working && selected !== undefined && (
+    <button type="button" className="c-act rail-use" disabled={edits.busy || same} title={same ? `The current reel already is v${selected}.` : undefined} onClick={() => onUse(selected)}>Use this version</button>
+  )}
+  {edits.error && <p role="alert" className="c-error">{edits.error}</p>}
+  </div>;
 }
 
 interface SectionRailProps {
@@ -289,6 +324,7 @@ function Rail(props: RailProps) {
           editsSinceFreeze={versions.editsSinceFreeze}
           frozenVersion={versions.frozenVersion}
           onWorking={versions.onWorking}
+          onUse={versions.onUse}
           entries={versions.entries}
           selected={versions.selected}
           ready={versions.ready}
@@ -337,11 +373,13 @@ interface MainProps {
   onStopRender(): void;
   working: boolean;
   onWorking(): void;
+  /** Makes the saved version on screen the current reel. */
+  onUse(number: number): void;
   onFrozen(): void;
 }
 
 function Main(props: MainProps) {
-  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, edits, transcription, entries, playingRender, onStopRender, working, onWorking, onFrozen } = props;
+  const { project, listing, reel, version, newest, readyVersion, onOpenVersion, comments, reveal, sectionId, onSection, issues, phase, edits, transcription, entries, playingRender, onStopRender, working, onWorking, onUse, onFrozen } = props;
   if (listing.state === 'no-reels-folder') {
     return <main className="main"><Empty>{`No reels folder in ${project}. Ask your agent for a storyboard to create one.`}</Empty></main>;
   }
@@ -363,6 +401,7 @@ function Main(props: MainProps) {
       <Review
         frozen={!working}
         onWorking={onWorking}
+        onUse={onUse}
         reel={reel}
         state={version.status}
         message={version.status === 'error' ? version.message : undefined}
@@ -691,6 +730,25 @@ function Studio() {
     }
   }} />;
 
+  // "Use this version" is one edit in the list, so Undo puts the current reel back. The refusal, if any, shows in the rail.
+  const adoptVersion = (number: number): void => {
+    void edits.add({ kind: 'use-version', version: number }).then((added) => {
+      if (!added) return;
+      setWorking(true);
+      setChosen(newest);
+      setVersionTick((n) => n + 1);
+    });
+  };
+
+  // An edit a save left out, once Undo has brought it back: the Edits panel opens on its row, and the playhead goes to where it acts.
+  const showEdit = (id: string, time?: number): void => {
+    if (simple) changeMode(false);
+    setPhase('Review');
+    if (reel) rememberTab(reel.slug, 'Review');
+    workspace.setPanelTab('edits');
+    workspace.setEditFocus((before) => ({ id, ...(time !== undefined ? { time } : {}), seq: (before?.seq ?? 0) + 1 }));
+  };
+
   const topBar = <div className="top-region">
     <TopBar
         simple={simple} onMode={changeMode}
@@ -730,6 +788,7 @@ function Studio() {
           },
         }}
       />
+    <SkippedNote edits={edits} onShow={showEdit} />
     {reel && openVersion && phase === 'Review' && reel.made !== 'direct' && <FirstCutHint key={reel.slug} slug={reel.slug} onStoryboard={() => { setPhase('Storyboard'); rememberTab(reel.slug, 'Storyboard'); }} />}
   </div>;
 
@@ -783,6 +842,7 @@ function Studio() {
             editsSinceFreeze: edits.list?.editsSinceFreeze ?? edits.list?.operations.length ?? 0,
             frozenVersion: edits.list?.frozen ?? newest ?? 0,
             onWorking: () => { setWorking(true); setChosen(newest); },
+            onUse: adoptVersion,
             entries: entries ?? [],
             selected: chosen,
             ready,
@@ -796,6 +856,7 @@ function Studio() {
         <Main
           working={working}
           onWorking={() => { setWorking(true); setChosen(newest); }}
+          onUse={adoptVersion}
           onFrozen={() => { setVersionsTick((n) => n + 1); setVersionTick((n) => n + 1); }}
           project={load.project}
           listing={load.listing}

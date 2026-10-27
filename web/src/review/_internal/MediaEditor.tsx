@@ -631,7 +631,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     {!simple && <div className="head"><h1>{reel.title}</h1><div className="head-actions">{actions}</div></div>}
     {error && <p role="alert">{error}</p>}
     {pinError && <p role="alert">{pinError}</p>}
-    {media.legacy && <p className="meta">This older version references project files. Save freezes the media used by the new version.</p>}
+    {media.legacy && <p className="meta">This older version references project files. Saving keeps a copy of the media the new version uses.</p>}
     <div className="rv-well">
       <div className="rv-picture-stage">
       <div className="rv-frame" data-media-preview={String(!!previewEntry)} data-verify-framing={source ? framing?.mode ?? 'crop' : undefined} data-verify-framing-x={source ? framing?.x ?? 0.5 : undefined} data-verify-framing-y={source ? framing?.y ?? 0.5 : undefined}>

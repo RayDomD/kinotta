@@ -225,6 +225,6 @@ describe('a flagged edit names where it acts (#93)', () => {
     expect(Object.keys(replayed.flagged ?? {})).toEqual([operations[0]!.id]);
     expect(replayed.flaggedAt).toEqual({ [operations[0]!.id]: { time: 9.6, shot: '04' } });
     // The save goes ahead without the edit, and names it with its shot (a save with nothing else to apply publishes no version).
-    expect(await openProject(dir).freezeEdits('founder-talk')).toEqual({ version: 2, skipped: [{ id: operations[0]!.id, text: 'Trimmed to 00:09.60 to 00:12.00', shot: '04' }] });
+    expect(await openProject(dir).freezeEdits('founder-talk')).toEqual({ version: 2, skipped: [{ id: operations[0]!.id, text: 'Trimmed to 00:09.60 to 00:12.00', shot: '04', time: 9.6 }] });
   });
 });

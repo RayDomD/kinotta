@@ -33,7 +33,7 @@ describe('a save with a stale edit', () => {
     const saved = await project.freezeEdits('founder-talk');
 
     expect(saved.version).toBe(3);
-    expect(saved.skipped).toEqual([{ id: trim.id, text: expect.stringContaining('Trimmed'), shot: '04' }]);
+    expect(saved.skipped).toEqual([{ id: trim.id, text: expect.stringContaining('Trimmed'), shot: '04', time: 9.6 }]);
     // The version holds only the edit that applied, so replaying its edit list gives the same result.
     expect(readJson(join(reelDir, 'v3/edits.json')).operations.map((op: { id: string }) => op.id)).toEqual([slide.id]);
     expect(readJson(join(reelDir, 'v3/plan.json')).clips.find((clip: { id: string }) => clip.id === '02')).toMatchObject({ slid: true });

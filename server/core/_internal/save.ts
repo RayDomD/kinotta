@@ -174,7 +174,7 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
 function staleEdits(list: EditList): SkippedEdit[] {
   return list.operations
     .filter((op) => list.flagged?.[op.id] !== undefined)
-    .map((op) => ({ id: op.id, text: describeOperation(op).text, ...(list.flaggedAt?.[op.id]?.shot ? { shot: list.flaggedAt[op.id]!.shot } : {}) }));
+    .map((op) => ({ id: op.id, text: describeOperation(op).text, ...list.flaggedAt?.[op.id] }));
 }
 
 /**

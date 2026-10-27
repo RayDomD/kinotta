@@ -49,7 +49,9 @@ describe('working renders and explicit frozen renders', () => {
       await page.getByRole('button', { name: 'Export', exact: true }).click();
       await page.getByRole('button', { name: 'More settings…', exact: true }).click();
       const form = page.getByRole('dialog', { name: 'Render Working' });
-      expect(await form.getByRole('radio', { name: 'Draft of Working' }).isChecked()).toBe(true);
+      // Video is where it starts, and saves a version; a Quick preview saves none.
+      expect(await form.getByRole('radio', { name: 'Video', exact: true }).isChecked()).toBe(true);
+      await form.getByRole('radio', { name: 'Quick preview', exact: true }).check();
       expect(await form.getByText('Save', { exact: true }).count()).toBe(0);
       await form.getByRole('button', { name: 'Render', exact: true }).click();
       await expect.poll(() => server.project.renderJobs().some((job) => job.working === true)).toBe(true);

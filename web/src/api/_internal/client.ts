@@ -628,7 +628,7 @@ export interface EditList {
   /** Where each flagged operation acts on the newest version, by id, when it has a place: the time and the shot to show it at. */
   flaggedAt?: Record<string, { time: number; shot?: string }>;
   /** The last save left these edits out because they no longer applied. Undo brings them back, flagged. */
-  skipped?: { version: number; edits: { id: string; text: string; shot?: string }[] };
+  skipped?: { version: number; edits: { id: string; text: string; shot?: string; time?: number }[] };
 }
 
 const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
