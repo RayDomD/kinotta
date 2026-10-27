@@ -52,14 +52,14 @@ export async function openCaption(page: Page, time: string): Promise<void> {
   if (await button.count()) await button.click();
 }
 
-/** Final is the editor's freeze boundary. These editing checks cancel its render after capture. */
+/** Video saves Working as a version. These editing checks cancel its render after capture. */
 export async function freezeWorking(page: Page): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Render Working', exact: true });
   if (!await dialog.count()) {
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     await page.getByRole('button', { name: 'More settings…', exact: true }).click();
   }
-  await dialog.getByRole('radio', { name: /^Final, freezes/ }).check();
+  await dialog.getByRole('radio', { name: 'Video', exact: true }).check();
   await dialog.getByRole('combobox', { name: 'Size', exact: true }).selectOption('half');
   const response = page.waitForResponse((reply) => reply.url().endsWith('/working-render') && reply.request().method() === 'POST');
   await dialog.getByRole('button', { name: 'Render', exact: true }).click();
@@ -72,7 +72,7 @@ export async function freezeWorking(page: Page): Promise<void> {
   }
 }
 
-/** Serial fixture scenarios undo prior live edits now that a freeze retains the journal. */
+/** Serial fixture scenarios undo prior live edits now that saving a version retains the journal. */
 export async function undoWorkingEdits(page: Page, slug: string): Promise<void> {
   const url = `/api/reels/${slug}/edits`;
   let list = await (await page.request.get(url)).json() as { operations: unknown[]; canUndo: boolean };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { addOperation, cancelHandoff, fetchEdits, fetchMediaModel, fetchWorkingVersion, redoEdit, removeOperation, undoEdit } from '../../api/index.ts';
+import { addOperation, cancelHandoff, dismissSkipped as dismissSkippedNote, fetchEdits, fetchMediaModel, fetchWorkingVersion, redoEdit, removeOperation, undoEdit } from '../../api/index.ts';
 import type { EditList } from '../../api/index.ts';
 import { applyOperations } from '../../../../server/core/model.ts';
 import type { NewOperation, Operation, Sources } from '../../../../server/core/model.ts';
@@ -20,6 +20,8 @@ export interface EditsState {
   redo(): Promise<void>;
   /** Ends the hand-off a copied batch started, without changing Working. */
   cancelHandoff(): Promise<void>;
+  /** Clears the note about edits the last save left out. They stay in Undo. */
+  dismissSkipped(): Promise<void>;
 
 }
 
@@ -49,7 +51,7 @@ type History = { list: EditList; undo: EditList[]; redo: EditList[] };
 const EMPTY: View = { list: null, busy: false, error: null };
 
 /** Revision pages and the hydrated Working parts key are server-owned. */
-const serverFirst = (op: Operation) => op.kind === 'shot-alternate' || op.kind === 'shot-alternate-dismiss';
+const serverFirst = (op: Operation) => op.kind === 'shot-alternate' || op.kind === 'shot-alternate-dismiss' || op.kind === 'use-version';
 
 /** Rebind provisional split/clip identities in queued commands when the server supplies its operation id. */
 function bindTargets(value: unknown, from: string, to: string, key = ''): unknown {
@@ -90,6 +92,8 @@ class EditSession {
       if (change.kind === 'undo') { undo = undo.slice(0, -1); redo = [...redo, before]; }
       else { redo = redo.slice(0, -1); undo = [...undo, before]; }
     }
+    // A chosen version changes the inputs the local preview was made from, so the server says what the list now shows.
+    if ([before, list].some((shown) => shown.operations.some((op) => op.kind === 'use-version'))) return state;
     if (!this.sources) return state;
     try { applyOperations(this.sources, list.operations.filter((op) => !list.flagged?.[op.id])); }
     catch { return state; } // Keep an unsafe/unavailable preview server-first and retain the server's refusal reason.
@@ -192,5 +196,10 @@ export function useEdits(slug: string | undefined, refresh: number): EditsState 
   const undo = useCallback(async () => { await run('undo'); }, [run]);
   const redo = useCallback(async () => { await run('redo'); }, [run]);
   const endHandoff = useCallback(async () => { await run('handoff'); }, [run]);
-  return { ...(view && view.slug === slug ? view.value : EMPTY), add, remove, undo, redo, cancelHandoff: endHandoff };
+  const dismissSkipped = useCallback(async () => {
+    if (slug === undefined) return;
+    try { await dismissSkippedNote(slug); } catch { /* The note stays; the next change to the list reloads it. */ }
+    await session.current?.reload();
+  }, [slug]);
+  return { ...(view && view.slug === slug ? view.value : EMPTY), add, remove, undo, redo, cancelHandoff: endHandoff, dismissSkipped };
 }

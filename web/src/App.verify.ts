@@ -1,8 +1,8 @@
 export const fixtures = [
   { name: 'empty', description: 'Working with no edits' },
-  { name: 'working', description: 'Working selected above frozen history' },
-  { name: 'frozen', description: 'A numbered version selected' },
-  { name: 'invalid-selection', description: 'FAIL: Working and a frozen version both selected', fail: true },
+  { name: 'working', description: 'Working selected above saved versions' },
+  { name: 'frozen', description: 'A saved version selected' },
+  { name: 'invalid-selection', description: 'FAIL: Working and a saved version both selected', fail: true },
 ] as const;
 
 export const topBarFixtures = [
@@ -24,5 +24,5 @@ export const invariants = [
   { description: 'the unit is named', check: (root: Element) => root.getAttribute('data-verify-unit') === 'VersionRail' },
   { description: 'exactly one row is selected', check: (root: Element) => root.querySelectorAll('button[aria-current="true"]').length === 1 },
   { description: 'Working reports its real selection', check: (root: Element) => (root.querySelector('[data-working-row]')?.getAttribute('aria-current') === 'true') === (root.getAttribute('data-verify-working') === 'true') },
-  { description: 'frozen version count matches rows', check: (root: Element) => root.querySelectorAll('button:not([data-working-row])').length === Number(root.getAttribute('data-verify-count')) },
+  { description: 'saved version count matches rows', check: (root: Element) => root.querySelectorAll('[data-version]').length === Number(root.getAttribute('data-verify-count')) },
 ] as const;

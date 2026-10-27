@@ -31,34 +31,34 @@ test('renders run in the background: progress on every tab, a queue with cancel,
 
   // Every tab shows the running render on the top bar's render button.
   await phases(page).getByRole('button', { name: /^Storyboard/ }).click();
-  await expect(menuButton(page)).toContainText(/Rendering v2 Draft \d+%/);
+  await expect(menuButton(page)).toContainText(/Rendering v2 Quick preview \d+%/);
   await expect(menuButton(page)).toContainText('1 waiting');
-  await expect(page.getByRole('status', { name: 'Render status' })).toHaveText('Rendering v2 Draft. 1 waiting.');
+  await expect(page.getByRole('status', { name: 'Render status' })).toHaveText('Rendering v2 Quick preview. 1 waiting.');
   await expect(menuButton(page)).toHaveAttribute('aria-describedby', /.+/);
   await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(menuButton(page)).toContainText('Rendering v2 Draft');
+  await expect(menuButton(page)).toContainText('Rendering v2 Quick preview');
 
   // The render menu's queue: the running job with its progress and estimate, then the waiting one.
   await menuButton(page).click();
   const items = queue(page).getByRole('listitem');
   await expect(items).toHaveCount(2);
-  await expect(items.nth(0)).toContainText(/v2 Draft · \d+%/);
+  await expect(items.nth(0)).toContainText(/v2 Quick preview · \d+%/);
   // The estimate comes with the first frames, which can take a while when the machine is busy.
   await expect(items.nth(0)).toContainText(/left/, { timeout: 30_000 });
-  await expect(items.nth(1)).toContainText('v1 Draft · waiting');
+  await expect(items.nth(1)).toContainText('v1 Quick preview · waiting');
 
   // Cancel the running one: it leaves the queue and the waiting one starts.
-  await items.nth(0).getByRole('button', { name: 'Cancel v2 Draft' }).click();
+  await items.nth(0).getByRole('button', { name: 'Cancel v2 Quick preview' }).click();
   // Cancel stops every render process and removes the files first, slower when the machine is busy.
   await expect(items).toHaveCount(1, { timeout: 30_000 });
-  await expect(items.nth(0)).toContainText(/v1 Draft · \d+%/, { timeout: 30_000 });
+  await expect(items.nth(0)).toContainText(/v1 Quick preview · \d+%/, { timeout: 30_000 });
   await page.keyboard.press('Escape');
   await expect(menu(page)).toHaveCount(0);
 
   // It finishes: the ready notice, on whatever tab is open, plays the file in Review.
   await phases(page).getByRole('button', { name: /^Storyboard/ }).click();
   const notice = page.getByRole('status', { name: 'Render ready' });
-  await expect(notice).toContainText('v1 Draft is ready', { timeout: RENDER_WAIT_MS });
+  await expect(notice).toContainText('v1 Quick preview is ready', { timeout: RENDER_WAIT_MS });
   await expect(notice.getByRole('button', { name: 'Show in folder' })).toBeVisible();
   await notice.getByRole('button', { name: 'Play' }).click();
   await expect(phases(page).getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute('aria-current', 'page');

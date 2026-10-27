@@ -2,7 +2,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isCodeOnly } from './code-edits.ts';
 import { readEditListNow, workingSources, withReelLock } from './edit-list.ts';
-import { applyOperations } from './edit-model.ts';
+import { applyOperations, inputsVersion, workingOperations } from './edit-model.ts';
 import { carryPartsAlternates } from './parts.ts';
 import { KinottaError } from './errors.ts';
 import { assertPublishedPartsUnchanged, partsRevisionHashes, readAuthoredParts, readPartsInputs } from './parts-files.ts';
@@ -20,11 +20,11 @@ export async function buildParts(projectDir: string, slug: string, by = DEFAULT_
     if (!await isCodeOnly(projectDir, reelDir)) throw new KinottaError('invalid', 'Parts builds are for code-built reels. Footage reels keep their existing build path.');
     const list = await readEditListNow(projectDir, slug);
     const previous = await newestVersionNumber(reelDir);
-    const old = previous ? applyOperations(await workingSources(projectDir, reelDir), list.operations.filter((op) => !list.flagged?.[op.id])).plan.parts : undefined;
+    const old = previous ? applyOperations(await workingSources(projectDir, reelDir), workingOperations(list)).plan.parts : undefined;
     const authored = await readAuthoredParts(reelDir);
-    const before = previous ? JSON.parse(await readFile(join(reelDir, `v${list.base}`, 'authored-shots.json'), 'utf8').catch((error: NodeJS.ErrnoException) => {
+    const before = previous ? JSON.parse(await readFile(join(reelDir, `v${inputsVersion(list)}`, 'authored-shots.json'), 'utf8').catch((error: NodeJS.ErrnoException) => {
       if (error.code !== 'ENOENT') throw error;
-      return readFile(join(reelDir, `v${list.base}`, 'shots.json'), 'utf8');
+      return readFile(join(reelDir, `v${inputsVersion(list)}`, 'shots.json'), 'utf8');
     })) as PartsManifest : undefined;
     const manifest = carryPartsAlternates(authored, old, before);
     const inputs = await readPartsInputs(reelDir, manifest);

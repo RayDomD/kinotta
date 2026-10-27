@@ -14,13 +14,13 @@ import { writeFileAtomic } from './state.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
-import { applyOperation, applyOperations, describeOperation, editableMedia, mediaEditingPlan, operationMoment } from './edit-model.ts';
+import { applyOperation, applyOperations, describeOperation, editableMedia, inputsVersion, mediaEditingPlan, operationMoment, workingOperations } from './edit-model.ts';
 import type { NewOperation, Operation, OperationMoment, SnipOperation, Sources } from './edit-model.ts';
 import { mediaTimeline, remapMediaMoment, renameLegacySource } from './media-model.ts';
 import type { MediaPlan } from './media-model.ts';
 import { legacyFootageRenames } from './legacy-footage.ts';
 import { KinottaError } from './errors.ts';
-import type { EditList, FlaggedPlace, MediaEditingModel } from './types.ts';
+import type { EditList, FlaggedPlace, MediaEditingModel, SkippedEdit } from './types.ts';
 import { assertCodeOnlyOperations, codeSources, isCodeOnly } from './code-edits.ts';
 import { clearHandoff, handoffReason, readHandoff } from './handoff.ts';
 import type { Handoff } from './handoff.ts';
@@ -28,10 +28,11 @@ import { readReelPlan, readReelTranscript, readReelWords, readSourceAudio } from
 import { preservedSourceHashes } from './media-preservation.ts';
 import { recoverSave } from './save-journal.ts';
 import { newestVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
+import { stat } from 'node:fs/promises';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'source-beats', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset']);
+const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'source-beats', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset', 'use-version']);
 
 const queues = new Map<string, Promise<unknown>>();
 
@@ -69,6 +70,8 @@ export interface Stored {
   flaggedAt?: Record<string, FlaggedPlace>;
   /** The older base whose history was reset by replay. Kept until Save or Discard. */
   replayedFrom?: number;
+  /** What the last save left out because it no longer applied. Kept until dismissed or the list changes. */
+  skipped?: { version: number; edits: SkippedEdit[] };
 }
 
 /** The most lists Undo keeps. */
@@ -83,7 +86,8 @@ async function readStored(reelDir: string): Promise<Stored | null> {
     if (!Number.isInteger(parsed.base) || !Array.isArray(parsed.operations)) return null;
     const flagged = parsed.flagged && typeof parsed.flagged === 'object' ? (parsed.flagged as Record<string, string>) : {};
     const flaggedAt = parsed.flaggedAt && typeof parsed.flaggedAt === 'object' ? (parsed.flaggedAt as Record<string, FlaggedPlace>) : undefined;
-    return { ...(parsed.anchor && typeof parsed.anchor === 'object' ? { anchor: parsed.anchor as WorkingInputs } : {}), ...(parsed.sourceHashes && typeof parsed.sourceHashes === 'object' ? { sourceHashes: parsed.sourceHashes as Record<string, string> } : {}), ...(Number.isInteger(parsed.frozen) ? { frozen: Number(parsed.frozen), ...(typeof parsed.frozenIdentity === 'string' ? { frozenIdentity: parsed.frozenIdentity } : {}), frozenOperations: Array.isArray(parsed.frozenOperations) ? parsed.frozenOperations.filter((id): id is string => typeof id === 'string') : [] } : {}), base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged, ...(flaggedAt ? { flaggedAt } : {}), ...(Number.isInteger(parsed.replayedFrom) && Number(parsed.replayedFrom) >= 0 && Number(parsed.replayedFrom) < Number(parsed.base) ? { replayedFrom: Number(parsed.replayedFrom) } : {}) };
+    const skipped = parsed.skipped && typeof parsed.skipped === 'object' && Array.isArray((parsed.skipped as { edits?: unknown }).edits) ? (parsed.skipped as NonNullable<Stored['skipped']>) : undefined;
+    return { ...(parsed.anchor && typeof parsed.anchor === 'object' ? { anchor: parsed.anchor as WorkingInputs } : {}), ...(parsed.sourceHashes && typeof parsed.sourceHashes === 'object' ? { sourceHashes: parsed.sourceHashes as Record<string, string> } : {}), ...(Number.isInteger(parsed.frozen) ? { frozen: Number(parsed.frozen), ...(typeof parsed.frozenIdentity === 'string' ? { frozenIdentity: parsed.frozenIdentity } : {}), frozenOperations: Array.isArray(parsed.frozenOperations) ? parsed.frozenOperations.filter((id): id is string => typeof id === 'string') : [] } : {}), base: parsed.base as number, operations: known(parsed.operations), undo: knownLists(parsed.undo), redo: knownLists(parsed.redo), flagged, ...(flaggedAt ? { flaggedAt } : {}), ...(skipped ? { skipped } : {}), ...(Number.isInteger(parsed.replayedFrom) && Number(parsed.replayedFrom) >= 0 && Number(parsed.replayedFrom) < Number(parsed.base) ? { replayedFrom: Number(parsed.replayedFrom) } : {}) };
   } catch {
     return null;
   }
@@ -108,6 +112,7 @@ function shown(stored: Stored, stale: boolean, handoff: Handoff | null): EditLis
     ...handoffOf(handoff),
     ...(Object.keys(flagged).length > 0 ? { flagged } : {}),
     ...(Object.keys(flaggedAt).length > 0 ? { flaggedAt } : {}),
+    ...(stored.skipped ? { skipped: stored.skipped } : {}),
   };
 }
 
@@ -118,10 +123,36 @@ async function writeStored(reelDir: string, stored: Stored): Promise<void> {
   else await writeJsonAtomic(file, stored);
 }
 
+/** The part of the stored list that says which inputs it applies to. */
+type InputsOf = Pick<Stored, 'base' | 'anchor' | 'flagged'> & { operations: readonly Operation[] };
+
+/**
+ * The inputs an edit list applies to, and the folder their paths are relative to: the list's anchored base, or the version
+ * the owner last chose with "use this version", which carries the whole of its own inputs.
+ */
+async function inputsFor(projectDir: string, reelDir: string, stored: InputsOf | null): Promise<WorkingInputs> {
+  const used = stored && inputsVersion(stored) !== stored.base ? inputsVersion(stored) : undefined;
+  if (used !== undefined) await requireVersionFolder(reelDir, used);
+  if (await isCodeOnly(projectDir, reelDir)) {
+    const planDir = join(reelDir, `v${used ?? stored?.base ?? await newestVersionNumber(reelDir)}`);
+    return { sources: (await codeSources(planDir)).sources, planDir, transcript: {} };
+  }
+  if (used !== undefined) return resolveWorkingInputs(projectDir, reelDir, used, true);
+  return stored?.anchor ?? resolveWorkingInputs(projectDir, reelDir);
+}
+
+/** A version the owner chooses must exist. */
+async function requireVersionFolder(reelDir: string, version: number): Promise<void> {
+  if (!await stat(join(reelDir, `v${version}`)).then((entry) => entry.isDirectory(), () => false)) throw new KinottaError('invalid', `There is no v${version} to use.`);
+}
+
 /** The reel's sources as the newest version has them: what an edit list applies to. */
 async function currentSources(projectDir: string, reelDir: string, newestOnly = false): Promise<Sources> {
-  if (await isCodeOnly(projectDir, reelDir)) return (await codeSources(join(reelDir, `v${(newestOnly ? undefined : (await readStored(reelDir))?.base) ?? await newestVersionNumber(reelDir)}`))).sources;
-  return (newestOnly ? await resolveWorkingInputs(projectDir, reelDir, await newestVersionNumber(reelDir)) : (await readStored(reelDir))?.anchor ?? await resolveWorkingInputs(projectDir, reelDir)).sources;
+  if (newestOnly) {
+    if (await isCodeOnly(projectDir, reelDir)) return (await codeSources(join(reelDir, `v${await newestVersionNumber(reelDir)}`))).sources;
+    return (await resolveWorkingInputs(projectDir, reelDir, await newestVersionNumber(reelDir))).sources;
+  }
+  return (await inputsFor(projectDir, reelDir, await readStored(reelDir))).sources;
 }
 
 /**
@@ -132,10 +163,8 @@ export async function readPendingMedia(projectDir: string, slug: string): Promis
   const reelDir = await requireReelDir(projectDir, slug);
   return withReelLock(reelDir, async () => {
     const list = await readEditListNow(projectDir, slug);
-    const code = await isCodeOnly(projectDir, reelDir);
-    const planDir = code ? join(reelDir, `v${(await readStored(reelDir))?.base ?? await newestVersionNumber(reelDir)}`) : ((await readStored(reelDir))?.anchor ?? await resolveWorkingInputs(projectDir, reelDir)).planDir;
-    const sources = await currentSources(projectDir, reelDir);
-    const applying = list.stale ? [] : list.operations.filter((op) => list.flagged?.[op.id] === undefined);
+    const { sources, planDir } = await inputsFor(projectDir, reelDir, await readStored(reelDir));
+    const applying = list.stale ? [] : workingOperations(list);
     const { plan } = applyOperations(sources, applying);
     return plan.media && !plan.media.legacy ? { media: plan.media, duration: plan.duration ?? 0, planDir } : null;
   });
@@ -146,9 +175,7 @@ export async function readMediaModel(projectDir: string, slug: string): Promise<
   const reelDir = await requireReelDir(projectDir, slug);
   return withReelLock(reelDir, async () => {
     await readEditListNow(projectDir, slug);
-    const code = await isCodeOnly(projectDir, reelDir);
-    const planDir = code ? join(reelDir, `v${(await readStored(reelDir))?.base ?? await newestVersionNumber(reelDir)}`) : ((await readStored(reelDir))?.anchor ?? await resolveWorkingInputs(projectDir, reelDir)).planDir;
-    const sources = await currentSources(projectDir, reelDir);
+    const { sources, planDir } = await inputsFor(projectDir, reelDir, await readStored(reelDir));
     const plan = mediaEditingPlan(sources);
     return { media: plan.media!, duration: plan.duration ?? 0, clips: plan.clips, sections: plan.sections, captions: plan.captions, ...(plan.media?.legacy && !sources.plan.media ? { legacySources: sources } : {}), sourceRoot: relative(planDir, projectDir).split(sep).join('/') || '.' };
   });
@@ -198,15 +225,20 @@ async function replayOntoNewest(projectDir: string, reelDir: string, slug: strin
       return { ...snapshot, plan: { ...snapshot.plan, media: { ...media, sources: retained } } };
     };
     for (const undone of [...removed].reverse()) {
-      const from = preservedPaths(applyOperations(base, frozen));
+      const from = preservedPaths(applyOperations(base, workingOperations({ operations: frozen })));
       frozen = frozen.filter((op) => op.id !== undone.id);
-      const to = preservedPaths(applyOperations(base, frozen));
+      const to = preservedPaths(applyOperations(base, workingOperations({ operations: frozen })));
       reversals.push({ ...undone, id: randomUUID(), reversal: { from, to } });
     }
     operations.unshift(...reversals);
   }
   for (const op of operations) {
     if (flagged[op.id]) continue;
+    // A version chosen before this newer one arrived would put back everything the agent has since changed.
+    if (op.kind === 'use-version') {
+      flagged[op.id] = `You chose v${op.version} before v${newest} was built. Choose it again to put it back.`;
+      continue;
+    }
     try {
       sources = applyOperations(sources, [op]);
     } catch (err) {
@@ -314,23 +346,29 @@ async function loadForChange(projectDir: string, reelDir: string, slug: string):
 
 /** Writes `operations` as the new list, keeping what it replaced for Undo. A new change ends the redo history. */
 async function commit(reelDir: string, stored: Stored, operations: Operation[]): Promise<Stored> {
-  const next = { ...stored, operations, undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [] };
+  const { skipped: _skipped, ...kept } = stored;
+  const next = { ...kept, operations, undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [] };
   await writeStored(reelDir, next);
   return next;
 }
 
 /** Throws `invalid` when the operations do not apply, in order, to the reel's plan and transcript. Flagged ones are left out. */
 async function checkApplies(projectDir: string, reelDir: string, operations: readonly Operation[], flagged: Record<string, string>): Promise<void> {
-  const live = operations.filter((op) => flagged[op.id] === undefined);
+  const stored = await readStored(reelDir);
+  const list = { operations, flagged };
   // A reel built from code takes only element moves, applied to the scenes of its newest version.
-  if (await isCodeOnly(projectDir, reelDir)) assertCodeOnlyOperations(live);
-  applyOperations(await currentSources(projectDir, reelDir), live);
+  if (await isCodeOnly(projectDir, reelDir)) assertCodeOnlyOperations(operations.filter((op) => flagged[op.id] === undefined));
+  // The inputs come from the list being checked, since a "use this version" in it changes them.
+  const base = stored?.base ?? await newestVersionNumber(reelDir);
+  const { sources } = await inputsFor(projectDir, reelDir, { base, ...(stored?.anchor ? { anchor: stored.anchor } : {}), ...list });
+  applyOperations(sources, workingOperations(list));
 }
 
 /** Shared payload rules for owner edits and unattended output. */
 export function validateOperationInput(input: NewOperation): void {
   if ('reversal' in input) throw new KinottaError('invalid', 'Undo reversals are recorded by Kinotta. Use Undo to reverse an edit.');
   if (!KINDS.has((input as { kind?: string }).kind ?? '')) throw new KinottaError('invalid', 'That kind of edit is not supported.');
+  if (input.kind === 'use-version' && (!Number.isInteger(input.version) || input.version < 1)) throw new KinottaError('invalid', 'Choose a saved version by its number.');
   if (input.by !== undefined && (typeof input.by !== 'string' || !input.by.trim())) throw new KinottaError('invalid', 'An edit needs the name of who made it.');
   if ('reason' in input && (input as any).reason !== undefined) {
     if (input.kind !== 'snip' && input.kind !== 'shot-alternate-dismiss') throw new KinottaError('invalid', 'That kind of edit cannot carry a reason.');
@@ -347,7 +385,7 @@ export async function appendAgentCutsNow(projectDir: string, slug: string, cuts:
   for (const id of stored.frozenOperations ?? []) seen.add(id);
   const operations = [...stored.operations];
   const base = await currentSources(projectDir, reelDir);
-  let sources = applyOperations(base, operations.filter((op) => stored.flagged[op.id] === undefined));
+  let sources = applyOperations(base, workingOperations({ operations, flagged: stored.flagged }));
   for (const cut of cuts) {
     validateOperationInput(cut);
     if (seen.has(cut.id)) continue;
@@ -435,10 +473,11 @@ async function step(projectDir: string, slug: string, direction: 'undo' | 'redo'
     const target = source[source.length - 1];
     if (target === undefined) throw new KinottaError('invalid', `There is nothing to ${direction}.`);
     const rest = source.slice(0, -1);
+    const { skipped: _skipped, ...kept } = stored;
     const next: Stored =
       direction === 'undo'
-        ? { ...stored, operations: target, undo: rest, redo: [...stored.redo, stored.operations] }
-        : { ...stored, operations: target, redo: rest, undo: [...stored.undo, stored.operations] };
+        ? { ...kept, operations: target, undo: rest, redo: [...stored.redo, stored.operations] }
+        : { ...kept, operations: target, redo: rest, undo: [...stored.undo, stored.operations] };
     await writeStored(reelDir, next);
     return shown(next, false, await readHandoff(reelDir, next.frozen ?? next.base));
   });
@@ -453,6 +492,29 @@ export async function discardEdits(projectDir: string, slug: string): Promise<Ed
   });
 }
 
+/** Clears the note about edits the last save left out. The edits stay in Undo. */
+export async function dismissSkipped(projectDir: string, slug: string): Promise<EditList> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  return withReelLock(reelDir, async () => {
+    const stored = await readStored(reelDir);
+    if (stored?.skipped) {
+      const { skipped: _skipped, ...kept } = stored;
+      await writeStored(reelDir, kept);
+    }
+    return readEditListNow(projectDir, slug);
+  });
+}
+
+/**
+ * The state once a save has left out the edits that no longer applied: they leave the list as one step Undo reverses (the
+ * list before it goes on the undo stack, flags and all), and a note names them until it is dismissed.
+ */
+export function withoutFlagged(stored: Stored, skipped: readonly SkippedEdit[], version: number): Stored {
+  if (skipped.length === 0) return stored;
+  const gone = new Set(skipped.map((edit) => edit.id));
+  return { ...stored, operations: stored.operations.filter((op) => !gone.has(op.id)), undo: [...stored.undo, stored.operations].slice(-HISTORY_LIMIT), redo: [], skipped: { version, edits: [...skipped] } };
+}
+
 /** A complete journal snapshot, captured under the reel lock before publication. */
 export async function workingState(reelDir: string): Promise<Stored> {
   return (await readStored(reelDir)) ?? { base: await newestVersionNumber(reelDir), operations: [], undo: [], redo: [], flagged: {} };
@@ -464,10 +526,12 @@ export async function recordFreeze(reelDir: string, version: number, stored: Sto
   await writeStored(reelDir, { ...stored, sourceHashes, ...(frozenIdentity ? { frozenIdentity } : {}), frozen: version, frozenOperations: stored.operations.map((op) => op.id) });
 }
 
-async function resolveWorkingInputs(projectDir: string, reelDir: string, authoredVersion?: number): Promise<WorkingInputs> {
+/** With `strict`, a version that kept no plan is refused, rather than read from the reel's current plan, which is not what that version held. */
+async function resolveWorkingInputs(projectDir: string, reelDir: string, authoredVersion?: number, strict = false): Promise<WorkingInputs> {
   if (authoredVersion !== undefined) {
     const planDir = join(reelDir, `v${authoredVersion}`);
     const text = await readFile(join(planDir, 'plan.json'), 'utf8').catch(() => null);
+    if (text === null && strict) throw new KinottaError('invalid', `v${authoredVersion} did not keep its plan, so it cannot be used as the current reel.`);
     if (text !== null) {
       const plan = JSON.parse(text) as Sources['plan'];
       const transcriptFile = join(planDir, 'transcript.json');
@@ -482,6 +546,8 @@ async function resolveWorkingInputs(projectDir: string, reelDir: string, authore
 /** Capturing a legacy journal also retains its native base inputs before publication. */
 export async function workingInputs(projectDir: string, reelDir: string): Promise<WorkingInputs> {
   const stored = await workingState(reelDir);
+  // A chosen version brings its own inputs; the anchor stays what the base was.
+  if (inputsVersion(stored) !== stored.base) return inputsFor(projectDir, reelDir, stored);
   if (stored.anchor) return stored.anchor;
   const anchor = await resolveWorkingInputs(projectDir, reelDir);
   await writeStored(reelDir, { ...stored, anchor });

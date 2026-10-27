@@ -240,6 +240,16 @@ interface AuthoredOperation {
   reversal?: { from: Sources; to: Sources };
 }
 
+/**
+ * "Use this version": Working's inputs become those of a saved version, and the operations before this one no longer
+ * apply to them. A marker only: the version's folder holds what it stands for, so the list stays small.
+ */
+export interface UseVersionOperation extends AuthoredOperation {
+  id: string;
+  kind: 'use-version';
+  version: number;
+}
+
 export interface SnipOperation extends AuthoredOperation {
   id: string;
   kind: 'snip';
@@ -478,7 +488,8 @@ export type Operation =
   | ClipAttachmentOperation
   | ClipSplitOperation
   | ClipSlideOperation
-  | ElementOffsetOperation;
+  | ElementOffsetOperation
+  | UseVersionOperation;
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 /** An operation as the caller sends it: the core gives it an id. */
@@ -1270,7 +1281,37 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyClipSlide(sources, op);
     case 'element-offset':
       return applyElementOffset(sources, op);
+    // The marker's effect is in the inputs the list applies to (`workingOperations`), not in the plan.
+    case 'use-version':
+      return sources;
   }
+}
+
+/** The live operations of a list: the ones not flagged as no longer applying. */
+const liveOperations = (operations: readonly Operation[], flagged?: Readonly<Record<string, string>>): Operation[] => operations.filter((op) => flagged?.[op.id] === undefined);
+
+/** The last live "use this version" in a list, with where it sits among the live operations. */
+function lastUseVersion(operations: readonly Operation[], flagged?: Readonly<Record<string, string>>): { index: number; version: number } | null {
+  const live = liveOperations(operations, flagged);
+  for (let index = live.length - 1; index >= 0; index--) {
+    const op = live[index]!;
+    if (op.kind === 'use-version') return { index, version: op.version };
+  }
+  return null;
+}
+
+/**
+ * What Working applies to its inputs: the live operations after the last "use this version", which replaced the
+ * inputs the earlier ones were made on. With none in the list, every live operation.
+ */
+export function workingOperations(list: { operations: readonly Operation[]; flagged?: Readonly<Record<string, string>> }): Operation[] {
+  const used = lastUseVersion(list.operations, list.flagged);
+  return liveOperations(list.operations, list.flagged).slice(used ? used.index + 1 : 0);
+}
+
+/** The version whose folder Working's inputs come from: the one "use this version" chose last, else the list's base. */
+export function inputsVersion(list: { base: number; operations: readonly Operation[]; flagged?: Readonly<Record<string, string>> }): number {
+  return lastUseVersion(list.operations, list.flagged)?.version ?? list.base;
 }
 
 /** The sources with every operation applied in order. */
@@ -1346,6 +1387,7 @@ export function operationTouches(op: Operation, section: { start: number; end: n
     case 'clip-split':
     case 'clip-slide':
     case 'element-offset':
+    case 'use-version':
       return false;
   }
 }
@@ -1468,6 +1510,8 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: `Clip ${op.clip}`, text: `Slid ${op.delta > 0 ? '+' : '−'}${Math.abs(op.delta).toFixed(1)}s` };
     case 'element-offset':
       return { target: `Clip ${op.clip}`, text: `Moved ${op.element === CLIP_ROOT ? 'the whole clip' : op.element} by ${op.x}, ${op.y} at ${Math.round(op.scale * PERCENT)}%` };
+    case 'use-version':
+      return { target: `v${op.version}`, text: `Used v${op.version}` };
   }
 }
 

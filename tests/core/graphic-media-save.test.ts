@@ -66,7 +66,7 @@ it('freezes a graphic fragment and its nested local image, and refuses an unfroz
   expect(readFileSync(fragment, 'utf8')).toContain(`dependencies/${copiedImage}`);
   writeFileSync(join(reel, 'clips/01-card.html'), '<script src="https://example.com/mutable.js"></script><div data-el="product"></div>' + scene);
   await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'take', changes: { gain: 0.25 } });
-  await expect(project.freezeEdits('founder-talk')).rejects.toThrow('cannot be frozen');
+  await expect(project.freezeEdits('founder-talk')).rejects.toThrow('cannot be kept in a saved version');
   expect((await project.listVersions('founder-talk')).map((version) => version.number)).toEqual([1, 2]);
   expect((await project.readEditList('founder-talk')).operations).toHaveLength(2);
 });
@@ -106,10 +106,10 @@ describe('graphic dependencies beyond plain attributes (AM33)', () => {
     expect(fragment).toMatch(/srcset="dependencies\/\S+small\.png 1x, dependencies\/\S+large\.png 2x"/);
   });
 
-  it('refuses to save a graphic that builds a file path at runtime, since that file cannot be frozen', async () => {
+  it('refuses to save a graphic that builds a file path at runtime, since that file cannot be kept in a saved version', async () => {
     for (const script of ['fetch("assets/" + name + ".json")', 'import(`./${name}.js`)', 'img.src = base + "logo.svg"']) {
       const { project } = reelWithFragment(`<div data-el="product"></div><script>const name = "points", base = "assets/"; const img = new Image(); ${script};</script>`);
-      await expect(save(project), script).rejects.toThrow('cannot be frozen');
+      await expect(save(project), script).rejects.toThrow('cannot be kept in a saved version');
       expect((await project.listVersions('founder-talk')).map((version) => version.number), script).toEqual([1]);
     }
   });
