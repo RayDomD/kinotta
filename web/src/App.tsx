@@ -1,3 +1,4 @@
+import { AgentStrip } from './AgentStrip.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchWorkingVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, RenderJob, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
@@ -417,6 +418,8 @@ export function App() {
 
 function Studio() {
   const [simple, setSimple] = useState(startsInSimpleMode);
+  const [stripTarget, setStripTarget] = useState<HTMLDivElement | null>(null);
+  const [agentActive, setAgentActive] = useState(false);
   const [library, setLibrary] = useState(() => typeof window !== 'undefined' && (window.location.hash === '#library' || new URLSearchParams(window.location.search).get('page') === 'library'));
 
   useEffect(() => {
@@ -443,6 +446,11 @@ function Studio() {
   const entries = useReelVersions(reel?.slug, versionsTick);
   const newest = entries?.find((e) => e.isNewest)?.number;
   const [versionTick, setVersionTick] = useState(0);
+  const refreshAgentResult = useCallback(() => {
+    setVersionTick((tick) => tick + 1);
+    setVersionsTick((tick) => tick + 1);
+    setCommentsTick((tick) => tick + 1);
+  }, []);
   const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick, working);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
@@ -616,6 +624,7 @@ function Studio() {
     });
   }, []);
 
+  const surface = () => {
   if (load.status !== 'ready') {
     return (
       <div className="app">
@@ -631,15 +640,15 @@ function Studio() {
   const awaitingV1 = reel !== undefined && openVersion === undefined && version.status === 'none' && edits.list !== null && edits.list.stale !== true;
   const frozen = openVersion !== undefined && !working;
 
-  if (library) return <Library reelTitle={reel?.title ?? 'The pin'} onBack={() => {
+  if (library) return <div className="agent-library-shell"><div className="agent-strip-slot" ref={setStripTarget} /><Library reelTitle={reel?.title ?? 'The pin'} onBack={() => {
     setLibrary(false);
     if (typeof window !== 'undefined' && window.location.hash === '#library') {
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
-  }} />;
+  }} /></div>;
 
   // New reel opens the one start screen from either view; starting or opening a reel returns to the view it came from.
-  if (simple || creating) return <SimpleMode listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
+  if (simple || creating) return <SimpleMode agentStripSlot={<div className="agent-strip-slot" ref={setStripTarget} />} isJobActive={agentActive} listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
     comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted} onBriefStarted={briefStarted}
     onEditor={() => { setWorking(true); setChosen(newest); setPhase('Review'); changeMode(false); }}
     onRefresh={() => { setVersionTick((tick) => tick + 1); setVersionsTick((tick) => tick + 1); setCommentsTick((tick) => tick + 1); }} />;
@@ -705,6 +714,7 @@ function Studio() {
           },
         }}
       />
+      <div className="agent-strip-slot" ref={setStripTarget} />
       <div className="body" data-pin-storyboard={String(phase === 'Storyboard' && !creating)} data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
         <Rail
           reviewMode={phase === 'Review' && !creating}
@@ -783,4 +793,18 @@ function Studio() {
       )}
     </div>
   );
+  };
+
+  return <>
+    <AgentStrip slug={reel?.slug} title={reel?.title} nextVersion={(newest ?? 1) + 1} target={stripTarget}
+      onActiveChange={setAgentActive} onRefresh={refreshAgentResult}
+      onOpenVersion={(number) => {
+        setLibrary(false);
+        if (window.location.hash === '#library') history.replaceState(null, '', window.location.pathname + window.location.search);
+        changeMode(false);
+        setPhase('Review');
+        openVersionNumber(number);
+      }} />
+    {surface()}
+  </>;
 }

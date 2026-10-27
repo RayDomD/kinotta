@@ -67,3 +67,5 @@ Six phases, one pull request each, in this order. Each phase is usable on its ow
 - Owner decisions: Claude merges PRs once their checks pass (a local `gh pr merge` permission rule allows it; #80 merged this way). Phase E keeps 0.15 s after a word and a 0.1 s lead-in before the next. The media render tests that also fail on `main` are tracked in #82.
 - Merged: #80 (merge-stack plan closed), #81 (phase A, start screen) and #83 (phase E's cut-edge padding).
 - Phase B built on `feat/agent-default`: with no `.kinotta-agent.json`, the agent defaults to Claude Code, then Codex, then Copy request. The first Auto or Direct build asks "Build it all now?" with the usage notice, and "Don't ask again" stores the yes in the same file. The Agent picker lives only in Settings. With no agent found, the Auto hint says Kinotta will prepare a request to paste.
+
+- Phase C built on `feat/progress-notice`: one persistent b-roll progress strip under each reel page's top bar replaces the Simple mode banner, with stage, elapsed time, Cancel, Retry, ready-version navigation and Copy request fallback. Comment-batch builds remain deferred.

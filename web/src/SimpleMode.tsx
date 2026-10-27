@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  cancelReelAgentJob,
   copyBatch,
-  copyReelAgentJob,
-  fetchReelAgentJob,
   fetchWorkingVersion,
   migrateStyleProfile,
-  retryReelAgentJob,
-  subscribe,
 } from './api/_internal/client.ts';
 import type {
-  AgentJob,
   NewComment,
   ReelListing,
   ReelSummary,
@@ -73,29 +67,6 @@ export function handleSimpleUndoRedo(
 /** Simple mode is the default on each new browser tab; an explicit editor switch survives reload. */
 export function startsInSimpleMode(): boolean {
   try { return sessionStorage.getItem('kinotta-mode') !== 'editor'; } catch { return true; }
-}
-
-
-function AgentRunTimer({ job, active }: { job: AgentJob; active: boolean }) {
-  const [now, setNow] = useState(Date.now);
-
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [job.id, active]);
-
-  const elapsed = active
-    ? Math.max(job.elapsedSeconds, Math.floor((now - Date.parse(job.createdAt)) / 1000))
-    : job.elapsedSeconds;
-  const clock = formatClock(elapsed).replace(/^0(?=\d:)/, '');
-
-  return (
-    <span className="sm-agent-timer" role="timer" aria-live="off" aria-label={active ? 'Agent run elapsed' : 'Agent run total'}>
-      {active ? 'Elapsed ' : 'Took '}<span className="num">{clock}</span>
-    </span>
-  );
 }
 
 
@@ -183,6 +154,8 @@ export function computeSimpleCuts(
 }
 
 export function SimpleMode({
+  agentStripSlot,
+  isJobActive,
   listing,
   reel,
   version,
@@ -198,6 +171,8 @@ export function SimpleMode({
   onEditor,
   onRefresh,
 }: {
+  agentStripSlot: ReactNode;
+  isJobActive: boolean;
   listing: ReelListing;
   reel: ReelSummary | undefined;
   version: Version | undefined;
@@ -214,7 +189,6 @@ export function SimpleMode({
   onEditor(): void;
   onRefresh(): void;
 }) {
-  const [agentJob, setAgentJob] = useState<AgentJob | null>(null);
   const [draft, setDraft] = useState<NewComment['pin'] | null>(null);
   const [pinMode, setPinMode] = useState(false);
   const bubble = useRef<HTMLFormElement>(null);
@@ -241,37 +215,7 @@ export function SimpleMode({
     setError('');
     setRequest('');
     setEditing(null);
-    setAgentJob(null);
   }, [reel?.slug, creating]);
-
-  useEffect(() => {
-    if (!reel || creating) return;
-    void fetchReelAgentJob(reel.slug).then((job) => setAgentJob(job)).catch(() => {});
-  }, [reel?.slug, creating]);
-
-  useEffect(() => {
-    if (!reel || creating) return;
-    return subscribe((event) => {
-      if (event.type === 'agent-progress' && event.reel === reel.slug) {
-        setAgentJob(event.job);
-        if (event.job.state === 'succeeded') {
-          onRefresh();
-        }
-      }
-    });
-  }, [reel?.slug, creating, onRefresh]);
-
-  useEffect(() => {
-    if (!reel || creating || !agentJob || !['queued', 'running', 'validating', 'cancelling'].includes(agentJob.state)) {
-      return;
-    }
-    const timer = setInterval(() => {
-      void fetchReelAgentJob(reel.slug).then((job) => {
-        if (job) setAgentJob(job);
-      }).catch(() => {});
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [reel?.slug, creating, agentJob?.state]);
 
   const [replacingCut, setReplacingCut] = useState<{ oldId: string; newOp: SnipOperation } | null>(null);
 
@@ -412,11 +356,6 @@ export function SimpleMode({
     }
   };
 
-  const isJobActive = Boolean(agentJob && ['queued', 'running', 'validating', 'cancelling'].includes(agentJob.state));
-  const isJobFailed = Boolean(agentJob && (agentJob.state === 'failed' || agentJob.state === 'interrupted'));
-  const isJobCopyReady = Boolean(agentJob && agentJob.state === 'copy-ready');
-  const showAgentBanner = Boolean(agentJob);
-
   // The reel picker: in the start page's top bar, and beside the reel's own actions once one is open.
   const reelMenu = (
     <label>
@@ -451,6 +390,7 @@ export function SimpleMode({
             <span>Simple mode</span>
           </header>
 
+          {agentStripSlot}
           <div className="sm-heading">
             <div>
               <h1>{reel.title}</h1>
@@ -478,99 +418,6 @@ export function SimpleMode({
       ) : (
         <div className="sm-studio">
           <div className="sm-preview">
-            {showAgentBanner && agentJob && (
-              <div className="sm-agent-banner" role="status">
-                <div className="sm-agent-status">
-                  <span className="sm-agent-title">
-                    {isJobActive
-                      ? 'Adding b-roll…'
-                      : isJobCopyReady
-                      ? 'B-roll request ready'
-                      : agentJob.state === 'succeeded'
-                      ? 'B-roll added'
-                      : `Adding b-roll ${agentJob.state}`}
-                  </span>
-                  <AgentRunTimer job={agentJob} active={isJobActive} />
-                  {agentJob.quiet && isJobActive && (
-                    <span className="sm-agent-quiet">Running, no recent output</span>
-                  )}
-                  {agentJob.error && (
-                    <span className="sm-agent-error" role="alert">{agentJob.error}</span>
-                  )}
-                </div>
-                <div className="sm-agent-actions">
-                  {isJobActive && (
-                    <button
-                      type="button"
-                      className="c-act"
-                      disabled={busy}
-                      onClick={async () => {
-                        setBusy(true);
-                        try {
-                          const updated = await cancelReelAgentJob(reel.slug);
-                          setAgentJob(updated);
-                          setStatus('Cancelled b-roll agent run.');
-                        } catch (err) {
-                          problem(err);
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  {(agentJob.canRetry || isJobFailed) && (
-                    <button
-                      type="button"
-                      className="c-act"
-                      disabled={busy}
-                      onClick={async () => {
-                        setBusy(true);
-                        try {
-                          const retried = await retryReelAgentJob(reel.slug);
-                          setAgentJob(retried);
-                          setStatus('Retrying b-roll agent run…');
-                        } catch (err) {
-                          problem(err);
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                    >
-                      Retry
-                    </button>
-                  )}
-                  {(agentJob.canCopy || isJobCopyReady || agentJob.provider === 'copy') && (
-                    <button
-                      type="button"
-                      className="c-act"
-                      disabled={busy}
-                      onClick={async () => {
-                        setBusy(true);
-                        try {
-                          const { request: promptText } = await copyReelAgentJob(reel.slug);
-                          setRequest(promptText);
-                          try {
-                            await navigator.clipboard.writeText(promptText);
-                            setStatus('Agent request copied.');
-                          } catch {
-                            setStatus('Agent request saved. Copy it below.');
-                          }
-                        } catch (err) {
-                          problem(err);
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                    >
-                      Copy request
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
             <SimpleCutsContext.Provider value={cutsValue}>
               <Review
                 reel={reel}
