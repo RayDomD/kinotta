@@ -199,6 +199,7 @@ async function renderSegments(work: string, ext: string, ranges: Array<[number, 
   const done = ranges.map(() => 0);
   const stopAll = new AbortController();
   const stop = (): void => stopAll.abort();
+  if (signal.aborted) stop();
   signal.addEventListener('abort', stop, { once: true });
   let firstFailure: unknown = null;
   const names = ranges.map((_, i) => `segment-${i}.${ext}`);
