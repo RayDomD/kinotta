@@ -1,7 +1,7 @@
 ---
 title: Editor layout, scaling and collapsible sidebar
 date: 2026-10-27
-status: Approved
+status: Done
 summary: A collapsible sidebar with a light animation, and an editor layout that scales cleanly when the window or the timeline divider moves, checked by an impeccable pass.
 spec:
 ---
@@ -48,11 +48,11 @@ spec:
 ## Steps
 
 1. [x] O3 answered: fixed 220px / 320px columns, default picture share about 45%, `DESIGN.md` updated.
-2. [ ] Render tests (red): panel toggles set the grid columns and persist across reload; reduced motion has no transition; dragging the divider keeps the tracks pane at or above its floor and does not change the toolbar or header sizes; side panel widths don't change between 1280 and 1920px.
-3. [ ] Panels: grid variables, transition, buttons, `inert`, persisted settings.
-4. [ ] Divider: drag without re-rendering, height floor, scrollbar gutter, marker panel out of the flow.
-5. [ ] Timeline: shared label width, header layout, clip label rule, compact toolbar row, zero-radius shapes.
-6. [ ] Impeccable re-check by agy at 1280, 1440, 1920 and 2560px and after a divider drag, against the audit's findings; screenshots in the run folder.
+2. [x] Render tests (red): panel toggles set the grid columns and persist across reload; reduced motion has no transition; dragging the divider keeps the tracks pane at or above its floor and does not change the toolbar or header sizes; side panel widths don't change between 1280 and 1920px.
+3. [x] Panels: grid variables, transition, buttons, `inert`, persisted settings.
+4. [x] Divider: drag without re-rendering, height floor, scrollbar gutter, marker panel out of the flow.
+5. [x] Timeline: shared label width, header layout, clip label rule, compact toolbar row, zero-radius shapes.
+6. [x] Impeccable re-check by agy at 1280, 1440, 1920 and 2560px and after a divider drag, against the audit's findings; screenshots in the run folder.
 
 ## Risks
 
@@ -66,6 +66,30 @@ spec:
 - agy's re-check screenshots compared with the audit's.
 - `npm run typecheck`, `npm run build`.
 
+## Result
+
+All six steps shipped. Built by Claude and codex (steps 2 to 5), reviewed read-only by agy, then re-checked visually by agy (step 6).
+
+What shipped:
+- Both side panels collapse and expand with their own button (left rail 220px open and 44px closed; right panel 320px open and 28px closed). The right panel also takes Shift+R (`panel` in `EDITOR_ACTIONS`). One 220ms `grid-template-columns` transition, none under `prefers-reduced-motion`. A collapsed right panel is `inert`. Both states persist in editor settings (`railOpen`, new `panelOpen`).
+- The divider writes `--viewer-height` directly during a drag and saves `viewerShare` once on release. The picture well can shrink, the tracks pane keeps a 120px floor, and its scrollbar space is reserved.
+- The marker panel no longer shifts the split. The Speech header controls fit at 1280px. Clip labels hide below a minimum width and carry the full name as a tooltip. Timeline tools and zoom share one row. `.editorial-pin` and `.native-fade` have zero radius.
+- Default picture share is 0.45 (was 0.55). `DESIGN.md` § Layout and § Components now match: the step 1 note said it was updated, but it was not until this change.
+
+Deviations and findings:
+- `EditorialLanes.tsx` was not in the plan's Affected list; it renders graphic clip labels, so it was added to codex's scope.
+- agy's review of the first commit found a real clipping bug (the tracks pane ended below its column when the divider was dragged to the bottom), a missing right-panel shortcut, and a toggle inside an ARIA tablist. All three are fixed, with tests.
+- `tests/e2e/clips.spec.ts` (scale by the corner grip) sets a 1280x900 window: at 720px tall the timeline floor leaves a picture too small for its fixed-pixel drag. The assertions are unchanged. On main the same test passes at 720px.
+- Not fixed, out of scope: the divider's ArrowUp and ArrowDown are inverted (ArrowUp grows the picture, which moves the divider down). It behaved this way before this plan.
+- At 1280x720 the picture is about 244x137, because the timeline floor, two notice bars and the title take the height. Not changed.
+- The mobile layout (900px and below) only has its CSS adapted for the new wrapper; phone layout stays out of scope.
+
+Checks:
+- `tests/e2e/editor-layout.spec.ts`: 10 passed (each new test was red before its fix, except the left-toggle, Shift+R and bottom-clip assertions, which were written with or after the code).
+- Existing suites, one worker: editing 10, lanes 6, review 3, clips 3, footage 11, pins 11, versions 9, simple-mode 15 passed; snip-save 9 of 10, and the tenth passed alone after a native worker crash (0xC0000409).
+- `npx vitest run tests/web`: 131 passed. `npm run typecheck`, `npm run build`, `npm run check:docs`: clean.
+- agy's re-check at 1280, 1440, 1920, 2560 (900 tall) and 1280x720, in five states each (default, right collapsed, left expanded, marker open, divider at the bottom): 25 screenshots, all clean against the owner's complaints. I read two of them (1920 default, 1280x720 default) and they match. Evidence: `.herdr/briefs/evidence-2026-10-28-layout/` (local, not committed).
+
 ## Changelog
 
 ### 2026-10-27
@@ -73,3 +97,6 @@ spec:
 - O1 resolved: both side panels collapse.
 - agy's impeccable audit done; Claude verified its main causes against the code and screenshots (O2). Goal, Approach, Steps, Risks and Checks written. O3 (column widths and picture height) asked.
 - O3 resolved with the recommendation; status Approved.
+
+### 2026-10-28
+- Built steps 2 to 5 on `feat/editor-layout-scaling` (Claude and codex); agy reviewed the first commit and re-checked the finished editor (step 6). Review fixes applied. Status Done.
