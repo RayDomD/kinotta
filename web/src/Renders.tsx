@@ -91,14 +91,14 @@ export function Popover({ label, dialogLabel = label, disabled = false, button, 
       window.removeEventListener('keydown', key, true);
       window.removeEventListener('pointerdown', press, true);
     };
-  }, [open, onOpen, dialogLabel]);
+  }, [open, onOpen]);
   return (
     <span className="popover-anchor">
       <button ref={trigger} type="button" disabled={disabled} className={buttonClass} aria-label={label} aria-describedby={buttonDescriptionId} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(!open)}>
         {button}
       </button>
       {open && (
-        <div ref={panel} className={`popover ${className}`} role="dialog" aria-label={dialogLabel}>
+        <div ref={panel} className={`popover ${className}`} role="dialog" aria-modal="true" aria-label={dialogLabel}>
           {children}
         </div>
       )}
@@ -275,7 +275,8 @@ function RenderForm({ slug, version, footage, working = false, nextVersion, onSa
         <legend className="label">Preset</legend>
         {PRESETS.map((p) => {
           // Rendering Working as a Video saves it first, so the line says which version that makes.
-          const why = working && p.id === 'final' && (nextVersion ?? version) !== undefined ? `The one to publish. Saves Working as v${nextVersion ?? version}.` : p.why;
+          const savesWorking = working && (p.id === 'final' || p.id === 'overlay') && (nextVersion ?? version) !== undefined;
+          const why = savesWorking ? `${p.id === 'final' ? 'The one to publish. ' : ''}${p.why} Saves Working as v${nextVersion ?? version}.` : p.why;
           const whyId = `${presetsName}-${p.id}-why`;
           return (
             <div key={p.id} className="pk-choice">
@@ -381,10 +382,23 @@ export function RenderMenu({ slug, version, working, footage = false, nextVersio
   const status = running !== undefined
     ? `Rendering ${jobName(running)}.${waiting > 0 ? ` ${waiting} waiting.` : ''}`
     : waiting > 0 ? `${waiting} waiting to render.` : failure !== null ? 'Render failed.' : 'No renders in progress.';
+  const [cancellingIds, setCancellingIds] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    setCancelError('');
+    setRevealError('');
+  }, [slug]);
   const cancel = (job: RenderJob): void => {
+    if (cancellingIds.has(job.id)) return;
+    setCancellingIds((prev) => new Set([...prev, job.id]));
     setCancelError('');
     // The job leaves the queue when its render-progress event says it is cancelled.
-    cancelRender(job.id).catch((err: unknown) => setCancelError(err instanceof Error ? err.message : 'Could not reach the server'));
+    cancelRender(job.id)
+      .catch((err: unknown) => setCancelError(err instanceof Error ? err.message : 'Could not reach the server'))
+      .finally(() => setCancellingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      }));
   };
   const reveal = (file: string): void => {
     if (slug === undefined) return;
@@ -410,7 +424,7 @@ export function RenderMenu({ slug, version, working, footage = false, nextVersio
     <span className="export-controls" {...actionsVerifyAttrs(working === true, false)}>
       <span id={statusId} className="sr-only" role="status" aria-label="Render status">{status}</span>
       <Popover label="Export" dialogLabel={detailed ? working ? 'Render Working' : `Render v${version}` : 'Export'} button={summary} buttonDescriptionId={statusId} buttonClass="tb-menu" className="tb-pop" open={open} onOpen={changeOpen}>
-      {slug !== undefined && <RenderForm key={slug} slug={slug} version={version} footage={footage} working={working} nextVersion={nextVersion} onSaved={onSaved} detailed={detailed} onMore={() => setDetailed(true)} />}
+      {slug !== undefined && <RenderForm key={`${slug}/${working ? 'working' : version}`} slug={slug} version={version} footage={footage} working={working} nextVersion={nextVersion} onSaved={onSaved} detailed={detailed} onMore={() => setDetailed(true)} />}
       {detailed && <button type="button" className="c-act" onClick={() => setDetailed(false)}>Back to Export</button>}
       <section className="pk-queue" aria-label="Queue">
         <h2>Queue</h2>
@@ -428,8 +442,8 @@ export function RenderMenu({ slug, version, working, footage = false, nextVersio
                     <span style={{ transform: `scaleX(${job.progress})` }} />
                   </span>
                 )}
-                <button type="button" className="c-act" aria-label={`Cancel ${jobName(job)}`} onClick={() => cancel(job)}>
-                  Cancel
+                <button type="button" className="c-act" disabled={cancellingIds.has(job.id)} aria-label={`Cancel ${jobName(job)}`} onClick={() => cancel(job)}>
+                  {cancellingIds.has(job.id) ? 'Cancelling…' : 'Cancel'}
                 </button>
               </li>
             ))}

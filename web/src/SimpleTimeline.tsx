@@ -626,7 +626,9 @@ export function SimpleTimeline({
     setDraftCut(null);
 
     if (cut && cut.ops.length === 1 && (Math.abs(newFrom - cut.from) > 1e-3 || Math.abs(newTo - cut.to) > 1e-3)) {
-      await cuts.replaceCut(cut.ops[0]!, newFrom, newTo);
+      try {
+        await cuts.replaceCut(cut.ops[0]!, newFrom, newTo);
+      } catch { /* Handled in edits */ }
     }
   };
 
@@ -644,7 +646,8 @@ export function SimpleTimeline({
     event.stopPropagation();
     const cut = cuts.cuts[cutIndex];
     if (!cut || cut.ops.length !== 1) return;
-    const delta = event.key === 'ArrowRight' ? 0.1 : -0.1;
+    const step = event.shiftKey ? 1.0 : 0.1;
+    const delta = event.key === 'ArrowRight' ? step : -step;
     const prevCut = cutIndex > 0 ? cuts.cuts[cutIndex - 1] : undefined;
     const nextCut = cutIndex < cuts.cuts.length - 1 ? cuts.cuts[cutIndex + 1] : undefined;
 
@@ -662,7 +665,9 @@ export function SimpleTimeline({
     }
 
     if (Math.abs(nextFrom - cut.from) > 1e-3 || Math.abs(nextTo - cut.to) > 1e-3) {
-      await cuts.replaceCut(cut.ops[0]!, nextFrom, nextTo);
+      try {
+        await cuts.replaceCut(cut.ops[0]!, nextFrom, nextTo);
+      } catch { /* Handled in edits */ }
     }
   };
 
@@ -724,9 +729,9 @@ export function SimpleTimeline({
             onSeek(inside(event.key === 'Home' ? 0 : event.key === 'End' ? total : time + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 1 / 30)));
             return;
           }
-          if (event.key === 'Enter' || event.key === ' ') {
+          if ((event.key === 'Enter' || event.key === ' ') && canPin && pinMode) {
             event.preventDefault();
-            if (canPin && pinMode) onPin(inside(time));
+            onPin(inside(time));
           }
         }}
         tabIndex={0}
@@ -926,7 +931,9 @@ export function SimpleTimeline({
                     onClick={async (event) => {
                       event.stopPropagation();
                       if (cuts.busy) return;
-                      await cuts.restoreCut(cut);
+                      try {
+                        await cuts.restoreCut(cut);
+                      } catch { /* Handled in edits */ }
                       setOpenCutIndex(null);
                     }}
                   >

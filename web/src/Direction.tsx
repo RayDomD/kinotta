@@ -102,6 +102,7 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
   const [saveName, setSaveName] = useState('');
   const [saveScope, setSaveScope] = useState<'user' | 'project'>('user');
   const [saveDefault, setSaveDefault] = useState(true);
+  const [savingStyle, setSavingStyle] = useState(false);
   const [saved, setSaved] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -208,7 +209,8 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
   };
 
   const saveAsMine = () => {
-    if (!style || !saveName.trim()) return;
+    if (!style || !saveName.trim() || savingStyle) return;
+    setSavingStyle(true);
     let id = slugify(saveName) || 'my-style';
     if (LOOKS.some((look) => look.id === id)) id = `${id}-mine`;
     const { basedOn: _basedOn, ...rest } = sendable(style);
@@ -220,7 +222,8 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
       .then((stored) => {
         setStyles((list) => [...list.filter((s) => !(s.id === stored.id && s.scope === stored.scope)), stored]);
         setSaved(`Saved as ${stored.name}${saveScope === 'user' ? ' for you' : ' with this project'}${saveDefault ? '; Auto now uses it' : ''}.`);
-      }, (err: unknown) => setSaved(err instanceof Error ? err.message : 'Could not save the style.'));
+      }, (err: unknown) => setSaved(err instanceof Error ? err.message : 'Could not save the style.'))
+      .finally(() => setSavingStyle(false));
   };
 
   const addEffect = () => {
@@ -537,7 +540,7 @@ export function Direction({ video, title, onBack, onStarted }: DirectionProps) {
               <label className={saveScope === 'project' ? 'on' : ''}><input type="radio" name="dx-scope" checked={saveScope === 'project'} onChange={() => setSaveScope('project')} /> For this project</label>
             </fieldset>
             <label className="dx-check-line"><input type="checkbox" checked={saveDefault} onChange={(event) => setSaveDefault(event.target.checked)} /> Use it for new reels (Auto)</label>
-            <button type="submit" className="dx-quiet dx-save-go" disabled={!saveName.trim()}>Save style</button>
+            <button type="submit" className="dx-quiet dx-save-go" disabled={!saveName.trim() || savingStyle}>{savingStyle ? 'Saving…' : 'Save style'}</button>
             <span className="dx-note" role="status">{saved}</span>
           </form>
         </section>

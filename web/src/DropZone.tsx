@@ -97,7 +97,12 @@ export function DropZone({ onImported }: DropZoneProps) {
         onDrop={(event) => {
           event.preventDefault();
           setOver(false);
-          void droppedFiles(event.dataTransfer).then(({ files, folder }) => take(files, folder));
+          if (busy) return;
+          void droppedFiles(event.dataTransfer)
+            .then(({ files, folder }) => take(files, folder))
+            .catch((err: unknown) => {
+              setSummary(err instanceof Error ? err.message : 'Could not read dropped folder');
+            });
         }}
       >
         <input
@@ -140,7 +145,7 @@ export function DropZone({ onImported }: DropZoneProps) {
             {rows.map((row, index) => (
               <li key={`${index}-${row.name}`} data-failed={row.failed === true}>
                 <span>{row.name}</span>
-                <span className="num">{row.status}</span>
+                <span className={/^\d/.test(row.status) ? 'num' : undefined}>{row.status}</span>
               </li>
             ))}
           </ul>
@@ -154,6 +159,8 @@ export function DropZone({ onImported }: DropZoneProps) {
         // A folder picker: React passes these through untyped.
         {...{ webkitdirectory: '', directory: '' }}
         aria-label="Choose a folder of videos"
+        tabIndex={-1}
+        aria-hidden="true"
         disabled={busy}
         onChange={(event) => {
           const files = [...(event.target.files ?? [])];

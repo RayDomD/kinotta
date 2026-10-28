@@ -41,6 +41,10 @@ export function CopyButton(props: {
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
+  useEffect(() => {
+    setOutcome({ status: 'idle' });
+  }, [slug, version]);
+
   // C copies from anywhere on the storyboard, except while typing or with the enlarged shot open over the top bar.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {

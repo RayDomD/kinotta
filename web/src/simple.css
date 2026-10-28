@@ -111,9 +111,10 @@
 .sm-cut-block:focus-visible { outline: 2px solid var(--light); outline-offset: 1px; border-color: var(--light); }
 .sm-cut-length { font-family: Doto, monospace; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; pointer-events: none; overflow: hidden; text-overflow: clip; }
 .sm-cut-handle { position: absolute; inset-block: 0; width: 8px; z-index: 6; cursor: ew-resize; touch-action: none; background: transparent; border-radius: 0; transition: background 0.15s ease; pointer-events: auto; }
+.sm-cut-handle::before { content: ""; position: absolute; inset-block: -8px; inset-inline: -8px; }
 .sm-cut-handle-start { left: 0; }
 .sm-cut-handle-end { right: 0; }
-.sm-cut:hover .sm-cut-handle, .sm-cut-handle:hover, .sm-cut-handle:focus-visible, .sm-cut-handle[data-dragging="true"] { background: var(--light); }
+.sm-cut-handle:hover, .sm-cut-handle:focus-visible, .sm-cut-handle[data-dragging="true"] { background: var(--light); }
 .sm-cut-handle:focus-visible { outline: 2px solid var(--light); outline-offset: 1px; }
 .sm-cut-handle[aria-disabled="true"] { cursor: not-allowed; pointer-events: none; }
 .sm-cut-popover { position: absolute; bottom: calc(100% + 8px); background: var(--card); border: 1px solid var(--hairline); box-shadow: var(--sheet-rest); border-radius: 0; padding: 8px 12px; display: flex; align-items: center; gap: 12px; z-index: 20; white-space: nowrap; max-width: calc(100vw - 32px); pointer-events: auto; }

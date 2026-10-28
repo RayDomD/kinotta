@@ -30,7 +30,7 @@ export function Tools({ tool, onTool, selection, busy, onSnip, onCutAtPlayhead, 
       </button>
       {unavailable !== undefined && <span className="rv-tools-note">{unavailable}</span>}
       {tool === 'blade' && (
-        <button type="button" className="rv-snip-go" disabled={busy} onClick={onCutAtPlayhead}>
+        <button type="button" className="rv-tool" disabled={busy} onClick={onCutAtPlayhead}>
           Cut at playhead <kbd>Enter</kbd>
         </button>
       )}

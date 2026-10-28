@@ -172,7 +172,7 @@ export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, o
           {ready && currentJob.version !== undefined && <button type="button" className="btn" onClick={() => { onOpenVersion(currentJob.version!); setDismissed(currentJob.id); }}>Open v<span className="num">{currentJob.version}</span></button>}
           {!active && (failed || cancelled || currentJob.canRetry) && <button type="button" className="c-act" disabled={busy} onClick={() => void act('retry')}>Retry</button>}
           {copy && <button type="button" className="btn" disabled={busy || !currentJob.canCopy} onClick={() => void act('copy')}>Copy request</button>}
-          {(ready || cancelled) && <button type="button" className="c-act" onClick={() => setDismissed(currentJob.id)}>Dismiss</button>}
+          {(ready || cancelled || failed) && <button type="button" className="c-act" onClick={() => setDismissed(currentJob.id)}>Dismiss</button>}
         </div>
       </div>
       {copy && <p className="agent-strip-next">Paste it into your agent. Kinotta loads v<span className="num">{currentJob.version ?? nextVersion}</span> when it's done.</p>}
