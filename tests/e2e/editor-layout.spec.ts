@@ -56,6 +56,22 @@ test('The left panel has its own collapse button, and Shift+R toggles the right 
   await expect(page.getByRole('tablist', { name: 'Reel and Media' }).getByRole('button')).toHaveCount(0);
 });
 
+test('Each collapse button sits at the top of its strip, above the panel content', async ({ page }) => {
+  await openEditor(page);
+  const TOP_BAND = 56;
+  const left = (await page.getByRole('button', { name: /left panel$/ }).boundingBox())!;
+  const rail = (await page.getByRole('tab', { name: 'Reel rail', exact: true }).boundingBox())!;
+  const strip = (await page.locator('.editor-rail-icons').boundingBox())!;
+  expect(left.y - strip.y).toBeLessThanOrEqual(TOP_BAND);
+  expect(left.y).toBeLessThan(rail.y);
+  const right = (await page.getByRole('button', { name: /right panel$/ }).boundingBox())!;
+  const shell = (await page.locator('.rv-side-shell').boundingBox())!;
+  expect(right.y - shell.y).toBeLessThanOrEqual(TOP_BAND);
+  // Collapsed, the strip keeps its button in the same place.
+  await page.getByRole('button', { name: 'Collapse right panel', exact: true }).click();
+  await expect.poll(async () => (await page.getByRole('button', { name: 'Expand right panel', exact: true }).boundingBox())!.y - shell.y).toBeLessThanOrEqual(TOP_BAND);
+});
+
 test('A collapsed panel is inert so focus skips it', async ({ page }) => {
   await openEditor(page);
   await page.getByRole('button', { name: 'Collapse right panel', exact: true }).click();

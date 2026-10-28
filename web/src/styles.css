@@ -58,10 +58,11 @@
 .body[data-review-shell="true"] { --rail-width: 44px; --panel-width: 28px; grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--panel-width); transition: grid-template-columns 220ms var(--ease); }
 .body[data-review-shell="true"][data-rail-open="true"] { --rail-width: 220px; }
 .body[data-review-shell="true"][data-panel-open="true"] { --panel-width: 320px; }
-.panel-toggle { flex: 0 0 28px; width: 28px; color: var(--muted); font-size: 16px; line-height: 1; }
+.panel-toggle { flex: 0 0 28px; width: 28px; color: var(--muted); font-size: 16px; line-height: 1; border: 1px solid var(--rule); }
 .panel-toggle:hover, .panel-toggle:focus-visible { color: var(--light); }
 .editor-rail-tabs { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.editor-rail-icons .panel-toggle { width: 32px; height: 32px; flex: 0 0 auto; margin-top: auto; margin-bottom: 8px; }
+.editor-rail-icons .panel-toggle { width: 32px; height: 32px; flex: 0 0 auto; margin-bottom: 6px; }
+.rv-side-shell > .panel-toggle { align-self: flex-start; height: 32px; margin: 12px 0 0; }
 .rv-side-shell { display: flex; min-width: 0; min-height: 0; overflow: hidden; }
 .rv-side-shell > .rv-side { flex: 0 0 292px; width: 292px; }
 @media (prefers-reduced-motion: reduce) { .body[data-review-shell="true"] { transition: none; } }
