@@ -122,6 +122,8 @@ test('Speech track controls fit without overlap at 1280 pixels', async ({ page }
     expect(box.bottom).toBeLessThanOrEqual(bounds!.y + bounds!.height);
     for (const other of boxes.slice(index + 1)) expect(box.right <= other.left || other.right <= box.left || box.bottom <= other.top || other.bottom <= box.top).toBe(true);
   }
+  await header.getByRole('button', { name: 'Remove Speech track' }).click();
+  await expect(header).toHaveCount(0);
 });
 
 test('Narrow graphic clips hide their label and retain the full name in a tooltip', async ({ page }) => {
