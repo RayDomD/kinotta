@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, copyFile, cp, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { KinottaError } from './errors.ts';
 
@@ -97,6 +97,11 @@ export function graphicPreserver(versionDir: string, keepRootNames = false): (fi
     if ([...copied.values()].includes(name)) throw new KinottaError('invalid', `Graphic dependency cannot be kept in a saved version: two fragments are named ${name}. Give their files different names.`);
     copied.set(absolute, name);
     await mkdir(join(versionDir, FOLDER), { recursive: true });
+    // A template clip is a folder (shot.html, shot.css, shot.js and the fonts or images beside them): keep it whole.
+    if ((await stat(absolute)).isDirectory()) {
+      await cp(absolute, join(versionDir, FOLDER, name), { recursive: true });
+      return name;
+    }
     if (!CODE_FILES.includes(extname(absolute).toLowerCase())) {
       await copyFile(absolute, join(versionDir, FOLDER, name));
       return name;

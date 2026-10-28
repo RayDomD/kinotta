@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'node-html-parser';
@@ -34,6 +34,32 @@ it.each(['trim', 'split'] as const)('blocks a broken word-linked graphic until e
   savedPlan.clips[0].out = 3;
   writeFileSync(join(reel, 'v2/plan.json'), JSON.stringify(savedPlan));
   await expect(project.render({ reel: 'founder-talk', version: 2, preset: 'draft' })).rejects.toThrow('attachment');
+});
+
+it('freezes a folder-based template clip with its font, so saving a version does not fail on the folder', async () => {
+  const dir = copyFixture('footage-project');
+  const reel = join(dir, 'reels/founder-talk');
+  const shot = join(reel, 'clips/01-card');
+  mkdirSync(join(shot, 'fonts'), { recursive: true });
+  const template = join(import.meta.dirname, '../../skill/kinotta/templates/effects/title-card/r1');
+  for (const name of ['shot.html', 'shot.css', 'shot.js']) copyFileSync(join(template, name), join(shot, name));
+  const font = Buffer.from('original font bytes');
+  writeFileSync(join(shot, 'fonts/title.woff2'), font);
+  const plan = {
+    title: 'Folder clip', duration: 3, sections: [{ id: 'all', name: 'All', start: 0, end: 3 }],
+    clips: [{ id: '01', in: 0, out: 2, title: 'Card', kind: 'full', section: 'all', template: 'title-card', clip: 'clips/01-card' }],
+    media: { schema: 1, sources: [{ id: 'a', kind: 'video', path: '../../media/talk.mp4', duration: 12, words: [] }], placements: [{ id: 'take', role: 'main', source: 'a', in: 0, out: 3 }], sequence: ['take'] },
+  };
+  writeFileSync(join(reel, 'plan.json'), JSON.stringify(plan));
+  const project = openProject(dir);
+  await project.addOperation('founder-talk', { kind: 'placement-change', placement: 'take', changes: { gain: 0.5 } });
+  await project.freezeEdits('founder-talk');
+  const saved = JSON.parse(readFileSync(join(reel, 'v2/plan.json'), 'utf8'));
+  const folder = resolve(reel, 'v2', saved.clips[0].clip);
+  expect(folder.startsWith(join(reel, 'v2'))).toBe(true);
+  expect(readdirSync(folder).sort()).toEqual(['fonts', 'shot.css', 'shot.html', 'shot.js']);
+  writeFileSync(join(shot, 'fonts/title.woff2'), 'changed original');
+  expect(readFileSync(join(folder, 'fonts/title.woff2'))).toEqual(font);
 });
 
 it('freezes a graphic fragment and its nested local image, and refuses an unfrozen external dependency', async () => {
