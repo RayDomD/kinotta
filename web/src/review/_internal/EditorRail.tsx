@@ -12,10 +12,10 @@ export function EditorRail({ reviewMode, children }: { reviewMode: boolean; chil
   const visibleReel = !reviewMode || (state.railOpen && state.railTab === 'reel');
   return <aside className={reviewMode ? 'rail editor-rail' : 'rail'} aria-label="Project" {...verifyAttrs(!reviewMode || state.railOpen, reviewMode ? state.railTab : 'reel')}>
     {reviewMode && <div className="editor-rail-icons">
+      <button type="button" className="panel-toggle" aria-label={`${state.railOpen ? 'Collapse' : 'Expand'} left panel`} title={`${state.railOpen ? 'Collapse' : 'Expand'} left panel`} onClick={() => state.setRailOpen((open) => !open)}>{state.railOpen ? '‹' : '›'}</button>
       <div className="editor-rail-tabs" role="tablist" aria-label="Reel and Media">
       {(['reel', 'media'] as const).map((tab) => <button key={tab} type="button" role="tab" aria-label={`${tab === 'reel' ? 'Reel' : 'Media'} rail`} aria-selected={state.railOpen && state.railTab === tab} title={tab === 'reel' ? 'Reel' : `Media (${state.settings.keys.rail})`} onClick={() => { state.setRailOpen((open) => state.railTab === tab ? !open : true); state.setRailTab(tab); }}><EditorIcon name={tab} /></button>)}
       </div>
-      <button type="button" className="panel-toggle" aria-label={`${state.railOpen ? 'Collapse' : 'Expand'} left panel`} title={`${state.railOpen ? 'Collapse' : 'Expand'} left panel`} onClick={() => state.setRailOpen((open) => !open)}>{state.railOpen ? '‹' : '›'}</button>
     </div>}
     <div className="editor-drawer" hidden={!visibleReel}>{children}{reviewMode && <div ref={state.setSectionHost} />}</div>
     {reviewMode && <div className="editor-drawer editor-media-drawer" hidden={!state.railOpen || state.railTab !== 'media'}><div ref={state.setMediaHost} /></div>}
