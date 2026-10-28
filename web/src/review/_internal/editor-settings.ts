@@ -9,6 +9,7 @@ export const EDITOR_ACTIONS = [
   { id: 'snap', label: 'Snap', key: '' },
   { id: 'pin', label: 'Pin', key: 'P' },
   { id: 'rail', label: 'Toggle Media rail', key: 'R' },
+  { id: 'panel', label: 'Toggle right panel', key: 'Shift+R' },
   { id: 'play', label: 'Play or pause', key: 'Space' },
   { id: 'trimStart', label: 'Trim start to playhead', key: '[' },
   { id: 'trimEnd', label: 'Trim end to playhead', key: ']' },
@@ -56,7 +57,7 @@ export interface EditorSettings {
 }
 const STORAGE_KEY = 'kinotta.editor.settings';
 export const DEFAULT_SETTINGS: EditorSettings = {
-  version: 2, viewerShare: 0.55,
+  version: 2, viewerShare: 0.45,
   keys: Object.fromEntries(EDITOR_ACTIONS.map((action) => [action.id, action.key])) as Record<EditorAction, string>,
   snap: true, nudge: 0.1, fade: 0.2, gap: 1,
   showBeats: true, emphasizeDownbeats: true, beatSnap: true,

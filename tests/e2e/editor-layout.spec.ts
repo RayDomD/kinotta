@@ -41,6 +41,21 @@ test('Each side panel collapses and expands with its own button, and the choice 
   await expect.poll(async () => (await columns(page)).at(-1)).toBe(PANEL_WIDTH);
 });
 
+test('The left panel has its own collapse button, and Shift+R toggles the right panel', async ({ page }) => {
+  await openEditor(page);
+  const body = page.locator('.body[data-review-shell="true"]');
+  await page.getByRole('button', { name: 'Expand left panel', exact: true }).click();
+  await expect(body).toHaveAttribute('data-rail-open', 'true');
+  await expect.poll(async () => (await columns(page))[0]).toBe(RAIL_WIDTH);
+  await page.getByRole('button', { name: 'Collapse left panel', exact: true }).click();
+  await expect(body).toHaveAttribute('data-rail-open', 'false');
+  await page.locator('body').press('Shift+R');
+  await expect(body).toHaveAttribute('data-panel-open', 'false');
+  await page.locator('body').press('Shift+R');
+  await expect(body).toHaveAttribute('data-panel-open', 'true');
+  await expect(page.getByRole('tablist', { name: 'Reel and Media' }).getByRole('button')).toHaveCount(0);
+});
+
 test('A collapsed panel is inert so focus skips it', async ({ page }) => {
   await openEditor(page);
   await page.getByRole('button', { name: 'Collapse right panel', exact: true }).click();
@@ -68,6 +83,9 @@ test('Dragging the divider to the bottom keeps the timeline usable and leaves th
   await page.mouse.up();
   const tracks = (await page.locator('.rv-tracks-pane').boundingBox())!;
   expect(tracks.height).toBeGreaterThanOrEqual(TRACKS_FLOOR);
+  // The whole tracks pane stays inside the column, not clipped below it.
+  const column = (await page.locator('.rv-main').first().boundingBox())!;
+  expect(tracks.y + tracks.height).toBeLessThanOrEqual(column.y + column.height + 1);
   const after = (await toolbar.boundingBox())!;
   expect(after.width).toBeCloseTo(before.width, 0);
   expect(after.height).toBeCloseTo(before.height, 0);

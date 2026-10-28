@@ -83,12 +83,13 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
       if (event.defaultPrevented || settingsOpen || shortcutsOpen || target.closest('input, textarea, select, [contenteditable="true"], dialog') || !document.querySelector('[data-review-shell="true"]')) return;
       const action = actionForKey(settings.keys, keyChord(event));
       if (event.key === 'Escape' && focus) { event.preventDefault(); setFocus(false); return; }
-      if (!['focus', 'shortcuts', 'rail', 'settings'].includes(action ?? '')) return;
+      if (!['focus', 'shortcuts', 'rail', 'panel', 'settings'].includes(action ?? '')) return;
       if (target.closest('button, a, summary, [role="tab"]') && !target.closest('[data-review-shell="true"]')) return;
       event.preventDefault();
       if (action === 'focus') setFocus((value) => !value);
       if (action === 'shortcuts') setShortcutsOpen(true);
       if (action === 'rail') { setRailTab('media'); setRailOpen((open) => !open); }
+      if (action === 'panel') setPanelOpen((open) => !open);
       if (action === 'settings') setSettingsOpen(true);
     };
     window.addEventListener('keydown', handle);
@@ -100,6 +101,7 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
       if (event.defaultPrevented || settingsOpen || target.closest('input, textarea, select, [contenteditable="true"]') || !target.closest('[data-review-shell="true"]')) return;
       const action = actionForKey(settings.keys, keyChord(event.nativeEvent));
       if (action === 'rail') { event.preventDefault(); setRailTab('media'); setRailOpen((open) => !open); }
+      if (action === 'panel') { event.preventDefault(); setPanelOpen((open) => !open); }
       if (action === 'settings') { event.preventDefault(); setSettingsOpen(true); }
     }}>
       {children}
