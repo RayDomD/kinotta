@@ -31,6 +31,7 @@ function verifyAttrs(tab: string, list: EditsState['list']) {
 /** Where an operation landed on the timeline as it was when the operation was made, in the transport's reading. */
 function whereOn(pieces: readonly Piece[], operations: readonly Operation[], index: number, clips: readonly PlanClip[] | undefined): string {
   const op = operations[index]!;
+  if (op.kind === 'use-version') return 'whole reel';
   if (op.kind === 'pin-comment') return op.comment ? `shot ${op.comment.pin.shot}` : 'pin';
   if (op.kind === 'shot-alternate' || op.kind === 'shot-alternate-dismiss') return `shot ${op.shot}`;
   if (op.kind === 'track-add' || op.kind === 'track-change' || op.kind === 'track-move' || op.kind === 'track-remove') return 'audio track';
@@ -120,7 +121,7 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
                   </div>
                   {op.kind === 'snip' && op.reason && <p className="meta">{op.reason}</p>}
                   <p>{text}</p><span className="rv-edit-author">{op.by}</span>
-                  {gone !== undefined && <div className="note">{`No longer applies to v${edits?.list?.base ?? ''}: ${gone} Remove it, or make the edit again.`}</div>}
+                  {gone !== undefined && <div className="note">{`No longer applies to v${edits?.list?.base ?? ''}: ${gone} Remove it, or make the edit again. Saving leaves it out.`}</div>}
                   {gone === undefined && op.kind === 'clip-slide' && <div className="note">Off its words: its changes no longer land on the words they were placed on. Keep it, or ask your agent to re-sync.</div>}
                   <button type="button" className="x" aria-label={`Remove edit ${i + 1}`} disabled={!editable || !edits || stale} onClick={() => void edits?.remove(op.id)}>
                     Remove

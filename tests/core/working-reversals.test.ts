@@ -87,7 +87,10 @@ it('flags an undo when the agent changed the same target, using owner-facing wor
   expect(reason).toContain('alternate');
   expect(reason).toContain('Review this undo');
   expect(reason).not.toContain('shot-alternate');
-  await expect(project.freezeEdits('parts')).rejects.toThrow('One edit no longer applies');
+  // The save goes ahead without the undo the agent's change made unsafe, and names it; Undo brings it back flagged.
+  const saved = await project.freezeEdits('parts');
+  expect(saved.skipped).toEqual([{ id: Object.keys(list.flagged!)[0], text: 'Undo: Used alternate r2' }]);
+  expect((await project.undoEdit('parts')).flagged).toEqual(list.flagged);
 });
 
 it('preserves a later edit while reversing multiple edits consumed by a freeze', async () => {

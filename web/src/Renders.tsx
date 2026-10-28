@@ -5,11 +5,14 @@ import type { MixOverload, RenderFile, RenderJob, RenderPreset, RenderSettings, 
 import { describeOverload } from '../../server/core/model.ts';
 import { formatRemaining } from './timecode.ts';
 
-const PRESETS: ReadonlyArray<{ id: RenderPreset; name: string }> = [
-  { id: 'draft', name: 'Draft' },
-  { id: 'final', name: 'Final' },
-  { id: 'overlay', name: 'Overlay' },
+/** The preset ids stay as the render API and `kinotta render --preset` know them; only the words on screen are plain. */
+const PRESETS: ReadonlyArray<{ id: RenderPreset; name: string; what: string; why: string }> = [
+  { id: 'draft', name: 'Quick preview', what: 'A fast, lower-quality video of Working.', why: "Cheap and fast to render; for checking timing or sending a quick look. Doesn't save a version." },
+  { id: 'final', name: 'Video', what: 'The full-quality video.', why: 'The one to publish. Saves Working as the next version.' },
+  { id: 'overlay', name: 'Transparent overlay', what: 'Only the motion graphics, on a transparent background.', why: 'To lay over your footage in another editor such as Premiere.' },
 ];
+/** The preset a render starts on: the full-quality video. */
+const DEFAULT_PRESET: RenderPreset = 'final';
 const FPS_OPTIONS: ReadonlyArray<{ value: RenderSettings['fps']; name: string }> = [
   { value: 'source', name: 'Source' },
   { value: 24, name: '24' },
@@ -193,7 +196,7 @@ const DEFAULT_EXPORT_SIZE: RenderSettings['size'] = '1080p';
 function RenderForm({ slug, version, footage, working = false, nextVersion, onSaved, detailed = false, onMore }: RenderFormProps & { detailed?: boolean; onMore?(): void }) {
   const presetsName = useId();
   const [saved, setSaved] = useState<{ slug: string; settings: Record<RenderPreset, RenderSettings> } | null>(null);
-  const [preset, setPreset] = useState<RenderPreset>('draft');
+  const [preset, setPreset] = useState<RenderPreset>(DEFAULT_PRESET);
   const [settings, setSettings] = useState<RenderSettings | null>(null);
   const [sending, setSending] = useState(false);
   const [refusal, setRefusal] = useState('');
@@ -270,12 +273,20 @@ function RenderForm({ slug, version, footage, working = false, nextVersion, onSa
       <h2>{detailed ? label : 'Export this version'}</h2>
       <fieldset className="pk-presets" disabled={settings === null || sending}>
         <legend className="label">Preset</legend>
-        {PRESETS.map((p) => (
-          <label key={p.id} className="pk-preset">
-            <input type="radio" name={presetsName} value={p.id} checked={preset === p.id} onChange={() => pickPreset(p.id)} />
-            <span>{detailed && working ? p.id === 'draft' ? 'Draft of Working' : `${p.name}, freezes as v${nextVersion ?? version}` : p.name}</span>
-          </label>
-        ))}
+        {PRESETS.map((p) => {
+          // Rendering Working as a Video saves it first, so the line says which version that makes.
+          const why = working && p.id === 'final' && (nextVersion ?? version) !== undefined ? `The one to publish. Saves Working as v${nextVersion ?? version}.` : p.why;
+          const whyId = `${presetsName}-${p.id}-why`;
+          return (
+            <div key={p.id} className="pk-choice">
+              <label className="pk-preset" title={`${p.what} Why this? ${why}`}>
+                <input type="radio" name={presetsName} value={p.id} checked={preset === p.id} aria-describedby={whyId} onChange={() => pickPreset(p.id)} />
+                <span>{p.name}</span>
+              </label>
+              <p id={whyId} className="pk-why"><span>Why this?</span> {why}</p>
+            </div>
+          );
+        })}
       </fieldset>
       {!detailed && settings !== null && <div className="edit-view export-size" role="group" aria-label="Export size">
         {EXPORT_SIZES.map((option) => <button key={option.value} type="button" disabled={sending} aria-pressed={settings.size === option.value} onClick={() => set('size')(option.value)}>{option.name}</button>)}

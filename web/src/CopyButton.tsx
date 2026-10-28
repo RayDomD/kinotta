@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { copyBatch, fetchEdits } from './api/index.ts';
-import { describeOperation } from '../../server/core/model.ts';
+import { copyBatch } from './api/index.ts';
 
 const CONFIRM_MS = 1400;
 /** The keyboard shortcut for Copy. Ctrl+Shift+C is taken by the browser's devtools. */
@@ -10,26 +9,7 @@ const COPY_CODE = 'KeyC';
 type Outcome =
   | { status: 'idle' }
   | { status: 'copied'; count: number }
-  | { status: 'failed'; message: string; stale?: StaleEdits };
-
-/** The edits that no longer apply to the newest version, each with the shot and time it acts at, when it has a place. */
-interface StaleEdits {
-  base: number;
-  edits: { id: string; text: string; shot?: string; time?: number }[];
-}
-
-/** Reads the edit list for the edits a save refused, so each can be named and opened. Null when none are flagged or the list cannot be read. */
-async function staleEditsOf(slug: string): Promise<StaleEdits | null> {
-  try {
-    const list = await fetchEdits(slug);
-    const edits = list.operations
-      .filter((op) => list.flagged?.[op.id] !== undefined)
-      .map((op) => ({ id: op.id, text: describeOperation(op).text, ...list.flaggedAt?.[op.id] }));
-    return edits.length > 0 ? { base: list.base, edits } : null;
-  } catch {
-    return null;
-  }
-}
+  | { status: 'failed'; message: string };
 
 /** Top bar button (disabled on a version that is read-only): saves the version's comment batch for your agent and puts the pasteable text on the clipboard. */
 export function CopyButton(props: {
@@ -48,10 +28,8 @@ export function CopyButton(props: {
   section?: { id: string; number: string } | null;
   /** Runs once the batch is saved, so the version can show what the copy changed (a section now waiting). */
   onSaved?(): void;
-  /** Opens the Edits panel on an edit the save refused, and moves the playhead to where it acts. */
-  onShowEdit?(id: string, time?: number): void;
 }) {
-  const { build = false, slug, version, count, hasNote = false, beforeCopy, frozen = false, issues, section = null, onSaved, onShowEdit } = props;
+  const { build = false, slug, version, count, hasNote = false, beforeCopy, frozen = false, issues, section = null, onSaved } = props;
   const includeId = useId();
   const [includeIssues, setIncludeIssues] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>({ status: 'idle' });
@@ -94,11 +72,8 @@ export function CopyButton(props: {
         ...(includeIssues && issues ? { includeIssues: true, runtimeIssues: issues.runtime } : {}),
       });
     } catch (err) {
-      const message = `Could not save the comments. ${err instanceof Error ? err.message : 'Could not reach the server'}`;
-      // An error about edits that no longer apply names each one, so the owner can go to it.
-      const stale = onShowEdit !== undefined && /no longer appl/.test(message) ? await staleEditsOf(slug) : null;
       setBusy(false);
-      setOutcome({ status: 'failed', message, ...(stale ? { stale } : {}) });
+      setOutcome({ status: 'failed', message: `Could not save the comments. ${err instanceof Error ? err.message : 'Could not reach the server'}` });
       return;
     }
     setBusy(false);
@@ -122,18 +97,7 @@ export function CopyButton(props: {
   const lit = sentAt !== null && !copied && !frozen;
   return (
     <div className="copy">
-      {outcome.status === 'failed' && (outcome.stale ? (
-        <span className="copy-error" role="alert">
-          {`Could not save the comments. ${outcome.stale.edits.length === 1 ? 'One edit no longer applies' : `${outcome.stale.edits.length} edits no longer apply`} to v${outcome.stale.base}. Remove ${outcome.stale.edits.length === 1 ? 'it' : 'them'} or redo ${outcome.stale.edits.length === 1 ? 'it' : 'them'}, then freeze Working.`}
-          <ul className="copy-stale">
-            {outcome.stale.edits.map((edit) => (
-              <li key={edit.id}>
-                <button type="button" className="quiet-link" onClick={() => onShowEdit?.(edit.id, edit.time)}>{`${edit.text}${edit.shot ? ` (shot ${edit.shot})` : ''}`}</button>
-              </li>
-            ))}
-          </ul>
-        </span>
-      ) : <span className="copy-error">{outcome.message}</span>)}
+      {outcome.status === 'failed' && <span className="copy-error">{outcome.message}</span>}
       {!frozen && issues !== undefined && issues.all.length > 0 && (
         <span className="copy-issues">
           <input id={includeId} type="checkbox" checked={includeIssues} onChange={(e) => setIncludeIssues(e.target.checked)} />

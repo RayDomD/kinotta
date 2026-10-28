@@ -83,8 +83,9 @@ it('warns of a pending overload in the editor and asks before rendering one', { 
     await form.getByRole('alert').filter({ hasText: 'above full scale at 0.00–2.00s' }).waitFor();
     expect(await form.getByRole('button', { name: 'Render', exact: true }).isDisabled()).toBe(true);
     await form.getByRole('checkbox', { name: 'Render with the overload' }).check();
+    await form.getByRole('radio', { name: 'Quick preview', exact: true }).check();
     await form.getByRole('button', { name: 'Render', exact: true }).click();
-    await form.getByRole('status').filter({ hasText: 'Working Draft queued.' }).waitFor();
+    await form.getByRole('status').filter({ hasText: 'Working Quick preview queued.' }).waitFor();
     for (const job of server.project.renderJobs()) await server.project.cancelRender(job.id);
   } finally {
     await browser.close();

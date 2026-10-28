@@ -94,12 +94,13 @@ test('Export sends the preset and selected size for Working and exposes detailed
     await top(page).getByRole('button', { name: 'Export', exact: true }).click();
     const menu = exportMenu(page);
     await expect(menu.getByRole('button', { name: '1080p', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    for (const preset of ['Draft', 'Final', 'Overlay']) {
+    const presets = [['Quick preview', 'draft'], ['Video', 'final'], ['Transparent overlay', 'overlay']] as const;
+    for (const [preset, id] of presets) {
       await menu.getByRole('radio', { name: preset, exact: true }).check();
       await menu.getByRole('button', { name: '4K', exact: true }).click();
       await menu.getByRole('button', { name: 'Render', exact: true }).click();
-      await expect.poll(() => requests.length).toBe(['Draft', 'Final', 'Overlay'].indexOf(preset) + 1);
-      expect(requests.at(-1)).toMatchObject({ preset: preset.toLowerCase(), size: '4k' });
+      await expect.poll(() => requests.length).toBe(presets.findIndex(([name]) => name === preset) + 1);
+      expect(requests.at(-1)).toMatchObject({ preset: id, size: '4k' });
     }
     await menu.getByRole('button', { name: 'More settings\u2026', exact: true }).click();
     const detailed = page.getByRole('dialog', { name: 'Render Working', exact: true });
@@ -133,7 +134,7 @@ test('Export renders the frozen version that is open, including after switching 
     await page.getByRole('button', { name: 'Open v1', exact: true }).click();
     await views(page).getByRole('button', { name: 'Simple', exact: true }).click();
     await top(page).getByRole('button', { name: 'Export', exact: true }).click();
-    await exportMenu(page).getByRole('radio', { name: 'Draft', exact: true }).check();
+    await exportMenu(page).getByRole('radio', { name: 'Quick preview', exact: true }).check();
     await exportMenu(page).getByRole('button', { name: 'Render', exact: true }).click();
     await expect.poll(() => queued).toMatchObject({ reel: SLUG, version: 1, preset: 'draft', size: '1080p' });
   } finally { await server.close(); }
@@ -154,7 +155,7 @@ test('Export holds queue progress and Cancel, and recent renders with Play and S
     const menu = exportMenu(page);
     await expect(menu.getByRole('list', { name: 'Queue' })).toContainText('42%');
     const cancelled = page.waitForRequest((request) => request.method() === 'DELETE' && request.url().endsWith('/queued-test'));
-    await menu.getByRole('button', { name: 'Cancel v2 Draft', exact: true }).click();
+    await menu.getByRole('button', { name: 'Cancel v2 Quick preview', exact: true }).click();
     await cancelled;
     const recent = menu.getByRole('list', { name: 'Past renders' });
     await recent.getByRole('button', { name: 'Show in folder', exact: true }).click();

@@ -16,7 +16,7 @@ export type { DuckSettings, SpeechSpan } from './_internal/media-duck.ts';
 export { MAX_GENERATED_SECONDS, EQ_TYPES, EQ_MIN_HZ, EQ_MAX_HZ, EQ_MAX_DB, EQ_MIN_Q, EQ_MAX_Q, EQ_DEFAULT_Q, EQ_MAX_FILTERS } from './_internal/media-model.ts';
 export type { TrackFilter } from './_internal/media-model.ts';
 export { MEDIA_AUDIO_RATE, EQ_PRESETS, activeTrackEq, trackEqFilters, webAudioEqQ } from './_internal/media-eq.ts';
-export { BUILT_BY_YOU, CLIP_ROOT, captionFontCss, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, mediaEditingPlan, mediaPlanTimeline, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt } from './_internal/edit-model.ts';
+export { BUILT_BY_YOU, CLIP_ROOT, captionFontCss, MAX_SCALE, MIN_CLIP, MIN_SCALE, MIN_SNIP, applyOperation, applyOperations, describeOperation, editedPieces, inputsVersion, mediaEditingPlan, mediaPlanTimeline, operationTouches, pieceLetter, planPieces, snipPieces, wordIndexAt, workingOperations } from './_internal/edit-model.ts';
 export type { CaptionFont, CaptionOffset, CaptionPhrasePositionOperation, CaptionPositionOperation, CaptionsPlan, ClipAttachmentOperation, ClipSlideOperation, ClipSplitOperation, ClipState, ClipTrimOperation, CutOperation, ElementOffset, ElementOffsetOperation, MovePieceOperation, NewOperation, Operation, PhrasePosition, PhraseTextOperation, Plan, PlanClip, SnipOperation, Sources, WordTextOperation, WordTimingOperation } from './_internal/edit-model.ts';
 
 /** Product targets shared by the picker preview and the background authoring request. */

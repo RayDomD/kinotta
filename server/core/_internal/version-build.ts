@@ -48,7 +48,7 @@ async function versionPlan(planDir: string, versionDir: string, plan: Plan, free
   if (copy.media) copy.media = await preserveMedia(planDir, versionDir, copy.media, referenceVideo);
   if (typeof copy.video === 'string') {
     const available = await stat(resolve(planDir, copy.video)).then((entry) => entry.isFile(), () => false);
-    if (!available) throw new KinottaError('invalid', 'The footage source is missing. Relink it before freezing Working.');
+    if (!available) throw new KinottaError('invalid', 'The footage source is missing. Relink it before saving a version.');
     copy.video = rebase(copy.video);
   }
   if (copy.transcript !== undefined) copy.transcript = PUBLISHED_TRANSCRIPT;

@@ -34,7 +34,7 @@ const exists = (path: string): Promise<boolean> => access(path).then(() => true,
 /** Refuses a reference that leaves the project: a scheme, `//` or an absolute path. Data URLs and fragments stay. */
 function local(reference: string): boolean {
   if (/^(?:data:|#)/i.test(reference)) return false;
-  if (/^(?:[a-z]+:|\/\/|\/)/i.test(reference)) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: ${reference}`);
+  if (/^(?:[a-z]+:|\/\/|\/)/i.test(reference)) throw new KinottaError('invalid', `Graphic dependency cannot be kept in a saved version: ${reference}`);
   return true;
 }
 
@@ -54,7 +54,7 @@ async function each(text: string, pattern: RegExp, group: (match: RegExpMatchArr
 /** A script's loads: imports against `imports`, page loads against the page. A path built at runtime is refused. */
 async function script(text: string, file: string, imports: Base, replace: Replace): Promise<string> {
   const built = SCRIPT_BUILT.exec(text);
-  if (built) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: ${basename(file)} builds a file path while it runs (${built[0].trim()}…). Name the file with a literal path so Save can keep it.`);
+  if (built) throw new KinottaError('invalid', `Graphic dependency cannot be kept in a saved version: ${basename(file)} builds a file path while it runs (${built[0].trim()}…). Name the file with a literal path so Save can keep it.`);
   return each(await each(text, SCRIPT_IMPORT, (m) => m[2], imports, replace), SCRIPT_LOAD, (m) => m[2], 'page', replace);
 }
 
@@ -94,7 +94,7 @@ export function graphicPreserver(versionDir: string, keepRootNames = false): (fi
     const previous = copied.get(absolute);
     if (previous) return previous;
     const name = keepRootNames && root ? basename(absolute) : `${copied.size}-${basename(absolute)}`;
-    if ([...copied.values()].includes(name)) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: two fragments are named ${name}. Give their files different names.`);
+    if ([...copied.values()].includes(name)) throw new KinottaError('invalid', `Graphic dependency cannot be kept in a saved version: two fragments are named ${name}. Give their files different names.`);
     copied.set(absolute, name);
     await mkdir(join(versionDir, FOLDER), { recursive: true });
     if (!CODE_FILES.includes(extname(absolute).toLowerCase())) {
@@ -133,12 +133,12 @@ export async function freezePageDependencies(pageDir: string): Promise<void> {
     const after = await references(before, file, async (reference, base) => {
       const from = base === 'page' ? root : dirname(file);
       const target = resolve(from, reference.split(/[?#]/)[0]!);
-      if (!(await exists(target))) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: ${reference} is missing.`);
+      if (!(await exists(target))) throw new KinottaError('invalid', `Graphic dependency cannot be kept in a saved version: ${reference} is missing.`);
       if (inside(target)) {
         if (CODE_FILES.includes(extname(target).toLowerCase()) && (await exists(target))) await visit(target);
         return null;
       }
-      if (!(await exists(target))) throw new KinottaError('invalid', `Graphic dependency cannot be frozen: ${reference} is missing.`);
+      if (!(await exists(target))) throw new KinottaError('invalid', `Graphic dependency cannot be kept in a saved version: ${reference} is missing.`);
       return posix(relative(from, join(root, await freeze(target))));
     });
     if (after !== before) await writeFile(file, after, 'utf8');

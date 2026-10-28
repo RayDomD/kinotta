@@ -623,10 +623,12 @@ export interface EditList {
   stale?: true;
   /** A comment batch is out. Working stays editable until the next version or cancellation. */
   handedOff?: { version: number; copiedAt: string; reason: string };
-  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and block a freeze. */
+  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and a save leaves them out. */
   flagged?: Record<string, string>;
   /** Where each flagged operation acts on the newest version, by id, when it has a place: the time and the shot to show it at. */
   flaggedAt?: Record<string, { time: number; shot?: string }>;
+  /** The last save left these edits out because they no longer applied. Undo brings them back, flagged. */
+  skipped?: { version: number; edits: { id: string; text: string; shot?: string; time?: number }[] };
 }
 
 const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
@@ -647,6 +649,8 @@ export const redoEdit = (slug: string): Promise<EditList> => requestJson(`${edit
 export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
 /** Ends the hand-off a copied batch started, keeping Working and its history. */
 export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/handoff`, { method: 'DELETE' });
+/** Dismisses the note about edits the last save left out. They stay in Undo. */
+export const dismissSkipped = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/skipped-edits`, { method: 'DELETE' });
 /** Builds the next version from the edits. Resolves with its number. */
 
 /** Takes back a video dropped into footage/: the server deletes it unless a reel uses it, and says which it did. */

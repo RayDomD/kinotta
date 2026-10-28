@@ -10,7 +10,7 @@ URL of a version's `index.html`, the only place server paths are built), `fetchC
 numbered comments), `addComment(slug, n, { pin, text })` (resolves with `{ comment, comments }`), `copyBatch(slug, n)` (saves the batch file, resolves with
 `{ text, file, count }`), `editComment(slug, n, id, text)` (resolves with `{ comment, comments }`), `deleteComment(slug, n, id)` (resolves with the renumbered comments), `fetchNote(slug, n)` and `saveNote(slug, n, note)` (the note on the whole reel), `approveVersion(slug, n)` (resolves with `{ approved, at, warning? }`) and `withdrawApproval(slug, n)`, `subscribe(onEvent)` (the server's change events over `EventSource`, returns a close function; the browser reconnects on its own), `footageUrl(slug)` (the same-origin URL of a footage reel's footage file), `fetchRenderSettings(slug)` (each preset's four
 settings), `queueRender(slug, n, preset, settings)` (queues a render and saves the settings for the preset; a refusal throws
-with the reason), `renderWorking(slug, preset, settings)` (captures Working for Draft, or freezes it for Final and Overlay before queuing; a refused capture queues nothing), `fetchRenders(slug)` (finished renders, newest first), `renderFileUrl(slug, file)` and
+with the reason), `renderWorking(slug, preset, settings)` (captures Working for a Quick preview, or saves it first for a Video or a Transparent overlay before queuing; a refused capture queues nothing), `fetchRenders(slug)` (finished renders, newest first), `renderFileUrl(slug, file)` and
 `revealRender(slug, file)` (shows a render in the file manager), `fetchRenderJobs()` (the queue: jobs waiting or running)
 and `cancelRender(id)`, and their types.
 
