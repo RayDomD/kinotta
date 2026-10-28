@@ -5,6 +5,11 @@ import { createRoot } from 'react-dom/client';
 import { PictureLayers } from '../../web/src/review/_internal/PictureLayers.tsx';
 import { useEdits } from '../../web/src/review/_internal/useEdits.ts';
 import { ReviewSide } from '../../web/src/review/_internal/EditsPanel.tsx';
+import { PinnedCommentCard } from '../../web/src/PinnedEffects.tsx';
+import { RenderMenu } from '../../web/src/Renders.tsx';
+import { Direction } from '../../web/src/Direction.tsx';
+import { Storyboard } from '../../web/src/Storyboard.tsx';
+import { SimpleMake } from '../../web/src/SimpleMake.tsx';
 
 const root = createRoot(document.getElementById('root')!);
 const host = window as any;
@@ -34,3 +39,38 @@ host.mountEditsPanel = (props: any) => root.render(<EditorWorkspace><ReviewSide 
   undo: () => host.editActions.push('undo'), redo: () => host.editActions.push('redo'),
   remove: (id: string) => host.editActions.push(`remove:${id}`), cancelHandoff: () => host.editActions.push('handoff'),
 }} /></EditorWorkspace>);
+
+host.mountPinnedComment = (props: any) => root.render(<PinnedCommentCard {...props} />);
+
+function RenderMenuHarness(props: any) {
+  const [jobs, setJobs] = useState(props.jobs ?? []);
+  host.setRenderJobs = (j: any) => setJobs(j);
+  return (
+    <RenderMenu
+      slug="my-reel"
+      version={1}
+      footage={true}
+      working={false}
+      titles={new Map()}
+      failure={null}
+      rendersTick={0}
+      onPlay={() => {}}
+      {...props}
+      jobs={jobs}
+    />
+  );
+}
+host.mountRenderMenu = (props: any) => root.render(<RenderMenuHarness {...props} />);
+
+host.mountDirection = (props: any) => root.render(<Direction {...props} />);
+
+function StoryboardHarness(props: any) {
+  const [version, setVersion] = useState(props.version);
+  const [sectionId, setSectionId] = useState(props.sectionId ?? 's1');
+  host.setStoryboardVersion = (v: any) => setVersion(v);
+  host.setStoryboardSection = (s: string) => setSectionId(s);
+  return <Storyboard {...props} version={version} sectionId={sectionId} onSection={setSectionId} />;
+}
+host.mountStoryboard = (props: any) => root.render(<StoryboardHarness {...props} />);
+
+host.mountSimpleMake = (props: any) => root.render(<SimpleMake onStarted={() => {}} onBriefStarted={() => {}} {...props} />);
