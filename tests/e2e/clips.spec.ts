@@ -95,6 +95,8 @@ test('trim a clip by its edge, slide another by its body, see it flagged, and Sa
 });
 
 test('click an element in the frame, drag it and scale it by its corner, see its offset in the tag, and Save', async ({ page }) => {
+  // The timeline keeps a minimum height now, so a 720px window leaves a picture too small for this test's fixed-pixel drags.
+  await page.setViewportSize({ width: 1280, height: 900 });
   await undoWorkingEdits(page, 'founder-talk');
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Founder talk/ }).click();

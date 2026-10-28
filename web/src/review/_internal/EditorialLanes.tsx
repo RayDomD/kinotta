@@ -190,6 +190,7 @@ export function EditorialLanes({
                 type="button"
                 className={`native-clip editorial-graphic${clip.attachmentBroken ? ' editorial-broken' : ''}`}
                 data-graphic={clip.id}
+                title={clip.title ?? clip.id}
                 data-verify-broken-graphic={String(!!clip.attachmentBroken)}
                 aria-pressed={selectedGraphic === clip.id}
                 style={place(clip.in, clip.out, graphicRows.rows.get(clip))}

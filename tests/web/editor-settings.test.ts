@@ -33,6 +33,18 @@ describe('viewer editor settings', () => {
     expect(readEditorSettings().keys.split).toBe('Ctrl+J');
     expect(readEditorSettings().keys.snip).toBe('S');
   });
+  it('keeps the right panel open by default, remembers it closed, and ignores a malformed value', () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('window', { localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) } });
+    expect(readEditorSettings().panelOpen).toBe(true);
+    saveEditorSettings({ ...DEFAULT_SETTINGS, panelOpen: false });
+    expect(readEditorSettings().panelOpen).toBe(false);
+    values.set('kinotta.editor.settings', JSON.stringify({ ...DEFAULT_SETTINGS, panelOpen: 'no' }));
+    expect(readEditorSettings().panelOpen).toBe(true);
+    const { panelOpen: _omitted, ...before } = DEFAULT_SETTINGS;
+    values.set('kinotta.editor.settings', JSON.stringify(before));
+    expect(readEditorSettings().panelOpen).toBe(true);
+  });
   it('works when browser storage is blocked, full or corrupted and returns independent defaults', () => {
     vi.stubGlobal('window', { get localStorage() { throw new Error('blocked'); } });
     expect(readEditorSettings()).toEqual(DEFAULT_SETTINGS);
