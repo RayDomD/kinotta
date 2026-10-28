@@ -61,7 +61,8 @@ export function createTranscriptions(emit: (event: ProjectEvent) => void, now: (
 
   const set = (slug: string, progress: TranscriptionProgress): void => {
     states.set(slug, progress);
-    emit({ type: 'transcription-progress', reel: slug, progress });
+    // A failing listener is not the job's failure: the state above is already recorded.
+    try { emit({ type: 'transcription-progress', reel: slug, progress }); } catch { /* listener's problem */ }
   };
 
   return {
