@@ -45,7 +45,7 @@ spec:
 3. [x] Flagged edits carry shot and time; core test.
 4. [x] Error bar and Edits panel: clickable entries; e2e that forces a stale edit and clicks through.
 5. [x] Flaky test: loop 50 runs, find the cause, fix, loop 50 runs again.
-6. [ ] Skipped (the owner's `sample-vid` reel is unreachable from the build session). Read-only check on the owner's `sample-vid` reel that the "managements" edit now applies to v3.
+6. [x] Read-only check on the owner's `sample-vid` reel that the "managements" edit now applies to v3. Done 2026-10-28 on a copy; see Result.
 
 ## Risks
 
@@ -62,7 +62,10 @@ spec:
 
 ## Result
 
-Steps 1 to 5 shipped on `fix/carry-edits-across-copies`. Step 6 was skipped: the owner's `sample-vid` reel cannot be reached from the build session, so the "managements" edit on v3 still needs checking on the owner's machine.
+Steps 1 to 5 shipped on `fix/carry-edits-across-copies`. Step 6 ran on 2026-10-28 on the owner's machine, against a scratch copy of `Kinotta-skill-split-check/reels/sample-vid`:
+
+- The fix works. Replayed from the anchor the edit was made on (Working, `legacy:../../footage/sample vid .mp4`), the edit moves to `legacy:footage.mp4:0:119.954` on v3 and nothing is flagged. Source ids printed per plan, and the footage bytes in the reel folder, v2 and v3 are identical.
+- The owner's real list stays flagged. The pre-fix code replayed it onto v2, flagged the edit and moved the anchor to v2, and a list is replayed only when a newer version arrives, so the current code never retries it. Only edits flagged before this fix are affected. The owner chose to redo that one edit in the editor rather than add retry code.
 
 - Carry (#93): a legacy footage source is matched by content hash, so edits made on v1 apply to a version that copies the footage under another path. Saved ids keep their format (ADR 0003). Core tests in `tests/core/version-media.test.ts` and `tests/core/legacy-media-editing.test.ts`.
 - Flagged edits carry `flaggedAt` (time and shot). The freeze error names each edit and its shot. The save error bar lists each flagged edit as a button that opens the Edits panel on its row (focused, Tally outline) and moves the playhead to its time; in Simple mode it switches to the editor first. Covered by `tests/e2e/stale-edit.spec.ts` (own server, port offset 21).
@@ -86,3 +89,6 @@ Checks:
 - Plan created with Intent only. Owner asked for clickable errors that lead to the broken edit on 2026-10-27.
 - Owner folded the flaky viewer-state test fix into this plan; issues #93 and #94 filed.
 - Owner approved the Intent and its recommended answers; Goal, Approach, Steps, Risks and Checks written. Status Approved.
+
+### 2026-10-28
+- Step 6 checked on the owner's machine; Result updated.
