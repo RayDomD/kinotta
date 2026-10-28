@@ -85,3 +85,41 @@ test('Resizing the window only changes the centre column', async ({ page }) => {
   }
   expect(widths[1]![1]).toBeGreaterThan(widths[0]![1]!);
 });
+
+test('Opening marker settings keeps the picture and tracks in place', async ({ page }) => {
+  await openEditor(page);
+  const picture = page.locator('.rv-resizable > .rv-well');
+  const tracks = page.locator('.rv-tracks-pane');
+  await settled(picture);
+  const beforePicture = (await picture.boundingBox())!;
+  const beforeTracks = (await tracks.boundingBox())!;
+  await page.getByRole('button', { name: 'Marker', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Marker settings' })).toBeVisible();
+  const afterPicture = (await picture.boundingBox())!;
+  const afterTracks = (await tracks.boundingBox())!;
+  expect(afterPicture.y).toBeCloseTo(beforePicture.y, 0);
+  expect(afterPicture.height).toBeCloseTo(beforePicture.height, 0);
+  expect(afterTracks.y).toBeCloseTo(beforeTracks.y, 0);
+  expect(afterTracks.height).toBeCloseTo(beforeTracks.height, 0);
+  await page.getByRole('button', { name: 'Remove marker' }).click();
+});
+test('Speech track controls fit without overlap at 1280 pixels', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page);
+  await page.getByRole('button', { name: 'Add track' }).click();
+  const name = page.locator('.native-track-header > input').last();
+  await name.fill('Speech');
+  await name.blur();
+  const header = page.locator('.native-track-header').filter({ has: page.getByRole('button', { name: 'Mute Speech' }) });
+  await expect(header).toBeVisible();
+  const boxes = await header.locator('button, input').evaluateAll((elements) => elements.map((element) => { const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }));
+  const bounds = await header.boundingBox();
+  expect(bounds).not.toBeNull();
+  for (const [index, box] of boxes.entries()) {
+    expect(box.left).toBeGreaterThanOrEqual(bounds!.x);
+    expect(box.right).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+    expect(box.top).toBeGreaterThanOrEqual(bounds!.y);
+    expect(box.bottom).toBeLessThanOrEqual(bounds!.y + bounds!.height);
+    for (const other of boxes.slice(index + 1)) expect(box.right <= other.left || other.right <= box.left || box.bottom <= other.top || other.bottom <= box.top).toBe(true);
+  }
+});

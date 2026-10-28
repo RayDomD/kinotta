@@ -21,6 +21,7 @@
 .rv-marker { position: absolute; top: 19px; transform: translateX(-50%); color: var(--ink-2); font: 700 20px Doto, monospace; line-height: 1; min-width: 24px; min-height: 24px; }
 .rv-marker:hover, .rv-marker:focus-visible { color: var(--light); }
 .rv-marker-panel { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; border: 1px solid var(--rule); padding: 8px; }
+.rv-resizable > .rv-marker-panel { position: absolute; left: 10px; right: 10px; z-index: 10; background: var(--card); }
 .rv-marker-panel label { display: flex; gap: 6px; align-items: center; }
 .rv-marker-panel input { width: 120px; max-width: 100%; padding: 4px; background: var(--ground-deep); color: var(--ink); border: 1px solid var(--hairline); }
 .rv-marker-panel input[type="number"] { width: 80px; font-family: Doto, monospace; }
@@ -378,3 +379,10 @@
 
 .native-beat { position: absolute; top: 20px; height: 7px; border-left: 1px solid currentColor; opacity: 0.4; pointer-events: none; z-index: 2; }
 .native-beat.downbeat { height: 12px; border-left: 2px solid var(--light); opacity: 1; }
+
+/* Keep track actions in their own cells so the name and controls never overlap. */
+.native-track-header { display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; gap: 2px; align-content: start; padding: 5px 4px; }
+.native-track-header > input { grid-column: 1; grid-row: 1; padding: 0; }
+.native-track-header .native-track-remove { position: static; grid-column: 2; grid-row: 1; }
+.native-track-header .native-track-up { position: static; grid-column: 3; grid-row: 1; }
+.native-track-header > div { grid-column: 1 / -1; grid-row: 2; gap: 2px; }
