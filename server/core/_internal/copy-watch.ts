@@ -100,6 +100,15 @@ export function watchCopyOutput(
   let settleTimer: NodeJS.Timeout | null = null;
   let snapshot = new Map<string, string>();
 
+  /** Reports a failure; a failing reporter must not become an unhandled rejection that takes the server down. */
+  async function fail(error: unknown): Promise<void> {
+    try {
+      await onFailure(error);
+    } catch (reportError) {
+      console.error('Kinotta: could not record a copy-output failure.', reportError);
+    }
+  }
+
   async function triggerSettle(): Promise<void> {
     settleTimer = null;
     if (closed || settling) return;
@@ -108,7 +117,7 @@ export function watchCopyOutput(
     try {
       await onSettle();
     } catch (error) {
-      await onFailure(error);
+      await fail(error);
     }
   }
 
@@ -129,7 +138,7 @@ export function watchCopyOutput(
       } catch (error) {
         if (closed || settling) return;
         stop();
-        await onFailure(error);
+        await fail(error);
       }
     })();
   }
