@@ -14,6 +14,8 @@ interface Workspace {
   setSettings: Dispatch<SetStateAction<EditorSettings>>;
   railOpen: boolean;
   setRailOpen: Dispatch<SetStateAction<boolean>>;
+  panelOpen: boolean;
+  setPanelOpen: Dispatch<SetStateAction<boolean>>;
   railTab: 'reel' | 'media';
   setRailTab: Dispatch<SetStateAction<'reel' | 'media'>>;
   settingsOpen: boolean;
@@ -56,6 +58,7 @@ function verifyAttrs(settings: EditorSettings, railOpen: boolean, railTab: strin
 export function EditorWorkspace({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState(readEditorSettings);
   const [railOpen, setRailOpen] = useState(settings.railOpen);
+  const [panelOpen, setPanelOpen] = useState(settings.panelOpen);
   const [railTab, setRailTab] = useState<'reel' | 'media'>('reel');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focus, setFocus] = useState(false);
@@ -67,6 +70,8 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
   const [sectionHost, setSectionHost] = useState<HTMLDivElement | null>(null);
   const [panelTab, setPanelTab] = useState<'edits' | 'comments' | 'clip' | 'sound'>('edits');
   const [editFocus, setEditFocus] = useState<EditFocus | null>(null);
+  // Both panels remember how the owner left them.
+  useEffect(() => { setSettings((state) => state.railOpen === railOpen && state.panelOpen === panelOpen ? state : { ...state, railOpen, panelOpen }); }, [railOpen, panelOpen]);
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
     document.documentElement.dataset.accent = settings.accent;
@@ -89,7 +94,7 @@ export function EditorWorkspace({ children }: { children: ReactNode }) {
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [focus, settings.keys, settingsOpen, shortcutsOpen]);
-  return <Context.Provider value={{ focus, setFocus, shortcutsOpen, setShortcutsOpen, settings, setSettings, railOpen, setRailOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab, editFocus, setEditFocus }}>
+  return <Context.Provider value={{ focus, setFocus, shortcutsOpen, setShortcutsOpen, settings, setSettings, railOpen, setRailOpen, panelOpen, setPanelOpen, railTab, setRailTab, settingsOpen, setSettingsOpen, mediaHost, setMediaHost, clipHost, setClipHost, soundHost, setSoundHost, pinHost, setPinHost, sectionHost, setSectionHost, panelTab, setPanelTab, editFocus, setEditFocus }}>
     <div className="editor-workspace" {...verifyAttrs(settings, railOpen, railTab, settingsOpen)} onKeyDown={(event) => {
       const target = event.target as HTMLElement;
       if (event.defaultPrevented || settingsOpen || target.closest('input, textarea, select, [contenteditable="true"]') || !target.closest('[data-review-shell="true"]')) return;

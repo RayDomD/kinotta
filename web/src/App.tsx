@@ -841,7 +841,7 @@ function Studio() {
     <div className="app">
       {topBar}
       <div className="agent-strip-slot" ref={setStripTarget} />
-      <div className="body" data-pin-storyboard={String(phase === 'Storyboard' && !creating)} data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)}>
+      <div className="body" data-pin-storyboard={String(phase === 'Storyboard' && !creating)} data-review-shell={String(phase === 'Review' && !creating)} data-parts-storyboard={String(phase === 'Storyboard' && !!openVersion?.parts && !creating)} data-focus={String(workspace.focus)} data-rail-open={String(workspace.railOpen)} data-panel-open={String(workspace.panelOpen)}>
         <Rail
           reviewMode={phase === 'Review' && !creating}
           project={load.project}

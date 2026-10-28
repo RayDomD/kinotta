@@ -140,10 +140,12 @@ function EditsTab({ edits, pieces, clips, editable, codeOnly = false, media = fa
 
 /** The right column of the Review tab: durable Edits and Comments. */
 export function ReviewSide(props: ReviewSideProps) {
-  const { panelTab: tab, setPanelTab: setTab, setClipHost, setSoundHost, setPinHost } = useEditorWorkspace();
+  const { panelTab: tab, setPanelTab: setTab, setClipHost, setSoundHost, setPinHost, panelOpen, setPanelOpen } = useEditorWorkspace();
   const count = props.edits?.list?.operations.length ?? 0;
   return (
-    <div className="rv-side" {...verifyAttrs(tab, props.edits?.list ?? null)}>
+    <div className="rv-side-shell">
+    <button type="button" className="panel-toggle" aria-label={`${panelOpen ? 'Collapse' : 'Expand'} right panel`} title={`${panelOpen ? 'Collapse' : 'Expand'} right panel`} onClick={() => setPanelOpen((open) => !open)}>{panelOpen ? '›' : '‹'}</button>
+    <div className="rv-side" inert={!panelOpen} {...verifyAttrs(tab, props.edits?.list ?? null)}>
       <div className="rv-tabs" role="tablist" aria-label="Edits and comments">
         <button type="button" role="tab" aria-selected={tab === 'edits'} onClick={() => setTab('edits')}>
           Edits{count > 0 && <span className="dot">{count}</span>}
@@ -159,6 +161,7 @@ export function ReviewSide(props: ReviewSideProps) {
       {tab === 'comments' && props.comments}
       <div className="editor-clip-host" ref={setClipHost} hidden={tab !== 'clip'} />
       <div className="editor-clip-host" ref={setSoundHost} hidden={tab !== 'sound'} />
+    </div>
     </div>
   );
 }

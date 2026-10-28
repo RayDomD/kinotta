@@ -48,6 +48,7 @@ export interface EditorSettings {
   fade: number;
   gap: number;
   railOpen: boolean;
+  panelOpen: boolean;
   toolbarLabels: boolean;
   timecode: 'seconds' | 'frames';
   theme: 'dark' | 'light';
@@ -59,7 +60,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
   keys: Object.fromEntries(EDITOR_ACTIONS.map((action) => [action.id, action.key])) as Record<EditorAction, string>,
   snap: true, nudge: 0.1, fade: 0.2, gap: 1,
   showBeats: true, emphasizeDownbeats: true, beatSnap: true,
-  railOpen: false, toolbarLabels: false, timecode: 'seconds', theme: 'dark', accent: 'ice',
+  railOpen: false, panelOpen: true, toolbarLabels: false, timecode: 'seconds', theme: 'dark', accent: 'ice',
 };
 
 /** Modifiers have one spelling and order, so equivalent chords clash. */
@@ -119,7 +120,7 @@ function validated(value: unknown): EditorSettings {
     }
   }
   if (typeof stored.viewerShare === 'number' && Number.isFinite(stored.viewerShare)) defaults.viewerShare = Math.max(0.25, Math.min(0.8, stored.viewerShare));
-  for (const key of ['snap', 'railOpen', 'toolbarLabels', 'showBeats', 'emphasizeDownbeats', 'beatSnap'] as const) if (typeof stored[key] === 'boolean') defaults[key] = stored[key];
+  for (const key of ['snap', 'railOpen', 'panelOpen', 'toolbarLabels', 'showBeats', 'emphasizeDownbeats', 'beatSnap'] as const) if (typeof stored[key] === 'boolean') defaults[key] = stored[key];
   for (const key of ['nudge', 'fade', 'gap'] as const) {
     const number = stored[key];
     if (typeof number === 'number' && Number.isFinite(number) && (key === 'fade' ? number >= 0 : number > 0)) defaults[key] = number;
