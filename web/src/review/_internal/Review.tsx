@@ -453,7 +453,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
       {!simple && <div className="head">
         <h1>{reel.title}</h1>
         <span className="meta">
-          {version ? `v${version.number} · ${formatDuration(total)}${operations.length > 0 ? ' · unsaved edits' : ''}` : transcription?.state === 'running' ? 'No version yet. v1 is built when the words are in.' : 'No version yet. The footage plays alone.'}
+          {version ? `v${version.number} · ${formatDuration(total)}${operations.length > 0 ? ' · unsaved edits' : ''}` : transcription?.state === 'running' ? 'No version yet. v1 is built when the words are in.' : 'No version yet. Play footage, make cuts, or add comments to build v1.'}
         </span>
         {actions}
       </div>}
@@ -481,7 +481,7 @@ function Playing({ reel, state, version, comments, section = null, edits, transc
                 if (next === 'select') setSelection(null);
               }}
               selection={selection}
-              busy={false}
+              busy={edits?.busy ?? false}
               onSnip={() => void snip()}
               onCutAtPlayhead={() => void cutAt(time)}
             />

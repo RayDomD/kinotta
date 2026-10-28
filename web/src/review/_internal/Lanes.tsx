@@ -87,7 +87,7 @@ const FootageLane = memo(function FootageLane({
             }}
           >
             <b>{pieceLetter(i)}</b>
-            {`${formatTimecode(piece.in)} to ${formatTimecode(piece.out)}`}
+            <span className="num">{`${formatTimecode(piece.in)} to ${formatTimecode(piece.out)}`}</span>
           </div>
         );
       })}

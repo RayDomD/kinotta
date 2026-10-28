@@ -28,22 +28,31 @@ export function useAgentConfirmation() {
 function AgentConfirmDialog({ settings, onFinish }: { settings: AgentSettings; onFinish(confirmed: boolean): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
   const [remember, setRemember] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { dialog.current!.showModal(); cancel.current!.focus(); }, []);
+  useEffect(() => {
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    dialog.current!.showModal();
+    cancel.current!.focus();
+  }, []);
+  const finish = (confirmed: boolean) => {
+    onFinish(confirmed);
+    previousFocus.current?.focus();
+  };
   const build = async () => {
     setSaving(true);
     setError('');
     try {
       if (remember) await saveAgentSettings({ confirmed: true });
-      onFinish(true);
+      finish(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save confirmation. Try again.');
       setSaving(false);
     }
   };
-  return <dialog ref={dialog} className="agent-confirm" role="dialog" aria-modal="true" aria-labelledby="agent-confirm-title" aria-describedby="agent-confirm-body" onCancel={(event) => { event.preventDefault(); if (!saving) onFinish(false); }}>
+  return <dialog ref={dialog} className="agent-confirm" role="dialog" aria-modal="true" aria-labelledby="agent-confirm-title" aria-describedby="agent-confirm-body" onCancel={(event) => { event.preventDefault(); if (!saving) finish(false); }}>
     <h2 id="agent-confirm-title">Build it all now?</h2>
     <div id="agent-confirm-body">
       <p>Kinotta makes the cut here, then runs <b>{AGENT_PROVIDER_LABELS[settings.provider]}</b> in the background to add b-roll.</p>
@@ -53,7 +62,7 @@ function AgentConfirmDialog({ settings, onFinish }: { settings: AgentSettings; o
     <label><input type="checkbox" checked={remember} disabled={saving} onChange={(event) => setRemember(event.target.checked)} /> Don&rsquo;t ask again for this project</label>
     {error && <p role="alert">{error}</p>}
     <div className="agent-confirm-actions">
-      <button ref={cancel} type="button" className="c-act" disabled={saving} onClick={() => onFinish(false)}>Cancel</button>
+      <button ref={cancel} type="button" className="c-act" disabled={saving} onClick={() => finish(false)}>Cancel</button>
       <button type="button" className="btn" disabled={saving} onClick={() => void build()}>Build now</button>
     </div>
   </dialog>;
@@ -139,10 +148,14 @@ export function SimpleMake({ onStarted, onBriefStarted }: { onStarted(slug: stri
     setDropped(null);
     setError('');
     setNotice('');
-    if (!copy) return;
+    if (!copy) {
+      setNotice(`Unpicked ${video.name}.`);
+      return;
+    }
     void removeVideo(video.path).then(
       ({ removed }) => {
         if (removed) setNotice(`Removed ${video.name} and Kinotta’s copy in footage/.`);
+        else setNotice(`Unpicked ${video.name}. Kept in footage/ because a reel uses it.`);
         void load();
       },
       (err: unknown) => setError(err instanceof Error ? err.message : 'Could not remove the video.'),
@@ -213,7 +226,7 @@ export function SimpleMake({ onStarted, onBriefStarted }: { onStarted(slug: stri
         <div className="dx-make-panel">
           <VideoCard
             video={video}
-            action={<button type="button" className="c-act" disabled={busy} aria-label={`Remove ${video.name}`} onClick={remove}>Remove</button>}
+            action={<button type="button" className="c-act" disabled={busy} title={dropped === video.path ? 'Remove and delete copy from footage/' : 'Clear selection'} aria-label={dropped === video.path ? `Remove ${video.name}` : `Clear ${video.name}`} onClick={remove}>{dropped === video.path ? 'Remove' : 'Clear'}</button>}
           />
           <label>
             Reel name

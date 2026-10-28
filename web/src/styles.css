@@ -546,8 +546,9 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .rv-dropzone[data-busy="true"] .rv-choose { visibility: hidden; }
 .rv-dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 .rv-drop-rows { list-style: none; width: 100%; max-width: 52ch; display: flex; flex-direction: column; gap: 2px; font-size: 13px; text-align: left; }
-.rv-drop-rows li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); }
-.rv-drop-rows li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-drop-rows li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); min-width: 0; }
+.rv-drop-rows li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rv-drop-rows li span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .rv-drop-rows li[data-failed="true"] { color: var(--ink); }
 .rv-folder-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
 .terrain { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; pointer-events: none; background: radial-gradient(circle, color-mix(in oklch, var(--ink) 22%, transparent) 1px, transparent 1.4px) 0 0 / 10px 10px; -webkit-mask: linear-gradient(transparent, #000); mask: linear-gradient(transparent, #000); }
@@ -614,6 +615,9 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .pk-bar { display: block; width: 100%; height: 3px; background: var(--rule); }
 .pk-bar span { display: block; height: 100%; background: var(--light); transform-origin: left; }
 .render-ready { position: fixed; left: 244px; bottom: 22px; z-index: 8; max-width: 72ch; }
+@media (max-width: 900px) {
+  .render-ready { left: 16px; right: 16px; max-width: none; }
+}
 .render-ready .pk-actions { align-items: baseline; }
 
 /* Review's header actions and the popovers on them and on the top bar's render menu (mockup 2026-10-06 option C) */

@@ -175,7 +175,7 @@
 .rv-w-edit small { font: 700 11px Doto, monospace; color: var(--muted); }
 
 /* tools: Select, Snip, and the button that removes the selected stretch */
-.rv-tools { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
+.rv-tools { display: flex; align-items: center; gap: 2px; margin-left: 8px; flex-wrap: wrap; }
 .rv-tools .rv-tool { gap: 7px; font-size: 13px; padding: 5px 10px; }
 .rv-tool kbd { font: 700 11px Doto, monospace; color: var(--muted); border: 1px solid var(--hairline); padding: 0 4px; }
 .rv-tool[aria-pressed="true"] { color: var(--light); border-color: var(--light); }
@@ -393,3 +393,7 @@
 .editor-timeline-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; overflow-x: auto; }
 .editor-timeline-row .editor-toolbar, .editor-timeline-row .editor-timeline-controls { flex-wrap: nowrap; }
 .editor-timeline-row .editor-timeline-view { flex-shrink: 0; }
+
+@media (hover: none) {
+  .c .x { opacity: 1; }
+}

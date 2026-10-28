@@ -120,6 +120,13 @@ async function readJsonBody(req: IncomingMessage, emptyAs?: unknown): Promise<un
   }
 }
 
+/** A request body that must be a JSON object; `null`, arrays and scalars are a 400, not a crash on the first field read. */
+async function readJsonObject<T extends object>(req: IncomingMessage): Promise<Partial<T>> {
+  const body = await readJsonBody(req);
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw new BadRequest(400, 'The request body must be a JSON object.');
+  return body as Partial<T>;
+}
+
 async function handleComments(req: IncomingMessage, res: ServerResponse, project: Project, route: RegExpExecArray): Promise<void> {
   const slug = safeDecode(route[1]!);
   const version = Number(route[2]);
@@ -511,7 +518,7 @@ export function createHandler(project: Project, webRoot: string) {
         if (slug === null) sendNotFound(res);
         else if (agentRoute[2] === 'copy' && req.method === 'GET') sendJson(res, 200, await project.copyAgentRequest(slug));
         else if (agentRoute[2] === 'publish' && req.method === 'POST') {
-          const body = await readJsonBody(req) as { id?: unknown };
+          const body = await readJsonObject<{ id: unknown }>(req);
           if (typeof body.id !== 'string') throw new KinottaError('invalid', 'Supply the request id.');
           sendJson(res, 200, await project.acceptAgentOutput(slug, body.id));
         }
@@ -542,15 +549,15 @@ export function createHandler(project: Project, webRoot: string) {
         const imported = await project.importMedia(searchParams.get('name') ?? '', req);
         sendJson(res, imported.copied ? 201 : 200, imported);
       } else if (pathname === '/api/media/reference' && req.method === 'POST') {
-        const body = await readJsonBody(req) as { path?: unknown };
+        const body = await readJsonObject<{ path: unknown }>(req);
         if (typeof body.path !== 'string') throw new BadRequest(400, 'Choose a project media path.');
         sendJson(res, 200, await project.referenceMedia(body.path));
       } else if (pathname === '/api/media/relink' && req.method === 'POST') {
-        const body = await readJsonBody(req) as { source?: unknown; path?: unknown };
+        const body = await readJsonObject<{ source: unknown; path: unknown }>(req);
         if (typeof body.source !== 'string' || typeof body.path !== 'string') throw new BadRequest(400, 'Choose a source and project media path.');
         sendJson(res, 200, await project.relinkMedia(body.source, body.path));
       } else if (pathname === '/api/media/generate' && req.method === 'POST') {
-        const body = await readJsonBody(req) as { prompt?: unknown; seconds?: unknown; seed?: unknown };
+        const body = await readJsonObject<{ prompt: unknown; seconds: unknown; seed: unknown }>(req);
         if (typeof body.prompt !== 'string' || typeof body.seconds !== 'number' || (body.seed !== undefined && typeof body.seed !== 'number')) throw new BadRequest(400, 'Generating a sound needs a prompt, a length in seconds and optionally a whole-number seed.');
         // Closing the page mid-run stops the model rather than leaving the GPU busy for nobody.
         const stop = new AbortController();

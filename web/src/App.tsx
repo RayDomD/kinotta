@@ -124,10 +124,13 @@ function TopBar(props: {
         />
       )}
       <Popover label="More" disabled={!props.listing} button={<span aria-hidden="true">···</span>} buttonClass="tb-menu tb-more" className="tb-more-pop" open={more} onOpen={closeMore}>
-        {allReels && props.simple ? <label>Choose reel<select autoFocus aria-label="Choose reel" value={reel?.slug ?? ''} onChange={(event) => { if (event.target.value) props.onOpen?.(event.target.value); closeMore(false); }}>
-          <option value="" disabled>Choose reel</option>
-          {props.listing?.reels.map((item) => <option key={item.slug} value={item.slug}>{item.title}</option>)}
-        </select></label> : <>
+        {allReels && props.simple ? <>
+          <button type="button" className="tb-back-menu" onClick={() => setAllReels(false)}>← Back to menu</button>
+          <label>Choose reel<select autoFocus aria-label="Choose reel" value={reel?.slug ?? ''} onChange={(event) => { if (event.target.value) props.onOpen?.(event.target.value); closeMore(false); }}>
+            <option value="" disabled>Choose reel</option>
+            {props.listing?.reels.map((item) => <option key={item.slug} value={item.slug}>{item.title}</option>)}
+          </select></label>
+        </> : <>
           <button type="button" disabled={!props.onLibrary} onClick={() => { closeMore(false); props.onLibrary?.(); }}>Library</button>
           <button type="button" onClick={() => { closeMore(false); workspace.setSettingsOpen(true); }}>Settings</button>
           <button type="button" disabled={!props.listing || props.listing.reels.length === 0} onClick={() => {
@@ -549,7 +552,7 @@ function Studio() {
   const version = useVersion(reel?.slug, chosen, entries !== null && entries.length === 0, versionTick, working);
   const openVersion = version.status === 'ready' ? version.version : undefined;
   const comments = useComments(openVersion ? reel?.slug : undefined, openVersion?.number, commentsTick);
-  const edits = useEdits(reel?.slug, versionsTick + commentsTick);
+  const edits = useEdits(reel?.slug, versionTick + versionsTick + commentsTick);
   const [transcribed, setTranscribed] = useState<{ slug: string; progress: TranscriptionProgress | null } | null>(null);
   const transcription = transcribed !== null && transcribed.slug === reel?.slug ? transcribed.progress : null;
   const note = useNote(openVersion ? reel?.slug : undefined, openVersion?.number);
@@ -558,7 +561,7 @@ function Studio() {
   const [pickedSection, setPickedSection] = useState<{ key: string; id: string } | null>(null);
   const versionKey = openVersion ? `${reel?.slug}/${openVersion.number}` : null;
   const sectionId =
-    openVersion === undefined ? '' : pickedSection?.key === versionKey && openVersion.sections.some((s) => s.id === pickedSection.id) ? pickedSection.id : openVersion.sections[0]!.id;
+    openVersion === undefined ? '' : pickedSection?.key === versionKey && openVersion.sections.some((s) => s.id === pickedSection.id) ? pickedSection.id : (openVersion.sections[0]?.id ?? '');
   const pickSection = useCallback(
     (id: string) => {
       if (versionKey !== null) setPickedSection({ key: versionKey, id });
@@ -723,7 +726,9 @@ function Studio() {
   if (load.status !== 'ready') {
     return (
       <div className="app">
-        <TopBar reel={undefined} version={undefined} commentCount={0} frozen={false} />
+        <div className="top-region">
+          <TopBar reel={undefined} version={undefined} commentCount={0} frozen={false} />
+        </div>
         <div className="state">{load.status === 'loading' ? 'Loading…' : `Could not load reels. ${load.message}`}</div>
       </div>
     );

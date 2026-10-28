@@ -473,11 +473,15 @@ export function SimpleMode({
               Jump between pins with <kbd className="sm-kbd">[</kbd> and <kbd className="sm-kbd">]</kbd>
             </p>
             {pins.length === 0 && (
-              <div className="empty">
-                <h3>What would you change?</h3>
-                <p>Turn on the pin, then click the picture.</p>
-                <span className="terrain" aria-hidden="true" />
-              </div>
+              state === 'loading' ? (
+                <div className="state">Loading pins…</div>
+              ) : (
+                <div className="empty">
+                  <h3>What would you change?</h3>
+                  <p>Turn on the pin, then click the picture.</p>
+                  <span className="terrain" aria-hidden="true" />
+                </div>
+              )
             )}
             <ol className="sm-pin-list">
               {pins.map((pin, index) => (
@@ -569,8 +573,8 @@ export function SimpleMode({
         </div>
       )}
 
-      {(error || comments.error || edits.error) && (
-        <p className="sm-message" role="alert">{error || comments.error || edits.error}</p>
+      {(error || comments.error || edits.error || (state === 'error' ? message : '')) && (
+        <p className="sm-message" role="alert">{error || comments.error || edits.error || message}</p>
       )}
       <p className="sm-message" role="status">{status}</p>
       {request && (

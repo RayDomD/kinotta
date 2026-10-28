@@ -49,3 +49,7 @@ export type { EffectCatalogueEntry } from './_internal/client.ts';
 
 export { fetchBuiltPinNotes, decidePinNote } from './_internal/client.ts';
 export type { BuiltPinNote } from './_internal/client.ts';
+
+// Agent, style and brand fonts re-exports
+export { fetchAgentSettings, saveAgentSettings, checkAgents, fetchReelAgentJob, cancelReelAgentJob, retryReelAgentJob, copyReelAgentJob, AGENT_PROVIDER_LABELS, startStyledBrief, fetchBrandFonts, importFont } from './_internal/client.ts';
+export type { AgentSettings, AgentPresence, AgentJob, AgentJobState, AgentProvider, BrandFonts, StyleChoice } from './_internal/client.ts';

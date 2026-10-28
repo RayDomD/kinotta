@@ -329,10 +329,19 @@ export interface NewComment {
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
+  let res: Response;
+  try {
+    res = await fetch(path, init);
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') throw err;
+    throw new Error('Could not reach the Kinotta server. Check your connection and retry.');
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? `Request to ${path} failed (${res.status})`);
+  }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
   }
   return (await res.json()) as T;
 }
@@ -360,7 +369,7 @@ export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPr
  * of an opaque page) throws with the reason.
  */
 export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
-  requestJson('/api/renders', { method: 'POST', body: JSON.stringify({ reel: slug, version, preset, ...settings, remember: true, acceptOverload }) });
+  requestJson('/api/renders', jsonBody('POST', { reel: slug, version, preset, ...settings, remember: true, acceptOverload }));
 /**
  * Where a reel's mix passes full scale, measured from the mix a render makes (AM29, AM38): a saved version's, or with no
  * version the current Working mix. No spans when it stays within full scale.
@@ -488,17 +497,17 @@ export const fetchMedia = async (filter: MediaFilter = {}): Promise<MediaEntry[]
   const params = new URLSearchParams();
   if (filter.kind) params.set('kind', filter.kind);
   if (filter.search) params.set('search', filter.search);
-  return (await getJson<{ media: MediaEntry[] }>(`/api/media?${params}`)).media;
+  const q = params.toString(); return (await getJson<{ media: MediaEntry[] }>(`/api/media${q ? `?${q}` : ''}`)).media;
 };
 export const fetchWaveform = (source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform> => {
   const params = new URLSearchParams();
   if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
-  return getJson(`/api/media/${encodeURIComponent(source)}/waveform?${params}`);
+  const q = params.toString(); return getJson(`/api/media/${encodeURIComponent(source)}/waveform${q ? `?${q}` : ''}`);
 };
 const speechPath = (source: string, saved?: { reel: string; version: number }): string => {
   const params = new URLSearchParams();
   if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
-  return `/api/media/${encodeURIComponent(source)}/speech?${params}`;
+  const q = params.toString(); return `/api/media/${encodeURIComponent(source)}/speech${q ? `?${q}` : ''}`;
 };
 export const fetchSpeech = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => getJson(speechPath(source, saved));
 export const detectMediaBeats = (source: string, saved?: { reel: string; version: number }, fresh = false): Promise<import('../../../../server/core/model.ts').BeatGrid> => {
@@ -682,7 +691,7 @@ export const importVideo = (file: File, onProgress?: (sent: number) => void): Pr
 
 export const fetchWorkingVersion = (slug: string): Promise<Version> => getJson(`/api/reels/${encodeURIComponent(slug)}/working`);
 export const renderWorking = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
-  requestJson(`/api/reels/${encodeURIComponent(slug)}/working-render`, { method: 'POST', body: JSON.stringify({ preset, ...settings, remember: true, acceptOverload }) });
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/working-render`, jsonBody('POST', { preset, ...settings, remember: true, acceptOverload }));
 
 // Auto and Direct, Direction (appended block).
 /** The picture as shown, when the server's probe could read it: Direction's Frame is detected from these. */

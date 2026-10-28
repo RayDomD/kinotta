@@ -283,7 +283,7 @@ export function CommentsPanel({ version, newest, state, note, onOpenComment, sec
       ) : comments.length > 0 ? (
         <ol className="clist" aria-label="Comments on this version">
           {comments.map((comment) => comment.effect || comment.insertShot ? (
-            <PinnedCommentCard key={comment.id} comment={comment} state={state} editable={!readOnly} remove={() => void remove(comment)} />
+            <PinnedCommentCard key={comment.id} comment={comment} state={state} editable={!readOnly} remove={() => remove(comment)} />
           ) : (
             <CommentCard
               key={comment.id}
