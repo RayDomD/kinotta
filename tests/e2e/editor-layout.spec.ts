@@ -3,7 +3,7 @@ import type { Locator, Page } from '../helpers/editor-test.ts';
 import { openDetailedEditor, revealReelRail } from '../helpers/review-rail.ts';
 import { serverUrl } from './ports.ts';
 
-// Layout checks only move panels and the divider; they never change the project, so they share the versions fixture server.
+// Layout checks share the versions fixture server; marker and track checks use temporary editor items.
 test.use({ baseURL: serverUrl('versions') });
 
 const RAIL_WIDTH = 220;
@@ -122,4 +122,27 @@ test('Speech track controls fit without overlap at 1280 pixels', async ({ page }
     expect(box.bottom).toBeLessThanOrEqual(bounds!.y + bounds!.height);
     for (const other of boxes.slice(index + 1)) expect(box.right <= other.left || other.right <= box.left || box.bottom <= other.top || other.bottom <= box.top).toBe(true);
   }
+});
+
+test('Narrow graphic clips hide their label and retain the full name in a tooltip', async ({ page }) => {
+  await openEditor(page);
+  const clip = page.locator('.editorial-graphic').first();
+  const label = clip.locator('.native-clip-name');
+  const name = (await label.textContent())!.trim();
+  await expect(clip).toHaveAttribute('title', name);
+  await clip.evaluate((element) => { element.style.width = '30px'; });
+  await expect(label).toBeHidden();
+  await clip.evaluate((element) => { element.style.width = '150px'; });
+  await expect(label).toBeVisible();
+});
+
+
+test('Timeline tools and zoom controls share a compact row at 1920 pixels', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await openEditor(page);
+  const tools = (await page.getByRole('toolbar', { name: 'Timeline tools' }).boundingBox())!;
+  const zoom = (await page.getByRole('region', { name: 'Timeline view' }).boundingBox())!;
+  expect(Math.abs((tools.y + tools.height / 2) - (zoom.y + zoom.height / 2))).toBeLessThan(2);
+  expect(zoom.x - (tools.x + tools.width)).toBeGreaterThanOrEqual(0);
+  expect(zoom.x - (tools.x + tools.width)).toBeLessThanOrEqual(16);
 });

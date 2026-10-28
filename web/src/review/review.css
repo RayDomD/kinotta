@@ -45,7 +45,7 @@
 .editor-shortcuts > p { padding: 12px 20px; font-size: 13px; color: var(--muted); }
 .body[data-review-shell="true"][data-focus="true"] { grid-template-columns: minmax(0, 1fr); }
 .body[data-review-shell="true"][data-focus="true"] > .rail, .body[data-review-shell="true"][data-focus="true"] > .rv-side-shell { display: none; }
-.body[data-focus="true"] .rv-tracks-pane, .body[data-focus="true"] .rv-divider, .body[data-focus="true"] .rv-main > .head, .body[data-focus="true"] .editor-toolbar, .body[data-focus="true"] .rv-tools, .body[data-focus="true"] .rv-zoom { display: none; }
+.body[data-focus="true"] .editor-timeline-row, .body[data-focus="true"] .rv-tracks-pane, .body[data-focus="true"] .rv-divider, .body[data-focus="true"] .rv-main > .head, .body[data-focus="true"] .editor-toolbar, .body[data-focus="true"] .rv-tools, .body[data-focus="true"] .rv-zoom { display: none; }
 .body[data-focus="true"] .rv-resizable > .rv-well { flex: 1; max-height: none; }
 @media (max-width: 900px) {
   .body[data-review-shell="true"] .rv-main.rv-resizable { height: 760px; overflow: hidden; }
@@ -257,7 +257,7 @@
 .editorial-caption-open .editorial-word { top: 0; bottom: 0; }
 .editor-ruler button:not(.editorial-pin) { top: auto; bottom: 0; }
 .editor-ruler .editorial-pin { top: 2px; padding: 0; border: 1px solid var(--light); background: var(--card); color: var(--ink); z-index: 2; }
-.editorial-pin { position: absolute; top: 10px; transform: translateX(-50%); width: 24px; height: 24px; border: 1px solid var(--light); border-radius: 50%; font-size: 11px; color: var(--ink); background: var(--card); }
+.editorial-pin { position: absolute; top: 10px; transform: translateX(-50%); width: 24px; height: 24px; border: 1px solid var(--light); border-radius: 0; font-size: 11px; color: var(--ink); background: var(--card); }
 .editorial-broken { border-color: oklch(.65 .19 30); }
 .editorial-graphic { touch-action: none; }
 .editor-graphic-settings { padding: 12px; }
@@ -316,7 +316,7 @@
 .native-trim-end { right: 0; background: linear-gradient(to left, var(--end) var(--end-width), transparent var(--end-width)); }
 .native-clip:hover .native-trim, .native-clip:focus-visible .native-trim { --end: var(--ink-2); }
 .native-clip[aria-pressed="true"] .native-trim { --end: var(--light); --end-width: 6px; }
-.native-fade { position: absolute; top: 0; width: 7px; height: 7px; transform: translateX(-50%); z-index: 4; cursor: ew-resize; border-radius: 50%; background: var(--light); }
+.native-fade { position: absolute; top: 0; width: 7px; height: 7px; transform: translateX(-50%); z-index: 4; cursor: ew-resize; border-radius: 0; background: var(--light); }
 .native-waveform, .native-volume { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .native-waveform { opacity: .3; }
 .native-waveform polyline { fill: none; stroke: var(--ink-2); stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -386,3 +386,10 @@
 .native-track-header .native-track-remove { position: static; grid-column: 2; grid-row: 1; }
 .native-track-header .native-track-up { position: static; grid-column: 3; grid-row: 1; }
 .native-track-header > div { grid-column: 1 / -1; grid-row: 2; gap: 2px; }
+/* Hide labels when the clip is too narrow to read them. */
+.native-clip { container-type: inline-size; }
+@container (max-width: 60px) { .native-clip-name { display: none; } }
+
+.editor-timeline-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; overflow-x: auto; }
+.editor-timeline-row .editor-toolbar, .editor-timeline-row .editor-timeline-controls { flex-wrap: nowrap; }
+.editor-timeline-row .editor-timeline-view { flex-shrink: 0; }
