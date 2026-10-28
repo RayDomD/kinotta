@@ -385,7 +385,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       await withReelLock(reelDir, async () => {
         const active = running.get(reel);
         const job = latest.get(reel);
-        if (active && job && activeState(job.state)) { job.state = 'cancelling'; active.controller.abort(); await set(job); }
+        if (active && job && (activeState(job.state) || (job.state === 'copy-ready' && active.jobId === job.id))) { job.state = 'cancelling'; active.controller.abort(); await set(job); }
       });
       await running.get(reel)?.done;
       const job = latest.get(reel);
