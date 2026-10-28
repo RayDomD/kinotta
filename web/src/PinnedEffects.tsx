@@ -46,7 +46,7 @@ export function EffectsDrawer() {
   </section></>;
 }
 
-export function PinnedCommentCard({ comment, state, editable, remove }: { comment: Comment; state: CommentsState; editable: boolean; remove(): void }) {
+export function PinnedCommentCard({ comment, state, editable, remove }: { comment: Comment; state: CommentsState; editable: boolean; remove(): void | Promise<unknown> }) {
   const [text, setText] = useState(comment.text);
   const [problem, setProblem] = useState('');
   const [saving, setSaving] = useState(false);
@@ -84,7 +84,8 @@ export function PinnedCommentCard({ comment, state, editable, remove }: { commen
   const handleRemove = () => {
     removing.current = true;
     clearTimeout(timer.current);
-    remove();
+    // A removal that fails leaves the card on screen, so it must take edits again.
+    void Promise.resolve(remove()).catch(() => undefined).then(() => { if (mounted.current) removing.current = false; });
   };
   const instant = !!comment.instant && !text.trim();
   return <li className="card fx-pin-card" data-pin-card={comment.id} tabIndex={0}
