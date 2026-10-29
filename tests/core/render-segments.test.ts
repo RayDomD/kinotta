@@ -126,4 +126,20 @@ describe('parallel segments', () => {
     expect(job.state).toBe('cancelled');
     expect(filesIn(rendersDir(dir, SLOW))).toEqual([]);
   });
+
+  it('cancels a segmented render during preparation without leaving output or work files', { timeout: RENDER_TIMEOUT_MS }, async () => {
+    const dir = project();
+    const proj = openProject(dir, { renderSegments: SEGMENTS });
+    let cancelled: Promise<RenderJob> | undefined;
+    const stop = proj.subscribe((event) => {
+      if (event.type === 'render-progress' && event.job.state === 'running') cancelled = proj.cancelRender(event.job.id);
+    });
+    const job = await proj.render({ reel: SLOW, version: 1, preset: 'draft' });
+    const result = await proj.whenRendered(job.id);
+    await cancelled;
+    stop();
+    expect(result.state).toBe('cancelled');
+    expect(filesIn(rendersDir(dir, SLOW))).toEqual([]);
+    await proj.close();
+  });
 });

@@ -363,6 +363,10 @@ export function Storyboard({ slug, version: baseVersion, newest, comments, secti
     setOpenRevision(null);
   }, [openRevision]);
 
+  useEffect(() => {
+    setOpenIndex(null);
+  }, [version.number, section.id]);
+
   // When the sheet closes, focus goes back to the lane control that opened it, else to the button of the shot it was showing.
   useEffect(() => {
     if (openIndex === null && returnTo.current !== null) {

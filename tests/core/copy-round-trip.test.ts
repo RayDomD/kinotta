@@ -77,6 +77,30 @@ async function setupCopyJob(options: { settleMs?: number } = {}) {
 
 describe('copy request round trip', () => {
   const TIMEOUT = 30_000;
+  it('cancels an explicit acceptance while it is preparing, before it can publish', async () => {
+    const { dir, project, slug, job, outputDir } = await setupCopyJob();
+    writeValidOutput(outputDir);
+    const accepting = project.acceptAgentOutput(slug, job.id);
+    const cancelled = project.cancelAgentJob(slug);
+    await accepting;
+    expect(await cancelled).toMatchObject({ state: 'cancelled' });
+    expect(existsSync(join(dir, 'reels', slug, 'v2'))).toBe(false);
+  }, TIMEOUT);
+
+  it('publishes only one version when explicit acceptances race a DONE watcher', async () => {
+    const { dir, project, slug, job, outputDir } = await setupCopyJob({ settleMs: 50 });
+    writeValidOutput(outputDir);
+    writeFileSync(join(outputDir, DONE_MARKER), '');
+    const results = await Promise.all([
+      project.acceptAgentOutput(slug, job.id),
+      project.acceptAgentOutput(slug, job.id),
+    ]);
+    expect(results).toEqual([expect.objectContaining({ state: 'succeeded', version: 2 }), expect.objectContaining({ state: 'succeeded', version: 2 })]);
+    await delay(150);
+    expect(existsSync(join(dir, 'reels', slug, 'v2'))).toBe(true);
+    expect(existsSync(join(dir, 'reels', slug, 'v3'))).toBe(false);
+  }, TIMEOUT);
+
   it('1. DONE triggers publish: validates, publishes v2, job becomes succeeded, version-added and agent-progress events fire', async () => {
     const { dir, project, slug } = await setupCopyJob({ settleMs: 50 });
     const events: ProjectEvent[] = [];

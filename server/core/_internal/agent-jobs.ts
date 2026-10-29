@@ -71,6 +71,8 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     const outputDir = join(jobDir(job), 'output');
     try {
       await assertSafeCopyOutput(jobDir(job), outputDir);
+      // Acceptance or close may have run during the await, when stopWatching had no watcher to stop.
+      if (closed || job.state !== 'copy-ready' || latest.get(job.reel)?.id !== job.id) return;
       let watcher: CopyWatchHandle;
       watcher = watchCopyOutput(
         jobDir(job),
@@ -385,7 +387,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       await withReelLock(reelDir, async () => {
         const active = running.get(reel);
         const job = latest.get(reel);
-        if (active && job && activeState(job.state)) { job.state = 'cancelling'; active.controller.abort(); await set(job); }
+        if (active && job && (activeState(job.state) || (job.state === 'copy-ready' && active.jobId === job.id))) { job.state = 'cancelling'; active.controller.abort(); await set(job); }
       });
       await running.get(reel)?.done;
       const job = latest.get(reel);
