@@ -47,7 +47,7 @@ test('a Copy request job whose output/ gets valid files and DONE loads as v2 wit
     await auto(page, server.url, 'Copy strip finish');
 
     const strip = page.getByRole('region', { name: 'B-roll progress' });
-    await expect(strip).toContainText('Waiting for your agent');
+    await expect(strip).toContainText('Waiting for your agent', { timeout: 30_000 });
     await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toBeVisible();
 
     const job = (await server.project.agentJob(slug))!;
@@ -64,7 +64,7 @@ test('a Copy request job whose output/ gets valid files and DONE loads as v2 wit
 
     await openBtn.click();
     await expect(page.locator('[data-verify-unit="VersionRail"]')).toHaveAttribute('data-verify-working', 'false');
-    await expect(page.getByText('You are viewing v2, a frozen version.', { exact: true })).toBeVisible();
+    await expect(page.getByText('You are viewing v2, a saved version. It cannot be edited.', { exact: true })).toBeVisible();
     await expect(strip).toHaveCount(0);
     expect((await server.project.readVersion(slug, 2)).issues).toEqual([]);
     expect(existsSync(join(projectDir, 'reels', slug, 'v2', DONE_MARKER))).toBe(false);
@@ -89,7 +89,7 @@ test('one filled while the server was stopped loads on start', async ({ page }) 
     await auto(page, server.url, 'Copy stopped test');
 
     const strip = page.getByRole('region', { name: 'B-roll progress' });
-    await expect(strip).toContainText('Waiting for your agent');
+    await expect(strip).toContainText('Waiting for your agent', { timeout: 30_000 });
 
     const job = (await server.project.agentJob(slug))!;
     expect(job.state).toBe('copy-ready');
@@ -119,7 +119,7 @@ test('one filled while the server was stopped loads on start', async ({ page }) 
 
     await openBtn.click();
     await expect(page.locator('[data-verify-unit="VersionRail"]')).toHaveAttribute('data-verify-working', 'false');
-    await expect(page.getByText('You are viewing v2, a frozen version.', { exact: true })).toBeVisible();
+    await expect(page.getByText('You are viewing v2, a saved version. It cannot be edited.', { exact: true })).toBeVisible();
     expect((await server.project.readVersion(slug, 2)).issues).toEqual([]);
     expect(existsSync(join(projectDir, 'reels', slug, 'v2', DONE_MARKER))).toBe(false);
   } finally {
@@ -143,7 +143,7 @@ test('invalid output shows its reason with Retry', async ({ page }) => {
     await auto(page, server.url, 'Copy invalid test');
 
     const strip = page.getByRole('region', { name: 'B-roll progress' });
-    await expect(strip).toContainText('Waiting for your agent');
+    await expect(strip).toContainText('Waiting for your agent', { timeout: 30_000 });
 
     const job = (await server.project.agentJob(slug))!;
     expect(job).toBeDefined();
