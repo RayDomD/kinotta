@@ -132,9 +132,12 @@ test('Export renders the frozen version that is open, including after switching 
     });
     await page.goto(server.url);
     await page.getByRole('button', { name: 'Open v1', exact: true }).click();
+    await expect(page.locator('.frozen-version-line')).toContainText('You are viewing v1');
     await views(page).getByRole('button', { name: 'Simple', exact: true }).click();
     await top(page).getByRole('button', { name: 'Export', exact: true }).click();
-    await exportMenu(page).getByRole('radio', { name: 'Quick preview', exact: true }).check();
+    const quickRadio = exportMenu(page).getByRole('radio', { name: 'Quick preview', exact: true });
+    await quickRadio.check();
+    await expect(quickRadio).toBeChecked();
     await exportMenu(page).getByRole('button', { name: 'Render', exact: true }).click();
     await expect.poll(() => queued).toMatchObject({ reel: SLUG, version: 1, preset: 'draft', size: '1080p' });
   } finally { await server.close(); }

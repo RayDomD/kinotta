@@ -10,6 +10,7 @@ import type { ImportedMedia, MediaEntry, MediaFilter, MediaWaveform, ProjectMedi
 import type { MediaPlan } from './media-model.ts';
 import { requireVersionDir } from './version.ts';
 
+const probedCodecs = new Map<string, Promise<string>>();
 const LIBRARY_FILE = '.media-library.json';
 const MEDIA_DIR = 'footage';
 const VIDEO = new Set(['.mp4', '.mov', '.m4v', '.mkv', '.webm']);
@@ -89,8 +90,11 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
       const library = (await readLibrary(projectDir)).find((s) => s.contentHash === hash && s.playback);
       const reused = library && await projectFile(projectDir, library.playback!).catch(() => null);
       if (reused) return reused;
-      const probe = await probeMedia(file, 'video');
-      if (needsPlaybackCopy(probe.codec)) {
+      if (!probedCodecs.has(hash)) {
+        probedCodecs.set(hash, probeMedia(file, 'video').then((p) => p.codec, () => ''));
+      }
+      const codec = await probedCodecs.get(hash)!;
+      if (needsPlaybackCopy(codec)) {
         await ensurePlaybackCopy(projectDir, file, shared);
         return shared;
       }

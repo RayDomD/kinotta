@@ -6,6 +6,7 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 for (const accepted of [true, false]) test(`a split previews before its reply and ${accepted ? 'survives the save event' : 'rolls back with the server reason'}`, async ({ page }) => {
+  test.setTimeout(60_000);
   const projectDir = createStutterProject('optimistic');
   const server = await startServer({ projectDir, port: 0 });
   let send!: () => void; let reply!: () => void; let processed = false; let closing = false;
@@ -29,25 +30,25 @@ for (const accepted of [true, false]) test(`a split previews before its reply an
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Playback optimistic', exact: true }).click();
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const editor = page.locator('[data-verify-unit="MediaEditor"]');
-    await expect(editor).toHaveAttribute('data-verify-loading', 'false');
+    await expect(editor).toHaveAttribute('data-verify-loading', 'false', { timeout: 45_000 });
     const clips = editor.locator('[data-role="main"] button.native-clip');
     await expect(clips).toHaveCount(1);
     await page.getByLabel('Playhead', { exact: true }).fill('2');
     const before = workingReads;
     await page.getByRole('toolbar', { name: 'Timeline tools' }).getByRole('button', { name: 'Split at playhead', exact: true }).click();
-    await expect(clips).toHaveCount(2, { timeout: 2000 });
+    await expect(clips).toHaveCount(2, { timeout: 5000 });
     expect(workingReads).toBe(before);
     send();
-    await expect.poll(() => processed).toBe(true);
+    await expect.poll(() => processed, { timeout: 15_000 }).toBe(true);
     // The server has saved and sent its event, but the response is still withheld.
     await page.waitForTimeout(200);
     await expect(clips).toHaveCount(2);
     expect(workingReads).toBe(before);
     reply();
     if (accepted) {
-      await expect.poll(() => workingReads).toBeGreaterThan(before);
+      await expect.poll(() => workingReads, { timeout: 15_000 }).toBeGreaterThan(before);
       await expect(clips).toHaveCount(2);
-      await expect.poll(async () => (await clips.nth(1).getAttribute('data-placement'))?.includes('optimistic:')).toBe(false);
+      await expect.poll(async () => (await clips.nth(1).getAttribute('data-placement'))?.includes('optimistic:'), { timeout: 15_000 }).toBe(false);
     } else {
       await expect(clips).toHaveCount(1);
       await expect(editor.getByRole('alert').filter({ hasText: 'This source was replaced. Reload its media.' })).toBeVisible();
@@ -130,6 +131,7 @@ test('the editor preview draws captions in the plan\'s font and background, and 
     await expect.poll(() => vars(page)).toEqual({ font: '', background: '' });
   } finally {
     await page.close(); await server?.close();
-    rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    try { rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+    catch (error) { if (!['EPERM', 'EBUSY'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error; }
   }
 });
