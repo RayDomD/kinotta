@@ -19,6 +19,11 @@ serves it. Ask the format (such as 9:16) when absent; a reference does not decid
 | Launch | Product and promise, 3 to 5 moments in order, brand hex and font, tempo, and ending. |
 | Showreel | Concept, tempo and bars, and techniques to demonstrate. |
 
+Put two more questions in the same round unless the request or `style.json` has already answered them:
+
+- **Sound.** Offer a score and effects, effects only, none, or the owner's own file, with the score as the recommended answer. Apply the answer to the whole reel and place it as `reference/sound.md` describes. A reel that skips this question ships silent.
+- **Project style.** When the project holds a written style document (for example `docs/style-guide.md`), name it and offer it as the look, next to the built-in brand. Apply it when the owner accepts, and say in the hand-over which look the reel uses.
+
 On music-led reels, derive event times from tempo and align changes to the beat grid.
 Speech-led reels retain speech and reading time even with music. The nine new effects in
 `templates/effects/README.md` are optional starting points, never a requirement.
@@ -39,6 +44,7 @@ Use the AskUserQuestion tool; keep it to one round. You need:
 - **Look:**
   - The default palette: warm gray canvas, black and white components, one orange accent.
   - Or their brand: colours, and optionally a font. Ask them to drop a logo, screenshots or brand colours into `motion/inputs/`, and read those.
+- **Sound and project style.** The two questions above, in the same round.
 - **Anything to avoid or include.** Lines to leave on their face, real numbers or names to show, product screenshots to recreate.
 
 Skip any question the user already answered.

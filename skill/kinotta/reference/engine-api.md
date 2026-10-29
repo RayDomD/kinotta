@@ -66,6 +66,10 @@ Layer content is positioned relative to its anchor, e.g. `left:-330px; top:40px`
 | `M.eo`, `M.eio`, `M.clamp`, `M.lerp`, `M.S` | Easing and spring helpers. |
 | `M.curves.rise/state/sink`, `M.bezier(x1,y1,x2,y2)` | Sourced B1 curves, overridden by plan `brand.curves`; cubic-bezier solver returns a pure progress function. |
 
+**Layer swaps.** When one layer leaves as another enters at the same time, give the entering layer a delay (`o:{din: 0.15}`) and the leaving layer a short exit (`o:{lout: 0.1}`). With neither, both show together for the length of the exit. The delay is the swap's no-overlap rule.
+
+**Comments in a clip script.** The build reads `from "x"` in a script comment as an import and looks for a file named `x`. Write "on", "at" or "between" before the word, as in `// pings land on "a hundred"`.
+
 Icons in `M.IC`: arrow, check, x, plus, folder, terminal, file, pencil, coin, clock, chip, sparkle, castle, search. Add more as 24-grid stroke paths (e.g. from Lucide, ISC licence).
 
 ## Patterns (see `examples/opus-aoe2/`)
