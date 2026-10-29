@@ -31,7 +31,8 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     const render = page.getByRole('dialog', { name: 'Render Working' });
     await expect(render.getByRole('radio', { name: 'Quick preview', exact: true })).toBeVisible();
     await expect(render.getByRole('radio', { name: 'Video', exact: true })).toBeChecked();
-    await expect(render.getByText('Saves Working as v3', { exact: false })).toBeVisible();
+    await expect(render.getByRole('radio', { name: 'Video', exact: true })).toHaveAccessibleDescription('Why this? The one to publish. Saves Working as v3.');
+    await expect(render.getByRole('radio', { name: 'Transparent overlay', exact: true })).toHaveAccessibleDescription(/To lay over your footage.*Saves Working as v3\./);
     await page.keyboard.press('Escape');
     await server.project.addOperation(reel, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 20, y: 0, scale: 1, by: 'Claude' });
     await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('2 edits');

@@ -274,9 +274,9 @@ function RenderForm({ slug, version, footage, working = false, nextVersion, onSa
       <fieldset className="pk-presets" disabled={settings === null || sending}>
         <legend className="label">Preset</legend>
         {PRESETS.map((p) => {
-          // Rendering Working as a Video saves it first, so the line says which version that makes.
+          // Video and Overlay save Working first, so each line names the resulting version.
           const savesWorking = working && (p.id === 'final' || p.id === 'overlay') && (nextVersion ?? version) !== undefined;
-          const why = savesWorking ? `${p.id === 'final' ? 'The one to publish. ' : ''}${p.why} Saves Working as v${nextVersion ?? version}.` : p.why;
+          const why = savesWorking ? `${p.id === 'final' ? 'The one to publish.' : p.why} Saves Working as v${nextVersion ?? version}.` : p.why;
           const whyId = `${presetsName}-${p.id}-why`;
           return (
             <div key={p.id} className="pk-choice">

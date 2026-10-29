@@ -240,7 +240,11 @@ function streamEvents(res: ServerResponse, project: Project): void {
 function sendFile(req: IncomingMessage, res: ServerResponse, file: string): void {
   res.writeHead(200, { 'content-type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream' });
   if (req.method === 'HEAD') res.end();
-  else createReadStream(file).pipe(res);
+  else {
+    const stream = createReadStream(file);
+    stream.on('error', () => { if (!res.headersSent) res.writeHead(500).end(); else res.destroy(); });
+    stream.pipe(res);
+  }
 }
 
 /** Parses a single `bytes=a-b` range against a file size; null when it is malformed or cannot be satisfied. */
@@ -274,7 +278,11 @@ async function sendRanged(req: IncomingMessage, res: ServerResponse, file: strin
     : [200, { 'content-length': String(size) }];
   res.writeHead(status, { ...base, ...extra });
   if (req.method === 'HEAD') res.end();
-  else createReadStream(file, range ?? undefined).pipe(res);
+  else {
+    const stream = createReadStream(file, range ?? undefined);
+    stream.on('error', () => { if (!res.headersSent) res.writeHead(500).end(); else res.destroy(); });
+    stream.pipe(res);
+  }
 }
 
 /** A finished render, with byte ranges so it can be played and sought. Anything but a finished render is a 404. */

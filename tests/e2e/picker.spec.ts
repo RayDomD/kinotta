@@ -69,5 +69,5 @@ test('a refused render shows its reason; a Draft renders and the finished file p
   await expect(video).toHaveAttribute('src', /\/renders\/product-showreel\/product-showreel-working-v2-.*-draft-540p30\.mp4$/);
   await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.duration), { timeout: 15_000 }).toBeGreaterThan(1);
   await review(page).getByRole('button', { name: 'Back to v2' }).click();
-  await expect(review(page).locator('iframe')).toBeVisible();
+  await expect(review(page).locator('iframe[title="Authored graphics"]')).toBeVisible();
 });
