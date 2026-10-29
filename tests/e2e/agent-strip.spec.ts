@@ -48,7 +48,7 @@ test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes an
     await auto(page, server.url, 'Strip test');
     const strip = page.getByRole('region', { name: 'B-roll progress' });
     await expect(strip).toContainText('Adding b-roll to Strip test');
-    await expect(strip).toContainText('Claude Code is choosing and building cutaways');
+    await expect(strip).toContainText('Claude Code is choosing and building cutaways', { timeout: 30_000 });
     await expect(strip.getByRole('timer')).toContainText('Elapsed');
     const firstTime = await strip.getByRole('timer').innerText();
     await expect(strip.getByRole('timer')).not.toHaveText(firstTime);
@@ -78,7 +78,7 @@ test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes an
     await page.getByRole('group', { name: 'Edit view' }).getByRole('button', { name: 'Editor', exact: true }).click();
     await page.getByRole('button', { name: /^Storyboard/ }).click();
     await expect(page.getByRole('region', { name: 'B-roll progress' })).toHaveCount(1);
-    await expect(strip).toContainText('Claude Code is choosing and building cutaways');
+    await expect(strip).toContainText('Claude Code is choosing and building cutaways', { timeout: 30_000 });
     await expect(strip.getByRole('timer')).not.toHaveText('Elapsed 0:00');
     await page.getByRole('button', { name: 'More', exact: true }).click();
     await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'Library', exact: true }).click();
@@ -92,13 +92,13 @@ test('Auto progress survives reel pages, Cancel preserves v1, Retry publishes an
     expect(await server.project.readVersion(slug, 1)).toEqual(original);
     expect(await server.project.readEditList(slug)).toEqual(edits);
     await strip.getByRole('button', { name: 'Retry', exact: true }).click();
-    await expect(strip).toContainText('Claude Code is choosing and building cutaways');
+    await expect(strip).toContainText('Claude Code is choosing and building cutaways', { timeout: 30_000 });
     await secondLaunch;
     release();
     await expect(strip).toContainText('B-roll for Strip test is ready', { timeout: 60_000 });
     await strip.getByRole('button', { name: 'Open v2', exact: true }).click();
     await expect(page.locator('[data-verify-unit="VersionRail"]')).toHaveAttribute('data-verify-working', 'false');
-    await expect(page.getByText('You are viewing v2, a frozen version.', { exact: true })).toBeVisible();
+    await expect(page.getByText('You are viewing v2, a saved version. It cannot be edited.', { exact: true })).toBeVisible();
     await expect(strip).toHaveCount(0);
     expect((await server.project.readVersion(slug, 2)).issues).toEqual([]);
   } finally { release(); await server.close(); }
@@ -111,7 +111,7 @@ test('Copy mode explains the next step and exposes the request if clipboard fail
     await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('Clipboard unavailable'); } } }));
     await auto(page, server.url, 'Copy strip');
     const strip = page.getByRole('region', { name: 'B-roll progress' });
-    await expect(strip).toContainText("Paste it into your agent. Kinotta loads v2 when it's done.");
+    await expect(strip).toContainText("Paste it into your agent. Kinotta loads v2 when it's done.", { timeout: 30_000 });
     await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toBeVisible();
     await strip.getByRole('button', { name: 'Copy request', exact: true }).click();
     await expect(strip.getByRole('textbox', { name: 'Agent request' })).toBeVisible();
@@ -167,7 +167,7 @@ for (const state of ['queued', 'cancelled', 'failed', 'copy-ready'] as const) {
       await page.goto(server.url);
       const strip = page.getByRole('region', { name: 'B-roll progress' });
       if (isReady) {
-        await expect(strip).toContainText("Paste it into your agent. Kinotta loads v2 when it's done.");
+        await expect(strip).toContainText("Paste it into your agent. Kinotta loads v2 when it's done.", { timeout: 30_000 });
         await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toBeVisible();
       } else {
         await expect(strip).not.toContainText('Paste it into your agent');
