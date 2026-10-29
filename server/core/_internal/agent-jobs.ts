@@ -71,6 +71,8 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     const outputDir = join(jobDir(job), 'output');
     try {
       await assertSafeCopyOutput(jobDir(job), outputDir);
+      // Acceptance or close may have run during the await, when stopWatching had no watcher to stop.
+      if (closed || job.state !== 'copy-ready' || latest.get(job.reel)?.id !== job.id) return;
       let watcher: CopyWatchHandle;
       watcher = watchCopyOutput(
         jobDir(job),
