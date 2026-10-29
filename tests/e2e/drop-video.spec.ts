@@ -56,12 +56,12 @@ test('a dropped video shows as a row with Remove, which deletes the copy; a copy
   await expect(phases.getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute('aria-current', 'page', { timeout: BUILD_WAIT_MS });
   await expect(page.getByRole('main', { name: 'Review' }).getByRole('heading', { name: 'Launch clip' })).toBeVisible();
 
-  // Dropped again, the same bytes reuse the copy, and Remove leaves it for the reel that uses it.
+  // Dropped again, the same bytes reuse the copy, and Clear unpicks it, leaving the copy for the reel that uses it.
   await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();
   await page.getByLabel('Drop videos').setInputFiles(DROPPED_VIDEO);
   await expect(name).toHaveValue('dropped clip', { timeout: BUILD_WAIT_MS });
-  await remove.click();
+  await page.getByRole('button', { name: 'Clear dropped-clip.mp4' }).click();
   await expect(page.getByLabel('Drop videos')).toBeAttached();
   expect((await footage(page)).filter((path) => path.startsWith('footage/dropped-clip'))).toEqual(['footage/dropped-clip.mp4']);
 });

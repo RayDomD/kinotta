@@ -49,9 +49,9 @@ test('a project video picked on the start screen can be removed without touching
   await projectVideos(page).selectOption('media/talk.mp4');
   await expect(page.getByLabel('Reel name')).toHaveValue('talk');
   await expect(page.getByText(/talk\.mp4/)).toBeVisible();
-  // Picked, the video replaces the drop zone and the list; Remove only unpicks a video that was not just copied.
+  // Picked, the video replaces the drop zone and the list; Clear only unpicks a video that was not just copied.
   await expect(page.getByLabel('Drop videos')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Remove talk.mp4' }).click();
+  await page.getByRole('button', { name: 'Clear talk.mp4' }).click();
   await expect(page.getByLabel('Drop videos')).toBeAttached();
   await expect(projectVideos(page).locator('option', { hasText: 'media/talk.mp4' })).toHaveCount(1);
 
