@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { copyFixture } from '../helpers/project.ts';
 
-// Holds the safety check open so a test can close while the watcher is still starting.
+// Holds the safety check open so a test can change the project or job during watcher startup.
 const gate = vi.hoisted(() => ({ release: () => {}, held: Promise.resolve(), entered: () => {} }));
 const watchCalls = vi.hoisted(() => ({ count: 0 }));
 
@@ -62,6 +62,35 @@ describe('copy watcher startup race', () => {
     const closing = project.close();
     gate.release();
     await closing;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(watchCalls.count).toBe(0);
+  }, 30_000);
+
+  it('does not install a watcher after the job leaves copy-ready while the output check is pending', async () => {
+    const { project, slug } = await startCopyJob();
+    const job = (await project.agentJob(slug))!;
+    expect(job.state).toBe('copy-ready');
+    const accepting = new Promise<void>((resolveEntered) => { gate.entered = resolveEntered; });
+    const accepted = project.acceptAgentOutput(slug, job.id);
+    await accepting;
+    expect(await project.agentJob(slug)).toMatchObject({ id: job.id, state: 'validating' });
+    gate.release();
+    await accepted;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(watchCalls.count).toBe(0);
+  }, 30_000);
+
+  it('does not install a watcher for a replaced job while the output check is pending', async () => {
+    const { project, slug } = await startCopyJob();
+    const original = (await project.agentJob(slug))!;
+    expect(original.state).toBe('copy-ready');
+    // The replacement uses the fake failing launcher, so it cannot install a copy watcher itself.
+    await project.saveAgentSettings({ provider: 'claude', confirmed: true });
+    const replacement = await project.startAgentJob(slug, true);
+    expect(replacement.id).not.toBe(original.id);
+    await project.whenAgentDone(slug);
+    expect(await project.agentJob(slug)).toMatchObject({ id: replacement.id, state: 'failed' });
+    gate.release();
     await new Promise((r) => setTimeout(r, 100));
     expect(watchCalls.count).toBe(0);
   }, 30_000);
