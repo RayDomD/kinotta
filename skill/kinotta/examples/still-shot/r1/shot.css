@@ -1,0 +1,3 @@
+/* Every selector starts under the scene root. Size, position, colour and type come from the brand and the shot's idea. */
+[data-scene="example"] [data-el="headline"] {
+}
