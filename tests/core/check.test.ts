@@ -157,3 +157,23 @@ describe('kinotta check on a footage reel', () => {
     expect(lines.map((l) => l.match(/\[(.+)\]$/)?.[1])).toEqual(['shot-field', 'footage-missing']);
   });
 });
+
+
+describe('kinotta check before freezing script dependencies', () => {
+  it.each(['inline', 'external'])('rejects a missing from-quoted reference in an %s script comment', (location) => {
+    const dir = copyFixture('showreel-project');
+    const versionDir = join(dir, 'reels/product-showreel/v2');
+    const page = join(versionDir, 'index.html');
+    const code = '// animate from "x" to the final position\n';
+    const script = location === 'inline' ? `<script>${code}</script>` : '<script src="comment.js"></script>';
+    if (location === 'external') writeFileSync(join(versionDir, 'comment.js'), code);
+    writeFileSync(page, readFileSync(page, 'utf8').replace('</body>', `${script}</body>`));
+
+    const run = check(dir, ['product-showreel']);
+
+    expect(run.status).toBe(1);
+    expect(run.stdout).toContain('[script-import]');
+    expect(run.stdout).toContain('x');
+    expect(run.stdout).toContain('comment');
+  });
+});

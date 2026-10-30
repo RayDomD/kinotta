@@ -111,6 +111,7 @@ const SCRIPT_IMPORT = /\b(?:from\s*|import\s*\(\s*|import\s+)(["'`])([^"'`$]+)\1
 export async function scanVersionPage(html: string | null, versionDir: string, projectDir: string): Promise<PageScan> {
   if (html === null) return scanPage(html);
   const scripts: string[] = [];
+  const imports: ContractIssue[] = [];
   const seen = new Set<string>();
   async function readScript(reference: string, base: string): Promise<void> {
     if (/^(?:[a-z]+:|\/\/|\/|#)/i.test(reference)) return;
@@ -119,7 +120,10 @@ export async function scanVersionPage(html: string | null, versionDir: string, p
     if (isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`) || seen.has(file)) return;
     seen.add(file);
     const text = await readFile(file, 'utf8').catch(() => null);
-    if (text === null) return;
+    if (text === null) {
+      imports.push({ code: 'script-import', message: `script dependency "${reference}" cannot be read. The saved-version builder also reads from-quoted paths in comments as imports; reword that comment or supply the local file.` });
+      return;
+    }
     scripts.push(text);
     for (const match of text.matchAll(SCRIPT_IMPORT)) await readScript(match[2]!, dirname(file));
   }
@@ -128,7 +132,8 @@ export async function scanVersionPage(html: string | null, versionDir: string, p
     if (src) await readScript(src, versionDir);
     else for (const match of script.text.matchAll(SCRIPT_IMPORT)) await readScript(match[2]!, versionDir);
   }
-  return scanPage(html, scripts);
+  const scan = scanPage(html, scripts);
+  return { ...scan, issues: [...scan.issues, ...imports] };
 }
 
 interface ReadShot {
