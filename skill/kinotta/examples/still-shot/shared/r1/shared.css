@@ -1,0 +1,10 @@
+/* Styles every shot shares. Put a brand font's file in shared/r1/fonts/ and declare it here with @font-face,
+   then use its family below. Shot styles stay in each shot.css, under its own scene root. */
+:root {
+  --ground: #000000;
+  --ink: #ffffff;
+}
+[data-scene] {
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+}
