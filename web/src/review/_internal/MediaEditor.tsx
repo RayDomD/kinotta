@@ -137,7 +137,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   const [sourceRoot, setSourceRoot] = useState(initialRoot ?? null);
   const captionEditable = version!.isNewest && !!edits?.list && !edits.list.stale && sourceRoot !== null;
   const editable = !simple && captionEditable;
-  const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined), [base, reel.slug, version!.number]);
+  const sourceUrl = useCallback((id: string) => base.legacy && id.startsWith('legacy:') ? footageUrl(reel.slug) : mediaUrl(id, media.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number, working: version!.workingBase !== undefined } : undefined), [base.legacy, media.sources, reel.slug, version!.number, version!.workingBase]);
   const playback = useMediaPlayback(media, timeline.duration, sourceUrl, undefined, solo, snipRange);
   const { time, playing, ready } = playback;
   useEffect(() => { if (simple?.jump) playback.seek(simple.jump.time); }, [simple?.jump]);
@@ -285,7 +285,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     } catch (failure) { setPinError(failure instanceof Error ? failure.message : 'The pin moment could not be found.'); setPinning(false); }
   };
   const hasSound = (id: string) => { const source = media.sources.find((s) => s.id === id)!; return source.kind !== 'image' && source.audio !== false; };
-  const savedFor = useCallback((id: string) => base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined, [base, reel.slug, version!.number]);
+  const savedFor = useCallback((id: string) => base.sources.some((s) => s.id === id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number, working: version!.workingBase !== undefined } : undefined, [base.legacy, media.sources, reel.slug, version!.number, version!.workingBase]);
   const usesSpeech = (p: SourcePlacement) => p.role === 'main' ? p.speech !== false : p.speech === true;
   // Speech is transcribed the first time a source supplies it. Words already in the plan need nothing.
   const unspoken = [...new Set(media.placements.filter((p): p is SourcePlacement => p.role !== 'gap' && usesSpeech(p)).map((p) => p.source))]
@@ -410,10 +410,10 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     let current = true;
     for (const source of media.sources) {
       if (source.kind === 'image' || source.audio === false) continue;
-      void fetchWaveform(source.id, base.sources.some((s) => s.id === source.id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number } : undefined).then((wave) => { if (current) setWaveforms((before) => ({ ...before, [source.id]: wave })); }).catch(() => undefined);
+      void fetchWaveform(source.id, media.sources.some((s) => s.id === source.id) ? { reel: reel.slug, version: version!.workingBase ?? version!.number, working: version!.workingBase !== undefined } : undefined).then((wave) => { if (current) setWaveforms((before) => ({ ...before, [source.id]: wave })); }).catch(() => undefined);
     }
     return () => { current = false; };
-  }, [media.sources, base, reel.slug, version!.number]);
+  }, [media.sources, base, reel.slug, version!.number, version!.workingBase]);
   const [pictureErrors, setPictureErrors] = useState<Record<string, string>>({});
   const [pictureAttempts, setPictureAttempts] = useState<Record<string, number>>({});
   const pictureError = active.map((p) => p.role !== 'gap' ? pictureErrors[p.source] : undefined).find(Boolean) ?? null;

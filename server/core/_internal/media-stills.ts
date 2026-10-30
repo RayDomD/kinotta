@@ -18,7 +18,7 @@ async function limited<T>(task: () => Promise<T>): Promise<T> {
   finally { const next = waiting.shift(); if (next) next(); else active--; }
 }
 
-export async function mediaStill(dir: string, source: string, time: number, width: number, saved?: { reel: string; version: number }, footageReel?: string): Promise<string> {
+export async function mediaStill(dir: string, source: string, time: number, width: number, saved?: { reel: string; version: number; working?: boolean }, footageReel?: string): Promise<string> {
   if (!Number.isFinite(time) || time < 0 || !Number.isInteger(width) || width < 32 || width > 640) throw new KinottaError('invalid', 'Choose a valid still time and a width from 32 to 640 pixels.');
   return limited(async () => {
     const file = footageReel ? await footageFile(dir, footageReel) : await mediaFile(dir, source, saved);

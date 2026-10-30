@@ -74,3 +74,12 @@ it("uses a legacy reel's footage audio file instead of the whole video, and fall
   expect(new Uint8Array(await mediaAudioBytes('/footage/a%20reel'))).toEqual(new Uint8Array([5]));
   expect(fetcher.mock.calls[2]![0]).toBe('/footage/a%20reel');
 });
+
+
+it('retains Working context when requesting extracted audio', async () => {
+  vi.stubGlobal('window', { location: { origin: 'http://localhost:9999' } });
+  const fetcher = vi.fn().mockResolvedValue(new Response(new Uint8Array([7])));
+  vi.stubGlobal('fetch', fetcher);
+  expect(new Uint8Array(await mediaAudioBytes('/media/a%20reel/2/voice?working=1'))).toEqual(new Uint8Array([7]));
+  expect(fetcher.mock.calls[0]![0]).toBe('http://localhost:9999/api/media/voice/audio?reel=a+reel&version=2&working=1');
+});

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { KinottaError } from './errors.ts';
-import { withReelLock, writeJsonAtomic } from './edit-list.ts';
+import { readPendingMedia, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { readReelFootage, SAFE_SLUG } from './footage.ts';
 import { contentPlaybackPath, ensureAudioFile, ensureEditingProxy, ensurePlaybackCopy, ensureProxyAndAudio, findAudioPath, findProxyPath, hashOf, needsPlaybackCopy, playbackPath, writeHashed } from './import.ts';
 import { probeMedia, waveformPeaks } from './runner.ts';
@@ -54,8 +54,20 @@ async function projectFile(projectDir: string, path: string): Promise<string> {
   return file;
 }
 
+/** A Working request uses pending inputs and their path base; saved requests keep their snapshot. */
+async function sourcePlan(projectDir: string, context: { reel: string; version: number; working?: boolean }): Promise<{ media?: MediaPlan; planDir: string }> {
+  if (context.working) {
+    const pending = await readPendingMedia(projectDir, context.reel);
+    if (!pending) throw new KinottaError('not-found', 'Working media is unavailable.');
+    return pending;
+  }
+  const { versionDir } = await requireVersionDir(projectDir, context.reel, context.version);
+  const text = await readFile(join(versionDir, 'plan.json'), 'utf8').catch(() => readFile(join(versionDir, 'media.json'), 'utf8'));
+  return { ...(JSON.parse(text) as { media?: MediaPlan }), planDir: versionDir };
+}
+
 /** Serve only a registered Source or a saved version's own Source, never a caller-supplied file path. */
-export async function mediaFile(projectDir: string, source: string, saved?: { reel: string; version: number }, original = false): Promise<string | null> {
+export async function mediaFile(projectDir: string, source: string, saved?: { reel: string; version: number; working?: boolean }, original = false): Promise<string | null> {
   try {
     if (!saved) {
       const entry = (await readLibrary(projectDir)).find((s) => s.id === source);
@@ -68,12 +80,10 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
       }
       return !original && entry.playback ? await projectFile(projectDir, entry.playback) : file;
     }
-    const { versionDir } = await requireVersionDir(projectDir, saved.reel, saved.version);
-    const text = await readFile(join(versionDir, 'plan.json'), 'utf8').catch(() => readFile(join(versionDir, 'media.json'), 'utf8'));
-    const plan = JSON.parse(text) as { media?: MediaPlan };
-    const entry = plan.media?.sources.find((s) => s.id === source);
+    const { media, planDir } = await sourcePlan(projectDir, saved);
+    const entry = media?.sources.find((s) => s.id === source);
     if (!entry) return null;
-    const file = await projectFile(projectDir, relative(projectDir, resolve(versionDir, entry.path)));
+    const file = await projectFile(projectDir, relative(projectDir, resolve(planDir, entry.path)));
     const hash = await hashOf(file, projectDir);
     if (entry.contentHash && hash !== entry.contentHash) return null;
     if (!original && entry.kind === 'video') {
@@ -109,7 +119,7 @@ export async function mediaFile(projectDir: string, source: string, saved?: { re
 }
 
 /** AAC audio-only file for a source, null until made or when source has no sound. */
-export async function mediaAudioFile(projectDir: string, source: string, saved?: { reel: string; version: number }): Promise<string | null> {
+export async function mediaAudioFile(projectDir: string, source: string, saved?: { reel: string; version: number; working?: boolean }): Promise<string | null> {
   try {
     if (!saved) {
       const entry = (await readLibrary(projectDir)).find((s) => s.id === source || s.contentHash === source || s.path === source || s.name === source);
@@ -128,12 +138,10 @@ export async function mediaAudioFile(projectDir: string, source: string, saved?:
       ensureAudioFile(projectDir, file, entry.contentHash).catch(() => undefined);
       return null;
     }
-    const { versionDir } = await requireVersionDir(projectDir, saved.reel, saved.version);
-    const text = await readFile(join(versionDir, 'plan.json'), 'utf8').catch(() => readFile(join(versionDir, 'media.json'), 'utf8'));
-    const plan = JSON.parse(text) as { media?: MediaPlan };
-    const entry = plan.media?.sources.find((s) => s.id === source || s.contentHash === source);
+    const { media, planDir } = await sourcePlan(projectDir, saved);
+    const entry = media?.sources.find((s) => s.id === source || s.contentHash === source);
     if (!entry || entry.kind === 'image' || entry.audio === false) return null;
-    const file = await projectFile(projectDir, relative(projectDir, resolve(versionDir, entry.path)));
+    const file = await projectFile(projectDir, relative(projectDir, resolve(planDir, entry.path)));
     const hash = await hashOf(file, projectDir);
     if (entry.contentHash && hash !== entry.contentHash) return null;
     const existing = await findAudioPath(projectDir, hash);
@@ -146,7 +154,7 @@ export async function mediaAudioFile(projectDir: string, source: string, saved?:
 }
 
 /** Waveform readiness is independent of playback. Cache by exact bytes across all repeated uses. */
-export async function mediaWaveform(projectDir: string, source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform> {
+export async function mediaWaveform(projectDir: string, source: string, saved?: { reel: string; version: number; working?: boolean }): Promise<MediaWaveform> {
   try {
     const file = await mediaFile(projectDir, source, saved, true);
     if (!file) throw new Error('The original source is missing or changed. Relink it before preparing the waveform.');
