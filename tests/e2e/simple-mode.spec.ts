@@ -397,6 +397,7 @@ test('Regenerate combines section requests after freezing changed Working and of
       await server.project.addComment('founder-talk', working.number, { pin: { kind: 'frame', shot: '', time: section.start + 0.2, x: 0.5, y: 0.5, element: null }, text: `Change section ${index + 1}.` });
     }
     await page.addInitScript(() => {
+      navigator.clipboard.write = async () => { throw new Error('Clipboard blocked'); };
       navigator.clipboard.writeText = async () => { throw new Error('Clipboard blocked'); };
     });
     await page.goto(server.url);

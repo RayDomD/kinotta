@@ -1,3 +1,4 @@
+import { copySavedText } from './clipboard.ts';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   copyBatch,
@@ -336,7 +337,7 @@ export function SimpleMode({
     setError('');
     setStatus('Saving the request…');
     setRequest('');
-    try {
+    const saving = (async () => {
       const sections =
         version.sections.length > 1
           ? version.sections.filter((section) => pins.some((pin) => pin.pin.section === section.id && !pin.state))
@@ -350,12 +351,16 @@ export function SimpleMode({
       }
       const body = batches.join('\n\n');
       if (!body) throw new Error('No pins are ready to copy.');
+      return body;
+    })();
+    const copied = copySavedText(saving);
+    try {
+      const body = await saving;
       setRequest(body);
       onRefresh();
-      try {
-        await navigator.clipboard.writeText(body);
+      if (await copied) {
         setStatus('Request copied. Paste it into your agent to regenerate.');
-      } catch {
+      } else {
         setStatus('Request saved. Copy the request below and paste it into your agent.');
       }
     } catch (err) {
