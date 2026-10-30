@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { copyBatch } from './api/index.ts';
+import { copySavedText } from './clipboard.ts';
 
 const CONFIRM_MS = 1400;
 /** The keyboard shortcut for Copy. Ctrl+Shift+C is taken by the browser's devtools. */
@@ -68,13 +69,17 @@ export function CopyButton(props: {
     if (busy) return;
     window.clearTimeout(timer.current);
     setBusy(true);
-    let saved: Awaited<ReturnType<typeof copyBatch>>;
-    try {
+    const saving = (async () => {
       await beforeCopy?.();
-      saved = await copyBatch(slug, version, {
+      return copyBatch(slug, version, {
         section: section?.id,
         ...(includeIssues && issues ? { includeIssues: true, runtimeIssues: issues.runtime } : {}),
       });
+    })();
+    const copied = copySavedText(saving.then((saved) => saved.text));
+    let saved: Awaited<ReturnType<typeof copyBatch>>;
+    try {
+      saved = await saving;
     } catch (err) {
       setBusy(false);
       setOutcome({ status: 'failed', message: `Could not save the comments. ${err instanceof Error ? err.message : 'Could not reach the server'}` });
@@ -82,9 +87,7 @@ export function CopyButton(props: {
     }
     setBusy(false);
     onSaved?.();
-    try {
-      await navigator.clipboard.writeText(saved.text);
-    } catch {
+    if (!await copied) {
       setOutcome({ status: 'failed', message: `Saved to ${saved.file}, but the clipboard is not available. Ask your agent to read that file.` });
       return;
     }
