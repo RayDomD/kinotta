@@ -9,7 +9,7 @@ Follow [direction.md](direction.md) for direction before building and [check.md]
 
 ## Parts workflow
 
-For new code-built reels, follow **Parts reels** in `reference/contract.md`. Write immutable shot revisions and the authored root manifest, then run `kinotta build <slug> --by <your name>`. Kinotta publishes the generated version. When no effect template fits a shot, start it from `examples/still-shot/r1/` (see Examples of the format; the same folder carries the shared styles and manifest). Existing single-page reels follow sections 3 and 4 unless the owner asks to convert them. A request for alternates on a single-page reel is that ask: follow **Converting a single-page reel to parts** in `reference/contract.md`, building the conversion as the same reel's next version. Never start a new reel for it.
+For new code-built reels, follow **Parts reels** in `reference/contract.md`. Write immutable shot revisions and the authored root manifest, then run `kinotta build <slug> --by <your name>`. Kinotta publishes the generated version. When no effect template fits a shot, start it from `examples/still-shot/r1/` (see Examples of the format; the parent `examples/still-shot/` folder carries the shared styles and manifest). Existing single-page reels follow sections 3 and 4 unless the owner asks to convert them. A request for alternates on a single-page reel is that ask: follow **Converting a single-page reel to parts** in `reference/contract.md`, building the conversion as the same reel's next version. Never start a new reel for it.
 
 ## 1. Preflight (every run)
 
@@ -69,7 +69,7 @@ this skill's real folder (follow the link); on the owner's machine it is `C:\FIl
   `shot.js`, one scene root and one named element, no size, position, colour or motion). `shared/r1/shared.css` is the
   styles and fonts every shot shares. `shots.json` is the authored manifest for one shot. Copy `r1/` to
   `reels/<slug>/shots/<name>/r1/` and rename the scene in all three files, copy `shared/` to `reels/<slug>/shared/`, copy
-  `shots.json` to `reels/<slug>/shots.json` and set its name, durations and text, then design the shots. The fixtures
+  `shots.json` to `reels/<slug>/shots.json` and set the reel duration and each shot's name, duration, title and description, then design the shots. The fixtures
   below are single-page reels (contract 1); none is a parts reel.
 - `tests/fixtures/projects/showreel-project/reels/product-showreel/`: a clean reel with v1 and v2.
 - `tests/fixtures/projects/broken-project/reels/launch-teaser/v1/`: a version that breaks the

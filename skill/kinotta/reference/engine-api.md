@@ -27,8 +27,8 @@ M.scene({
   },
   start:'notes', SEQ:[[5.1,'doc']],               // [clip-local time, state] – put each on its word
   layers:[
-    {el:'Lnotes', tin:0.15, tout:5.1, anchor:'t'}, // anchor 'c' centre (default), 't' top-centre, 'l' left-centre
-    {el:'Ldoc', tin:5.1, tout:null, anchor:'t', update:(t,g)=>{ /* per-frame content, e.g. typing */ }},
+    {el:'Lnotes', tin:0.15, tout:5.1, anchor:'t', o:{lout:0.1}}, // anchor 'c' centre (default), 't' top-centre, 'l' left-centre
+    {el:'Ldoc', tin:5.1, tout:null, anchor:'t', o:{din:0.15}, update:(t,g)=>{ /* per-frame content, e.g. typing */ }},
   ],
   cursor:{size:44, clicks:[2.3], drags:[[6.9,7.8]], keys:[[0,760,460],[1.2,760,460],[1.9,330,250]]},
   geom:(t,g)=>g,     // optional: change geometry (e.g. follow the cursor while dragged, g.fx/g.fy camera focus)
@@ -68,7 +68,7 @@ Layer content is positioned relative to its anchor, e.g. `left:-330px; top:40px`
 
 **Layer swaps.** When one layer leaves as another enters at the same time, give the entering layer a delay (`o:{din: 0.15}`) and the leaving layer a short exit (`o:{lout: 0.1}`). With neither, both show together for the length of the exit. The delay is the swap's no-overlap rule.
 
-**Comments in a clip script.** The build reads `from "x"` in a script comment as an import and looks for a file named `x`. Write "on", "at" or "between" before the word, as in `// pings land on "a hundred"`.
+**Comments in a clip script.** Kinotta's check reads `from "x"` in a script comment as an import and looks for a file named `x`. Write "on", "at" or "between" instead of "from", as in `// pings land on "a hundred"`.
 
 Icons in `M.IC`: arrow, check, x, plus, folder, terminal, file, pencil, coin, clock, chip, sparkle, castle, search. Add more as 24-grid stroke paths (e.g. from Lucide, ISC licence).
 

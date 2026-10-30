@@ -21,7 +21,7 @@ serves it. Ask the format (such as 9:16) when absent; a reference does not decid
 
 Put two more questions in the same round unless the request or `style.json` has already answered them:
 
-- **Sound.** Offer a score and effects, effects only, none, or the owner's own file, with the score as the recommended answer. Apply the answer to the whole reel and place it as `reference/sound.md` describes. A reel that skips this question ships silent.
+- **Sound.** Offer a score and effects, effects only, none, or the owner's own file, with the score as the recommended answer. Apply the answer to the whole reel and place it as `reference/sound.md` describes. Without an answer, follow the first-build default in that file.
 - **Project style.** When the project holds a written style document (for example `docs/style-guide.md`), name it and offer it as the look, next to the built-in brand. Apply it when the owner accepts, and say in the hand-over which look the reel uses.
 
 On music-led reels, derive event times from tempo and align changes to the beat grid.
