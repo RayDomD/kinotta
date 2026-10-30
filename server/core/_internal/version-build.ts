@@ -45,6 +45,13 @@ async function clipPath(planDir: string, clip: PlanClip): Promise<string | undef
 async function versionPlan(planDir: string, versionDir: string, plan: Plan, freezeSources = false, referenceVideo = false): Promise<Plan> {
   const rebase = (path: string): string => (isAbsolute(path) ? path : relative(versionDir, resolve(planDir, path)).split(sep).join('/'));
   const copy: Plan = { ...plan };
+  const preserveGraphic = graphicPreserver(versionDir, freezeSources && !plan.media);
+  if (typeof copy.brand === 'object' && copy.brand !== null && 'fonts' in copy.brand && Array.isArray(copy.brand.fonts)) {
+    copy.brand = { ...copy.brand, fonts: await Promise.all(copy.brand.fonts.map(async (font: unknown) => {
+      if (typeof font !== 'object' || font === null || !('file' in font) || typeof font.file !== 'string') return font;
+      return { ...font, file: copy.media || freezeSources ? await preserveGraphic(resolve(planDir, font.file)) : rebase(font.file) };
+    })) };
+  }
   if (copy.media) copy.media = await preserveMedia(planDir, versionDir, copy.media, referenceVideo);
   if (typeof copy.video === 'string') {
     const available = await stat(resolve(planDir, copy.video)).then((entry) => entry.isFile(), () => false);
@@ -53,7 +60,6 @@ async function versionPlan(planDir: string, versionDir: string, plan: Plan, free
   }
   if (copy.transcript !== undefined) copy.transcript = PUBLISHED_TRANSCRIPT;
   if (Array.isArray(copy.clips)) {
-    const preserveGraphic = graphicPreserver(versionDir, freezeSources && !plan.media);
     const clips = [];
     // Dependency names follow manifest order, independent of filesystem read completion order.
     for (const clip of copy.clips) {
