@@ -342,7 +342,7 @@ export interface Project {
   acceptAgentOutput(slug: string, id: string): Promise<import('./agent-jobs.ts').AgentJob>;
   whenAgentDone(slug: string): Promise<void>;
   close(): Promise<void>;
-  mediaStill(source: string, time: number, width: number, saved?: { reel: string; version: number }, footageReel?: string): Promise<string>;
+  mediaStill(source: string, time: number, width: number, saved?: { reel: string; version: number; working?: boolean }, footageReel?: string): Promise<string>;
   /** The effect ids chosen for the Effects box, saved with the project. */
   effectsBox(): Promise<string[]>;
   saveEffectsBox(ids: string[]): Promise<string[]>;
@@ -358,9 +358,9 @@ export interface Project {
   /** Supported media inside the project, outside reels/, that the library does not hold yet. */
   listProjectMedia(): Promise<ProjectMediaFile[]>;
   relinkMedia(source: string, path: string): Promise<MediaEntry>;
-  mediaFile(source: string, saved?: { reel: string; version: number }, original?: boolean): Promise<string | null>;
-  mediaAudioFile(source: string, saved?: { reel: string; version: number }): Promise<string | null>;
-  mediaWaveform(source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform>;
+  mediaFile(source: string, saved?: { reel: string; version: number; working?: boolean }, original?: boolean): Promise<string | null>;
+  mediaAudioFile(source: string, saved?: { reel: string; version: number; working?: boolean }): Promise<string | null>;
+  mediaWaveform(source: string, saved?: { reel: string; version: number; working?: boolean }): Promise<MediaWaveform>;
   listMedia(filter?: MediaFilter): Promise<MediaEntry[]>;
   /** How a source's speech stands: words cached by content, a running or failed transcription, or not started. */
   mediaSpeech(source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech>;

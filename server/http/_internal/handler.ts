@@ -618,7 +618,7 @@ export function createHandler(project: Project, webRoot: string) {
         const route = (versionMediaRoute ?? mediaRoute)!;
         const source = safeDecode(route[versionMediaRoute ? 3 : 1]!);
         const reel = versionMediaRoute ? safeDecode(route[1]!) : undefined;
-        const saved = versionMediaRoute && reel ? { reel, version: Number(route[2]) } : undefined;
+        const saved = versionMediaRoute && reel ? { reel, version: Number(route[2]), working: searchParams.get('working') === '1' } : undefined;
         const file = source === null || reel === null ? null : await project.mediaFile(source, saved);
         if (file) await sendRanged(req, res, file);
         else sendNotFound(res);
@@ -634,13 +634,13 @@ export function createHandler(project: Project, webRoot: string) {
         const askedTime = searchParams.get('time'); const time = askedTime === null ? NaN : Number(askedTime);
         const width = searchParams.has('width') ? Number(searchParams.get('width')) : 160;
         if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
-        await sendRanged(req, res, await project.mediaStill(source, time, width, reel ? { reel, version } : undefined, footageStillRoute ? source : undefined));
+        await sendRanged(req, res, await project.mediaStill(source, time, width, reel ? { reel, version, working: searchParams.get('working') === '1' } : undefined, footageStillRoute ? source : undefined));
       } else if (audioRoute && req.method === 'GET') {
         const source = safeDecode(audioRoute[1]!);
         const reel = searchParams.get('reel');
         const version = Number(searchParams.get('version'));
         if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
-        const file = await project.mediaAudioFile(source, reel ? { reel, version } : undefined);
+        const file = await project.mediaAudioFile(source, reel ? { reel, version, working: searchParams.get('working') === '1' } : undefined);
         if (file) await sendRanged(req, res, file);
         else sendNotFound(res);
       } else if (waveformRoute) {
@@ -648,7 +648,7 @@ export function createHandler(project: Project, webRoot: string) {
         const reel = searchParams.get('reel');
         const version = Number(searchParams.get('version'));
         if (source === null || (reel && (!Number.isInteger(version) || version <= 0))) throw new BadRequest(400, 'Choose a source and saved version.');
-        sendJson(res, 200, await project.mediaWaveform(source, reel ? { reel, version } : undefined));
+        sendJson(res, 200, await project.mediaWaveform(source, reel ? { reel, version, working: searchParams.get('working') === '1' } : undefined));
       } else if (renderFileRoute) {
         await serveRender(req, res, project, renderFileRoute);
       } else if (pathname === '/api/project') {

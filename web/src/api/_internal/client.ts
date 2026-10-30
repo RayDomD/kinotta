@@ -479,14 +479,15 @@ export const footageUrl = (slug: string): string => `/footage/${encodeURICompone
 export const footageAudioUrl = (slug: string): string => `${footageUrl(slug)}/audio`;
 export const fetchMediaModel = (slug: string): Promise<MediaEditingModel> => getJson(`/api/reels/${encodeURIComponent(slug)}/media-model`);
 
-export const mediaUrl = (source: string, saved?: { reel: string; version: number }): string => saved
-  ? `/media/${encodeURIComponent(saved.reel)}/${saved.version}/${encodeURIComponent(source)}`
+export const mediaUrl = (source: string, saved?: { reel: string; version: number; working?: boolean }): string => saved
+  ? `/media/${encodeURIComponent(saved.reel)}/${saved.version}/${encodeURIComponent(source)}${saved.working ? '?working=1' : ''}`
   : `/media/${encodeURIComponent(source)}`;
-export const mediaAudioUrl = (id: string, saved?: { reel: string; version: number }): string => {
+export const mediaAudioUrl = (id: string, saved?: { reel: string; version: number; working?: boolean }): string => {
   const params = new URLSearchParams();
   if (saved) {
     params.set('reel', saved.reel);
     params.set('version', String(saved.version));
+    if (saved.working) params.set('working', '1');
   }
   const query = params.toString();
   return `/api/media/${encodeURIComponent(id)}/audio${query ? `?${query}` : ''}`;
@@ -499,9 +500,9 @@ export const fetchMedia = async (filter: MediaFilter = {}): Promise<MediaEntry[]
   if (filter.search) params.set('search', filter.search);
   const q = params.toString(); return (await getJson<{ media: MediaEntry[] }>(`/api/media${q ? `?${q}` : ''}`)).media;
 };
-export const fetchWaveform = (source: string, saved?: { reel: string; version: number }): Promise<MediaWaveform> => {
+export const fetchWaveform = (source: string, saved?: { reel: string; version: number; working?: boolean }): Promise<MediaWaveform> => {
   const params = new URLSearchParams();
-  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); if (saved.working) params.set('working', '1'); }
   const q = params.toString(); return getJson(`/api/media/${encodeURIComponent(source)}/waveform${q ? `?${q}` : ''}`);
 };
 const speechPath = (source: string, saved?: { reel: string; version: number }): string => {
@@ -533,11 +534,11 @@ export async function mediaAudioBytes(source: string): Promise<ArrayBuffer> {
   const segments = url.pathname.split('/').filter(Boolean);
   let audio: URL | null = null;
   if (segments[0] === 'media' && (segments.length === 2 || segments.length === 4)) {
-    const saved = segments.length === 4 ? { reel: decodeURIComponent(segments[1]!), version: Number(segments[2]) } : undefined;
+    const saved = segments.length === 4 ? { reel: decodeURIComponent(segments[1]!), version: Number(segments[2]), working: url.searchParams.get('working') === '1' } : undefined;
     audio = new URL(mediaAudioUrl(decodeURIComponent(segments.at(-1)!), saved), url.origin);
   } else if (segments[0] === 'api' && segments[1] === 'media' && segments.length === 3) {
     const reel = url.searchParams.get('reel');
-    audio = new URL(mediaAudioUrl(decodeURIComponent(segments[2]!), reel ? { reel, version: Number(url.searchParams.get('version')) } : undefined), url.origin);
+    audio = new URL(mediaAudioUrl(decodeURIComponent(segments[2]!), reel ? { reel, version: Number(url.searchParams.get('version')), working: url.searchParams.get('working') === '1' } : undefined), url.origin);
   } else if (segments[0] === 'footage' && segments.length === 2) {
     audio = new URL(footageAudioUrl(decodeURIComponent(segments[1]!)), url.origin);
   }
