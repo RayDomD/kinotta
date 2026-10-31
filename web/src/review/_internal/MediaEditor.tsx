@@ -20,8 +20,9 @@ import { MIN_CLIP, applyOperations, captionFontCss, captionPhrases, describeOver
 import type { CaptionsPlan, MediaSource, MediaTimeline, NewOperation, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
-import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
-import type { GeneratedAudio, SoundEffect, MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
+import { detectMediaBeats, generateAudio, fetchSoundEffects, importSoundEffect, soundEffectUrl, fetchMedia, fetchMediaModel, fetchOverload, fetchProjectMedia, fetchSpeech, fetchWaveform, footageUrl, importMedia, previewImport, mediaUrl, referenceMedia, relinkMedia, transcribeMedia, versionPageUrl, workingPartsPageUrl } from '../../api/index.ts';
+import type { GeneratedAudio, ImportPreview, SoundEffect, MediaEntry, MediaSpeech, MediaWaveform, MixOverload, NewComment, ProjectMediaFile } from '../../api/index.ts';
+import { ImportSheet, needsImportSheet } from '../../ImportPreview.tsx';
 import { PagePlayer } from '../../stage/index.ts';
 import type { CaptionMove, CaptionText, ElementChange, ElementEditing, FramePick } from '../../stage/index.ts';
 import type { ReviewProps } from './Review.tsx';
@@ -501,7 +502,15 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     await add(sound, 'audio', at, track);
     await loadLibrary();
   };
+  /** A file waiting on the import sheet: nothing is copied until Import. */
+  const [pendingImport, setPendingImport] = useState<{ file: File; preview: ImportPreview } | null>(null);
   const upload = async (file: File) => {
+    // A preview that cannot be had leaves the import as it always was: the server still checks the file.
+    const preview = await previewImport('media', [file]).catch(() => null);
+    if (preview && needsImportSheet(preview)) { setPendingImport({ file, preview }); return; }
+    await copyIn(file);
+  };
+  const copyIn = async (file: File) => {
     setUploading(true); setFailedImport(null);
     try { await importMedia(file); await loadLibrary(); }
     // The file stays selected so Retry sends it again. Nothing of it is listed as ready.
@@ -795,5 +804,6 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onAdd={(row) => void useRow(row, async (entry) => { await add(entry, entry.kind === 'audio' ? 'audio' : 'insert'); setPreviewEntry(null); setPreviewEffect(null); })}
       onRetry={() => { setLibraryError(null); void Promise.all([loadLibrary(), loadProjectFiles()]); }}
       onRelink={(id, path) => void libraryAction(() => relinkMedia(id, path))} />, workspace.mediaHost)}
+    {pendingImport && <ImportSheet preview={pendingImport.preview} onCancel={() => setPendingImport(null)} onImport={() => { const { file } = pendingImport; setPendingImport(null); void copyIn(file); }} />}
   </main>;
 }

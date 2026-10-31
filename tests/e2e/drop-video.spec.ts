@@ -60,6 +60,8 @@ test('a dropped video shows as a row with Remove, which deletes the copy; a copy
   await revealReelRail(page);
   await page.getByRole('button', { name: 'New reel' }).click();
   await page.getByLabel('Drop videos').setInputFiles(DROPPED_VIDEO);
+  // A file of the same size is in footage/, so the import sheet asks first (import preview).
+  await page.getByRole('dialog', { name: 'Import 1 file into footage/' }).getByRole('button', { name: 'Import 1 file' }).click();
   await expect(name).toHaveValue('dropped clip', { timeout: BUILD_WAIT_MS });
   await page.getByRole('button', { name: 'Clear dropped-clip.mp4' }).click();
   await expect(page.getByLabel('Drop videos')).toBeAttached();
@@ -81,6 +83,7 @@ test('a chosen folder brings in every video in it and its subfolders, skipping h
   // The folder picker lives inside the drop zone, beside Choose files.
   await expect(page.locator('.rv-dropzone').getByRole('button', { name: 'Choose a folder…' })).toBeVisible();
   await page.getByLabel('Choose a folder of videos').setInputFiles(folder);
+  await page.getByRole('dialog', { name: 'Import 2 files into footage/' }).getByRole('button', { name: 'Import 2 files' }).click();
 
   await expect(page.locator('.rv-drop-status')).toHaveText('Found 2 videos in Resumevid');
   await expect(page.getByLabel('Reel name')).not.toHaveValue('', { timeout: BUILD_WAIT_MS });
@@ -95,8 +98,36 @@ test('several videos chosen at once each get a row and the first is picked', asy
   await openNewReel(page);
 
   await page.getByLabel('Drop videos').setInputFiles([{ ...DROPPED_VIDEO, name: 'first-pick.mp4', buffer: unique('first') }, { ...DROPPED_VIDEO, name: 'second-pick.mp4', buffer: unique('second') }]);
+  await page.getByRole('dialog', { name: 'Import 2 files into footage/' }).getByRole('button', { name: 'Import 2 files' }).click();
 
   await expect(rows).toHaveCount(2);
   await expect(page.getByLabel('Reel name')).toHaveValue('first pick', { timeout: BUILD_WAIT_MS });
   expect(await footage(page)).toEqual(expect.arrayContaining(['footage/first-pick.mp4', 'footage/second-pick.mp4']));
+});
+
+test('the import sheet shows what a drop will do, and Cancel copies nothing', async ({ page }) => {
+  const sheet = page.getByRole('dialog', { name: 'Import 2 files into footage/' });
+  const drop = () => page.getByLabel('Drop videos').setInputFiles([{ ...DROPPED_VIDEO, name: 'sheet-first.mp4', buffer: unique('sheetagain22') }, { ...DROPPED_VIDEO, name: 'sheet-new.mp4', buffer: unique('sheetnewfile') }]);
+  // sheet-first.mp4 is already in footage/ (through the media library), so a new file of that name is renamed. Each file
+  // here has a length no other test uses, so none reads as maybe already there.
+  await expect(await page.request.post('/api/media?name=sheet-first.mp4', { data: unique('sheetfirst1') })).toBeOK();
+  await openNewReel(page);
+  const before = await footage(page);
+
+  await drop();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('row', { name: /sheet-first\.mp4/ })).toContainText('footage/sheet-first-2.mp4');
+  await expect(sheet.getByRole('row', { name: /sheet-first\.mp4/ })).toContainText('name taken, renamed');
+  await expect(sheet.getByRole('row', { name: /sheet-new\.mp4/ })).toContainText('footage/sheet-new.mp4');
+  await expect(sheet).toContainText('free on this drive');
+  await expect(sheet.getByRole('button', { name: 'Cancel' })).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  expect(await footage(page)).toEqual(before);
+
+  await drop();
+  await sheet.getByRole('button', { name: 'Import 2 files' }).click();
+  await expect(page.getByLabel('Reel name')).not.toHaveValue('', { timeout: BUILD_WAIT_MS });
+  expect(await footage(page)).toEqual(expect.arrayContaining(['footage/sheet-first-2.mp4', 'footage/sheet-new.mp4']));
 });

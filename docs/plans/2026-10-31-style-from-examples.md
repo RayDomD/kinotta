@@ -108,3 +108,7 @@ next to the others with its evidence, and the owner keeps it as a project style 
   colour stay inferred by the agent from the contact sheets.
 - Not done: the stage (step 3) and the suggested-style store and Direction card (steps 4 and 5), which wait on open
   questions 1 and 2.
+
+### Owner decisions, 2026-10-31
+- Open question 1: a "Suggested style" card on the Direction screen with Keep and Discard; rules can be edited or
+  removed before Keep.

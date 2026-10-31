@@ -1,7 +1,7 @@
 ---
 title: Show what an import will do
 date: 2026-10-31
-status: In Progress
+status: Done
 summary: Before files come in, one sheet lists where each one goes, what is reused or converted, and whether the disk has room; nothing is copied until Import.
 spec: docs/plans/2026-10-23-media-import-and-lanes.md
 ---
@@ -90,3 +90,13 @@ sheet from it.
   started.
 - Step 5: a drive that fills during an import now says "The drive ran out of space while copying, so nothing was
   kept" in both import paths (`writeHashed`), and no partial file is left.
+
+### Owner decisions, 2026-10-31
+- The sheet appears only when needed: more than one file, a renamed or maybe-duplicate file, a refused file, or not
+  enough space. A single clean file imports at once, as before.
+- Step 4: `web/src/ImportPreview.tsx` (`ImportSheet`, `needsImportSheet`) on the New reel drop zone (`DropZone.tsx`)
+  and the media library import (`MediaEditor.tsx`). It appears only when needed (owner decision above); Escape or Cancel
+  copies nothing; Import copies exactly as before; Tab stays in the sheet. When the preview request fails, the import
+  goes ahead as before. A drop of only non-videos still gets the existing message, so the New reel sheet lists no
+  refused rows. Checked in the browser: `tests/e2e/drop-video.spec.ts` (new sheet test; three drop tests now press
+  Import) and `tests/core/render-import-sheet.test.ts` (media library).

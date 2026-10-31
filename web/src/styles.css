@@ -1184,3 +1184,22 @@ kbd { font: 600 12px Outfit, sans-serif; border: 1.2px solid var(--hairline); pa
 .fx-gallery-card[aria-pressed="true"] .fx-gallery-state { color: var(--light); }
 /* Previews play only while their card is on screen. */
 .fx-gallery-card:not([data-visible]) *, .fx-gallery-card:not([data-visible]) *::before, .fx-gallery-card:not([data-visible]) *::after { animation-play-state: paused; }
+
+/* Import preview sheet (docs/mockups/2026-10-31-import-preview.html): the stacked paper in hand over the scrim. */
+.import-scrim { position: fixed; inset: 0; z-index: 60; background: var(--scrim); display: grid; place-items: center; padding: 16px; cursor: default; }
+.import-sheet { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--card); color: var(--ink); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 18px 20px; text-align: left; }
+.import-sheet h2 { font-size: 15px; font-weight: 500; }
+.import-sub { color: var(--muted); font-size: 13px; margin: 2px 0 14px; }
+.import-files { width: 100%; border-collapse: collapse; font-size: 13px; }
+.import-files th { text-align: left; color: var(--muted); font-weight: 400; padding: 0 8px 6px 0; border-bottom: 1.4px solid var(--rule); }
+.import-files td { padding: 7px 8px 7px 0; border-bottom: 1.4px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+.import-files .import-size { text-align: right; white-space: nowrap; }
+.import-files tr[data-status="unsupported"] td:first-child { color: var(--muted); }
+.import-to { color: var(--ink-2); }
+.import-tag { display: block; font-size: 12px; color: var(--muted); }
+.import-tag[data-status="renamed"], .import-tag[data-status="maybe-duplicate"] { color: var(--changed); }
+.import-space { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 14px 0 4px; font-size: 13px; color: var(--ink-2); }
+.import-short { color: var(--changed); font-size: 13px; }
+.import-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.import-actions .btn:disabled { background: none; color: var(--muted); border-color: var(--hairline); box-shadow: none; cursor: not-allowed; }
+.import-note { color: var(--muted); font-size: 12px; margin-top: 10px; }

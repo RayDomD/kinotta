@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { importVideo } from './api/index.ts';
+import { importVideo, previewImport } from './api/index.ts';
+import type { ImportPreview } from './api/index.ts';
+import { ImportSheet, needsImportSheet } from './ImportPreview.tsx';
 
 const PERCENT = 100;
 /** The extensions the server takes as videos (server/core/_internal/videos.ts). */
@@ -54,15 +56,28 @@ export function DropZone({ onImported }: DropZoneProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const folderInput = useRef<HTMLInputElement>(null);
+  /** A drop waiting on the import sheet: nothing is copied until Import. */
+  const [pending, setPending] = useState<{ videos: File[]; folder: string | null; preview: ImportPreview } | null>(null);
 
   const take = async (all: File[], folder: string | null): Promise<void> => {
-    if (busy) return;
+    if (busy || pending) return;
     const videos = all.filter((file) => isVideo(file.name));
-    setRows(videos.map((file) => ({ name: file.name, status: 'waiting' })));
     if (videos.length === 0) {
+      setRows([]);
       setSummary(all.length === 0 ? null : 'No videos there. Kinotta takes .mp4, .mov, .m4v, .mkv and .webm.');
       return;
     }
+    // A preview that cannot be had leaves the drop as it always was: the import itself still checks every file.
+    const preview = await previewImport('reel', videos).catch(() => null);
+    if (preview && needsImportSheet(preview)) {
+      setPending({ videos, folder, preview });
+      return;
+    }
+    await copy(videos, folder);
+  };
+
+  const copy = async (videos: File[], folder: string | null): Promise<void> => {
+    setRows(videos.map((file) => ({ name: file.name, status: 'waiting' })));
     setSummary(folder === null ? null : `Found ${videos.length} ${videos.length === 1 ? 'video' : 'videos'} in ${folder}`);
     setBusy(true);
     const update = (index: number, row: Partial<Row>): void => setRows((current) => current.map((r, i) => (i === index ? { ...r, ...row } : r)));
@@ -152,6 +167,18 @@ export function DropZone({ onImported }: DropZoneProps) {
         )}
         <span className="terrain" aria-hidden="true" />
       </label>
+      {pending && (
+        // Outside the label, so a click in the sheet never opens the file picker.
+        <ImportSheet
+          preview={pending.preview}
+          onCancel={() => setPending(null)}
+          onImport={() => {
+            const { videos, folder } = pending;
+            setPending(null);
+            void copy(videos, folder);
+          }}
+        />
+      )}
       <input
         ref={folderInput}
         className="rv-folder-input"

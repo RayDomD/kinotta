@@ -104,3 +104,8 @@ Words lane.
   built page marks the word (`tests/core/word-emphasis.test.ts`).
 - Not done: the skill's footage-reel guidance (step 4, waits on open question 1), the Words-lane toggle (step 6, needs a
   mockup and both answers), a style setting. Open questions 1 and 2 are still unanswered.
+
+### Owner decisions, 2026-10-31
+- Open question 1: from the voice by default. The agent runs `stress.py` on footage reels and the owner can change
+  any word.
+- Open question 2: accent colour only, as built.
