@@ -331,6 +331,8 @@ export interface CaptionPhrasePositionOperation extends AuthoredOperation {
   x: number;
   y: number;
   placement?: string;
+  /** The phrase's first word as it read, to find the phrase again if its speech is transcribed again. */
+  was?: string;
 }
 
 /** Sets one word of the captions apart (`on`) or back in line, keyed by its start in source seconds (`captions.emphasis`). */
@@ -663,16 +665,38 @@ function applyWordText(sources: Sources, op: WordTextOperation): Sources {
 /** A word's share of a retyped phrase's span: its letters plus one for the gap after it. */
 const wordWeight = (text: string): number => text.length + 1;
 
+const readsAs = (words: readonly TranscriptWord[], was: string): boolean => {
+  const texts = was.split(/\s+/).filter((t) => t !== '');
+  return texts.length === words.length && texts.every((t, i) => sameWord(t, words[i]!.text));
+};
+
+/** First and last index of the run of words reading `was` that starts nearest `from`, within REANCHOR_SECONDS. */
+function phraseRunAt(words: readonly TranscriptWord[], from: number, was: string | undefined): [number, number] | null {
+  const count = was ? was.split(/\s+/).filter((t) => t !== '').length : 0;
+  if (count === 0) return null;
+  let best: [number, number] | null = null;
+  let distance = Infinity;
+  for (let i = 0; i + count <= words.length; i++) {
+    const d = Math.abs(words[i]!.start - from);
+    if (d <= REANCHOR_SECONDS && d < distance && readsAs(words.slice(i, i + count), was!)) [best, distance] = [[i, i + count - 1], d];
+  }
+  return best;
+}
+
 function applyPhraseText(sources: Sources, op: PhraseTextOperation): Sources {
   // Empty text deliberately removes the words; missing or non-text is a malformed edit, not a removal.
   if (typeof op.text !== 'string') throw new KinottaError('invalid', 'A caption edit needs its new text. Empty text removes the words.');
   if (sources.plan.media) return changePlacementWords(sources, op.placement, op.from, op.to, (words) => applyPhraseText({ plan: {}, words }, op).words);
   if (!Number.isFinite(op.from) || !Number.isFinite(op.to) || op.to <= op.from) throw new KinottaError('invalid', 'A caption edit needs the span of its words, "from" before "to", in seconds.');
   const inside = (w: TranscriptWord): boolean => w.start >= op.from - MIN_SNIP && w.end <= op.to + MIN_SNIP;
-  const first = sources.words.findIndex(inside);
-  if (first < 0) throw new KinottaError('invalid', 'There are no words there. An earlier edit may have moved them.');
+  let first = sources.words.findIndex(inside);
   let last = first;
-  while (last + 1 < sources.words.length && inside(sources.words[last + 1]!)) last += 1;
+  while (first >= 0 && last + 1 < sources.words.length && inside(sources.words[last + 1]!)) last += 1;
+  // Speech transcribed again moves the times, so the stored span can catch the wrong words. An edit that says what it
+  // read moves to the run of words that still reads it, starting nearest its old start.
+  const run = phraseRunAt(sources.words, op.from, op.was);
+  if (run && (first < 0 || !readsAs(sources.words.slice(first, last + 1), op.was!))) [first, last] = run;
+  if (first < 0) throw new KinottaError('invalid', 'There are no words there. An earlier edit may have moved them.');
   const old = sources.words.slice(first, last + 1);
   const texts = typeof op.text === 'string' ? op.text.split(/\s+/).filter((t) => t !== '') : [];
   if (texts.join(' ') === old.map((w) => w.text).join(' ')) throw new KinottaError('invalid', 'The caption already reads that.');
@@ -749,7 +773,7 @@ function applyCaptionPhrasePosition(sources: Sources, op: CaptionPhrasePositionO
     if (!placement || placement.role === 'gap' || op.at < placement.in || op.at >= placement.out) throw new KinottaError('invalid', 'That caption placement or word is missing.');
     words = placement.words ?? media.sources.find((s) => s.id === placement.source)!.words ?? [];
   }
-  const at = words[wordIndexAt(words, op.at)]!.start;
+  const at = words[fixedWordIndex(words, op.at, op.was)]!.start;
   const others = (captions.phrases ?? []).filter((p) => p.placement !== op.placement || Math.abs(p.at - at) > MIN_SNIP);
   return { ...sources, plan: withCaptions(sources.plan, { ...captions, phrases: isOrigin(offset) ? others : [...others, { at, ...offset, ...(op.placement ? { placement: op.placement } : {}) }].sort((a, b) => a.at - b.at) }) };
 }

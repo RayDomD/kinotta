@@ -363,7 +363,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
     const shift = captionShifts[index];
     if (!editable || !phrase || !shift) return;
     const wide = captionStyle.position ?? { x: 0, y: 0 };
-    await edits!.add(alt ? { kind: 'caption-phrase-position', placement: phrase.placement, at: phrase.sourceStart, x: shift.x - wide.x + dx, y: shift.y - wide.y + dy } : { kind: 'caption-position', x: wide.x + dx, y: wide.y + dy });
+    await edits!.add(alt ? { kind: 'caption-phrase-position', placement: phrase.placement, at: phrase.sourceStart, was: phrase.words[0]!.text, x: shift.x - wide.x + dx, y: shift.y - wide.y + dy } : { kind: 'caption-position', x: wide.x + dx, y: wide.y + dy });
   };
   /** The phrase on show retyped through the caption handle: only its own placement's words change (S2). */
   const retypeCaption = async ({ index, text }: CaptionText) => {

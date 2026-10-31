@@ -113,5 +113,10 @@ restored or resized dead-air cut (`2026-10-20-editable-dead-air.md`).
 - `tests/core/render-fresh-speech-word.test.ts` checks the first fix in the browser: a word transcribed since the
   newest version is fixed in the Simple timeline, recorded, and saved into v2. Run against the code before the fix,
   the edit is never recorded.
-- Still open: `phrase-text` and caption positions match words by range or start within 5 ms and do not re-anchor;
-  dead-air cuts; Simple mode Regenerate end to end.
+- Caption edits after moved times: `phrase-text` did not refuse but **silently retyped the wrong words**. With
+  times 20 ms later, the stored span missed the last word, so "hello big world" became "hullo big world world". It now
+  moves to the run of words that still reads its `was`, starting within 150 ms (`phraseRunAt`). With no such run it
+  behaves as before. `caption-phrase-position` refused every later edit, as #127 did. It now carries `was` (the
+  phrase's first word, sent by the native-media editor) and re-anchors through `fixedWordIndex`. The legacy Review
+  screen does not know the phrase's text, so its moves stay exact.
+- Still open: dead-air cuts; Simple mode Regenerate end to end; caption moves from the legacy Review screen.

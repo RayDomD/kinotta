@@ -192,3 +192,26 @@ describe('re-anchoring a fix to its word after the times moved', () => {
     expect(() => fixedWordIndex(words, 0.4)).toThrow('There is no word that starts there');
   });
 });
+
+describe('caption edits after the times moved', () => {
+  const words: TranscriptWord[] = [{ text: 'hello', start: 1, end: 1.4 }, { text: 'big', start: 1.5, end: 1.8 }, { text: 'world', start: 1.9, end: 2.3 }];
+  const moved = shifted(words, 0.02);
+  const legacy = (ws: TranscriptWord[]) => ({ plan: { duration: 4, captions: true as const }, words: ws });
+
+  it('retypes the phrase that still reads what it read, not the words the old span catches', async () => {
+    const { applyOperations } = await import('../../server/core/model.ts');
+    const op = { id: 'a', by: 'you', kind: 'phrase-text' as const, from: 1, to: 2.3, text: 'hullo big world', was: 'hello big world' };
+    expect(applyOperations(legacy(moved), [op]).words.map((w) => [w.text, w.start])).toEqual([['hullo', 1.02], ['big', 1.52], ['world', 1.92]]);
+    expect(applyOperations(legacy(words), [op]).words.map((w) => w.text)).toEqual(['hullo', 'big', 'world']);
+  });
+
+  it('keeps one caption where it was moved to, found by its first word', async () => {
+    const { applyOperations } = await import('../../server/core/model.ts');
+    const op = { id: 'a', by: 'you', kind: 'caption-phrase-position' as const, at: 1, x: 10, y: 20, was: 'hello' };
+    const placed = applyOperations(legacy(moved), [op]).plan.captions;
+    expect(placed).toMatchObject({ phrases: [{ at: 1.02, x: 10, y: 20 }] });
+    // Without what it read, it still needs the exact start, as before.
+    const { was: _was, ...bare } = op;
+    expect(() => applyOperations(legacy(moved), [bare])).toThrow('There is no word that starts there');
+  });
+});
