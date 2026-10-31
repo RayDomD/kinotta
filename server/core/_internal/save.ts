@@ -231,7 +231,9 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
     }
     const identity = await contentIdentity(staged.dir);
     const stored = await workingState(reelDir);
-    const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !edit.plan.media?.sources.find((original) => original.id === source.id)?.words) ?? false;
+    // Against Working as stored: its inputs already carry cached words, so that alone would hide new speech.
+    const storedSources = (await workingInputs(projectDir, reelDir, { cachedSpeech: false })).sources.plan.media?.sources ?? [];
+    const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !(edit.plan.media?.sources.find((original) => original.id === source.id)?.words && storedSources.find((original) => original.id === source.id)?.words)) ?? false;
     // No edits means unchanged only on the newest inputs; a used version is a change even with nothing after it.
     if (((applying.length === 0 && applied.base === list.base && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
       await rm(staged.dir, { recursive: true, force: true });

@@ -131,15 +131,16 @@ type InputsOf = Pick<Stored, 'base' | 'anchor' | 'flagged'> & { operations: read
  * The inputs an edit list applies to, and the folder their paths are relative to: the list's anchored base, or the version
  * the owner last chose with "use this version", which carries the whole of its own inputs.
  */
-async function inputsFor(projectDir: string, reelDir: string, stored: InputsOf | null): Promise<WorkingInputs> {
+async function inputsFor(projectDir: string, reelDir: string, stored: InputsOf | null, cachedSpeech = true): Promise<WorkingInputs> {
+  const filled = (inputs: WorkingInputs) => cachedSpeech ? withCachedSpeech(projectDir, inputs) : inputs;
   const used = stored && inputsVersion(stored) !== stored.base ? inputsVersion(stored) : undefined;
   if (used !== undefined) await requireVersionFolder(reelDir, used);
   if (await isCodeOnly(projectDir, reelDir)) {
     const planDir = join(reelDir, `v${used ?? stored?.base ?? await newestVersionNumber(reelDir)}`);
     return { sources: (await codeSources(planDir)).sources, planDir, transcript: {} };
   }
-  if (used !== undefined) return withCachedSpeech(projectDir, await resolveWorkingInputs(projectDir, reelDir, used, true));
-  return withCachedSpeech(projectDir, stored?.anchor ?? await resolveWorkingInputs(projectDir, reelDir));
+  if (used !== undefined) return filled(await resolveWorkingInputs(projectDir, reelDir, used, true));
+  return filled(stored?.anchor ?? await resolveWorkingInputs(projectDir, reelDir));
 }
 
 /**
@@ -556,14 +557,15 @@ async function resolveWorkingInputs(projectDir: string, reelDir: string, authore
 }
 
 /** Capturing a legacy journal also retains its native base inputs before publication. */
-export async function workingInputs(projectDir: string, reelDir: string): Promise<WorkingInputs> {
+export async function workingInputs(projectDir: string, reelDir: string, options: { cachedSpeech?: boolean } = {}): Promise<WorkingInputs> {
+  const filled = (inputs: WorkingInputs) => options.cachedSpeech === false ? inputs : withCachedSpeech(projectDir, inputs);
   const stored = await workingState(reelDir);
   // A chosen version brings its own inputs; the anchor stays what the base was.
-  if (inputsVersion(stored) !== stored.base) return inputsFor(projectDir, reelDir, stored);
-  if (stored.anchor) return withCachedSpeech(projectDir, stored.anchor);
+  if (inputsVersion(stored) !== stored.base) return options.cachedSpeech === false ? inputsFor(projectDir, reelDir, stored, false) : inputsFor(projectDir, reelDir, stored);
+  if (stored.anchor) return filled(stored.anchor);
   const anchor = await resolveWorkingInputs(projectDir, reelDir);
   await writeStored(reelDir, { ...stored, anchor });
-  return withCachedSpeech(projectDir, anchor);
+  return filled(anchor);
 }
 
 /** Media added by an operation must keep its original identity across later freezes too. */
