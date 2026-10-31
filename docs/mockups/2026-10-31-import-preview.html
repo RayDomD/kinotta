@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Doto:wght@700;800&display=swap">
+<style>
+  /* Mockup for docs/plans/2026-10-31-import-preview.md. Tokens from DESIGN.md. Not built yet. */
+  :root {
+    --ground: oklch(.184 .004 106); --ground-deep: oklch(.150 .003 106);
+    --card: oklch(.214 .005 90); --card-raised: oklch(.246 .005 90);
+    --ink: oklch(.945 .004 106); --ink-2: oklch(.820 .007 106); --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14); --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225); --light-wash: oklch(.84 .11 225 / .07);
+    --changed: oklch(.80 .13 75); --scrim: oklch(.12 .003 106 / .86);
+    --sheet-rest: 5px 5px 0 -1.6px var(--ground), 5px 5px 0 0 oklch(.945 .004 106 / .42), 10px 10px 0 -1.6px var(--ground), 10px 10px 0 0 oklch(.945 .004 106 / .18);
+    --sheet-press: 2px 2px 0 -1.6px var(--ground), 2px 2px 0 0 oklch(.945 .004 106 / .42), 4px 4px 0 -1.6px var(--ground), 4px 4px 0 0 oklch(.945 .004 106 / .18);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font: 15px/1.5 Outfit, "Segoe UI", sans-serif; min-height: 100vh; }
+  button { font: inherit; color: inherit; background: none; border: 1.5px solid var(--hairline); padding: 8px 16px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
+  .num { font-family: Doto, monospace; font-weight: 800; font-feature-settings: "tnum"; font-size: 12px; }
+  header.note { max-width: 860px; margin: 0 auto; padding: 22px 16px 12px; color: var(--ink-2); font-size: 13px; }
+  header.note h1 { font-size: 22px; font-weight: 500; letter-spacing: -.4px; color: var(--ink); margin-bottom: 6px; }
+  .states { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .states button[aria-pressed=true] { border-color: var(--light); color: var(--light); }
+  .stage { position: relative; width: calc(100% - 32px); max-width: 860px; margin: 8px auto 40px; height: 560px; border: 1.4px solid var(--rule); background: var(--ground-deep); overflow: hidden; }
+  .stage .behind { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+  .scrim { position: absolute; inset: 0; background: var(--scrim); display: grid; place-items: center; padding: 16px; }
+  .sheet { width: min(600px, 100%); background: var(--card); border: 1.6px solid var(--ink); box-shadow: var(--sheet-rest); padding: 18px 20px; }
+  .sheet h2 { font-size: 15px; font-weight: 500; }
+  .sheet .sub { color: var(--muted); font-size: 13px; margin: 2px 0 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 400; padding: 0 8px 6px 0; border-bottom: 1.4px solid var(--rule); }
+  td { padding: 7px 8px 7px 0; border-bottom: 1.4px solid var(--rule); vertical-align: top; }
+  td.size { text-align: right; white-space: nowrap; }
+  .to { color: var(--ink-2); }
+  .tag { font-size: 12px; color: var(--muted); display: block; }
+  .tag.renamed, .tag.maybe { color: var(--changed); }
+  .tag.refused { color: var(--muted); }
+  tr.refused td:first-child { color: var(--muted); }
+  .space { display: flex; justify-content: space-between; gap: 12px; margin: 14px 0 4px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+  .meter { height: 6px; border: 1.4px solid var(--hairline); position: relative; margin-bottom: 4px; }
+  .meter i { position: absolute; inset: 0 auto 0 0; background: var(--ink-2); }
+  .short { color: var(--changed); font-size: 13px; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .primary { background: var(--ink); color: var(--ground); border-color: var(--ink); font-weight: 600; box-shadow: var(--sheet-press); }
+  .primary:disabled { background: none; color: var(--muted); border-color: var(--hairline); box-shadow: none; cursor: not-allowed; }
+  .copy { color: var(--muted); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header class="note">
+  <h1>Import preview</h1>
+  <p>After a drop on New reel or in the media library, before any file is copied. Import copies exactly as today; Cancel leaves <code>footage/</code> as it was. Working does not change until Import. Open question: show this on every drop, or only for large or multi-file drops?</p>
+  <div class="states" role="group" aria-label="Mockup state">
+    <button type="button" aria-pressed="true" data-state="fits">Fits</button>
+    <button type="button" aria-pressed="false" data-state="short">Not enough room</button>
+  </div>
+</header>
+
+<div class="stage">
+  <div class="behind">New reel · drop videos here</div>
+  <div class="scrim">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h2 id="sheet-title">Import 4 files into footage/</h2>
+      <p class="sub">Copied, not moved. Your originals stay where they are.</p>
+      <table>
+        <thead><tr><th>File</th><th>Goes to</th><th class="size">Size</th></tr></thead>
+        <tbody>
+          <tr><td>take-01.mov<span class="tag">may get a playback copy</span></td><td class="to">footage/take-01.mov</td><td class="size num" data-size="2.1">2.1 GB</td></tr>
+          <tr><td>talk.mp4<span class="tag renamed">name taken, renamed</span></td><td class="to">footage/talk-2.mp4</td><td class="size num">640 MB</td></tr>
+          <tr><td>broll.mp4<span class="tag maybe">maybe already here, reused if the same</span></td><td class="to">footage/broll.mp4</td><td class="size num">310 MB</td></tr>
+          <tr class="refused"><td>clip.braw<span class="tag refused">not a video Kinotta can use</span></td><td class="to">—</td><td class="size num">—</td></tr>
+        </tbody>
+      </table>
+      <div class="space"><span>Needs about <span class="num" id="needs">4.6 GB</span> with proxies</span><span><span class="num" id="free">212 GB</span> free on this drive</span></div>
+      <div class="meter" aria-hidden="true"><i id="fill" style="width: 2%"></i></div>
+      <p class="short" id="short" hidden>Not enough room: free about <span class="num">2.3 GB</span> more, or import fewer files.</p>
+      <div class="actions">
+        <button type="button">Cancel</button>
+        <button type="button" class="primary" id="import">Import 3 files</button>
+      </div>
+      <p class="copy">The estimate includes editing proxies and sound, made after the copy.</p>
+    </section>
+  </div>
+</div>
+<script>
+  const states = { fits: { free: '212 GB', fill: '2%', short: true, disabled: false }, short: { free: '2.8 GB', fill: '100%', short: false, disabled: true } };
+  document.querySelectorAll('[data-state]').forEach((button) => button.addEventListener('click', () => {
+    document.querySelectorAll('[data-state]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+    const s = states[button.dataset.state];
+    document.getElementById('free').textContent = s.free;
+    document.getElementById('fill').style.width = s.fill;
+    document.getElementById('short').hidden = s.short;
+    document.getElementById('import').disabled = s.disabled;
+  }));
+</script>
+</body>
+</html>

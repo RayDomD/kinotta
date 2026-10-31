@@ -1,7 +1,7 @@
 ---
 title: Show what an import will do
 date: 2026-10-31
-status: Draft
+status: In Progress
 summary: Before files come in, one sheet lists where each one goes, what is reused or converted, and whether the disk has room; nothing is copied until Import.
 spec: docs/plans/2026-10-23-media-import-and-lanes.md
 ---
@@ -81,3 +81,10 @@ sheet from it.
 
 ### 2026-10-31
 - Plan created from the Voogle Sort FAQ comparison.
+- Steps 2 and 3: `previewImport` (`server/core/_internal/import-preview.ts`), `POST /api/import/preview` and the
+  web client's `previewImport`. It follows each import path's own rules, asks the file system whether a name is
+  taken (so case counts where the system says so), and treats names chosen earlier in the same drop without case.
+  Changes nothing on disk (`tests/core/import-preview.test.ts`, route included).
+- Step 1, half: mockup `docs/mockups/2026-10-31-import-preview.html` (fits, and not enough room). The open
+  question, when the sheet appears, still waits on the owner. Steps 4 (the sheet on both drop surfaces) and 5
+  (`ENOSPC` during an import) are not started.
