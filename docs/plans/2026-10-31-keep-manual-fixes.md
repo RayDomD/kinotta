@@ -119,4 +119,8 @@ restored or resized dead-air cut (`2026-10-20-editable-dead-air.md`).
   behaves as before. `caption-phrase-position` refused every later edit, as #127 did. It now carries `was` (the
   phrase's first word, sent by the native-media editor) and re-anchors through `fixedWordIndex`. The legacy Review
   screen does not know the phrase's text, so its moves stay exact.
-- Still open: dead-air cuts; Simple mode Regenerate end to end; caption moves from the legacy Review screen.
+- Covered by existing tests, no change needed: dead-air cuts are `snip` operations at source times, which a new
+  transcription does not move; owner edits made while an agent runs (Simple mode's Regenerate included) are replayed
+  onto its version, word fixes and cuts alike (`agent-jobs.test.ts`, "replays Working edits made while the agent
+  runs").
+- Still open: caption moves from the legacy Review screen (no `was`).
