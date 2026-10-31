@@ -95,5 +95,8 @@ Words lane.
   (`CaptionsPlan.emphasis`). Marked words get `data-kind="key"` in every look. The look so far is the caption
   colour, with an optional `--cap-key-scale`, pending open question 2. A plan without the field, or with an empty
   list, builds a byte-identical page (`tests/engine/captions.test.ts`). `reference/engine-api.md` describes it.
-- Not done: `stress.py` (step 3), the skill's footage-reel guidance (step 4), the `word-emphasis` operation and
+- Step 3: `skill/kinotta/scripts/stress.py <media> <transcript.json> [--placement ID]` scores each word's loudness
+  and length against the others in its caption phrase (the builder's own `phrases`) and prints `emphasis` ready
+  for the plan, at most two a phrase, never a short or function word (`tests/engine/stress.test.ts`).
+- Not done: the skill's footage-reel guidance (step 4, waits on open question 1), the `word-emphasis` operation and
   the Words-lane toggle (steps 5 and 6), a style setting. Open questions 1 and 2 are still unanswered.
