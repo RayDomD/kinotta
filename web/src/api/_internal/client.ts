@@ -7,7 +7,7 @@ export const saveDefaultStyle = (id: string): Promise<Style> => requestJson('/ap
 export const fetchReelStyle = (slug: string): Promise<Style | null> => getJson(`/api/reels/${encodeURIComponent(slug)}/style`);
 export const copyStyleToReel = (slug: string, id: string): Promise<Style> => requestJson(`/api/reels/${encodeURIComponent(slug)}/style`, jsonBody('PUT', { id }));
 export const migrateStyleProfile = (profile: unknown): Promise<Style> => requestJson('/api/styles/migrate-profile', jsonBody('POST', profile));
-import type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, PartsAlternate, PartsManifest, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
+import type { GeneratedAudio, ImportMode, ImportPreview, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, PartsAlternate, PartsManifest, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
 
 export interface ReelSummary {
   made?: 'auto' | 'direct';
@@ -521,6 +521,9 @@ export const transcribeMedia = (source: string, saved?: { reel: string; version:
 export const fetchProjectMedia = async (): Promise<ProjectMediaFile[]> => (await getJson<{ files: ProjectMediaFile[] }>('/api/media/project')).files;
 export const referenceMedia = (path: string): Promise<ImportedMedia> => requestJson('/api/media/reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) });
 export const relinkMedia = (source: string, path: string): Promise<MediaEntry> => requestJson('/api/media/relink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, path }) });
+/** What importing these files would do, before any byte is sent: names, possible duplicates, refusals and free space. */
+export const previewImport = (mode: ImportMode, files: readonly File[]): Promise<ImportPreview> =>
+  requestJson('/api/import/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, files: files.map((f) => ({ name: f.name, size: f.size })) }) });
 export const importMedia = (file: File): Promise<ImportedMedia> => requestJson(`/api/media?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
 /** Generates a sound on this machine and adds it to the library. Takes about half a minute. Aborting stops the model. */
 export const generateAudio = (request: { prompt: string; seconds: number; seed?: number }, signal?: AbortSignal): Promise<GeneratedAudio> =>

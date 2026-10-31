@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { dirname, extname, join, normalize, sep } from 'node:path';
 import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts';
-import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
+import type { BatchOptions, ImportPreviewFile, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
 const PIN_NOTES_API = /^\/api\/reels\/([^/]+)\/pin-notes(?:\/([a-f0-9]{64}))?$/;
 const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
@@ -553,6 +553,10 @@ export function createHandler(project: Project, webRoot: string) {
         if (id === null) throw new KinottaError('not-found', 'Unknown sound effect.');
         const imported = await project.importSoundEffect(id);
         sendJson(res, imported.copied ? 201 : 200, imported);
+      } else if (pathname === '/api/import/preview' && req.method === 'POST') {
+        const body = await readJsonObject<{ mode: unknown; files: unknown }>(req);
+        if ((body.mode !== 'reel' && body.mode !== 'media') || !Array.isArray(body.files)) throw new BadRequest(400, 'Supply the place to import to and the files, each with its name and size.');
+        sendJson(res, 200, await project.previewImport(body.mode, body.files as ImportPreviewFile[]));
       } else if (pathname === '/api/media' && req.method === 'POST') {
         const imported = await project.importMedia(searchParams.get('name') ?? '', req);
         sendJson(res, imported.copied ? 201 : 200, imported);

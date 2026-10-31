@@ -22,6 +22,7 @@ import { markWaiting, readVersion, settleNewest } from './_internal/carry.ts';
 import { addComment, deleteComment, editComment, listComments, readNote, setNote } from './_internal/comments.ts';
 import { footageAudioFile, footageFile } from './_internal/footage.ts';
 import { importVideo, removeVideo } from './_internal/import.ts';
+import { previewImport } from './_internal/import-preview.ts';
 import { ensureProjectProxies, importMedia, listMedia, listProjectMedia, mediaAudioFile, mediaFile, mediaWaveform, referenceMedia, relinkMedia } from './_internal/media-library.ts';
 import { createMediaSpeech } from './_internal/media-speech.ts';
 import { createMediaBeats } from './_internal/media-beats.ts';
@@ -69,6 +70,7 @@ export type { Piece, PieceMap, PlacedPiece } from './_internal/pieces.ts';
 export type { NewOperation, Operation, SnipOperation } from './_internal/edit-model.ts';
 export { checkTools, missingToolsMessage };
 export { versionIssues } from './_internal/footage-issues.ts';
+export type { ImportMode, ImportPreview, ImportPreviewFile, ImportPreviewItem } from './_internal/import-preview.ts';
 export type { AudioGenerationRequest, GeneratedAudio } from './_internal/audio-generation.ts';
 export type {
   SoundEffect,
@@ -189,6 +191,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     soundEffectFile,
     importSoundEffect: (id) => importSoundEffect(dir, id),
     importMedia: (name, body) => importMedia(dir, name, body),
+    previewImport: (mode, files) => previewImport(dir, mode, files),
     referenceMedia: (path) => referenceMedia(dir, path),
     listProjectMedia: () => listProjectMedia(dir),
     relinkMedia: (source, path) => relinkMedia(dir, source, path),

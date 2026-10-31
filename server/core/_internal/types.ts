@@ -1,3 +1,4 @@
+import type { ImportMode, ImportPreview, ImportPreviewFile } from './import-preview.ts';
 import type { MakeOptions } from './make-options.ts';
 import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
@@ -354,6 +355,11 @@ export interface Project {
   soundEffectFile(id: string): Promise<string>;
   importSoundEffect(id: string): Promise<ImportedMedia>;
   importMedia(name: string, body: AsyncIterable<Uint8Array>): Promise<ImportedMedia>;
+  /**
+   * What importing these files would do, without copying anything: each copy's name in footage/, files that may already
+   * be there, those the place refuses, and whether the disk has room (`reel` is the New reel drop, `media` the library).
+   */
+  previewImport(mode: ImportMode, files: readonly ImportPreviewFile[]): Promise<ImportPreview>;
   referenceMedia(path: string): Promise<ImportedMedia>;
   /** Supported media inside the project, outside reels/, that the library does not hold yet. */
   listProjectMedia(): Promise<ProjectMediaFile[]>;

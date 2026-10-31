@@ -38,8 +38,8 @@ export type { TimelineMarker } from './_internal/client.ts';
 export { alternatePageUrl, workingPartsPageUrl } from './_internal/client.ts';
 export { fetchSoundEffects, soundEffectUrl, importSoundEffect, generateAudio } from './_internal/client.ts';
 export type { SoundEffect } from '../../../server/core/index.ts';
-export { detectMediaBeats, fetchMedia, fetchMediaModel, fetchProjectMedia, fetchSpeech, fetchWaveform, importMedia, mediaAudioBytes, mediaAudioUrl, mediaBytes, mediaFileUrl, mediaUrl, referenceMedia, relinkMedia, transcribeMedia } from './_internal/client.ts';
-export type { GeneratedAudio, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../server/core/index.ts';
+export { detectMediaBeats, fetchMedia, fetchMediaModel, fetchProjectMedia, fetchSpeech, fetchWaveform, importMedia, previewImport, mediaAudioBytes, mediaAudioUrl, mediaBytes, mediaFileUrl, mediaUrl, referenceMedia, relinkMedia, transcribeMedia } from './_internal/client.ts';
+export type { GeneratedAudio, ImportMode, ImportPreview, ImportPreviewItem, ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, ProjectMediaFile } from '../../../server/core/index.ts';
 export { fetchStyles, saveStyle, saveDefaultStyle, fetchReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/client.ts';
 export type { Style, StyleListing } from './_internal/client.ts';
 
