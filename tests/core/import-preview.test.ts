@@ -66,3 +66,18 @@ describe('previewing an import', () => {
     await expect(previewImport(dir, 'elsewhere' as 'reel', [{ name: 'a.mp4', size: 1 }], plenty)).rejects.toThrow('Choose where');
   });
 });
+
+describe('previewing an import over HTTP', () => {
+  it('answers with the preview and refuses a request without a place or files', async () => {
+    const { startServer } = await import('../../server/main.ts');
+    const server = await startServer({ projectDir: project({ 'talk.mp4': 3 }), port: 0 });
+    try {
+      const post = (body: unknown) => fetch(`${server.url}/api/import/preview`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const ok = await post({ mode: 'reel', files: [{ name: 'talk.mp4', size: 9 }, { name: 'notes.txt', size: 1 }] });
+      expect(ok.status).toBe(200);
+      expect((await ok.json()).items.map((i: { status: string }) => i.status)).toEqual(['renamed', 'unsupported']);
+      expect((await post({ files: [] })).status).toBe(400);
+      expect((await post({ mode: 'reel', files: [] })).status).toBe(422);
+    } finally { await server.close(); }
+  });
+});
