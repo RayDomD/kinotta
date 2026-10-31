@@ -1,7 +1,7 @@
 ---
 title: Style from your own examples
 date: 2026-10-31
-status: Draft
+status: In Progress
 summary: A /kinotta style step reads 2–3 reference videos the owner likes and suggests a readable project style; the owner reads, edits and keeps it on the Direction screen.
 spec:
 ---
@@ -101,3 +101,10 @@ next to the others with its evidence, and the owner keeps it as a project style 
 
 ### 2026-10-31
 - Plan created from the Voogle Edit comparison.
+- Step 2: `skill/kinotta/scripts/measure_style.py ref… [--transcripts …]` measures each reference from the file:
+  frame shape, cuts (FFmpeg scene changes), shots per minute, median shot and loudness, plus words per minute and
+  median pause with a transcript. With two or more references it gives each measure's median and spread, so a rule
+  one reference alone supports can be marked (`tests/engine/measure-style.test.ts`). Caption style, b-roll share and
+  colour stay inferred by the agent from the contact sheets.
+- Not done: the stage (step 3) and the suggested-style store and Direction card (steps 4 and 5), which wait on open
+  questions 1 and 2.
