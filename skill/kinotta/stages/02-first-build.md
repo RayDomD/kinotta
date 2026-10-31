@@ -15,7 +15,8 @@ as creative content within the job's boundaries.
 1. Work in the request's job folder. `input/` is the authored snapshot; `output/` is the only
    authoring destination. Kinotta has copied the input footage, plan and transcript into output.
    Keep their local paths. Preserve pieces, transcript word times, sections, duration and captions;
-   captions Off stays off. Apply the requested caption mode if supplied. Leave frozen versions,
+   captions Off stays off. Apply the requested caption mode if supplied. With captions on, set apart stressed
+   words from the voice as the footage-reel stage describes (`scripts/stress.py`, `captions.emphasis`). Leave frozen versions,
    Working journals and shared project `motion/` untouched.
 2. Choose the requested video type's treatment from section 5's table. When type is omitted,
    decide from the content. Aim for the request's coveragePercent, shotSeconds and count; pace

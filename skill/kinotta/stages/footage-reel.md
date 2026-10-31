@@ -129,6 +129,13 @@ built page and the shot list go in the version.
    rgb/hsl colour, alpha allowed) or `"none"` for captions with no box. Set them only when the owner asks.
    Author phrase captions at at most 42 characters per line and about 20 characters per second;
    inspect the generated phrases and revise breaks or placement when needed.
+   **Stressed words.** With captions on, set apart the words the speaker stresses, from the voice:
+   `python3 $SKILL/scripts/stress.py <video> reels/<slug>/transcript.json` (add `--placement <id>` on native
+   media) prints `emphasis`, at most two words a phrase. Put it in the plan as `captions.emphasis`
+   (see `reference/engine-api.md`). Read the words against the meaning and drop one that only sounds loud, such
+   as a cough or a word after a breath; add none of your own. Say in the hand-over which words were set apart.
+   Never touch an emphasis the owner set or removed in the editor; it is a Working edit Kinotta carries.
+   Skip it when the owner chose captions Off, or the style or request says no emphasis.
    A template clip names `template` and supplies `fill` with copy and source-second `at` times.
    Set `brand.fonts`, `brand.curves` and `brand.tokens` from the checked brand sources; fonts are
    embedded once, before the first still. The engine maps fill times through `pieces`.

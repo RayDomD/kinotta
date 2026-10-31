@@ -109,3 +109,6 @@ Words lane.
 - Open question 1: from the voice by default. The agent runs `stress.py` on footage reels and the owner can change
   any word.
 - Open question 2: accent colour only, as built.
+- Step 4: `stages/footage-reel.md` (step 7, captions) and `stages/02-first-build.md` tell the agent to run
+  `stress.py` whenever captions are on, use its `emphasis` after reading it against the meaning, add none of its own,
+  leave the owner's own emphasis edits alone, and skip it for captions Off or a style that says no emphasis.
