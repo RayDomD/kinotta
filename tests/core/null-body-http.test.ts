@@ -6,7 +6,6 @@ it.each([
   ['/api/reels/any-reel/agent/publish', 'POST'],
   ['/api/media/reference', 'POST'],
   ['/api/media/relink', 'POST'],
-  ['/api/media/generate', 'POST'],
 ])('answers a non-object JSON body to %s with a 400', async (path, method) => {
   const server = await startServer({ projectDir: emptyProject(), port: 0 });
   try {

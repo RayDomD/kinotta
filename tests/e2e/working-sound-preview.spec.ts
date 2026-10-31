@@ -16,6 +16,12 @@ test('Editor plays a Working sound before any version is frozen', async ({ page 
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await loaded;
     await expect(page.locator('.rv-transport')).toBeVisible();
+    await page.getByRole('tab', { name: 'Sound', exact: true }).click();
+    const sound = page.getByRole('region', { name: 'Sound settings', exact: true });
+    await expect(sound).toBeVisible();
+    await expect(sound.getByText('Select an audio clip to adjust its sound.', { exact: true })).toBeVisible();
+    await expect(sound.getByRole('heading', { name: /Generate/ })).toHaveCount(0);
+    await expect(sound.getByRole('button', { name: /Generate/ })).toHaveCount(0);
     await page.locator('.rv-play').click();
     await expect.poll(async () => Number(await page.locator('[data-verify-unit="Transport"]').getAttribute('data-verify-time'))).toBeGreaterThan(0.2);
     expect((await server.project.listVersions('product-showreel')).map((version) => version.number)).toEqual([1, 2]);
