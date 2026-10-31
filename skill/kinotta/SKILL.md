@@ -29,6 +29,7 @@ Read only the contract for the current step, plus the references it names. Paths
 | --- | --- |
 | 00 Setup / set up a Kinotta project | [stages/00-setup.md](stages/00-setup.md) |
 | Direction / pick a look | [stages/direction.md](stages/direction.md) |
+| Style / a style from videos the owner likes | [stages/style.md](stages/style.md) |
 | Alternates / make alternates | [stages/alternates.md](stages/alternates.md) |
 | Sound / add sound | [stages/sound.md](stages/sound.md) |
 | Check / check a reel | [stages/check.md](stages/check.md) |

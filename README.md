@@ -52,6 +52,7 @@ Then, inside any project:
 
 - Ask Claude to set up a Kinotta project with `/kinotta setup`, or ask for a reel. The skill records the project brand in `reels/brand.md`.
 - Ask for direction, alternates, sound, a check, or a small Working edit using `/kinotta direction`, `/kinotta alternates`, `/kinotta sound`, `/kinotta check`, or `/kinotta edit`.
+- Ask for a style from 2–3 videos you like with `/kinotta style`. Claude measures them and suggests a project style, which waits on the Direction screen until you keep or discard it.
 - `kinotta` opens the editor on the project's `reels/` folder.
 - `kinotta check <reel> [version]` prints a version's contract issues and exits non-zero when there
   are any. Claude runs it before saying a version is ready.

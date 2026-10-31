@@ -112,3 +112,9 @@ next to the others with its evidence, and the owner keeps it as a project style 
 ### Owner decisions, 2026-10-31
 - Open question 1: a "Suggested style" card on the Direction screen with Keep and Discard; rules can be edited or
   removed before Keep.
+- Step 3: `skill/kinotta/stages/style.md` (in the `SKILL.md` step table; README lists `/kinotta style`):
+  measure with `measure_style.py`, look at contact sheets, write one suggestion with rules that end in their
+  evidence, record it with `kinotta style suggest`.
+- Step 4: `server/core/_internal/suggested-style.ts`: suggestions wait in `reels/styles/.suggested/`, outside the
+  style list. Keep saves the edited style as a project style; Discard removes it; an id already in use is refused.
+  `kinotta style suggest <file>` and `/api/styles/suggested` (`tests/core/suggested-style.test.ts`).
