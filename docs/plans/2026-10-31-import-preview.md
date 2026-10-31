@@ -86,5 +86,7 @@ sheet from it.
   taken (so case counts where the system says so), and treats names chosen earlier in the same drop without case.
   Changes nothing on disk (`tests/core/import-preview.test.ts`, route included).
 - Step 1, half: mockup `docs/mockups/2026-10-31-import-preview.html` (fits, and not enough room). The open
-  question, when the sheet appears, still waits on the owner. Steps 4 (the sheet on both drop surfaces) and 5
-  (`ENOSPC` during an import) are not started.
+  question, when the sheet appears, still waits on the owner. Step 4 (the sheet on both drop surfaces) is not
+  started.
+- Step 5: a drive that fills during an import now says "The drive ran out of space while copying, so nothing was
+  kept" in both import paths (`writeHashed`), and no partial file is left.

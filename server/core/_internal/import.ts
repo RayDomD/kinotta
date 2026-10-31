@@ -60,7 +60,13 @@ export async function writeHashed(body: AsyncIterable<Uint8Array>, file: string)
       done(null, chunk);
     },
   });
-  await pipeline(Readable.from(body), tap, createWriteStream(file));
+  try {
+    await pipeline(Readable.from(body), tap, createWriteStream(file));
+  } catch (error) {
+    // The caller removes the partial file; the owner needs to know why the copy stopped, not a system code.
+    if ((error as NodeJS.ErrnoException).code === 'ENOSPC') throw new KinottaError('invalid', 'The drive ran out of space while copying, so nothing was kept. Free some space and import it again.');
+    throw error;
+  }
   return { hash: hash.digest('hex'), size };
 }
 

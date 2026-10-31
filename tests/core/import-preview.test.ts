@@ -81,3 +81,20 @@ describe('previewing an import over HTTP', () => {
     } finally { await server.close(); }
   });
 });
+
+describe('a drive that fills during an import', () => {
+  async function* fills(): AsyncGenerator<Uint8Array> {
+    yield new Uint8Array(1024);
+    throw Object.assign(new Error('write ENOSPC'), { code: 'ENOSPC' });
+  }
+
+  it('says so plainly and keeps no part of the file, in both import paths', async () => {
+    const { openProject } = await import('../../server/core/index.ts');
+    const dir = project();
+    const opened = openProject(dir);
+    for (const attempt of [() => opened.importVideo('take.mp4', fills()), () => opened.importMedia('take.mp4', fills())]) {
+      await expect(attempt()).rejects.toThrow('The drive ran out of space while copying, so nothing was kept.');
+    }
+    expect(existsSync(join(dir, 'footage')) ? readdirSync(join(dir, 'footage')).filter((f) => !f.startsWith('.') || f.startsWith('.incoming-')) : []).toEqual([]);
+  });
+});
