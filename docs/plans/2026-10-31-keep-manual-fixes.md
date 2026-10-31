@@ -98,5 +98,8 @@ restored or resized dead-air cut (`2026-10-20-editable-dead-air.md`).
     Asking to transcribe a ready source again reuses the cache.
   - **Open (`it.fails`):** on native media, a fresh transcription whose times move by more than 5 ms leaves the
     fix naming nothing, on Working before a save and after one. After a save it is worse: every later edit is
-    refused. This is step 4 (lock, then re-anchor).
+    refused. This is step 4 (lock, then re-anchor), issue #127.
+  - A second fix in `save.ts`: Save's check for a version that only captures new speech now compares against
+    Working as stored, since Working inputs carry cached words. Full core suite: the same 18–20 render, agent-process
+    and sound-engine failures as the commit before this work, none in word or save tests.
   - Not yet covered: `phrase-text`, `word-timing`, caption positions, dead-air cuts, Simple mode Regenerate (e2e).

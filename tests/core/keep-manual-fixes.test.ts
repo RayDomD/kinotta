@@ -90,7 +90,7 @@ describe('native media: a word fixed by hand', () => {
   });
 
   // Working replays the fix onto the inputs it was first made on, whose words now come from the new run, so the fix
-  // names nothing and every later edit is refused ("There is no word that starts there"). See the plan.
+  // names nothing and every later edit is refused ("There is no word that starts there"). Issue #127.
   it.fails('stays in the next version after the source is transcribed again with times moved by 20 ms', { timeout: SLOW_MS }, async () => {
     const project = await savedThenRetranscribed(0.02);
     await project.addOperation(SLUG, { kind: 'placement-change', placement: 'talk', changes: { gain: 0.5 } });
@@ -113,7 +113,7 @@ describe('native media: a word fixed by hand', () => {
   });
 
   // The fix names its word by start time within 5 ms (MIN_SNIP), so a run that moves every word 20 ms leaves it naming
-  // nothing. Expected to fail until the fix is re-anchored or the source is locked; see the plan.
+  // nothing. Expected to fail until the fix is re-anchored or the source is locked: issue #127.
   it.fails('on Working, before any save, survives a fresh transcription whose times moved by 20 ms', { timeout: SLOW_MS }, async () => {
     const speech = scriptedTranscriber(FIRST);
     const { dir, project, source } = await speechReel(speech.transcriber);
