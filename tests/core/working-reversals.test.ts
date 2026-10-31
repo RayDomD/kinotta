@@ -16,7 +16,7 @@ const cases: Array<{ sources: Sources; edit: NewOperation }> = [
   ...([
     { kind: 'snip', from: 3, to: 4 }, { kind: 'cut', at: 3 }, { kind: 'move-piece', from: 0, to: 1 },
     { kind: 'word-text', at: 1, text: 'hi' }, { kind: 'word-timing', at: 1, start: 0.9, end: 1.3 }, { kind: 'phrase-text', from: 1, to: 2, text: 'good morning everyone' },
-    { kind: 'caption-position', x: 10, y: 20 }, { kind: 'caption-phrase-position', at: 1, x: 10, y: 20 },
+    { kind: 'caption-position', x: 10, y: 20 }, { kind: 'caption-phrase-position', at: 1, x: 10, y: 20 }, { kind: 'word-emphasis', at: 1, on: true, was: 'hello' },
     { kind: 'clip-trim', clip: 'graphic', in: 1.5, out: 3 }, { kind: 'clip-slide', clip: 'graphic', delta: 1 }, { kind: 'element-offset', clip: 'graphic', element: 'label', x: 10, y: 20, scale: 1 },
   ] satisfies NewOperation[]).map((edit) => ({ sources: legacy, edit })),
   ...([

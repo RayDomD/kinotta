@@ -51,6 +51,8 @@ const MALFORMED: Array<[string, Record<string, unknown>]> = [
   ['caption position at NaN', { kind: 'caption-position', x: Number.NaN, y: 0 }],
   ['caption position as strings', { kind: 'caption-position', x: '1', y: '2' }],
   ['phrase position at NaN', { kind: 'caption-phrase-position', placement: 'take', at: Number.NaN, x: 0, y: 0 }],
+  ['word emphasis at NaN', { kind: 'word-emphasis', placement: 'take', at: Number.NaN, on: true }],
+  ['word emphasis that is not a yes or no', { kind: 'word-emphasis', placement: 'take', at: 0.5, on: 'yes' }],
   ['trim of an unknown clip', { kind: 'clip-trim', clip: 'nope', in: 0.5, out: 1 }],
   ['trim to NaN', { kind: 'clip-trim', clip: '01', in: Number.NaN, out: 1 }],
   ['trim reversed', { kind: 'clip-trim', clip: '01', in: 1.4, out: 0.6 }],

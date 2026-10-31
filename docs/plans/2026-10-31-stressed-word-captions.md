@@ -98,5 +98,9 @@ Words lane.
 - Step 3: `skill/kinotta/scripts/stress.py <media> <transcript.json> [--placement ID]` scores each word's loudness
   and length against the others in its caption phrase (the builder's own `phrases`) and prints `emphasis` ready
   for the plan, at most two a phrase, never a short or function word (`tests/engine/stress.test.ts`).
-- Not done: the skill's footage-reel guidance (step 4, waits on open question 1), the `word-emphasis` operation and
-  the Words-lane toggle (steps 5 and 6), a style setting. Open questions 1 and 2 are still unanswered.
+- Step 5: the `word-emphasis { at, on, placement?, was? }` operation sets a word apart or back in line through the
+  edit list (Undo, replay, the Edits card: "Set “hello” apart"). It finds its word as a word fix does (re-anchoring by
+  `was`), follows a re-timed word, and is refused when captions are off. Save writes it into the version and the
+  built page marks the word (`tests/core/word-emphasis.test.ts`).
+- Not done: the skill's footage-reel guidance (step 4, waits on open question 1), the Words-lane toggle (step 6, needs a
+  mockup and both answers), a style setting. Open questions 1 and 2 are still unanswered.

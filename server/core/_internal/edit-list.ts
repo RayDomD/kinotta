@@ -33,7 +33,7 @@ import { stat } from 'node:fs/promises';
 
 /** The reel's unsaved edits: in the reel folder, outside every version, rewritten on every change. */
 export const EDIT_LIST_FILE = 'edit-list.json';
-const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'source-beats', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset', 'use-version']);
+const KINDS: ReadonlySet<string> = new Set<Operation['kind']>(['pin-comment', 'shot-alternate', 'shot-alternate-dismiss', 'source-beats', 'track-add', 'track-change', 'track-move', 'track-remove', 'placement-detach', 'placement-add', 'placement-change', 'placement-duck', 'placement-remove', 'placement-ripple-remove', 'placement-move', 'placement-layer', 'placement-replace', 'placement-split', 'placement-snip', 'snip', 'cut', 'move-piece', 'word-text', 'word-timing', 'phrase-text', 'caption-position', 'caption-phrase-position', 'word-emphasis', 'clip-trim', 'clip-attachment', 'clip-split', 'clip-slide', 'element-offset', 'use-version']);
 
 const queues = new Map<string, Promise<unknown>>();
 

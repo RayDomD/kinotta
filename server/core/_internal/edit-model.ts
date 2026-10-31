@@ -333,6 +333,17 @@ export interface CaptionPhrasePositionOperation extends AuthoredOperation {
   placement?: string;
 }
 
+/** Sets one word of the captions apart (`on`) or back in line, keyed by its start in source seconds (`captions.emphasis`). */
+export interface WordEmphasisOperation extends AuthoredOperation {
+  id: string;
+  kind: 'word-emphasis';
+  at: number;
+  on: boolean;
+  placement?: string;
+  /** The word as it read, to find it again if its speech is transcribed again and to word the edit in the panel. */
+  was?: string;
+}
+
 /** Trims a clip: its new `in` and `out`, in source seconds. */
 export interface ClipTrimOperation extends AuthoredOperation {
   id: string;
@@ -490,6 +501,7 @@ export type Operation =
   | PhraseTextOperation
   | CaptionPositionOperation
   | CaptionPhrasePositionOperation
+  | WordEmphasisOperation
   | ClipTrimOperation
   | ClipAttachmentOperation
   | ClipSplitOperation
@@ -689,8 +701,8 @@ function captionsOf(plan: Plan): CaptionsPlan {
 
 /** The plan with these captions: `position` and `phrases` left out when empty, and `true` kept when nothing else is set. */
 function withCaptions(plan: Plan, captions: CaptionsPlan): Plan {
-  const { position, phrases, ...rest } = captions;
-  const next: CaptionsPlan = { ...rest, ...(position ? { position } : {}), ...(phrases && phrases.length > 0 ? { phrases } : {}) };
+  const { position, phrases, emphasis, ...rest } = captions;
+  const next: CaptionsPlan = { ...rest, ...(position ? { position } : {}), ...(phrases && phrases.length > 0 ? { phrases } : {}), ...(emphasis && emphasis.length > 0 ? { emphasis } : {}) };
   return { ...plan, captions: Object.keys(next).length === 0 && plan.captions === true ? true : next };
 }
 
@@ -705,6 +717,25 @@ function applyCaptionPosition(sources: Sources, op: CaptionPositionOperation): S
   const { position: _was, ...captions } = captionsOf(sources.plan);
   const offset = offsetOf(op);
   return { ...sources, plan: withCaptions(sources.plan, isOrigin(offset) ? captions : { ...captions, position: offset }) };
+}
+
+function applyWordEmphasis(sources: Sources, op: WordEmphasisOperation): Sources {
+  if (!Number.isFinite(op.at) || typeof op.on !== 'boolean') throw new KinottaError('invalid', 'Setting a word apart needs the time the word starts at and whether it is set apart.');
+  if (!sources.plan.captions) throw new KinottaError('invalid', 'Captions are off for this reel, so no word can be set apart.');
+  const captions = captionsOf(sources.plan);
+  let words = sources.words;
+  if (sources.plan.media) {
+    if (!op.placement) throw new KinottaError('invalid', 'A caption word needs its placement identity.');
+    const placement = sources.plan.media.placements.find((p) => p.id === op.placement);
+    if (!placement || placement.role === 'gap' || op.at < placement.in - REANCHOR_SECONDS || op.at >= placement.out) throw new KinottaError('invalid', 'That caption placement or word is missing.');
+    words = placement.words ?? sources.plan.media.sources.find((s) => s.id === placement.source)?.words ?? [];
+  }
+  const at = words[fixedWordIndex(words, op.at, op.was)]!.start;
+  const same = (e: { at: number; placement?: string }) => e.placement === op.placement && Math.abs(e.at - at) <= MIN_SNIP;
+  const list = captions.emphasis ?? [];
+  if (op.on === list.some(same)) throw new KinottaError('invalid', op.on ? 'That word is already set apart.' : 'That word is not set apart.');
+  const emphasis = op.on ? [...list, { at, ...(op.placement ? { placement: op.placement } : {}) }].sort((a, b) => a.at - b.at) : list.filter((e) => !same(e));
+  return { ...sources, plan: withCaptions(sources.plan, { ...captions, emphasis }) };
 }
 
 function applyCaptionPhrasePosition(sources: Sources, op: CaptionPhrasePositionOperation): Sources {
@@ -725,6 +756,16 @@ function applyCaptionPhrasePosition(sources: Sources, op: CaptionPhrasePositionO
 
 /** A phrase position follows its first word when that word is re-timed: it is keyed by the word's start. */
 function followWord(plan: Plan, from: number, to: number, placement?: string): Plan {
+  const captions = plan.captions;
+  if (captions && typeof captions === 'object' && captions.emphasis?.some((e) => e.placement === placement && Math.abs(e.at - from) <= MIN_SNIP)) {
+    const emphasis = captions.emphasis.map((e) => (e.placement === placement && Math.abs(e.at - from) <= MIN_SNIP ? { ...e, at: to } : e)).sort((a, b) => a.at - b.at);
+    plan = { ...plan, captions: { ...captions, emphasis } };
+  }
+  return followPhrase(plan, from, to, placement);
+}
+
+/** A phrase position follows its first word when that word is re-timed. */
+function followPhrase(plan: Plan, from: number, to: number, placement?: string): Plan {
   const captions = plan.captions;
   if (!captions || typeof captions !== 'object' || !captions.phrases?.some((p) => Math.abs(p.at - from) <= MIN_SNIP)) return plan;
   const moved = captions.phrases.map((p) => (p.placement === placement && Math.abs(p.at - from) <= MIN_SNIP ? { ...p, at: to } : p));
@@ -1299,6 +1340,8 @@ export function applyOperation(sources: Sources, op: Operation): Sources {
       return applyCaptionPosition(sources, op);
     case 'caption-phrase-position':
       return applyCaptionPhrasePosition(sources, op);
+    case 'word-emphasis':
+      return applyWordEmphasis(sources, op);
     case 'clip-trim':
       return applyClipTrim(sources, op);
     case 'clip-attachment':
@@ -1408,6 +1451,7 @@ export function operationTouches(op: Operation, section: { start: number; end: n
     case 'caption-position':
       return true;
     case 'caption-phrase-position':
+    case 'word-emphasis':
       return op.at >= section.start && op.at < section.end;
     // A clip belongs to a section by its own `section`, which an operation does not carry: Save compares the plan's clips.
     case 'clip-trim':
@@ -1528,6 +1572,8 @@ export function describeOperation(op: Operation): { target: string; text: string
       return { target: 'Captions', text: `Moved all captions to ${op.x}, ${op.y}` };
     case 'caption-phrase-position':
       return { target: 'Captions', text: `Moved one caption to ${op.x}, ${op.y}` };
+    case 'word-emphasis':
+      return { target: 'Word', text: op.was ? (op.on ? `Set “${op.was}” apart` : `Put “${op.was}” back in line`) : (op.on ? 'Set the word apart' : 'Put the word back in line') };
     case 'clip-trim':
       return { target: `Clip ${op.clip}`, text: `Trimmed to ${clock(op.in)} to ${clock(op.out)}` };
     case 'clip-attachment':
