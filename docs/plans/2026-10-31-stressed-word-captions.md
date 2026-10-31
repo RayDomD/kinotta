@@ -1,7 +1,7 @@
 ---
 title: Stressed words in captions
 date: 2026-10-31
-status: Draft
+status: In Progress
 summary: Captions set apart the words the speaker stresses, measured from the voice and editable per word, in every caption look.
 spec:
 ---
@@ -90,3 +90,10 @@ Words lane.
 
 ### 2026-10-31
 - Plan created from the Voogle Edit comparison.
+- Step 2 (engine): `captions.emphasis` is read by `build.py` (`emphasised`, `CAPTION_KEY_CSS`) and checked in
+  `pieces.py` `check_caption_style`, which every caption build runs, and in its core mirror `checkCaptionStyle`
+  (`CaptionsPlan.emphasis`). Marked words get `data-kind="key"` in every look. The look so far is the caption
+  colour, with an optional `--cap-key-scale`, pending open question 2. A plan without the field, or with an empty
+  list, builds a byte-identical page (`tests/engine/captions.test.ts`). `reference/engine-api.md` describes it.
+- Not done: `stress.py` (step 3), the skill's footage-reel guidance (step 4), the `word-emphasis` operation and
+  the Words-lane toggle (steps 5 and 6), a style setting. Open questions 1 and 2 are still unanswered.

@@ -36,7 +36,11 @@ def caption_font(font):
 def check_caption_style(captions, brand):
     """Refuses a captions `font` the page would not embed (anything but Geist or a family of the plan's brand fonts,
     which would silently fall back) and a `background` that is not "none" or a CSS colour. Mirrors checkCaptionStyle
-    in server/core/_internal/edit-model.ts."""
+    in server/core/_internal/edit-model.ts. Also refuses an `emphasis` that does not name its words by source start."""
+    if 'emphasis' in captions:
+        emphasis = captions['emphasis']
+        if not isinstance(emphasis, list) or not all(isinstance(e, dict) and _number(e.get('at')) and isinstance(e.get('placement', ''), str) for e in emphasis):
+            sys.exit('The captions emphasis must be a list of words, each with a numeric at (its source start) and an optional placement.')
     if 'font' in captions:
         family = caption_font(captions['font'])[0]
         brand_fonts = [f['family'] for f in (brand or {}).get('fonts', []) if isinstance(f, dict) and isinstance(f.get('family'), str)]

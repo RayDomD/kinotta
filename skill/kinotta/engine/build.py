@@ -13,6 +13,8 @@ With "captions" (true, or { "look": "highlight" | "phrase" | "words", "color" })
 the plan), each caption phrase is a scene cap-001, … holding one element named caption, a span per word.
 Captions can be moved: "position" { x, y } offsets every caption and "phrases" [{ at, x, y }] one more, the phrase
 whose first word starts at source second "at" (within CAPTION_AT); px of the 1920x1080 page, CSS translate on the caption.
+"emphasis" [{ at, placement? }] sets words apart, each named by its source start (within CAPTION_AT): data-kind="key"
+on the word, in the caption colour and scaled by --cap-key-scale when the page sets it. Without it the page is unchanged.
 A clip can carry "offsets" { "<element>": { x, y, scale } } (CSS px, a factor about the element's centre; "@clip" is the clip's
 root): written as CSS translate and scale on that element in that scene, which stack on the clip's own transform, left and top.
 With "pieces" ([{ "in", "out" }], see pieces.py) the plan's source times are mapped to the reel's timeline: a clip in a
@@ -89,6 +91,14 @@ CAPTION_CSS = ('[data-caption]{pointer-events:none}'
     '.caption[data-look=words] .ph{padding:0;background:none}'
     '.caption[data-look=words] [data-t]{display:inline-block;padding:.08em .22em;margin:0 -.06em .14em;background:var(--cap-bg,rgba(11,11,11,.72));border-radius:10px;opacity:0}'
     '.caption[data-look=words] .said{opacity:1}')
+# Only on a page whose plan sets words apart, so a plan without "emphasis" builds the page it always did. The accent
+# colour by default; a plan can scale the words too with --cap-key-scale.
+CAPTION_KEY_CSS = ('.caption [data-kind=key]{display:inline-block;color:var(--cap-color);transform:scale(var(--cap-key-scale,1));transform-origin:50% 80%}'
+    '.caption[data-look=words] [data-kind=key]{transform:scale(var(--cap-key-scale,1))}')
+def emphasised(value, word):
+    """True when the plan's "emphasis" names this word: its placement, and its source start within CAPTION_AT."""
+    opts = {} if value is True else value
+    return any(e.get('placement') == word.get('placement') and abs(e['at'] - word['at']) <= CAPTION_AT for e in opts.get('emphasis') or [])
 def caption_style(value, brand=None):
     """(look, colour, vars): `vars` is the style text for the plan's font and background, empty when it gives neither,
     so a plan without them builds the page it always did."""
@@ -135,7 +145,7 @@ def caption_scenes(plan_dir, P, pieces=None):
         if pieces: words = timeline_words(words, pieces)
     scenes = []
     for n, ph in enumerate(phrases(words), 1):
-        spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}" data-source-start="{w["at"]}">{html.escape(w["text"])}</span>' for w in ph['words'])
+        spans = ' '.join(f'<span data-t="{w["start"]}" data-e="{w["end"]}" data-source-start="{w["at"]}"{" data-kind=\"key\"" if emphasised(P["captions"], w) else ""}>{html.escape(w["text"])}</span>' for w in ph['words'])
         shift = caption_shift(P['captions'], ph['words'][0]['at'], ph['words'][0].get('placement'))
         moved = f';translate:{shift[0]:g}px {shift[1]:g}px' if shift else ''
         placement = f' data-placement="{html.escape(ph["words"][0]["placement"], quote=True)}"' if 'placement' in ph['words'][0] else ''
@@ -176,7 +186,7 @@ def compose(plan_path, dst):
     if captions: body += caption_scenes(plan_dir, P, source.get('pieces'))
     duration = P['duration'] if 'duration' in P else max(c['out'] for c in P['clips'])
     pathlib.Path(dst).parent.mkdir(parents=True, exist_ok=True)
-    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else '') + tokens,'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
+    open(dst, 'w', encoding='utf-8').write(page(P.get('title', 'B-roll'), PAGE_CSS + (CAPTION_CSS if captions else '') + (CAPTION_KEY_CSS if captions and isinstance(P['captions'], dict) and P['captions'].get('emphasis') else '') + tokens,'\n'.join(body), f'<script>M.page({duration});</script>', engine_first=True))
 if __name__ == '__main__':
     if sys.argv[1] == '--plan':
         compose(sys.argv[2], sys.argv[3]); print('built', sys.argv[3])

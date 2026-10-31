@@ -69,6 +69,10 @@ function checkCaptionStyle(captions: Record<string, unknown>, brand: unknown): v
   if (background !== undefined && !(typeof background === 'string' && (background === 'none' || CAPTION_COLOUR.test(background.trim())))) {
     throw new KinottaError('invalid', 'The captions background must be "none" or a CSS colour such as #0B0B0BB8 or rgba(11, 11, 11, .72).');
   }
+  const emphasis = captions.emphasis;
+  if (emphasis !== undefined && !(Array.isArray(emphasis) && emphasis.every((e) => isRecord(e) && typeof e.at === 'number' && Number.isFinite(e.at) && (e.placement === undefined || typeof e.placement === 'string')))) {
+    throw new KinottaError('invalid', 'The captions emphasis must be a list of words, each with a numeric at (its source start) and an optional placement.');
+  }
 }
 
 /**
@@ -142,6 +146,8 @@ export interface CaptionsPlan {
   background?: string;
   position?: CaptionOffset;
   phrases?: PhrasePosition[];
+  /** Words set apart, each named by its source start (within a hair) and, on native media, its placement. */
+  emphasis?: { at: number; placement?: string }[];
 }
 
 /** One state of a clip that changes (`stills`): `from` is clip-local seconds, `still` seconds into the state. */

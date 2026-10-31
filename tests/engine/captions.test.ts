@@ -193,3 +193,45 @@ describe('caption positions', () => {
     expect(shifts(composedWith({ phrases: [{ at: 2.9, x: 0, y: -100 }] }))).toEqual([null, null, null]);
   });
 });
+
+describe('stressed words in captions', () => {
+  const pageOf = (captions: unknown): string => {
+    const { dir, plan } = project(captions);
+    composePlan(plan, join(dir, 'page.html'));
+    return readFileSync(join(dir, 'page.html'), 'utf8');
+  };
+
+  it('marks the words "emphasis" names by their source start, in every look, and adds their style', () => {
+    for (const look of ['highlight', 'phrase', 'words']) {
+      const html = parse(pageOf({ look, emphasis: [{ at: 1.0 }, { at: 3.102 }] }));
+      expect(html.querySelectorAll('[data-kind=key]').map((w) => w.text)).toEqual(['Ryan', '<Central>']);
+      expect(html.querySelector('style')!.text + html.toString()).toContain('[data-kind=key]');
+    }
+  });
+
+  it('leaves a plan without emphasis exactly as it was, and an empty list adds nothing either', () => {
+    const plain = pageOf({ look: 'phrase' });
+    expect(plain).not.toContain('data-kind');
+    expect(pageOf({ look: 'phrase', emphasis: [] })).toBe(plain);
+  });
+
+  it('refuses an emphasis that does not name its words by time', () => {
+    const { dir, plan } = project({ emphasis: [{ word: 'Ryan' }] });
+    const run = spawnSync(PYTHON, [resolve(import.meta.dirname, '../../skill/kinotta/engine/build.py'), '--plan', plan, join(dir, 'page.html')], { encoding: 'utf8' });
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain('The captions emphasis must be a list of words');
+  });
+});
+
+describe('the core refuses the same malformed emphasis', () => {
+  it('checks a native plan the way the builder does', async () => {
+    const { mediaPlanTimeline } = await import('../../server/core/_internal/edit-model.ts');
+    const plan = (emphasis: unknown) => ({
+      duration: 2, captions: { emphasis },
+      media: { schema: 1, sources: [{ id: 'a', kind: 'video', path: 'a.mp4', duration: 2 }], placements: [{ id: 'p', role: 'main', source: 'a', in: 0, out: 2 }], sequence: ['p'] },
+    }) as never;
+    expect(() => mediaPlanTimeline(plan([{ at: 0.5, placement: 'p' }]))).not.toThrow();
+    expect(() => mediaPlanTimeline(plan([{ word: 'hi' }]))).toThrow('The captions emphasis must be a list of words');
+    expect(() => mediaPlanTimeline(plan('Ryan'))).toThrow('The captions emphasis must be a list of words');
+  });
+});
