@@ -42,6 +42,7 @@ const FOOTAGE_STILL_API = /^\/api\/reels\/([^/]+)\/footage-still$/;
 const SPEECH_API = /^\/api\/media\/([^/]+)\/speech$/;
 const BEATS_API = /^\/api\/media\/([^/]+)\/beats$/;
 const SOUND_EFFECT_API = /^\/api\/sound-effects\/([^/]+)$/;
+const SUGGESTED_STYLE = /^\/api\/styles\/suggested\/([^/]+)(\/keep)?$/;
 const SOUND_EFFECT_ROUTE = /^\/sound-effects\/([^/]+)$/;
 const PARTS_REVISION = /^r[1-9]\d*$/;
 const VERSION_FOLDER = /^v\d+$/;
@@ -367,6 +368,17 @@ export function createHandler(project: Project, webRoot: string) {
           sendJson(res, 200, await project.saveStyle(body?.scope, body?.style));
         } else if (pathname === '/api/styles/default' && req.method === 'PUT') {
           sendJson(res, 200, await project.saveDefaultStyle(await readJsonBody(req)));
+        } else if (pathname === '/api/styles/suggested' && req.method === 'GET') {
+          sendJson(res, 200, { suggested: await project.listSuggestedStyles() });
+        } else if (SUGGESTED_STYLE.test(pathname) && (req.method === 'POST' || req.method === 'DELETE')) {
+          const [, rawId, action] = SUGGESTED_STYLE.exec(pathname)!;
+          const id = safeDecode(rawId!);
+          if (id === null) sendNotFound(res);
+          else if (req.method === 'DELETE' && action === undefined) { await project.discardSuggestedStyle(id); sendJson(res, 200, { discarded: id }); }
+          else if (req.method === 'POST' && action === '/keep') {
+            const body = await readJsonBody(req, null) as { style?: unknown } | null;
+            sendJson(res, 200, await project.keepSuggestedStyle(id, body?.style));
+          } else sendNotFound(res);
         } else if (pathname === '/api/styles/migrate-profile' && req.method === 'POST') {
           sendJson(res, 200, await project.migrateStyleProfile(await readJsonBody(req)));
         } else if (styleRoute && (req.method === 'GET' || req.method === 'PUT')) {

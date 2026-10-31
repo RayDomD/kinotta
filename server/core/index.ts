@@ -1,6 +1,8 @@
 import { builtPinNotes, decidePinNote } from './_internal/pin-notes.ts';
 import { createAgentJobs, type AgentJobsOptions } from './_internal/agent-jobs.ts';
 import { listStyles, saveStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyleProfile } from './_internal/style.ts';
+import { discardSuggestedStyle, keepSuggestedStyle, listSuggestedStyles, suggestStyle } from './_internal/suggested-style.ts';
+export type { SuggestedStyle } from './_internal/suggested-style.ts';
 export { validateStyle, readStyle, listStyles, saveStyle, resolveDefaultStyle, saveDefaultStyle, readReelStyle, copyStyleToReel, migrateStyles, migrateStyleProfile } from './_internal/style.ts';
 export type { Style, StyleListing } from './_internal/style.ts';
 import { readAgentSettings, saveAgentSettings, detectAgents } from './_internal/agent-settings.ts';
@@ -173,6 +175,10 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     importFont: (name, body) => importFont(dir, name, body),
     listStyles: (videoType) => listStyles(dir, videoType),
     saveStyle: (scope, style) => saveStyle(dir, scope, style),
+    suggestStyle: (input) => suggestStyle(dir, input),
+    listSuggestedStyles: () => listSuggestedStyles(dir),
+    keepSuggestedStyle: (id, edited) => keepSuggestedStyle(dir, id, edited),
+    discardSuggestedStyle: (id) => discardSuggestedStyle(dir, id),
     saveDefaultStyle: (input) => saveDefaultStyle(dir, input),
     readReelStyle: (slug) => readReelStyle(dir, slug),
     copyStyleToReel: (slug, input) => copyStyleToReel(dir, slug, input),

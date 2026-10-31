@@ -329,6 +329,12 @@ export interface Project {
   importFont(name: string, body: AsyncIterable<Uint8Array>): Promise<import('./fonts.ts').ImportedFont>;
   listStyles(videoType?: string): Promise<import('./style.ts').StyleListing>;
   saveStyle(scope: unknown, style: unknown): Promise<import('./style.ts').Style>;
+  /** An agent's suggested project style, waiting for the owner on the Direction screen. Refuses an id already in use. */
+  suggestStyle(input: unknown): Promise<import('./suggested-style.ts').SuggestedStyle>;
+  listSuggestedStyles(): Promise<import('./suggested-style.ts').SuggestedStyle[]>;
+  /** Saves the suggestion, as edited, as a project style and removes the suggestion. */
+  keepSuggestedStyle(id: string, edited?: unknown): Promise<import('./style.ts').Style>;
+  discardSuggestedStyle(id: string): Promise<void>;
   saveDefaultStyle(input: unknown): Promise<import('./style.ts').Style>;
   readReelStyle(slug: string): Promise<import('./style.ts').Style | null>;
   copyStyleToReel(slug: string, input: unknown): Promise<import('./style.ts').Style>;

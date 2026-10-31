@@ -276,8 +276,23 @@ async function edit(args: string[]): Promise<number> {
   finally { if (hosted) await hosted.close(); }
 }
 
+const STYLE_USAGE = 'Usage: kinotta style suggest <suggestion.json> [--project <dir>]';
+
+/** Records an agent's suggested project style for the owner to keep or discard on the Direction screen. */
+async function style(args: string[]): Promise<number> {
+  const taken = takeProject(args);
+  const [action, file, ...extra] = taken?.rest ?? [];
+  if (!taken || action !== 'suggest' || !file || extra.length) { console.error(STYLE_USAGE); return 1; }
+  try {
+    const suggestion = await openProject(taken.projectDir).suggestStyle(JSON.parse(await readFile(resolve(file), 'utf8')));
+    console.log(`Suggested style "${suggestion.style.name}" (${suggestion.style.id}) is waiting on the Direction screen.`);
+    return 0;
+  } catch (error) { console.error((error as Error).message); return 1; }
+}
+
 export async function main(argv: string[]): Promise<void> {
   if (argv[0] === 'build') { process.exitCode = await build(argv.slice(1)); return; }
+  if (argv[0] === 'style') { process.exitCode = await style(argv.slice(1)); return; }
   if (argv[0] === 'edit') { process.exitCode = await edit(argv.slice(1)); return; }
   if (argv[0] === 'generate-audio') {
     process.exitCode = await generateAudio(argv.slice(1));
