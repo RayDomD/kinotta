@@ -187,8 +187,8 @@ describe('re-anchoring a fix to its word after the times moved', () => {
     expect(() => fixedWordIndex(words, 0.845, 'two')).toThrow('There is no word that starts there');
   });
 
-  it('without the old text, re-anchors only to the one word in reach', () => {
-    expect(fixedWordIndex(words, 0.4)).toBe(0);
-    expect(() => fixedWordIndex(words, 0.85)).toThrow('There is no word that starts there');
+  it('without the old text, never re-anchors: the start must match', () => {
+    expect(fixedWordIndex(words, 0.42)).toBe(0);
+    expect(() => fixedWordIndex(words, 0.4)).toThrow('There is no word that starts there');
   });
 });

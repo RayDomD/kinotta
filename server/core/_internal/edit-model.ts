@@ -608,13 +608,14 @@ const sameWord = (a: string, b: string): boolean => {
 
 /**
  * The word an owner's fix names. A word starting within a hair of `at` wins, as in `wordIndexAt`. When there is none,
- * because the speech was transcribed again and its times moved, the fix re-anchors to the nearest word within
- * `REANCHOR_SECONDS` that still reads `was`; with no `was`, only to the one word in that reach. Otherwise it throws.
+ * because the speech was transcribed again and its times moved, a fix that carries what it replaced (`was`) re-anchors
+ * to the nearest word within `REANCHOR_SECONDS` that still reads it. Without `was` the start must match, so an edit that
+ * depends on another (a word re-timed, then retyped) is never quietly re-attached when that one is removed.
  */
 export function fixedWordIndex(words: readonly TranscriptWord[], at: number, was?: string): number {
   try { return wordIndexAt(words, at); } catch (error) {
-    const near = words.map((w, i) => ({ i, d: Math.abs(w.start - at), w })).filter((c) => c.d <= REANCHOR_SECONDS);
-    const fits = was === undefined ? (near.length === 1 ? near : []) : near.filter((c) => sameWord(c.w.text, was)).sort((a, b) => a.d - b.d);
+    if (was === undefined) throw error;
+    const fits = words.map((w, i) => ({ i, d: Math.abs(w.start - at), w })).filter((c) => c.d <= REANCHOR_SECONDS && sameWord(c.w.text, was)).sort((a, b) => a.d - b.d);
     if (fits.length === 0 || (fits.length > 1 && fits[1]!.d - fits[0]!.d <= MIN_SNIP)) throw error;
     return fits[0]!.i;
   }

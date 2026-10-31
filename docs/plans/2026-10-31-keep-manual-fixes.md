@@ -106,9 +106,10 @@ restored or resized dead-air cut (`2026-10-20-editable-dead-air.md`).
 - Step 4 (issue #127): a fix re-anchors instead of the source being locked. Nothing re-transcribes a finished source
   today, so a lock alone protected nothing; the failure was the fix losing its word. `fixedWordIndex`
   (`edit-model.ts`) keeps the exact start (within 5 ms) first. Otherwise it takes the nearest word within
-  `REANCHOR_SECONDS` (150 ms) that still reads the fix's `was`, or, with no `was`, the one word in that reach. A
-  tie or a different text is refused, as before. `word-text` and `word-timing` use it; the editor's own lookups
-  keep the exact `wordIndexAt`. The Words lane on native media now sends `was`. Both `it.fails` cells pass.
+  `REANCHOR_SECONDS` (150 ms) that still reads the fix's `was`. A tie or a different text is refused, as before.
+  A fix without `was` (every `word-timing`, and word fixes saved before the Words lane on native media sent it)
+  must still match exactly, so T36's rule holds: removing a re-time that a later fix depends on is refused
+  (`snip-save.test.ts`). The editor's own lookups keep the exact `wordIndexAt`. Both `it.fails` cells pass.
 - `tests/core/render-fresh-speech-word.test.ts` checks the first fix in the browser: a word transcribed since the
   newest version is fixed in the Simple timeline, recorded, and saved into v2. Run against the code before the fix,
   the edit is never recorded.
