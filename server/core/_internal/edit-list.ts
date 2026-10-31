@@ -26,6 +26,7 @@ import { clearHandoff, handoffReason, readHandoff } from './handoff.ts';
 import type { Handoff } from './handoff.ts';
 import { readReelPlan, readReelTranscript, readReelWords, readSourceAudio } from './sources.ts';
 import { preservedSourceHashes } from './media-preservation.ts';
+import { withSpeech } from './media-speech.ts';
 import { recoverSave } from './save-journal.ts';
 import { newestVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
 import { stat } from 'node:fs/promises';
@@ -137,8 +138,19 @@ async function inputsFor(projectDir: string, reelDir: string, stored: InputsOf |
     const planDir = join(reelDir, `v${used ?? stored?.base ?? await newestVersionNumber(reelDir)}`);
     return { sources: (await codeSources(planDir)).sources, planDir, transcript: {} };
   }
-  if (used !== undefined) return resolveWorkingInputs(projectDir, reelDir, used, true);
-  return stored?.anchor ?? resolveWorkingInputs(projectDir, reelDir);
+  if (used !== undefined) return withCachedSpeech(projectDir, await resolveWorkingInputs(projectDir, reelDir, used, true));
+  return withCachedSpeech(projectDir, stored?.anchor ?? await resolveWorkingInputs(projectDir, reelDir));
+}
+
+/**
+ * Working with the cached words of speech transcribed since its version, so an owner's fix to such a word applies on
+ * Working and on Save. The stored anchor stays without them: the cache, not the edit list, holds the words.
+ */
+async function withCachedSpeech(projectDir: string, inputs: WorkingInputs): Promise<WorkingInputs> {
+  const media = inputs.sources.plan.media;
+  if (!media || media.legacy) return inputs;
+  const filled = await withSpeech(projectDir, inputs.planDir, media, false);
+  return filled === media ? inputs : { ...inputs, sources: { ...inputs.sources, plan: { ...inputs.sources.plan, media: filled } } };
 }
 
 /** A version the owner chooses must exist. */
@@ -548,10 +560,10 @@ export async function workingInputs(projectDir: string, reelDir: string): Promis
   const stored = await workingState(reelDir);
   // A chosen version brings its own inputs; the anchor stays what the base was.
   if (inputsVersion(stored) !== stored.base) return inputsFor(projectDir, reelDir, stored);
-  if (stored.anchor) return stored.anchor;
+  if (stored.anchor) return withCachedSpeech(projectDir, stored.anchor);
   const anchor = await resolveWorkingInputs(projectDir, reelDir);
   await writeStored(reelDir, { ...stored, anchor });
-  return anchor;
+  return withCachedSpeech(projectDir, anchor);
 }
 
 /** Media added by an operation must keep its original identity across later freezes too. */

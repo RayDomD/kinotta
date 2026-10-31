@@ -1,7 +1,7 @@
 ---
 title: Keep manual fixes when reprocessing
 date: 2026-10-31
-status: Draft
+status: In Progress
 summary: Prove with tests that the owner's word, timing, caption and phrase fixes survive a new transcription and an agent rebuild, then lock fixed sources so nothing reprocesses over them.
 spec:
 ---
@@ -86,3 +86,17 @@ restored or resized dead-air cut (`2026-10-20-editable-dead-air.md`).
 
 ### 2026-10-31
 - Plan created from the Voogle Sort FAQ comparison.
+- Step 1: `tests/core/keep-manual-fixes.test.ts` holds the matrix for native-media and legacy word fixes.
+  Findings:
+  - **Fixed:** on a native-media reel, a word transcribed since the newest version could not be fixed at all. The
+    editor shows the cached words (`MediaEditor.tsx`, `spoken`), but the core applied operations before filling
+    speech, so `word-text` was refused with "There is no word that starts there". Working inputs now carry the
+    cached words (`withCachedSpeech` in `edit-list.ts`). The stored anchor stays without them.
+  - **Holds:** a fixed word stays in its saved version after the source is transcribed again; a fresh run with
+    identical times keeps the fix on Working and in the next version; on a legacy reel, a rewritten
+    `transcript.json` with times moved by 20 ms keeps the fix (Working reads the saved version's transcript).
+    Asking to transcribe a ready source again reuses the cache.
+  - **Open (`it.fails`):** on native media, a fresh transcription whose times move by more than 5 ms leaves the
+    fix naming nothing, on Working before a save and after one. After a save it is worse: every later edit is
+    refused. This is step 4 (lock, then re-anchor).
+  - Not yet covered: `phrase-text`, `word-timing`, caption positions, dead-air cuts, Simple mode Regenerate (e2e).
