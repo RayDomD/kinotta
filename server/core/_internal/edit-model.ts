@@ -599,6 +599,27 @@ export function wordIndexAt(words: readonly TranscriptWord[], at: number): numbe
   return best;
 }
 
+/** How far a fixed word may have moved when its speech is transcribed again: under a short word's length. */
+export const REANCHOR_SECONDS = 0.15;
+const sameWord = (a: string, b: string): boolean => {
+  const bare = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
+  return bare(a) === bare(b);
+};
+
+/**
+ * The word an owner's fix names. A word starting within a hair of `at` wins, as in `wordIndexAt`. When there is none,
+ * because the speech was transcribed again and its times moved, the fix re-anchors to the nearest word within
+ * `REANCHOR_SECONDS` that still reads `was`; with no `was`, only to the one word in that reach. Otherwise it throws.
+ */
+export function fixedWordIndex(words: readonly TranscriptWord[], at: number, was?: string): number {
+  try { return wordIndexAt(words, at); } catch (error) {
+    const near = words.map((w, i) => ({ i, d: Math.abs(w.start - at), w })).filter((c) => c.d <= REANCHOR_SECONDS);
+    const fits = was === undefined ? (near.length === 1 ? near : []) : near.filter((c) => sameWord(c.w.text, was)).sort((a, b) => a.d - b.d);
+    if (fits.length === 0 || (fits.length > 1 && fits[1]!.d - fits[0]!.d <= MIN_SNIP)) throw error;
+    return fits[0]!.i;
+  }
+}
+
 function applyWordText(sources: Sources, op: WordTextOperation): Sources {
   const text = typeof op.text === 'string' ? op.text.trim() : '';
   if (text === '') throw new KinottaError('invalid', 'A word cannot be empty.');
@@ -609,13 +630,13 @@ function applyWordText(sources: Sources, op: WordTextOperation): Sources {
     if (!placement || placement.role === 'gap' || (placement.role === 'main' ? !media.sequence.includes(placement.id) : !placement.speech)) throw new KinottaError('invalid', `Speech placement ${op.placement} is missing.`);
     const source = media.sources.find((s) => s.id === placement.source);
     const before = placement.words ?? source?.words ?? [];
-    const index = wordIndexAt(before, op.at);
+    const index = fixedWordIndex(before, op.at, op.was);
     if (before[index]!.start < placement.in || before[index]!.start >= placement.out) throw new KinottaError('invalid', 'That word was removed from its placement.');
     const words = before.map((w, i) => i === index ? { ...w, text } : w);
     const next = { ...media, placements: media.placements.map((p) => p.id === placement.id ? { ...placement, words } : p) };
     return { ...sources, plan: { ...sources.plan, media: next }, words: mediaWords(next, sources.plan.duration ?? 0) };
   }
-  const index = wordIndexAt(sources.words, op.at);
+  const index = fixedWordIndex(sources.words, op.at, op.was);
   const words = sources.words.map((w, i) => (i === index ? { ...w, text } : w));
   return { ...sources, words };
 }
@@ -716,7 +737,7 @@ function applyWordTiming(sources: Sources, op: WordTimingOperation): Sources {
   if (!Number.isFinite(op.start) || !Number.isFinite(op.end) || op.start < 0 || op.end - op.start <= MIN_SNIP) {
     throw new KinottaError('invalid', 'A word needs a start before its end, in seconds.');
   }
-  const index = wordIndexAt(sources.words, op.at);
+  const index = fixedWordIndex(sources.words, op.at);
   const start = round(op.start);
   const end = round(op.end);
   if (sources.words.some((w, i) => i !== index && w.start < end - MIN_SNIP && w.end > start + MIN_SNIP)) {

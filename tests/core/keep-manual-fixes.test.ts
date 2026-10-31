@@ -1,10 +1,13 @@
 // Plan: docs/plans/2026-10-31-keep-manual-fixes.md. Each test is one cell of "a fix the owner made by hand" against
 // "something that processes the reel again". A cell the app gets wrong is `it.fails` with its issue until fixed.
+// A fix names its word by start time; when a new run moves the times, it re-anchors to the word that still reads
+// what it replaced (`fixedWordIndex`, issue #127).
 import { spawnSync } from 'node:child_process';
 import { createReadStream, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
+import { fixedWordIndex, REANCHOR_SECONDS } from '../../server/core/_internal/edit-model.ts';
 import type { Transcriber, TranscriptWord } from '../../server/core/index.ts';
 import { copyFixture } from '../helpers/project.ts';
 
@@ -89,9 +92,8 @@ describe('native media: a word fixed by hand', () => {
     expect(await savedTexts(project, 3)).toEqual(['hullo', 'there']);
   });
 
-  // Working replays the fix onto the inputs it was first made on, whose words now come from the new run, so the fix
-  // names nothing and every later edit is refused ("There is no word that starts there"). Issue #127.
-  it.fails('stays in the next version after the source is transcribed again with times moved by 20 ms', { timeout: SLOW_MS }, async () => {
+  // Working replays the fix onto the inputs it was first made on, whose words now come from the new run (issue #127).
+  it('stays in the next version after the source is transcribed again with times moved by 20 ms', { timeout: SLOW_MS }, async () => {
     const project = await savedThenRetranscribed(0.02);
     await project.addOperation(SLUG, { kind: 'placement-change', placement: 'talk', changes: { gain: 0.5 } });
     await project.freezeEdits(SLUG);
@@ -112,9 +114,7 @@ describe('native media: a word fixed by hand', () => {
     expect(await savedTexts(project, 2)).toEqual(['hullo', 'there']);
   });
 
-  // The fix names its word by start time within 5 ms (MIN_SNIP), so a run that moves every word 20 ms leaves it naming
-  // nothing. Expected to fail until the fix is re-anchored or the source is locked: issue #127.
-  it.fails('on Working, before any save, survives a fresh transcription whose times moved by 20 ms', { timeout: SLOW_MS }, async () => {
+  it('on Working, before any save, survives a fresh transcription whose times moved by 20 ms', { timeout: SLOW_MS }, async () => {
     const speech = scriptedTranscriber(FIRST);
     const { dir, project, source } = await speechReel(speech.transcriber);
     await transcribed(project, source, FIRST);
@@ -164,5 +164,31 @@ describe("legacy footage reel: a word fixed by hand, then the reel's transcript.
     expect(Object.values((await project.readEditList(SLUG)).flagged ?? {})).toEqual([]);
     await project.freezeEdits(SLUG);
     expect((await savedTexts(project, 3))?.[0]).toBe('imagine');
+  });
+});
+
+describe('re-anchoring a fix to its word after the times moved', () => {
+  const words: TranscriptWord[] = [
+    { text: 'picture', start: 0.42, end: 0.7 },
+    { text: 'two', start: 0.72, end: 0.95 },
+    { text: 'two', start: 0.97, end: 1.2 },
+  ];
+
+  it('takes the exact start first, then the nearest word that still reads what the fix replaced', () => {
+    expect(fixedWordIndex(words, 0.72, 'picture')).toBe(1);
+    expect(fixedWordIndex(words, 0.4, 'picture')).toBe(0);
+    expect(fixedWordIndex(words, 0.4, 'Picture,')).toBe(0);
+    expect(fixedWordIndex(words, 0.69, 'two')).toBe(1);
+  });
+
+  it('refuses a word that reads differently, one out of reach, and a tie it cannot tell apart', () => {
+    expect(() => fixedWordIndex(words, 0.4, 'pitcher')).toThrow('There is no word that starts there');
+    expect(() => fixedWordIndex(words, 0.42 + REANCHOR_SECONDS + 0.01, 'picture')).toThrow('There is no word that starts there');
+    expect(() => fixedWordIndex(words, 0.845, 'two')).toThrow('There is no word that starts there');
+  });
+
+  it('without the old text, re-anchors only to the one word in reach', () => {
+    expect(fixedWordIndex(words, 0.4)).toBe(0);
+    expect(() => fixedWordIndex(words, 0.85)).toThrow('There is no word that starts there');
   });
 });

@@ -675,7 +675,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         const shot = reelShots.find((shot) => shot.start <= at && shot.start + shot.duration > at);
         simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(at, target?.id), x: 0.5, y: 0.5, element: null });
       }}
-      onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
+      onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text, was: word.text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
     />}
@@ -715,7 +715,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
       onSolo={(id) => setSolo(solo.includes(id) ? solo.filter((item) => item !== id) : [...solo, id])}
       onRemoveTrack={(id) => void edits!.add({ kind: 'track-remove', track: id })} onAddTrack={() => void edits!.add({ kind: 'track-add', track: { id: crypto.randomUUID(), name: `Track ${(media.tracks?.length ?? 0) + 1}`, order: Math.max(-1, ...(media.tracks ?? []).map((track) => track.order)) + 1, gain: 1, mute: false } })}>
     {(pictures) => <EditorialLanes snap={snap} isWordChanged={isWordChanged} snapPoints={[time, ...markerState.markers.map((marker) => marker.time), ...timeline.placements.flatMap((p) => [p.at, p.at + p.duration])]} shotPage={version!.code ? { url: pageUrl, time: (id) => version!.workingParts?.shots.find((shot) => shot.name === id)?.start ?? version!.clips?.find((clip) => clip.id === id)?.in ?? laneGraphics.find((clip) => clip.id === id)?.in ?? 0 } : undefined} win={win} words={laneWords} phrases={lanePhrases} graphics={laneGraphics} picture={!!version!.code} nudge={workspace.settings.nudge} editable={editable} graphicEditable={editable} canPin={!!onSaveComment && editable && !playing && !pinSaving} selectedGraphic={selectedGraphic}
-      onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text })}
+      onPin={pinWord} onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text, was: word.text })}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
       onGraphicPreview={setGraphicDraft}

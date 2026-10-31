@@ -103,3 +103,14 @@ restored or resized dead-air cut (`2026-10-20-editable-dead-air.md`).
     Working as stored, since Working inputs carry cached words. Full core suite: the same 18–20 render, agent-process
     and sound-engine failures as the commit before this work, none in word or save tests.
   - Not yet covered: `phrase-text`, `word-timing`, caption positions, dead-air cuts, Simple mode Regenerate (e2e).
+- Step 4 (issue #127): a fix re-anchors instead of the source being locked. Nothing re-transcribes a finished source
+  today, so a lock alone protected nothing; the failure was the fix losing its word. `fixedWordIndex`
+  (`edit-model.ts`) keeps the exact start (within 5 ms) first. Otherwise it takes the nearest word within
+  `REANCHOR_SECONDS` (150 ms) that still reads the fix's `was`, or, with no `was`, the one word in that reach. A
+  tie or a different text is refused, as before. `word-text` and `word-timing` use it; the editor's own lookups
+  keep the exact `wordIndexAt`. The Words lane on native media now sends `was`. Both `it.fails` cells pass.
+- `tests/core/render-fresh-speech-word.test.ts` checks the first fix in the browser: a word transcribed since the
+  newest version is fixed in the Simple timeline, recorded, and saved into v2. Run against the code before the fix,
+  the edit is never recorded.
+- Still open: `phrase-text` and caption positions match words by range or start within 5 ms and do not re-anchor;
+  dead-air cuts; Simple mode Regenerate end to end.
