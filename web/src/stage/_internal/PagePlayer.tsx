@@ -25,6 +25,8 @@ export interface CaptionWord {
   start: number;
   end: number;
   sourceStart?: number;
+  /** Set apart in the captions (`captions.emphasis`). */
+  key?: boolean;
 }
 
 /** Native captions rebuilt from the pending media model, including newly duplicated speech. */
@@ -183,12 +185,25 @@ function applyCaptionPreview(frame: HTMLIFrameElement | null, preview: PagePlaye
       const span = doc.createElement('span');
       Object.assign(span.dataset, { t: String(word.start), e: String(word.end), sourceStart: String(word.sourceStart) });
       span.textContent = word.text;
+      if (word.key) span.dataset.kind = 'key';
       if (n > 0) line.append(doc.createTextNode(' '));
       line.append(span);
     });
     caption.append(line); scene.append(caption); doc.body.append(scene);
   });
+  // A page built before any word was set apart lacks their style; the preview brings the builder's own.
+  if (preview.some((phrase) => phrase.words.some((word) => word.key)) && !doc.getElementById(KEY_STYLE_ID)) {
+    const style = doc.createElement('style');
+    style.id = KEY_STYLE_ID;
+    style.textContent = CAPTION_KEY_CSS;
+    doc.head.append(style);
+  }
 }
+
+const KEY_STYLE_ID = 'kinotta-caption-key';
+/** The same rules as CAPTION_KEY_CSS in skill/kinotta/engine/build.py (tests/web checks they match). */
+export const CAPTION_KEY_CSS = '.caption [data-kind=key]{display:inline-block;color:var(--cap-color);transform:scale(var(--cap-key-scale,1));transform-origin:50% 80%}'
+  + '.caption[data-look=words] [data-kind=key]{transform:scale(var(--cap-key-scale,1))}';
 
 /** Puts the given words in each edited caption and the built ones back in the rest. An emptied caption is hidden. */
 function applyCaptionWords(frame: HTMLIFrameElement | null, captionWords: PagePlayerProps['captionWords']): void {

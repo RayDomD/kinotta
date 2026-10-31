@@ -5,7 +5,7 @@ import type { TimeWindow } from './timeline.ts';
 import { TIMELINE_ROW_HEIGHT, stackRows } from './timeline.ts';
 import { PageStill } from '../../stage/index.ts';
 import { magnetDelta } from './placement-edits.ts';
-import { CaptionLane } from './CaptionLane.tsx';
+import { CaptionLane, type WordEmphasis } from './CaptionLane.tsx';
 
 type Word = ReturnType<typeof mediaWords>[number];
 
@@ -25,6 +25,7 @@ interface Props {
   canPin: boolean;
   selectedGraphic: string | null;
   isWordChanged?: (word: Word) => boolean;
+  emphasis?: WordEmphasis;
   onGraphic: (id: string, inspect: boolean) => void;
   onGraphicKey: (event: KeyboardEvent<HTMLButtonElement>, id: string) => void;
   onGraphicDrag: (id: string, edge: 'start' | 'end' | 'move', seconds: number) => void;
@@ -65,6 +66,7 @@ export function EditorialLanes({
   canPin,
   selectedGraphic,
   isWordChanged,
+  emphasis,
   onGraphic,
   onGraphicKey,
   onGraphicDrag,
@@ -242,6 +244,7 @@ export function EditorialLanes({
           snap={false}
           snapPoints={snapPoints}
           isWordChanged={isWordChanged}
+          emphasis={emphasis}
           onWord={onWord}
           onRetime={onRetime}
           onPhrase={onPhrase}

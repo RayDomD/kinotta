@@ -235,3 +235,12 @@ describe('the core refuses the same malformed emphasis', () => {
     expect(() => mediaPlanTimeline(plan('Ryan'))).toThrow('The captions emphasis must be a list of words');
   });
 });
+
+describe('the editor preview of stressed words', () => {
+  it('uses the same style as the builder', async () => {
+    const { CAPTION_KEY_CSS } = await import('../../web/src/stage/_internal/PagePlayer.tsx');
+    const built = readFileSync(resolve(import.meta.dirname, '../../skill/kinotta/engine/build.py'), 'utf8');
+    const python = /CAPTION_KEY_CSS = \(([\s\S]*?)\)\n/.exec(built)![1]!.match(/'([^']*)'/g)!.map((part) => part.slice(1, -1)).join('');
+    expect(CAPTION_KEY_CSS).toBe(python);
+  });
+});

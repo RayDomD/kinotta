@@ -11,6 +11,11 @@ export const SNAP_CUT_THRESHOLD = 0.15;
 
 export type Word = ReturnType<typeof mediaWords>[number];
 
+export interface WordEmphasis {
+  isOn(word: Word): boolean;
+  toggle(word: Word, on: boolean): void;
+}
+
 export interface CaptionLaneProps {
   win: TimeWindow;
   words: readonly Word[];
@@ -22,6 +27,8 @@ export interface CaptionLaneProps {
   snapPoints?: readonly number[];
   isWordChanged?: (word: Word) => boolean;
   onWord: (word: Word, text: string) => void;
+  /** Stressed words: whether a word is set apart in the captions, and a toggle for it (`word-emphasis`). */
+  emphasis?: WordEmphasis;
   onRetime: (word: Word, start: number, end: number) => void;
   onPhrase: (index: number, text: string) => void;
   onPin?: (word: Word) => void;
@@ -41,6 +48,7 @@ export function CaptionLane({
   snapPoints = [],
   isWordChanged,
   onWord,
+  emphasis,
   onRetime,
   onPhrase,
   onPin,
@@ -374,6 +382,22 @@ export function CaptionLane({
                         }}
                       >
                         {word.text}
+                      </button>
+                    )}
+                    {emphasis && (
+                      <button
+                        type="button"
+                        className="editorial-word-key"
+                        aria-pressed={emphasis.isOn(word)}
+                        aria-label={`${emphasis.isOn(word) ? 'Put back in line' : 'Set apart'}: word ${word.text} at ${word.start.toFixed(2)} in ${word.placement}`}
+                        title={emphasis.isOn(word) ? 'Set apart in the captions. Click to put it back in line.' : 'Set this word apart in the captions'}
+                        disabled={!editable}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          emphasis.toggle(word, !emphasis.isOn(word));
+                        }}
+                      >
+                        Key
                       </button>
                     )}
                     {canPin && onPin && (

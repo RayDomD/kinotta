@@ -1,7 +1,7 @@
 ---
 title: Stressed words in captions
 date: 2026-10-31
-status: In Progress
+status: Done
 summary: Captions set apart the words the speaker stresses, measured from the voice and editable per word, in every caption look.
 spec:
 ---
@@ -112,3 +112,10 @@ Words lane.
 - Step 4: `stages/footage-reel.md` (step 7, captions) and `stages/02-first-build.md` tell the agent to run
   `stress.py` whenever captions are on, use its `emphasis` after reading it against the meaning, add none of its own,
   leave the owner's own emphasis edits alone, and skip it for captions Off or a style that says no emphasis.
+- Step 6: each word in an open caption (Simple timeline and the detailed editor's caption lane, `CaptionLane.tsx`)
+  has a "Key" toggle (`aria-pressed`, labelled "Set apart" or "Put back in line") that adds a `word-emphasis` edit to
+  Working. The frame preview marks the word at once (`PagePlayer.tsx` adds the builder's own style when the page
+  lacks it; `tests/engine/captions.test.ts` checks the two match). Checked in the browser:
+  `tests/core/render-word-emphasis.test.ts` (set apart, shown in the frame, put back).
+- Left out: a style setting to turn emphasis off for a whole style; the skill already skips it when a style or
+  request says no emphasis.

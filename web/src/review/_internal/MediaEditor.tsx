@@ -16,7 +16,7 @@ import type { LibraryRow } from './MediaLibrary.tsx';
 import { MediaPreview } from './MediaPreview.tsx';
 import { ClipSettings } from './ClipSettings.tsx';
 import { SoundSettings } from './SoundSettings.tsx';
-import { MIN_CLIP, applyOperations, captionFontCss, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
+import { MIN_CLIP, MIN_SNIP, applyOperations, captionFontCss, captionPhrases, describeOverload, mediaPlanTimeline, mediaEditingPlan, mediaWithTracks, mediaSpans, mediaTimeline, mediaWords, pictureAt, pictureOrder, remapMediaMoment, timelineMoment } from '../../../../server/core/model.ts';
 import type { CaptionsPlan, MediaSource, MediaTimeline, NewOperation, SourcePlacement, Sources } from '../../../../server/core/model.ts';
 import { duplicateOf, replacementFor, snapDelta, snapPoints, trimToPlayhead } from './placement-edits.ts';
 import { borrowedScene, clipIdForScene, clipOffsets, codeClips } from './edited.ts';
@@ -351,7 +351,11 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
   };
   const phrases = useMemo(() => edited.captions ? captionPhrases(words) : [], [edited.captions, words]);
   const captionStyle = typeof edited.captions === 'object' ? edited.captions : {};
-  const captionPreview = useMemo(() => { const { font, background } = typeof edited.captions === 'object' ? edited.captions : ({} as CaptionsPlan); return phrases.map((phrase) => ({ ...phrase, placement: phrase.words[0]!.placement!, sourceStart: phrase.words[0]!.sourceStart!, look: typeof edited.captions === 'object' ? edited.captions.look ?? 'highlight' : 'highlight', color: typeof edited.captions === 'object' ? edited.captions.color ?? CAPTION_COLOR : CAPTION_COLOR, ...(font === undefined ? {} : { font: captionFontCss(font) }), ...(background === undefined ? {} : { background }) })); }, [phrases, edited.captions]);
+  /** Words set apart in the captions (`captions.emphasis`), named by placement and source start. */
+  const keyWords = useMemo(() => (typeof edited.captions === 'object' ? edited.captions.emphasis ?? [] : []), [edited.captions]);
+  const isKey = useCallback((word: { placement?: string; sourceStart?: number }) => keyWords.some((e) => e.placement === word.placement && word.sourceStart !== undefined && Math.abs(e.at - word.sourceStart) <= MIN_SNIP), [keyWords]);
+  const emphasis = useMemo(() => (edited.captions ? { isOn: isKey, toggle: (word: { placement?: string; sourceStart?: number; text: string }, on: boolean) => void edits!.add({ kind: 'word-emphasis', placement: word.placement, at: word.sourceStart!, on, was: word.text }) } : undefined), [edited.captions, isKey, edits]);
+  const captionPreview = useMemo(() => { const { font, background } = typeof edited.captions === 'object' ? edited.captions : ({} as CaptionsPlan); return phrases.map((phrase) => ({ ...phrase, words: phrase.words.map((word) => (isKey(word) ? { ...word, key: true } : word)), placement: phrase.words[0]!.placement!, sourceStart: phrase.words[0]!.sourceStart!, look: typeof edited.captions === 'object' ? edited.captions.look ?? 'highlight' : 'highlight', color: typeof edited.captions === 'object' ? edited.captions.color ?? CAPTION_COLOR : CAPTION_COLOR, ...(font === undefined ? {} : { font: captionFontCss(font) }), ...(background === undefined ? {} : { background }) })); }, [phrases, edited.captions, isKey]);
   // Keep the authored page's caption bound to the saved occurrence while native lanes preview the edit.
   const [savingCaption, setSavingCaption] = useState<typeof captionPreview | null>(null);
   const captionShifts = useMemo(() => captionPreview.map((phrase) => {
@@ -685,6 +689,7 @@ export function MediaEditor({ reel, version, section, edits, actions, comments, 
         simple.onPin({ kind: 'frame', shot: shot?.number ?? '', ...workingPinMoment(at, target?.id), x: 0.5, y: 0.5, element: null });
       }}
       onWord={(word, text) => void edits!.add({ kind: 'word-text', placement: word.placement, at: word.sourceStart!, text, was: word.text })}
+      emphasis={emphasis}
       onRetime={(word, start, end) => void edits!.add({ kind: 'word-timing', placement: word.placement, at: word.sourceStart!, start: Math.round(start * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION, end: Math.round(end * SOURCE_TIME_PRECISION) / SOURCE_TIME_PRECISION })}
       onPhrase={(index, text) => void retypeCaption({ index, text })}
     />}

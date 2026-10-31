@@ -251,6 +251,10 @@
 .editorial-text-bar > button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-2); padding: 4px 7px; flex: 1; }
 .editorial-text-bar > input { width: 100%; min-width: 0; font: inherit; font-size: 11px; color: var(--ink); background: var(--ground-deep); border: 0; padding: 4px 6px; }
 .editorial-text-bar .editorial-word-pin { flex: 0 0 18px; padding: 2px; color: var(--light); }
+/* Set a word apart in the captions (captions.emphasis): quiet until on, then the light, like the frame shows it. */
+.editorial-text-bar .editorial-word-key { flex: 0 0 auto; padding: 0 3px; font-size: 10px; letter-spacing: .02em; color: var(--muted); border: 1px solid transparent; }
+.editorial-text-bar .editorial-word-key:hover:not(:disabled), .editorial-text-bar .editorial-word-key:focus-visible { color: var(--ink); border-color: var(--hairline); }
+.editorial-text-bar .editorial-word-key[aria-pressed="true"] { color: var(--light); border-color: var(--light); }
 .editorial-text-bar .native-trim { width: 4px; max-width: none; background: var(--light-wash); touch-action: none; }
 .editorial-word .native-trim:focus-visible { outline: 2px solid var(--light); outline-offset: 0; background: var(--light); }
 .editorial-caption-open { z-index: 2; border-color: var(--light); }

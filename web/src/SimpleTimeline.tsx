@@ -15,7 +15,7 @@ import type {
 } from '../../server/core/model.ts';
 import { toSource, toTimeline, MIN_SNIP } from '../../server/core/model.ts';
 import { formatClock, formatDuration } from './timecode.ts';
-import { CaptionLane } from './review/_internal/CaptionLane.tsx';
+import { CaptionLane, type WordEmphasis } from './review/_internal/CaptionLane.tsx';
 import {
   anchorCutWindow,
   mapTimeThroughCut,
@@ -415,6 +415,7 @@ export interface SimpleTimelineProps {
   captionsOption?: boolean | { look?: string };
   captionEditable?: boolean;
   isWordChanged?: (word: Word) => boolean;
+  emphasis?: WordEmphasis;
   snapPoints?: readonly number[];
   win?: TimeWindow;
   onSeek(time: number): void;
@@ -440,6 +441,7 @@ export function SimpleTimeline({
   captionsOption,
   captionEditable = false,
   isWordChanged,
+  emphasis,
   snapPoints = [],
   win: propsWin,
   onSeek,
@@ -786,6 +788,7 @@ export function SimpleTimeline({
             snap={snap}
             snapPoints={allCutPoints}
             isWordChanged={isWordChanged}
+            emphasis={emphasis}
             onWord={onWord}
             onRetime={onRetime}
             onPhrase={onPhrase}
