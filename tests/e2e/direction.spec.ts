@@ -1,17 +1,17 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { agentTold } from '../../server/core/_internal/direction.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const WORDS = [{ text: 'Hello', start: 0.5, end: 0.9 }];
 
 async function serve() {
   // Saved styles for you live in the home folder; each test gets its own.
-  process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-home-'));
+  process.env.KINOTTA_HOME = tempDir('kinotta-home-');
   const dir = copyFixture('footage-project');
   const server = await startServer({ projectDir: dir, port: 0, transcriber: async () => WORDS });
   await server.project.saveAgentSettings({ provider: 'copy' });

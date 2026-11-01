@@ -1,14 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { createReadStream, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { createReadStream, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
+import { tempDir } from '../helpers/temp.ts';
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const HAS_LIBROSA = spawnSync(PYTHON, ['-c', 'import importlib.util,sys;sys.exit(0 if importlib.util.find_spec("librosa") else 1)']).status === 0;
 
 it.skipIf(!HAS_LIBROSA)('detects original music bytes through the project service and refuses a changed source', { timeout: 120_000 }, async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-beat-service-'));
+  const dir = tempDir('kinotta-beat-service-');
   const file = join(dir, 'music.wav');
   expect(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', "aevalsrc='if(lt(mod(t,0.5),0.015),sin(2*PI*1000*t),0)':s=22050:d=8", file]).status).toBe(0);
   const project = openProject(dir);

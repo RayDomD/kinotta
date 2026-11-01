@@ -1,14 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { startServer } from '../../server/main.ts';
 import { DONE_MARKER } from '../../server/core/_internal/copy-watch.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 test.beforeEach(() => {
-  process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'copy-round-trip-home-'));
+  process.env.KINOTTA_HOME = tempDir('copy-round-trip-home-');
 });
 
 async function auto(page: Page, url: string, title: string) {

@@ -1,11 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 import { DONE_MARKER, watchCopyOutput } from '../../server/core/_internal/copy-watch.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 it('does not leave a rejection unhandled when recording a settle failure itself fails', async () => {
-  const jobDir = mkdtempSync(join(tmpdir(), 'kinotta-copy-watch-'));
+  const jobDir = tempDir('kinotta-copy-watch-');
   const outputDir = join(jobDir, 'output');
   mkdirSync(outputDir);
   const unhandled = vi.fn();

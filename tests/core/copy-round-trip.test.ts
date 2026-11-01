@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, cpSync, renameSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, cpSync, renameSync, symlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -7,6 +6,7 @@ import { openProject, type Project } from '../../server/core/index.ts';
 import { DONE_MARKER } from '../../server/core/_internal/copy-watch.ts';
 import type { ProjectEvent } from '../../server/core/_internal/types.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const projects: Project[] = [];
 afterEach(async () => {
@@ -49,7 +49,7 @@ function writeValidOutput(outputDir: string, overrides: { shots?: string; plan?:
 }
 
 async function setupCopyJob(options: { settleMs?: number } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-copy-round-trip-'));
+  const dir = tempDir('kinotta-copy-round-trip-');
   cpSync(copyFixture('footage-project'), dir, { recursive: true });
   const fake = join(dir, 'fake agent.mjs');
   cpSync(resolve('tests/core/fake-broll-agent.mjs'), fake);

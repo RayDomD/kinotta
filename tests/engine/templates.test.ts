@@ -1,17 +1,17 @@
-import { cpSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { composePlan, makeFootage } from '../helpers/engine.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 let browser: Browser;
 beforeAll(async () => { browser = await chromium.launch({ headless: true }); });
 afterAll(async () => { await browser?.close(); });
 
 function compose(plan: object): string {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-templates-'));
+  const dir = tempDir('kinotta-templates-');
   writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
   const output = join(dir, 'page.html');
   composePlan(join(dir, 'plan.json'), output);
@@ -38,7 +38,7 @@ describe('effect templates on the footage timeline', () => {
   });
 
   it('awaits embedded template video seeks before returning a first or backward still', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-template-video-'));
+    const dir = tempDir('kinotta-template-video-');
     cpSync(resolve('skill/kinotta/templates/effects/floating-cards/r1'), join(dir, 'shot'), { recursive: true });
     makeFootage(join(dir, 'shot/assets/clip.mp4'), 2);
     const html = readFileSync(join(dir, 'shot/shot.html'), 'utf8')
@@ -120,7 +120,7 @@ describe('effect templates on the footage timeline', () => {
 
   it('composes every template without a plate, requires a matte and supports an edited shot folder', async () => {
     const effects = resolve('skill/kinotta/templates/effects');
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-edited-template-'));
+    const dir = tempDir('kinotta-edited-template-');
     cpSync(join(effects, 'section-tag/r1'), join(dir, 'custom'), { recursive: true });
     writeFileSync(join(dir, 'custom/shot.html'), readFileSync(join(dir, 'custom/shot.html'), 'utf8').replace(/section-tag/g, 'renamed-shot'));
     writeFileSync(join(dir, 'custom/shot.css'), readFileSync(join(dir, 'custom/shot.css'), 'utf8').replace(/section-tag/g, 'renamed-shot'));
