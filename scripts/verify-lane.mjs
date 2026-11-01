@@ -23,8 +23,10 @@ const STAMP_CHARS = 19;
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
   console.log('Usage, from the lane\'s worktree:');
-  console.log('  node scripts/verify-lane.mjs [--brief <path>] [--base origin/main] [--force] [--dry-run]');
+  console.log('  node scripts/verify-lane.mjs [--brief <path>] [--base origin/main] [--force] [--unit-only] [-- <vitest args>]');
   console.log('--force runs Playwright even when free memory is below the floor.');
+  console.log('--unit-only skips Playwright. Arguments after -- go to vitest, for example a single test file.');
+  console.log('Failing unit tests are matched by file and exact name against scripts/known-test-failures.txt.');
   process.exit(0);
 }
 const option = (name) => {
@@ -40,15 +42,9 @@ const option = (name) => {
 const brief = option('--brief');
 const base = option('--base') ?? 'origin/main';
 const force = args.includes('--force');
-const dryRun = args.includes('--dry-run');
 const unitOnly = args.includes('--unit-only');
 const dashDash = args.indexOf('--');
 const extraTestArgs = dashDash !== -1 ? ' ' + args.slice(dashDash + 1).join(' ') : '';
-if (dryRun) {
-  console.log(`verify-lane: dry run for base ${base}`);
-  console.log('steps: typecheck, unit, e2e-1-of-2, e2e-2-of-2, mojibake' + (brief ? ', scope' : ''));
-  process.exit(0);
-}
 
 const root = process.cwd();
 const git = (...gitArgs) => execFileSync('git', ['-c', 'core.quotepath=false', ...gitArgs], { encoding: 'utf8' }).trim();
@@ -126,12 +122,15 @@ function runUnit() {
 
   const failingTests = [];
   const passingTests = [];
+  // A file that failed without any failed test (it did not load, or crashed) is never explained by the allowlist.
+  const brokenFiles = [];
 
   if (existsSync(unitJson)) {
     try {
       const report = JSON.parse(readFileSync(unitJson, 'utf8'));
       for (const testFile of report.testResults ?? []) {
         const relFile = relative(root, testFile.name).split(sep).join('/');
+        if (testFile.status === 'failed' && !(testFile.assertionResults ?? []).some((assertion) => assertion.status === 'failed')) brokenFiles.push(relFile);
         for (const assertion of testFile.assertionResults ?? []) {
           const testName = assertion.fullName || assertion.title;
           const info = { file: relFile, name: testName, title: assertion.title, fullName: assertion.fullName };
@@ -163,7 +162,8 @@ function runUnit() {
     }
   }
 
-  const ok = status === 0 || (unexpectedFailures.length === 0 && failingTests.length > 0);
+  for (const file of brokenFiles) console.log(`failing file (no test result): ${file}`);
+  const ok = status === 0 || (unexpectedFailures.length === 0 && failingTests.length > 0 && brokenFiles.length === 0);
   const duration = Math.round((Date.now() - started) / 1000);
   let note = `${duration}s, ${log}`;
   if (failingTests.length > 0 && unexpectedFailures.length === 0) {
