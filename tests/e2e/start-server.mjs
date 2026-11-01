@@ -1,7 +1,6 @@
 // Playwright webServer entry: launches the real Kinotta server against a temp copy of a sample
 // project, with explicit mtimes so the rail order is deterministic.
 import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { register } from 'tsx/esm/api';
 
@@ -39,13 +38,17 @@ function closeOnSignals(server) {
   }
 }
 
+// The runner owns this parent root even when Windows force-kills this server.
+const runRoot = process.env.KINOTTA_E2E_ROOT;
+if (!runRoot) throw new Error('KINOTTA_E2E_ROOT must be supplied by the Playwright runner');
+
 // Isolate saved styles and migrations from the real home and other fixture servers.
-process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-e2e-home-'));
+process.env.KINOTTA_HOME = mkdtempSync(join(runRoot, 'kinotta-e2e-home-'));
 tempRoots.push(process.env.KINOTTA_HOME);
 
 const fixtureName = process.env.KINOTTA_E2E_FIXTURE ?? 'showreel-project';
 const fixture = resolve(import.meta.dirname, '../fixtures/projects', fixtureName);
-const project = mkdtempSync(join(tmpdir(), 'kinotta-e2e-'));
+const project = mkdtempSync(join(runRoot, 'kinotta-e2e-'));
 tempRoots.push(project);
 cpSync(fixture, project, { recursive: true });
 

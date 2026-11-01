@@ -1,5 +1,18 @@
+import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
 import { port as fixturePort, projectFile } from './tests/e2e/ports.ts';
+
+// Playwright also loads the config in workers. Reuse the root inherited from
+// this runner instead of creating another one for every config evaluation.
+const inheritedRoot = process.env.KINOTTA_E2E_ROOT;
+const runnerPid = inheritedRoot ? process.env.KINOTTA_E2E_RUNNER_PID! : String(process.pid);
+const runRoot = inheritedRoot ?? join(tmpdir(), `kinotta-e2e-run-${runnerPid}-${Date.now()}`);
+if (!inheritedRoot) mkdirSync(runRoot);
+process.env.KINOTTA_E2E_ROOT = runRoot;
+process.env.KINOTTA_E2E_RUNNER_PID = runnerPid;
+process.env.KINOTTA_TEST_ROOT = runRoot;
 
 const E2E_PORT = fixturePort('shared');
 /** A second server with its own temp project, for the specs that save comments and so change what it holds. */
@@ -75,11 +88,12 @@ const STALE_EDIT_PORT = fixturePort('staleEdit');
 const STALE_EDIT_PROJECT_FILE = projectFile('stale-edit');
 
 // Servers start through a shell, so they watch the Playwright runner's pid, not their parent's, to exit with it.
-const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: String(process.pid) });
+const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: runnerPid, KINOTTA_E2E_ROOT: runRoot, KINOTTA_TEST_ROOT: runRoot });
 
 export default defineConfig({
   testDir: 'tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
+  globalTeardown: './tests/e2e/global-teardown.ts',
   testMatch: '**/*.spec.ts',
   // Two browsers at a time locally: the default (half the cores) has run the machine out of memory mid-suite.
   workers: process.env.CI ? undefined : 2,

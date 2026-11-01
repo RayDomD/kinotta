@@ -2,7 +2,7 @@ import { lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 
-export const RUN_ROOT_ENV = 'KINOTTA_TEST_RUN_ROOT';
+export const RUN_ROOT_ENV = 'KINOTTA_TEST_ROOT';
 const STALE_MS = 6 * 60 * 60 * 1000;
 const REMOVE_OPTIONS = { recursive: true, force: true, maxRetries: 5, retryDelay: 200 };
 let lastEpoch = 0;
@@ -43,6 +43,19 @@ export function removeTempRoot(root: string): void {
   }
 }
 
+function processIsAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0 || pid > 0xffffffff) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // Access denied is not evidence that another lane's process exited.
+    if ((error as NodeJS.ErrnoException).code === 'EPERM') return true;
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
 export function sweepStaleTempRoots(): void {
   const cutoff = Date.now() - STALE_MS;
   for (const name of readdirSync(tmpdir())) {
@@ -50,7 +63,9 @@ export function sweepStaleTempRoots(): void {
     const root = join(tmpdir(), name);
     try {
       const newest = newestMtime(root);
-      if (newest !== null && newest < cutoff) removeTempRoot(root);
+      const run = /^kinotta-(?:test|e2e)-run-(\d+)-(\d+)$/.exec(name);
+      const deadRunner = run !== null && !processIsAlive(Number(run[1]));
+      if (newest !== null && (deadRunner || newest < cutoff)) removeTempRoot(root);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn(`Could not inspect temp root ${root}: ${(error as NodeJS.ErrnoException).code}`);
     }
