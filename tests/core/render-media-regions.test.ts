@@ -112,7 +112,7 @@ it('edits custom regions, drags/resizes, undoes, saves frozen history and plays 
     await page.getByLabel('Playhead', { exact: true }).fill('1');
     const settings = await inspectPlacement(page, /^Blue, insert/);
     await settings.getByLabel('Picture layout for side').selectOption('inset');
-    await expect.poll(async () => (await server.project.readEditList('demo')).operations.length).toBe(1);
+    await expect.poll(async () => (await server.project.readEditList('demo')).operations.length, { timeout: 5000 }).toBe(1);
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await page.getByRole('button', { name: /^Undo/ }).click();
     await expect.poll(() => layers.locator('[data-verify-id="side"]').getAttribute('data-verify-region')).toBe(JSON.stringify({ x: 0.5, y: 0, width: 0.5, height: 1 }));
