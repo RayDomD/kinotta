@@ -1,13 +1,13 @@
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { tempDir } from '../helpers/temp.ts';
 
 /** Real React hooks and media elements, without using an owner's API server. */
 export async function browserHarness() {
-  const cacheDir = await mkdtemp(join(tmpdir(), 'kinotta-web-tests-'));
+  const cacheDir = tempDir('kinotta-web-tests-');
   const server = await createServer({ configFile: false, root: process.cwd(), cacheDir, plugins: [react()],
     server: { host: '127.0.0.1', port: 0, fs: { allow: [resolve('../..')] } } });
   await server.listen();
