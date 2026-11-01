@@ -54,7 +54,7 @@ const sample = (page: Page) => page.evaluate(() => {
   return { clock: Number(main.getAttribute('data-verify-clock')), waiting: main.getAttribute('data-verify-waiting') === 'true', picture: video?.currentTime ?? null };
 });
 
-const PICTURE = '**/media/founder-talk/1/take';
+const PICTURE = '**/media/founder-talk/1/take?*';
 
 it.each([[1, 2], [0, 1]])('previews a selected snip from %s to %s with the same excluded interval in picture and sound, without saving an edit', { timeout: TIMEOUT_MS }, async (from, to) => {
   const server = await startServer({ projectDir: reelWithPicture(), port: 0 });
@@ -237,6 +237,6 @@ it('retries a failed still on its clip with a fresh request, and keeps its note 
     await expect.poll(() => page.locator('[data-verify-unit="PictureLayer"] img.mv-picture').evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(160);
     expect(await note.count()).toBe(0);
     expect(await retry.count()).toBe(0);
-    expect(requests.some((url) => url.endsWith('?retry=1'))).toBe(true);
+    expect(requests.some((url) => { const query = new URL(url).searchParams; return query.get('working') === '1' && query.get('retry') === '1'; })).toBe(true);
   } finally { await browser.close(); await server.close(); }
 });
