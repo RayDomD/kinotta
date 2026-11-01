@@ -15,6 +15,6 @@ export function ClipStills({ source, start, end, duration, loop, url }: { source
   return <span className="native-stills" ref={ref} aria-hidden="true">{Array.from({ length: count }, (_, index) => {
     const local = index / count * duration; const range = end - start;
     const time = start + (loop && range > 0 ? local % range : Math.min(local, Math.max(0, range - 0.001)));
-    return <img key={`${source}:${time}`} src={url(source, time)} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}/>
+    return <img key={`${source}:${time}`} src={url(source, time)} alt="" loading="lazy" fetchPriority="low" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}/>
   })}</span>;
 }
