@@ -2,7 +2,7 @@ import { lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 
-export const RUN_ROOT_ENV = 'KINOTTA_TEST_ROOT';
+export const RUN_ROOT_ENV = 'KINOTTA_TEST_RUN_ROOT';
 const STALE_MS = 6 * 60 * 60 * 1000;
 const REMOVE_OPTIONS = { recursive: true, force: true, maxRetries: 5, retryDelay: 200 };
 let lastEpoch = 0;

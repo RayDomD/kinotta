@@ -12,7 +12,7 @@ const runRoot = inheritedRoot ?? join(tmpdir(), `kinotta-e2e-run-${runnerPid}-${
 if (!inheritedRoot) mkdirSync(runRoot);
 process.env.KINOTTA_E2E_ROOT = runRoot;
 process.env.KINOTTA_E2E_RUNNER_PID = runnerPid;
-process.env.KINOTTA_TEST_ROOT = runRoot;
+process.env.KINOTTA_TEST_RUN_ROOT = runRoot;
 
 const E2E_PORT = fixturePort('shared');
 /** A second server with its own temp project, for the specs that save comments and so change what it holds. */
@@ -88,7 +88,7 @@ const STALE_EDIT_PORT = fixturePort('staleEdit');
 const STALE_EDIT_PROJECT_FILE = projectFile('stale-edit');
 
 // Servers start through a shell, so they watch the Playwright runner's pid, not their parent's, to exit with it.
-const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: runnerPid, KINOTTA_E2E_ROOT: runRoot, KINOTTA_TEST_ROOT: runRoot });
+const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E2E_RUNNER_PID: runnerPid, KINOTTA_E2E_ROOT: runRoot, KINOTTA_TEST_RUN_ROOT: runRoot });
 
 export default defineConfig({
   testDir: 'tests/e2e',
