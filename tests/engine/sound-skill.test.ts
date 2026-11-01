@@ -2,7 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
-import { applyOperation, mediaTimeline } from '../../server/core/model.ts';import type { Operation, Plan, Sources } from '../../server/core/model.ts';
+import { applyOperation, mediaTimeline } from '../../server/core/model.ts';
+import type { Operation, Plan, Sources } from '../../server/core/model.ts';
 import { tempDir } from '../helpers/temp.ts';
 
 const PROCESS_TEST_TIMEOUT_MS = 30_000;
