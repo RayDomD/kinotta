@@ -17,3 +17,7 @@ Verify the exact user interaction on the requested surface. Report what the chec
 The owner confirmed that alternatives should be previewed, switched, and applied directly within one stacked Storyboard shot card, including animated playback. The card retains its alternate count and indication of the option in the reel. The large chooser and playback only in Review do not satisfy this decision.
 
 This is a requested interaction, not a claim that it is implemented. Read `docs/mockups/2026-10-13-alternates-in-storyboard.html` for earlier context, but use the owner's newer inline-card decision when implementing this change. Preserve the existing animated revisions and the fix that makes Review load the chosen Working revision.
+
+## Render tests for editor and media changes
+
+A change under `web/src/review/**` or `server/core/_internal/media-*` requires `npx vitest run --project render` to pass, or every failure must match an open issue by exact test name. Continuous integration skips the render project, which is why these tests must be verified directly. A failure in a file that already has known failures is still a regression unless that exact test name is tracked in an open issue.
