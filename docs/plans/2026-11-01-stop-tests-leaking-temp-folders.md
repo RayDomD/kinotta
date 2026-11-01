@@ -1,7 +1,7 @@
 ---
 title: Stop tests leaking temp folders
 date: 2026-11-01
-status: Draft
+status: Approved
 summary: Tests leave about 61 GB and 158,000 kinotta-* folders in Temp. One shared helper never deletes what it makes; fix it, move the other sites onto it, and add a guard.
 spec:
 ---
@@ -42,7 +42,8 @@ The creator of the biggest group is `tests/helpers/project.ts`: `copyFixture()` 
 1. Helper, `globalSetup` for the three Vitest projects, `project.ts` switched over, the guard test and its exception list. One commit: `test: give every test run one temp root and remove it afterwards`. Lane: codex (it needs judgment on workers, Windows locks and concurrent runs).
 2. Playwright side: `start-server.mjs` cleanup and the stale sweep. One commit: `test: remove the e2e server's temp folders`. Lane: codex.
 3. Move the 37 direct `mkdtemp` files onto `tempDir`, one commit per folder (`tests/engine`, `tests/core`, `tests/e2e`, `tests/web`). Lane: agy, one subagent per folder, since the edits are mechanical and do not overlap.
-4. Claude runs the verification below and writes the Result.
+4. Gate leak check in `scripts/verify-lane.mjs`: list the `kinotta-*` entries in the temp folder before the gate runs and after it finishes, and fail the gate when new ones remain, printing up to 10 names. An entry whose name is a run root with a live process id is another lane's running test and is ignored. This catches any leak the guard test cannot see, such as a new code path that calls `os.tmpdir()` without `mkdtemp`, or a spawned process. One commit: `chore: fail the lane gate when a run leaves temp folders behind`. Lane: codex, after steps 1 and 2 are verified.
+5. Claude runs the verification below and writes the Result.
 
 ## Risks
 
@@ -62,4 +63,6 @@ The creator of the biggest group is `tests/helpers/project.ts`: `copyFixture()` 
 ## Changelog
 
 ### 2026-11-01
-- Plan created as Draft from the retro finding F7 and the Temp inventory. Not yet approved.
+- Plan created as Draft from the retro finding F7 and the Temp inventory.
+- Owner approved the plan. Status set to Approved.
+- Owner asked how to avoid this in future; added step 4, a gate leak check that fails when a run leaves `kinotta-*` folders behind.
