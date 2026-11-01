@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 it('writes a contact sheet in paths with spaces and removes its temporary stills on success and failure', { timeout: 30_000 }, () => {
-  const root = mkdtempSync(join(tmpdir(), 'kinotta sheet '));
+  const root = tempDir('kinotta sheet ');
   try {
     const html = join(root, 'scene with spaces.html');
     const output = join(root, 'contact sheet.png');

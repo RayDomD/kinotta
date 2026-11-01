@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
 import { composePlan, exampleClip } from '../helpers/engine.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const SHOTS_SCRIPT = resolve(import.meta.dirname, '../../skill/kinotta/scripts/shots.py');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
@@ -36,7 +36,7 @@ interface Built {
 }
 
 function build(plan: Record<string, unknown>): Built {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-pieces-'));
+  const dir = tempDir('kinotta-pieces-');
   writeFileSync(join(dir, 'transcript.json'), JSON.stringify({ words: WORDS.map(([text, start, end]) => ({ text, start, end })) }));
   writeFileSync(join(dir, 'plan.json'), JSON.stringify({ title: 'Pieces', transcript: 'transcript.json', captions: true, ...plan }));
   composePlan(join(dir, 'plan.json'), join(dir, 'page.html'));
