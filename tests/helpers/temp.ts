@@ -14,17 +14,12 @@ export function createRunRoot(): string {
   return root;
 }
 
-// Never traverse a link/junction. A null result excludes its entire top-level root.
-function newestMtime(path: string): number | null {
+// lstat never follows a link or junction; a link counts by its own mtime and is not entered.
+function newestMtime(path: string): number {
   const stat = lstatSync(path);
-  if (stat.isSymbolicLink()) return null;
   let newest = stat.mtimeMs;
   if (stat.isDirectory()) {
-    for (const name of readdirSync(path)) {
-      const child = newestMtime(join(path, name));
-      if (child === null) return null;
-      newest = Math.max(newest, child);
-    }
+    for (const name of readdirSync(path)) newest = Math.max(newest, newestMtime(join(path, name)));
   }
   return newest;
 }
@@ -36,7 +31,7 @@ export function removeTempRoot(root: string): void {
     throw new Error(`Refusing to remove unexpected temp root: ${root}`);
   }
   try {
-    if (newestMtime(absolute) === null) return;
+    // rmSync removes a link or junction itself and never follows it into its target.
     rmSync(absolute, REMOVE_OPTIONS);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn(`Could not remove temp root ${root}: ${(error as NodeJS.ErrnoException).code}`);
@@ -65,7 +60,7 @@ export function sweepStaleTempRoots(): void {
       const newest = newestMtime(root);
       const run = /^kinotta-(?:test|e2e)-run-(\d+)-(\d+)$/.exec(name);
       const deadRunner = run !== null && !processIsAlive(Number(run[1]));
-      if (newest !== null && (deadRunner || newest < cutoff)) removeTempRoot(root);
+      if (deadRunner || newest < cutoff) removeTempRoot(root);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn(`Could not inspect temp root ${root}: ${(error as NodeJS.ErrnoException).code}`);
     }

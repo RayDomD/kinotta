@@ -3,9 +3,9 @@ import { spawn } from 'node:child_process';
 // Plain Node in a separate process: Playwright force-kills its webServers only
 // after global teardown, so the reaper must outlive the runner and its workers.
 const REAPER = String.raw`
-const { existsSync, lstatSync, readdirSync, rmSync } = require('node:fs');
+const { existsSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { dirname, join, resolve, basename } = require('node:path');
+const { dirname, resolve, basename } = require('node:path');
 const [rootArg, pidArg] = process.argv.slice(1);
 const root = resolve(rootArg);
 const pid = Number(pidArg);
@@ -20,11 +20,6 @@ function alive() {
     if (error.code === 'EPERM') return true;
     throw error;
   }
-}
-function containsLink(path) {
-  const stat = lstatSync(path);
-  if (stat.isSymbolicLink()) return true;
-  return stat.isDirectory() && readdirSync(path).some(name => containsLink(join(path, name)));
 }
 (async () => {
   while (alive()) await sleep(200);
