@@ -49,6 +49,10 @@ Delete the generation chain end to end (script, runner function, core service, H
 
 ## Changelog
 
+### 2026-11-01
+- Recorded the final Round 2 triage: all five selected render failures reproduce on parent `6ec159d` and on `3afa554`, including both additional branch runs; they are unrelated to the Stable Audio removal.
+- Kept synthesis timeout and transport assertion findings separate; Status remains In Progress pending the remaining suite follow-up and owner's completion decision.
+
 ### 2026-10-31
 - Plan created and approved.
 - Resumed the partial implementation; also removed the web ToolStatus entry and the obsolete null-body endpoint case found during the reference audit.
@@ -65,5 +69,5 @@ The removal is implemented. Status remains In Progress because the goal requires
 - Passed: tool, tools HTTP and null-body HTTP tests (13 tests). All 10 sound-skill tests pass with `--testTimeout=30000`.
 - Full `npm test`: 173 files passed, 8 failed; 1,467 tests passed, 12 failed, 7 skipped (1,486 total), in 1,528.86 seconds. Two failures were synthesis tests exceeding the default 5-second timeout; the longer-timeout rerun passed.
 - The full run exposed one obsolete Generate-prompt section inside the mixed transport test; removed those steps. Its rerun now reaches a viewer-height assertion. Both this assertion and the divider assertion reproduce with identical values in an untouched HEAD snapshot, proving those two failures predate the removal.
-- Eight other render failures remain in media-elements (1), media-preview (1), media-regions (2), media-sync (2), media-verify (1), and timeline-window (1). Their code was not changed; they were not baseline-verified. No unrelated fixes were added.
-- Follow-up: resolve or separately triage the remaining suite failures before marking this plan Done. The full suite was not rerun after removing the obsolete mixed-test steps; the affected test was rerun directly.
+- Final Round 2 triage (`.herdr/briefs/2026-11-01-stable-audio-failure-triage-codex.md`): five render failures reproduce with matching messages and assertion locations on the correct parent `6ec159d` and removal commit `3afa554`. They are unrelated to the removal: custom regions (`render-media-regions.test.ts:115`), both retry tests (`render-media-sync.test.ts:190` and `:240`), MediaEditor invariants A6 (`render-media-verify.test.ts:77`), and timeline window (`render-timeline-window.test.ts:89`). Both additional branch runs failed identically; no variation was observed across the three branch runs. This does not establish root cause or rule out flakiness in other runs. No unrelated fixes were added.
+- Follow-up before Done: address the separately recorded pre-existing render and transport failures and synthesis timeout configuration, then verify the full-suite goal or obtain the owner's decision on how those failures affect completion. Status remains In Progress for that decision. The full suite was not rerun after removing the obsolete mixed-test steps; the affected test was rerun directly. This documentation update uses the final Round 2 evidence and runs no tests.
