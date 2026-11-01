@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Page } from '../helpers/editor-test.ts';
 import { revealReelRail } from '../helpers/review-rail.ts';
 import { serverUrl } from './ports.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 // Building v1 runs the real build, so the first wait after a drop is longer than the default.
 const BUILD_WAIT_MS = 30_000;
@@ -70,7 +70,7 @@ test('a dropped video shows as a row with Remove, which deletes the copy; a copy
 const unique = (tag: string): Buffer => Buffer.concat([DROPPED_VIDEO.buffer, Buffer.from(`${tag}-${Date.now()}`)]);
 
 test('a chosen folder brings in every video in it and its subfolders, skipping hidden and other files', async ({ page }) => {
-  const folder = join(mkdtempSync(join(tmpdir(), 'kinotta-drop-')), 'Resumevid');
+  const folder = join(tempDir('kinotta-drop-'), 'Resumevid');
   mkdirSync(join(folder, 'more'), { recursive: true });
   writeFileSync(join(folder, 'folder-clip.mp4'), unique('folder'));
   writeFileSync(join(folder, 'more', 'nested-clip.mp4'), unique('nested'));

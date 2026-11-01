@@ -1,14 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { launchAgent } from '../../server/core/_internal/runner.ts';
 import { copyFixture } from '../helpers/project.ts';
 import type { AgentJob } from '../../web/src/api/_internal/client.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 test.beforeEach(() => {
-  process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'agent-strip-home-'));
+  process.env.KINOTTA_HOME = tempDir('agent-strip-home-');
 });
 
 async function auto(page: Page, url: string, title: string) {

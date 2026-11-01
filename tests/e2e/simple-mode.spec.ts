@@ -1,16 +1,16 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { SnipOperation } from '../../server/core/model.ts';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
 import type { AgentJob } from '../../web/src/api/_internal/client.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 // Inline servers need their own home too; the Playwright fixture launcher is a separate process.
 test.beforeEach(() => {
-  process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-e2e-home-'));
+  process.env.KINOTTA_HOME = tempDir('kinotta-e2e-home-');
 });
 
 const simpleTime = async (page: Page) => Number(await page.locator('.sm-preview [data-verify-unit="Transport"]').getAttribute('data-verify-time'));
