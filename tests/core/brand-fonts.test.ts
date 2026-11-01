@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { fontsFromDesign, readBrandFonts } from '../../server/core/_internal/brand-fonts.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 it('reads words and numbers families from a design file\'s typography', () => {
   expect(fontsFromDesign(readFileSync(resolve('DESIGN.md'), 'utf8'))).toEqual({ words: 'Outfit', numbers: 'Doto' });
@@ -10,7 +10,7 @@ it('reads words and numbers families from a design file\'s typography', () => {
 });
 
 it('follows reels/brand.md to the type source, falls back to DESIGN.md, then to the built-in brand', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-brand-'));
+  const dir = tempDir('kinotta-brand-');
   expect(await readBrandFonts(dir)).toEqual({ words: 'Geist', numbers: 'Geist Mono', source: 'built-in' });
   writeFileSync(join(dir, 'DESIGN.md'), '---\ntypography:\n  body:\n    fontFamily: "Inter, sans-serif"\n---\n');
   expect(await readBrandFonts(dir)).toEqual({ words: 'Inter', numbers: 'Inter', source: 'brand', file: 'DESIGN.md' });
@@ -25,7 +25,7 @@ it('follows reels/brand.md to the type source, falls back to DESIGN.md, then to 
 
 it('copies a dropped font into fonts/ under a free name with a license note, and refuses anything else', async () => {
   const { importFont } = await import('../../server/core/_internal/fonts.ts');
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-fonts-'));
+  const dir = tempDir('kinotta-fonts-');
   const body = async function* () { yield new TextEncoder().encode('font bytes'); };
   expect(await importFont(dir, 'Brand_Sans-Bold.woff2', body())).toEqual({ path: 'fonts/Brand_Sans-Bold.woff2', family: 'Brand Sans Bold' });
   expect(await importFont(dir, '../../Brand_Sans-Bold.woff2', body())).toEqual({ path: 'fonts/Brand_Sans-Bold-2.woff2', family: 'Brand Sans Bold' });

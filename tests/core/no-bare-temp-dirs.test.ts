@@ -5,17 +5,6 @@ import { expect, it } from 'vitest';
 // Exact paths only; remove each migration exception when its file moves to tempDir.
 const EXCEPTIONS: Record<string, string> = {
   'tests/e2e/start-server.mjs': 'plain Node server owns and removes its project and home folders',
-  'tests/core/agent-cuts.test.ts': 'to be moved to tempDir',
-  'tests/core/agent-jobs.test.ts': 'to be moved to tempDir',
-  'tests/core/agent-output.test.ts': 'to be moved to tempDir',
-  'tests/core/agent-settings.test.ts': 'to be moved to tempDir',
-  'tests/core/brand-fonts.test.ts': 'to be moved to tempDir',
-  'tests/core/copy-round-trip.test.ts': 'to be moved to tempDir',
-  'tests/core/copy-watch-failure.test.ts': 'to be moved to tempDir',
-  'tests/core/copy-watch-startup-race.test.ts': 'to be moved to tempDir',
-  'tests/core/media-beat-detection.test.ts': 'to be moved to tempDir',
-  'tests/core/reel-style.test.ts': 'to be moved to tempDir',
-  'tests/core/style.test.ts': 'to be moved to tempDir',
   'tests/e2e/agent-confirm.spec.ts': 'to be moved to tempDir',
   'tests/e2e/agent-strip.spec.ts': 'to be moved to tempDir',
   'tests/e2e/copy-round-trip.spec.ts': 'to be moved to tempDir',

@@ -1,5 +1,4 @@
-import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +10,7 @@ import {
 } from '../../server/core/_internal/style.ts';
 import { makeOptions } from '../../server/core/_internal/make-options.ts';
 import { migrateSimpleOptionsProfile, readSimpleOptions, STORAGE_KEY, MIGRATED_STORAGE_KEY } from '../../web/src/simple-options.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 let dir: string;
 let home: string;
@@ -23,7 +23,7 @@ const sample = (id = 'custom', scope: 'user' | 'project' = 'user'): Style => ({
   music: { file: 'music/song.wav', fit: 'under', duck: true }, effects: ['title-card'], shots: 'Show the desk', rules: ['Leave pauses'],
 });
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'kinotta-style-'));
+  dir = tempDir('kinotta-style-');
   home = join(dir, 'home');
   vi.stubEnv('KINOTTA_HOME', home);
   await mkdir(join(dir, 'reels', 'demo'), { recursive: true });
