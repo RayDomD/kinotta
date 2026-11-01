@@ -8,7 +8,7 @@
 //   node scripts/verify-lane.mjs [--brief <path>] [--base origin/main] [--force]
 // --force runs Playwright even when free memory is below the floor.
 import { spawnSync, execFileSync } from 'node:child_process';
-import { closeSync, mkdirSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { freemem } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,14 @@ const GB = 1024 ** 3;
 const STAMP_CHARS = 19;
 
 const args = process.argv.slice(2);
+if (args.includes('--help') || args.includes('-h')) {
+  console.log('Usage, from the lane\'s worktree:');
+  console.log('  node scripts/verify-lane.mjs [--brief <path>] [--base origin/main] [--force] [--unit-only] [-- <vitest args>]');
+  console.log('--force runs Playwright even when free memory is below the floor.');
+  console.log('--unit-only skips Playwright. Arguments after -- go to vitest, for example a single test file.');
+  console.log('Failing unit tests are matched by file and exact name against scripts/known-test-failures.txt.');
+  process.exit(0);
+}
 const option = (name) => {
   const at = args.indexOf(name);
   if (at === -1) return undefined;
@@ -34,6 +42,9 @@ const option = (name) => {
 const brief = option('--brief');
 const base = option('--base') ?? 'origin/main';
 const force = args.includes('--force');
+const unitOnly = args.includes('--unit-only');
+const dashDash = args.indexOf('--');
+const extraTestArgs = dashDash !== -1 ? ' ' + args.slice(dashDash + 1).join(' ') : '';
 
 const root = process.cwd();
 const git = (...gitArgs) => execFileSync('git', ['-c', 'core.quotepath=false', ...gitArgs], { encoding: 'utf8' }).trim();
@@ -68,11 +79,108 @@ function memoryOk(step) {
 }
 
 // Diff from the merge base, so commits that landed on base since the branch started do not show up.
+function loadKnownFailures(file) {
+  if (!existsSync(file)) return [];
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+  const entries = [];
+  for (const raw of lines) {
+    const line = raw.replace(/#.*/, '').trim();
+    if (!line) continue;
+    const parts = line.split('|').map((part) => part.trim());
+    if (parts.length >= 2) {
+      entries.push({
+        file: parts[0].replace(/^\.\//, '').split('\\').join('/'),
+        name: parts[1],
+        issue: parts[2] ?? '',
+        raw,
+      });
+    }
+  }
+  return entries;
+}
+
+function matchesFailure(item, entry) {
+  const normItemFile = item.file.replace(/^\.\//, '').split('\\').join('/');
+  const normEntryFile = entry.file.replace(/^\.\//, '').split('\\').join('/');
+  const fileMatch = normItemFile === normEntryFile || normItemFile.endsWith(`/${normEntryFile}`);
+  const nameMatch = entry.name === item.name || entry.name === item.title || entry.name === item.fullName;
+  return fileMatch && nameMatch;
+}
+
+function runUnit() {
+  const name = 'unit';
+  const log = join(logDir, `${name}.log`);
+  const unitJson = join(logDir, `${name}.json`).split(sep).join('/');
+  const fd = openSync(log, 'w');
+  const started = Date.now();
+  const command = `npm test --${extraTestArgs} --reporter=default --reporter=json --outputFile.json="${unitJson}"`;
+  const { status } = spawnSync(command, { shell: true, stdio: ['ignore', fd, fd] });
+  closeSync(fd);
+
+  const knownFile = join(root, 'scripts/known-test-failures.txt');
+  const knownEntries = loadKnownFailures(knownFile);
+
+  const failingTests = [];
+  const passingTests = [];
+  // A file that failed without any failed test (it did not load, or crashed) is never explained by the allowlist.
+  const brokenFiles = [];
+
+  if (existsSync(unitJson)) {
+    try {
+      const report = JSON.parse(readFileSync(unitJson, 'utf8'));
+      for (const testFile of report.testResults ?? []) {
+        const relFile = relative(root, testFile.name).split(sep).join('/');
+        if (testFile.status === 'failed' && !(testFile.assertionResults ?? []).some((assertion) => assertion.status === 'failed')) brokenFiles.push(relFile);
+        for (const assertion of testFile.assertionResults ?? []) {
+          const testName = assertion.fullName || assertion.title;
+          const info = { file: relFile, name: testName, title: assertion.title, fullName: assertion.fullName };
+          if (assertion.status === 'failed') {
+            failingTests.push(info);
+          } else if (assertion.status === 'passed') {
+            passingTests.push(info);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`warning: could not parse vitest JSON report: ${err.message}`);
+    }
+  }
+
+  for (const entry of knownEntries) {
+    const passed = passingTests.some((test) => matchesFailure(test, entry));
+    if (passed) {
+      console.log(`can be removed: ${entry.file} | ${entry.name}`);
+    }
+  }
+
+  const unexpectedFailures = [];
+  for (const failure of failingTests) {
+    const isKnown = knownEntries.some((entry) => matchesFailure(failure, entry));
+    if (!isKnown) {
+      unexpectedFailures.push(failure);
+      console.log(`failing test: ${failure.file} | ${failure.name}`);
+    }
+  }
+
+  for (const file of brokenFiles) console.log(`failing file (no test result): ${file}`);
+  const ok = status === 0 || (unexpectedFailures.length === 0 && failingTests.length > 0 && brokenFiles.length === 0);
+  const duration = Math.round((Date.now() - started) / 1000);
+  let note = `${duration}s, ${log}`;
+  if (failingTests.length > 0 && unexpectedFailures.length === 0) {
+    note += ` (${failingTests.length} known failure(s) allowlisted)`;
+  } else if (unexpectedFailures.length > 0) {
+    note += ` (${unexpectedFailures.length} unexpected failure(s))`;
+  }
+
+  results.push({ name, ok, note });
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name} (${results.at(-1).note})`);
+}
+
 const mergeBase = git('merge-base', base, 'HEAD');
 
 run('typecheck', 'npm run typecheck');
-run('unit', 'npm test');
-for (let shard = 1; shard <= SHARDS; shard++) {
+runUnit();
+if (!unitOnly) for (let shard = 1; shard <= SHARDS; shard++) {
   const step = `e2e-${shard}-of-${SHARDS}`;
   if (memoryOk(step)) run(step, `npx playwright test --shard=${shard}/${SHARDS} --workers=${WORKERS}`);
 }

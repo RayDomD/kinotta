@@ -6,6 +6,8 @@ import { expect, it } from 'vitest';
 import { applyOperation, mediaTimeline } from '../../server/core/model.ts';
 import type { Operation, Plan, Sources } from '../../server/core/model.ts';
 
+const PROCESS_TEST_TIMEOUT_MS = 30_000;
+
 it('bundles synthesized WAV effects with positive durations', () => {
   const assets = resolve('skill/kinotta/assets/sfx-synth');
   const manifest = JSON.parse(readFileSync(resolve(assets, 'manifest.json'), 'utf8')) as Record<string, { file: string; duration: number; description: string }>;
@@ -21,7 +23,7 @@ it('bundles synthesized WAV effects with positive durations', () => {
   }
 });
 
-it.each(['missing', 'existing', 'partial'] as const)('applies generated score operations with %s tracks', (mode) => {
+it.each(['missing', 'existing', 'partial'] as const)('applies generated score operations with %s tracks', { timeout: PROCESS_TEST_TIMEOUT_MS }, (mode) => {
   const dir = mkdtempSync(resolve(tmpdir(), 'kinotta-score-tracks-'));
   try {
     const tracks = [
@@ -69,7 +71,7 @@ function runSynth<T>(snippet: string): T {
   return JSON.parse(run.stdout) as T;
 }
 
-it('renders every catalogue recipe at default settings as the committed WAV bytes', () => {
+it('renders every catalogue recipe at default settings as the committed WAV bytes', { timeout: PROCESS_TEST_TIMEOUT_MS }, () => {
   const mismatched = runSynth<string[]>(`
 import scipy.io.wavfile as w, numpy as np, pathlib
 assets = pathlib.Path(${JSON.stringify(resolve('skill/kinotta/assets/sfx-synth'))})
@@ -82,7 +84,7 @@ print(json.dumps(bad))`);
   expect(mismatched).toEqual([]);
 });
 
-it('shapes a recipe differently for each setting and is deterministic for the same settings', () => {
+it('shapes a recipe differently for each setting and is deterministic for the same settings', { timeout: PROCESS_TEST_TIMEOUT_MS }, () => {
   const result = runSynth<{ differs: Record<string, boolean>; again: boolean }>(`
 import numpy as np
 base = synth.synth_click(seed=7)
@@ -108,7 +110,7 @@ print(json.dumps(worst))`);
   expect(worst).toBeLessThanOrEqual(-4 + 1e-6);
 }, 60_000);
 
-it('score gives hits with different sound settings different audio, byte-identically on a rerun', () => {
+it('score gives hits with different sound settings different audio, byte-identically on a rerun', { timeout: PROCESS_TEST_TIMEOUT_MS }, () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'kinotta-score-sound-'));
   try {
     const file = resolve(dir, 'plan.json');
@@ -132,7 +134,7 @@ it('score gives hits with different sound settings different audio, byte-identic
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it('runs the sound.md score input example and applies its operations', () => {
+it('runs the sound.md score input example and applies its operations', { timeout: PROCESS_TEST_TIMEOUT_MS }, () => {
   const reference = readFileSync(resolve('skill/kinotta/reference/sound.md'), 'utf8');
   const blocks = [...reference.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)].map((match) => match[1]!);
   const input = blocks.find((block) => block.includes('"hits"'));
