@@ -81,3 +81,27 @@ Lanes: codex takes Track 2 (diagnosis, then fix) in the `fix-render-tests` workt
 - Plan created as Draft from the bisect, PR #123 diagnosis and latency measurement.
 - Owner approved the plan and left the choices to Claude: Track 3 is Option B (per-test timeout). Status set to Approved.
 - Owner asked for a way to stop this recurring and suggested `review.md`; added Track 4. Track 2's success criterion now has two parts, because the regions test was already tight at parent speed.
+- Built the fix on `fix/render-test-failures`: Track 1 and 3 test edits (agy), Track 2 app fix and poll timeouts (codex), Track 4b and 4c (agy), and a tightening of the 4c gate by Claude.
+- Track 2 cause found: the browser's 6-connection limit per origin. Two `/api/events` streams plus the thumbnail requests used every slot, so the edit POST waited 1.8 to 3.1 s before it was sent. The server took 30 to 95 ms either way. Fix: `fetchPriority="low"` on the clip thumbnails.
+
+## Result
+
+Status stays In Progress until the PR merges.
+
+**What shipped vs planned.** All four tracks are built and verified on `fix/render-test-failures`. One deviation: Track 4c's gate (written by agy) passed the step when a test file failed to load while another failure was allowlisted. It now fails on a file with no test result; proven with four temporary cases, since removed.
+
+**The seven failures**
+- Retry picture, Retry still and A6 (`render-media-sync`, `render-media-verify`): stale tests, updated for the `?working=1` media URLs and a current plan in the A6 fixture. The editor shows the failed-picture message and a Retry button, checked in the real UI.
+- Viewer divider and viewer height (`render-viewer-transport`): stale tests, updated to the 0.45 default from O3.
+- Custom-regions drag and timeline-window drag: a real slowdown from PR #105, fixed in the app. Their polls now have an explicit `{ timeout: 5000 }`, added after the speed fix because the regions test was already tight at the parent commit.
+- Median action-to-edit time on `6ec159d` before and after the fix: regions 1900 ms to 178 ms, timeline 2265 ms to 179 ms. All thumbnails still load (17 of 17 and 12 of 12).
+
+**Checks run on the combined branch**
+- `npm run build` and `npm run typecheck` pass.
+- `npx vitest run --project render`: 38 of 38 files, 124 of 124 tests (995 s).
+- `npx vitest run --project unit --project process-heavy`: 146 of 146 files, 1,374 passed, 7 skipped (569 s).
+- Playwright `working-sound-preview.spec.ts` and `editor-layout.spec.ts`: 11 of 12 on the first run. The one failure, "Narrow graphic clips hide their label", timed out waiting for a graphic clip. It did not reproduce: 3 of 3 alone with the fix, 1 of 1 alone with the fix reverted, and 11 of 11 on a rerun of the whole spec. Treated as an unreproduced flake. The e2e project is not in CI either.
+
+**Not covered.** CI still runs only `--project unit`, and the e2e project is also outside CI. A scheduled or non-blocking job that runs the render and e2e projects is a separate owner decision. Issue #82's media-preview and eq-editor items were not examined; render-media-preview and render-media-eq-editor passed in the full run.
+
+**Guards added.** `~/.claude/reference/review.md` (run the suites CI skips; known means an exact test name in an open issue), `AGENTS.md` (render tests for editor and media changes), `scripts/verify-lane.mjs` with `scripts/known-test-failures.txt` (exact-name matching, starts empty), and `.herdr/CLAUDE.md` step 4.
