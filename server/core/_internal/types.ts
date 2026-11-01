@@ -2,7 +2,6 @@ import type { MakeOptions } from './make-options.ts';
 import type { CaptionsPlan, ElementOffset, NewOperation, Operation, Plan, PlanClip, Sources } from './edit-model.ts';
 import type { PlacedPiece } from './pieces.ts';
 import type { BeatGrid, MediaPlan, MediaSource } from './media-model.ts';
-import type { AudioGenerationRequest, GeneratedAudio } from './audio-generation.ts';
 import type { DeadAirStrength } from './dead-air.ts';
 
 export type { DeadAirStrength } from './dead-air.ts';
@@ -368,8 +367,6 @@ export interface Project {
   transcribeMedia(source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech>;
   /** Analyze verified source bytes once, or explicitly replace the cached grid. */
   detectMediaBeats(source: string, saved?: { reel: string; version: number }, fresh?: boolean): Promise<BeatGrid>;
-  /** Generate a sound with the local Stable Audio Open model into the project library. One runs at a time. */
-  generateAudio(request: AudioGenerationRequest, signal?: AbortSignal): Promise<GeneratedAudio>;
   readMediaModel(slug: string): Promise<MediaEditingModel>;
   /** The project folder's name. */
   name: string;
@@ -830,7 +827,7 @@ export interface StartedReel {
 /** Turns a video's speech into timed words. The default is the skill's audio transcription; tests pass a fake. */
 export type Transcriber = (videoFile: string, onProgress?: (processedSeconds: number) => void) => Promise<TranscriptWord[]>;
 
-export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium' | 'kokoro-onnx' | 'stable-audio';
+export type ToolId = 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium' | 'kokoro-onnx';
 
 /** What a tool is for: starting a reel from a video, or rendering. */
 export type ToolUse = 'video' | 'render';

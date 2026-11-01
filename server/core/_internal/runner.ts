@@ -15,7 +15,6 @@ const SKILL_DIR = resolve(import.meta.dirname, '../../../skill/kinotta');
 const SHOTS_SCRIPT = resolve(SKILL_DIR, 'scripts/shots.py');
 const TRANSCRIPT_SCRIPT = resolve(SKILL_DIR, 'scripts/transcript.py');
 const BEATS_SCRIPT = resolve(SKILL_DIR, 'scripts/beats.py');
-const GENERATE_AUDIO_SCRIPT = resolve(SKILL_DIR, 'scripts/generate_audio.py');
 const RENDER_SCRIPT = resolve(SKILL_DIR, 'engine/render.js');
 const RUNTIME_MODULES = dirname(dirname(createRequire(import.meta.url).resolve('playwright/package.json')));
 const scriptEnvironment = (): NodeJS.ProcessEnv => ({ ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', NODE_PATH: [RUNTIME_MODULES, process.env.NODE_PATH].filter(Boolean).join(delimiter) });
@@ -26,8 +25,6 @@ const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
  */
 export const RENDER_THREADS = 4;
 const BUILD_TIMEOUT_MS = 120_000;
-/** Loading the model and 100 inference steps take about half a minute on a laptop GPU. A cold first load is slower. */
-const GENERATE_AUDIO_TIMEOUT_MS = 600_000;
 const PROBE_TIMEOUT_MS = 20_000;
 const ERROR_TAIL_CHARS = 4000;
 const MAX_AGENT_EVENT_CHARS = 1024 * 1024;
@@ -52,11 +49,6 @@ export async function extractMediaStill(file: string, output: string, time: numb
 /** Local beat analysis emits JSON, with the same optional runtime as the skill command. */
 export async function detectAudioBeats(file: string): Promise<BeatGrid> {
   return JSON.parse(await run(PYTHON, [BEATS_SCRIPT, file])) as BeatGrid;
-}
-
-/** `generate_audio.py`: a WAV from a local Stable Audio Open model. Aborting the signal stops the process. */
-export async function generateStableAudio(request: { prompt: string; seconds: number; seed: number; model: string; output: string; signal?: AbortSignal }): Promise<void> {
-  await run(PYTHON, [GENERATE_AUDIO_SCRIPT, '--prompt', request.prompt, '--seconds', String(request.seconds), '--model', request.model, '--seed', String(request.seed), request.output], GENERATE_AUDIO_TIMEOUT_MS, request.signal);
 }
 
 /** Runs a command for the startup tool check and returns its exit code and output, or null when it cannot start. Never throws. */

@@ -56,7 +56,7 @@ it('shares a keyboard scrubber, persists the viewer divider, and restores focus 
   } finally { await browser.close(); await server.close(); }
 });
 
-it('saves and edits markers, closes a sound gap in one undo, appends prompt chips and keeps the frame visible', { timeout: 120_000 }, async () => {
+it('saves and edits markers, closes a sound gap in one undo and keeps the frame visible', { timeout: 120_000 }, async () => {
   const dir = copyFixture('showreel-project');
   const sound = join(dir, 'sound.wav');
   expect(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', sound]).status).toBe(0);
@@ -109,13 +109,6 @@ it('saves and edits markers, closes a sound gap in one undo, appends prompt chip
     expect((await pinResponse).ok()).toBe(true);
     await expect.poll(async () => ({ saved: (await server.project.listComments('product-showreel', 2)).some((comment) => comment.text === 'Focus pin'), alerts: await page.getByRole('alert').allTextContents() })).toMatchObject({ saved: true, alerts: [] });
     await page.getByRole('button', { name: 'Leave focus', exact: true }).click();
-    await page.getByRole('tab', { name: 'Sound', exact: true }).click();
-    const prompt = page.getByLabel('Sound prompt', { exact: true });
-    await prompt.fill('A rise under the reveal');
-    await page.getByRole('group', { name: 'Mood suggestions' }).getByRole('button', { name: 'Warm', exact: true }).click();
-    expect(await prompt.inputValue()).toBe('A rise under the reveal, warm');
-    await page.getByRole('group', { name: 'Mood suggestions' }).getByRole('button', { name: 'Warm', exact: true }).click();
-    expect(await prompt.inputValue()).toBe('A rise under the reveal, warm');
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await expect.poll(() => page.locator('.native-shot-still iframe').count()).toBeGreaterThan(0);
     const dimensions = await page.evaluate(() => { const main = document.querySelector('main[aria-label="Review"]')!.getBoundingClientRect(); const frame = document.querySelector('.rv-frame')!.getBoundingClientRect(); return { main: main.height, frame: frame.height }; });
