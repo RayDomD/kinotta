@@ -25,6 +25,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
+          globalSetup: ['tests/helpers/temp-setup.ts'],
           // These suites also spawn scripts and browsers; bound their process fan-out.
           maxWorkers: 2,
           include: ['tests/core/**/*.test.ts', 'tests/engine/**/*.test.ts', 'tests/web/**/*.test.ts'],
@@ -32,7 +33,7 @@ export default defineConfig({
           sequence: { groupOrder: 0 },
         },
       },
-      { test: { name: 'process-heavy', include: PROCESS_HEAVY_TESTS, fileParallelism: false, testTimeout: PROCESS_TEST_TIMEOUT_MS, sequence: { groupOrder: 1 } } },
+      { test: { name: 'process-heavy', globalSetup: ['tests/helpers/temp-setup.ts'], include: PROCESS_HEAVY_TESTS, fileParallelism: false, testTimeout: PROCESS_TEST_TIMEOUT_MS, sequence: { groupOrder: 1 } } },
       {
         test: {
           name: 'render',
@@ -40,7 +41,7 @@ export default defineConfig({
           fileParallelism: false,
           sequence: { groupOrder: 2 },
           // Render tests serve dist/web without building it; rebuild a stale one first.
-          globalSetup: ['tests/helpers/web-build-setup.ts'],
+          globalSetup: ['tests/helpers/web-build-setup.ts', 'tests/helpers/temp-setup.ts'],
         },
       },
     ],
