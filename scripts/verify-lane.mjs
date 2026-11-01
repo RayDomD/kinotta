@@ -199,8 +199,9 @@ function processIsAlive(pid) {
   }
 }
 
-function liveUnitRoot(name) {
-  const match = /^kinotta-test-run-(\d+)-(\d+)$/.exec(name);
+// Another lane's concurrent run (unit or e2e) owns a root whose embedded pid is alive.
+function liveRunRoot(name) {
+  const match = /^kinotta-(?:test|e2e)-run-(\d+)-(\d+)$/.exec(name);
   return match !== null && processIsAlive(Number(match[1]));
 }
 
@@ -215,14 +216,14 @@ async function checkTempLeaks(before, beforeError) {
   try {
     let after = tempSnapshot('after');
     if (beforeError) throw new Error(`before listing failed: ${beforeError.message}`);
-    let added = [...after].filter((name) => !before.has(name) && !liveUnitRoot(name));
+    let added = [...after].filter((name) => !before.has(name) && !liveRunRoot(name));
     const deadline = Date.now() + E2E_REAPER_GRACE_MS;
     if (added.some(deadE2eRoot)) {
       console.log('temp-leaks: waiting up to 30s for dead-runner e2e roots to be reaped');
       do {
         await sleep(Math.min(TEMP_POLL_MS, Math.max(0, deadline - Date.now())));
         after = new Set(readdirSync(tmpdir()).filter((name) => name.startsWith('kinotta-')));
-        added = [...after].filter((name) => !before.has(name) && !liveUnitRoot(name));
+        added = [...after].filter((name) => !before.has(name) && !liveRunRoot(name));
       } while (added.some(deadE2eRoot) && Date.now() < deadline);
       writeFileSync(join(logDir, 'temp-leaks-after.json'), JSON.stringify([...after].sort(), null, 2));
     }
