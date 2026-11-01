@@ -11,7 +11,7 @@ import { copyFixture } from '../helpers/project.ts';
 
 const REEL = 'founder-talk';
 const ROOT = '[data-verify-unit="MediaEditor"]';
-const SOUND = '**/media/founder-talk/1/tone';
+const SOUND = '**/media/founder-talk/1/tone?*';
 /** The editor prepares sound from the audio-only file first, then the media file. */
 const SOUND_AUDIO = '**/api/media/tone/audio?*';
 
@@ -24,7 +24,9 @@ function mediaReel(empty: boolean): string {
   const media = empty
     ? { schema: 1, sources: [], placements: [], sequence: [] }
     : { schema: 1, sources: [{ id: 'tone', kind: 'audio', path: 'tone.wav', duration: 2 }], placements: [{ id: 'bed', role: 'audio', source: 'tone', at: 0, in: 0, out: 2 }], sequence: [] };
-  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify({ title: 'Verify', duration: 2, sections: [{ id: 'all', name: 'All', start: 0, end: 2 }], clips: [], media }));
+  const plan = { title: 'Verify', duration: 2, sections: [{ id: 'all', name: 'All', start: 0, end: 2 }], clips: [], media };
+  writeFileSync(join(reel, 'plan.json'), JSON.stringify({ ...plan, media: { ...media, sources: media.sources.map((source) => ({ ...source, path: `v1/${source.path}` })) } }));
+  writeFileSync(join(reel, 'v1/plan.json'), JSON.stringify(plan));
   writeFileSync(join(reel, 'v1/shots.json'), JSON.stringify({ contract: 1, duration: 2, sections: [{ id: 'all', name: 'All', start: 0, end: 2 }], shots: [] }));
   writeFileSync(join(reel, 'v1/index.html'), '<!doctype html><html class="alpha"><script>window.DURATION=2;window.seek=()=>{};</script>');
   return dir;
