@@ -8,8 +8,9 @@
 //   node scripts/verify-lane.mjs [--brief <path>] [--base origin/main] [--force]
 // --force runs Playwright even when free memory is below the floor.
 import { spawnSync, execFileSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
-import { freemem } from 'node:os';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { freemem, tmpdir } from 'node:os';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +18,9 @@ const MIN_FREE_GB = 3;
 const SHARDS = 2;
 const WORKERS = 2;
 const GB = 1024 ** 3;
+const E2E_REAPER_GRACE_MS = 30_000;
+const TEMP_POLL_MS = 250;
+const MAX_LEAK_NAMES = 10;
 // Length of an ISO timestamp up to the seconds, used as the log folder name.
 const STAMP_CHARS = 19;
 
@@ -176,7 +180,76 @@ function runUnit() {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name} (${results.at(-1).note})`);
 }
 
+function tempSnapshot(phase) {
+  // A failed listing or evidence write must fail temp-leaks, never look empty.
+  const entries = new Set(readdirSync(tmpdir()).filter((name) => name.startsWith('kinotta-')));
+  writeFileSync(join(logDir, `temp-leaks-${phase}.json`), JSON.stringify([...entries].sort(), null, 2));
+  return entries;
+}
+
+function processIsAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0 || pid > 0xffffffff) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === 'EPERM') return true;
+    if (error.code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+function liveUnitRoot(name) {
+  const match = /^kinotta-test-run-(\d+)-(\d+)$/.exec(name);
+  return match !== null && processIsAlive(Number(match[1]));
+}
+
+function deadE2eRoot(name) {
+  const match = /^kinotta-e2e-run-(\d+)-(\d+)$/.exec(name);
+  return match !== null && !processIsAlive(Number(match[1]));
+}
+
+async function checkTempLeaks(before, beforeError) {
+  let ok = false;
+  let note;
+  try {
+    let after = tempSnapshot('after');
+    if (beforeError) throw new Error(`before listing failed: ${beforeError.message}`);
+    let added = [...after].filter((name) => !before.has(name) && !liveUnitRoot(name));
+    const deadline = Date.now() + E2E_REAPER_GRACE_MS;
+    if (added.some(deadE2eRoot)) {
+      console.log('temp-leaks: waiting up to 30s for dead-runner e2e roots to be reaped');
+      do {
+        await sleep(Math.min(TEMP_POLL_MS, Math.max(0, deadline - Date.now())));
+        after = new Set(readdirSync(tmpdir()).filter((name) => name.startsWith('kinotta-')));
+        added = [...after].filter((name) => !before.has(name) && !liveUnitRoot(name));
+      } while (added.some(deadE2eRoot) && Date.now() < deadline);
+      writeFileSync(join(logDir, 'temp-leaks-after.json'), JSON.stringify([...after].sort(), null, 2));
+    }
+    added.sort();
+    const counts = new Map();
+    for (const name of added) {
+      const prefix = name.match(/^kinotta-(?:test|e2e)-run-/)?.[0] ?? name.slice(0, name.lastIndexOf('-') + 1);
+      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+    }
+    const prefixes = [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([prefix, count]) => `${prefix}: ${count}`).join(', ');
+    ok = added.length === 0;
+    note = ok ? `${before.size} before, ${after.size} after; no new temp entries`
+      : `${added.length} new temp entries; prefixes: ${prefixes}; names: ${added.slice(0, MAX_LEAK_NAMES).join(', ')}`;
+    writeFileSync(join(logDir, 'temp-leaks.log'), note + '\n');
+  } catch (error) {
+    ok = false;
+    note = `cannot verify temp entries in ${tmpdir()}: ${error.message}`;
+  }
+  results.push({ name: 'temp-leaks', ok, note });
+  console.log(`${ok ? 'ok  ' : 'FAIL'} temp-leaks (${note})`);
+}
+
 const mergeBase = git('merge-base', base, 'HEAD');
+let tempBefore;
+let tempBeforeError;
+try { tempBefore = tempSnapshot('before'); }
+catch (error) { tempBeforeError = error; }
 
 run('typecheck', 'npm run typecheck');
 runUnit();
@@ -231,6 +304,8 @@ function covers(path, file) {
   }
   return file === clean || file.startsWith(`${clean}/`);
 }
+
+await checkTempLeaks(tempBefore, tempBeforeError);
 
 const failed = results.filter((result) => !result.ok);
 console.log(`\nlogs: ${logDir}`);
