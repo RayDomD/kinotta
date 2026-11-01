@@ -1,11 +1,11 @@
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { tempDir } from '../helpers/temp';
 
 const FIXTURE_VIDEO = resolve(import.meta.dirname, '../fixtures/playback-stutter-4k50.mp4');
 
 export function createStutterProject(slug: string) {
-  const dir = join(tmpdir(), `kinotta-stutter-${slug}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+  const dir = tempDir(`kinotta-stutter-${slug}-`);
   mkdirSync(join(dir, 'footage'), { recursive: true });
   copyFileSync(FIXTURE_VIDEO, join(dir, 'footage', 'fixture.mp4'));
 
