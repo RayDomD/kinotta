@@ -215,60 +215,18 @@ model transcribed 22 timed words in offline mode. The WAV played in Chromium
 and a freeze preserved its exact bytes and source word times. Review transcript text,
 especially names: Whisper spelled “Kinotta” as “Kinata” in the proof.
 
-## Stable Audio Open (optional)
+## Custom beds and ambience
 
-Use `stabilityai/stable-audio-open-1.0` for organic beds, acoustic ambience or
-specialized effects outside the synthesized set. Synthesized score and catalogue
-effects come first; Stable Audio remains optional for organic musical textures. The owner handles the gated model's access and licence terms,
-CUDA-compatible Torch, and `diffusers transformers sentencepiece soundfile`.
-See the [model card](https://huggingface.co/stabilityai/stable-audio-open-1.0).
-The tool check detects Python packages only, not CUDA readiness or model access.
-The owner supplies a complete local Diffusers snapshot outside the repository.
-The script loads local files only and uses half precision on CUDA.
-
-```text
-kinotta generate-audio --prompt "Soft ambient synth bed, no speech" --seconds 12 --out assets/bed.wav
-```
-
-`kinotta generate-audio` is the same service as the editor's Generate section at
-the top of the Sound tab. It adds the WAV to the project library, so the owner
-can play and reuse it, and `--out` also copies it beside a code-only plan. It
-prints one JSON line with the file, duration, prompt, length and seed.
-
-For each new generation, omit `--seed` to choose a fresh random seed. Supply
-`--seed <number>` only when the owner asks to reproduce a sound. In the editor,
-leave Seed blank for the same random behavior; the raw script also randomizes
-an omitted seed and reports the chosen value.
-
-For new reel music, build the prompt from that reel's identity, mood, instruments,
-and pacing. Generate a new file; reuse another reel's music only when the owner
-requests reuse. A random seed varies the sound within the prompt's musical direction.
-
-The same prompt, length and seed give the same sound. One generation runs at a time and
-takes about half a minute, so generate once per request and audition the result
-before iterating. The model folder comes from `KINOTTA_STABLE_AUDIO_MODEL`; when
-that is unset the command says so and you fall back as below. The raw
-`scripts/generate_audio.py --model <folder>` still works for scripting.
+Write custom beds and effects as code with `synth.py`, using the reel's mood,
+pacing and cut times. Use an owner-supplied file when the request needs an
+organic recording or acoustic ambience outside the synthesized set.
 
 Probe the WAV's duration and add it as an audio source. Use an `sfx` track for
 effects and a `music` track for beds. For a longer bed, use an audio placement
 with `loop: true`, the source's measured `out`, the intended placement `duration`,
-and short entry/exit fades. Listen for loop seams. A poor loop is a reason to ask
-for an owner-supplied music track. Keep levels explicit and preserve exact bytes
-through the render or hand-off freeze described in `native-media.md`.
-
-Verification on 2026-10-12: a complete owner-supplied Diffusers snapshot generated
-a 12-second stereo, 44.1 kHz FLOAT WAV on the RTX 4060 Laptop GPU in CUDA half
-precision, with downloads disabled. The working install was Python 3.14.3,
-Torch 2.11.0+cu128, Diffusers 0.41.0, Transformers 5.19.0, Accelerate 1.15.0,
-SentencePiece 0.2.2 and Soundfile 0.14.0. Snapshot revision:
-`f21265c1e2710b3bd2386596943f0007f55f802e`.
-Browser playback, exact-byte freeze and a Draft render at fixed 0.35 placement gain
-with fades passed. Keep generated FLOAT WAVs unchanged and choose explicit mix
-levels: this source peaked slightly above full scale before placement gain.
-When the tool or local model is unavailable, use synthesized catalogue effects or
-`synth.py score`, and ask the owner for a music file if an organic recording is preferred.
-Audition generation quality and loop seams before use.
+and short entry/exit fades. Listen for loop seams. Ask for an owner-supplied
+music track if the synthesized bed does not fit. Keep levels explicit and preserve
+exact bytes through the render or hand-off freeze described in `native-media.md`.
 
 ## Sound requests in comments
 
@@ -276,7 +234,7 @@ A pinned comment such as "add pulse sound" at 00:08 arrives in the `Kinotta
 comments:` batch with its reel time. Answer a sound-only request with named operations on Working:
 
 1. Prefer a synthesized catalogue effect that fits, or generate score and hit stems with `synth.py score`. Read the manifest descriptions.
-2. Otherwise generate once with `kinotta generate-audio` for organic beds or custom ambience, naming the sound in the prompt as the comment does, and a length that fits the moment.
+2. For custom sound, write it as code with `synth.py` and fit its length to the moment. Ask for an owner-supplied file when the request needs an organic recording.
 3. Place it at the comment's time on the right track: an effect on `sfx`, a bed on `music`, with the placement settings above. Do not move or retime anything else.
-4. Report which source you used in the hand-over, or in `answers.md` when the batch also includes a picture rebuild. For a generated one, record the prompt, length and seed so the owner can ask for a variation.
-5. If the comment is vague, choose, state the choice in the hand-over, and keep it easy to swap. If generation is unavailable, use the nearest synthesized effect and say so.
+4. Report which source you used in the hand-over, or in `answers.md` when the batch also includes a picture rebuild. For synthesized sound, record the recipe, length and seed so the owner can ask for a variation.
+5. If the comment is vague, choose, state the choice in the hand-over, and keep it easy to swap. If the requested recording is unavailable, use the nearest synthesized effect and say so.
