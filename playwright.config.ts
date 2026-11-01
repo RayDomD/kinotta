@@ -79,6 +79,7 @@ const serverEnv = (port: number) => ({ KINOTTA_E2E_PORT: String(port), KINOTTA_E
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  globalSetup: './tests/e2e/global-setup.ts',
   testMatch: '**/*.spec.ts',
   // Two browsers at a time locally: the default (half the cores) has run the machine out of memory mid-suite.
   workers: process.env.CI ? undefined : 2,
