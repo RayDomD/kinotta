@@ -5,6 +5,8 @@ import { expect, it } from 'vitest';
 import { createRunRoot, removeTempRoot, sweepStaleTempRoots, tempDir } from '../helpers/temp';
 
 const DEAD_PID = 4_000_000;
+// The sweep walks every kinotta-* entry in Temp, which can be tens of thousands on a dev machine.
+const SWEEP_TIMEOUT_MS = 60_000;
 
 function rootWithJunction(root: string, target: string): void {
   mkdirSync(join(root, 'sub'));
@@ -36,4 +38,4 @@ it('the stale sweep removes a dead runner root holding a junction without touchi
   sweepStaleTempRoots();
   expect(existsSync(root)).toBe(false);
   expect(existsSync(sentinel)).toBe(true);
-});
+}, SWEEP_TIMEOUT_MS);
