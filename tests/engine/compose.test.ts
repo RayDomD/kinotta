@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
 import { buildBrollProject, composePlan, EXAMPLE_PLAN } from '../helpers/engine.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const LAUNCHER = resolve(import.meta.dirname, '../../bin/kinotta.mjs');
 const REEL = 'opus-aoe2';
@@ -56,7 +56,7 @@ describe('engine plan build', () => {
 
   it('keeps the footage sample byte-identical except for the B1 engine runtime and type-scale stylesheet', { timeout: BUILD_TIMEOUT_MS }, () => {
     const sample = resolve(import.meta.dirname, '../fixtures/projects/footage-project');
-    const out = join(mkdtempSync(join(tmpdir(), 'kinotta-sample-')), 'index.html');
+    const out = join(tempDir('kinotta-sample-'), 'index.html');
 
     composePlan(join(sample, 'motion', 'plan.json'), out);
 

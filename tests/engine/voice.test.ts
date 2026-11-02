@@ -1,14 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const SCRIPT = resolve('skill/kinotta/scripts/voice.py');
 
 it('voiceover validates text, speed and local model files before loading the optional runtime', { timeout: 20_000 }, () => {
-  const out = join(mkdtempSync(join(tmpdir(), 'kinotta-voice-')), 'voice.wav');
+  const out = join(tempDir('kinotta-voice-'), 'voice.wav');
   const args = ['--voice', 'af_sarah', '--model', 'missing.onnx', '--voices', 'missing.bin', out];
   for (const [extra, message] of [
     [['--text', '  '], 'text must not be empty'],

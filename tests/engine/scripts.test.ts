@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 const SCRIPTS = resolve(import.meta.dirname, '../../skill/kinotta/scripts');
 const SAMPLE = resolve(import.meta.dirname, '../fixtures/projects/footage-project');
@@ -13,7 +13,7 @@ function run(script: string, args: string[]): { status: number | null; stderr: s
   return { status: r.status, stderr: r.stderr };
 }
 
-const temp = (): string => mkdtempSync(join(tmpdir(), 'kinotta-scripts-'));
+const temp = (): string => tempDir('kinotta-scripts-');
 const json = (file: string): unknown => JSON.parse(readFileSync(file, 'utf8'));
 
 interface Word {

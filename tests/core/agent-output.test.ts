@@ -1,12 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { validateAgentOutput } from '../../server/core/_internal/agent-output.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const cut = (from: number, to: number, reason = 'Pause') => ({ from, to, reason });
 function output(cuts: unknown, pieces?: { in: number; out: number }[]) {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-agent-output-'));
+  const dir = tempDir('kinotta-agent-output-');
   writeFileSync(join(dir, 'plan.json'), JSON.stringify({ duration: 10, pieces, clips: [{ id: '01', clip: '01.html', in: 0, out: 3 }] }));
   writeFileSync(join(dir, '01.html'), '<div>clip</div>');
   writeFileSync(join(dir, 'transcript.json'), JSON.stringify({ words: [{ text: 'Hello', start: 1, end: 2 }] }));

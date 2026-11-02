@@ -1,8 +1,8 @@
-import { cpSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 // Holds the safety check open so a test can change the project or job during watcher startup.
 const gate = vi.hoisted(() => ({ release: () => {}, held: Promise.resolve(), entered: () => {} }));
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 async function startCopyJob() {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-copy-watch-race-'));
+  const dir = tempDir('kinotta-copy-watch-race-');
   cpSync(copyFixture('footage-project'), dir, { recursive: true });
   const project = openProject(dir, {
     transcriber: async () => [{ text: 'hello', start: 0.5, end: 1.0 }],

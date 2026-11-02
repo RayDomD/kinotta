@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { applyOperation, mediaTimeline } from '../../server/core/model.ts';
 import type { Operation, Plan, Sources } from '../../server/core/model.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const PROCESS_TEST_TIMEOUT_MS = 30_000;
 
@@ -24,7 +24,7 @@ it('bundles synthesized WAV effects with positive durations', () => {
 });
 
 it.each(['missing', 'existing', 'partial'] as const)('applies generated score operations with %s tracks', { timeout: PROCESS_TEST_TIMEOUT_MS }, (mode) => {
-  const dir = mkdtempSync(resolve(tmpdir(), 'kinotta-score-tracks-'));
+  const dir = tempDir('kinotta-score-tracks-');
   try {
     const tracks = [
       { id: 'speech', name: 'Speech', order: 3, gain: 1, mute: false },
@@ -111,7 +111,7 @@ print(json.dumps(worst))`);
 }, 60_000);
 
 it('score gives hits with different sound settings different audio, byte-identically on a rerun', { timeout: PROCESS_TEST_TIMEOUT_MS }, () => {
-  const dir = mkdtempSync(resolve(tmpdir(), 'kinotta-score-sound-'));
+  const dir = tempDir('kinotta-score-sound-');
   try {
     const file = resolve(dir, 'plan.json');
     writeFileSync(file, JSON.stringify({ duration: 6, clips: [], hits: [
@@ -139,7 +139,7 @@ it('runs the sound.md score input example and applies its operations', { timeout
   const blocks = [...reference.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)].map((match) => match[1]!);
   const input = blocks.find((block) => block.includes('"hits"'));
   expect(input, 'sound.md should show a score input with hits').toBeDefined();
-  const dir = mkdtempSync(resolve(tmpdir(), 'kinotta-score-example-'));
+  const dir = tempDir('kinotta-score-example-');
   try {
     const file = resolve(dir, 'score.json');
     writeFileSync(file, input!);

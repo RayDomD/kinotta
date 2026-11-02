@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parse } from 'node-html-parser';
 import { describe, expect, it } from 'vitest';
 import { captionPhrases, mediaWords } from '../../server/core/model.ts';
 import type { MediaPlan } from '../../server/core/model.ts';
 import { malformedMediaCases, malformedPlanCases, validCaptionPlans } from '../helpers/media-validation.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const ENGINE = resolve(import.meta.dirname, '../../skill/kinotta/engine');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
@@ -207,7 +207,7 @@ print(json.dumps({'duration': t['duration'], 'first': placement_time(t, 'a-first
   });
 
   it('builds separate caption occurrences with placement corrections and no captions during a silent photo', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-media-engine-'));
+    const dir = tempDir('kinotta-media-engine-');
     const planFile = join(dir, 'plan.json');
     const pageFile = join(dir, 'index.html');
     writeFileSync(planFile, JSON.stringify({

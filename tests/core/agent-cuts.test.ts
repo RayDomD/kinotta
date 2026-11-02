@@ -1,12 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { openProject, type Project, AGENT_CUT_BY } from '../../server/core/index.ts';
 import { validateAgentOutput } from '../../server/core/_internal/agent-output.ts';
 import { launchAgent } from '../../server/core/_internal/runner.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const projects: Project[] = [];
 afterEach(async () => {
@@ -24,7 +24,7 @@ async function until(check: () => boolean | Promise<boolean>): Promise<void> {
 
 describe('cuts.json validation in validateAgentOutput', () => {
   function createOutputFixture(cutsContent?: string) {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-cuts-val-'));
+    const dir = tempDir('kinotta-cuts-val-');
     const plan = {
       duration: 10,
       clips: [{ id: '01', clip: '01.html', in: 0, out: 3 }],
@@ -203,7 +203,7 @@ describe('cuts.json validation in validateAgentOutput', () => {
 
 describe('edit-list reason validation on operations', () => {
   async function createReel() {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-edit-reason-'));
+    const dir = tempDir('kinotta-edit-reason-');
     cpSync(copyFixture('footage-project'), dir, { recursive: true });
     const project = openProject(dir);
     projects.push(project);
@@ -281,7 +281,7 @@ describe('edit-list reason validation on operations', () => {
 
 describe('publishing cuts through validateAndPublish paths', { timeout: 90_000 }, () => {
   async function setupJob(mode = 'cuts') {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-cuts-pub-'));
+    const dir = tempDir('kinotta-cuts-pub-');
     cpSync(copyFixture('footage-project'), dir, { recursive: true });
     const fake = join(dir, 'fake agent.mjs');
     cpSync(resolve('tests/core/fake-broll-agent.mjs'), fake);

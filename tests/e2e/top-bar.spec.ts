@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { cpSync, mkdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import { startServer } from '../../server/main.ts';
 import { copyFixture, setReelMtime } from '../helpers/project.ts';
 import { alternatesFixture } from '../helpers/parts.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const SLUG = 'product-showreel';
 const MODE_KEY = 'kinotta-mode';
@@ -25,7 +25,7 @@ function fixture() {
   setReelMtime(dir, SLUG, new Date('2026-02-01'));
   return dir;
 }
-test.beforeEach(() => { process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'kinotta-top-bar-home-')); });
+test.beforeEach(() => { process.env.KINOTTA_HOME = tempDir('kinotta-top-bar-home-'); });
 
 test('Storyboard and Edit share the bar; the edit view persists after reload and across tabs', async ({ page, context }) => {
   const server = await startServer({ projectDir: fixture(), port: 0 });

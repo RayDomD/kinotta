@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startServer } from '../../server/main.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 async function serve(provider: 'claude' | 'codex' | 'copy') {
-  process.env.KINOTTA_HOME = mkdtempSync(join(tmpdir(), 'agent-confirm-home-'));
+  process.env.KINOTTA_HOME = tempDir('agent-confirm-home-');
   const server = await startServer({ projectDir: copyFixture('footage-project'), port: 0 });
   await server.project.saveAgentSettings({ provider });
   return server;

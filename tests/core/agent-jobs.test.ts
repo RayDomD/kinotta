@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, rmdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync, rmSync, rmdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
@@ -10,6 +9,7 @@ import { launchAgent, agentArguments, agentCommand } from '../../server/core/_in
 import { brollJobPrompt, makeBrollJobRequest } from '../../server/core/_internal/requests.ts';
 import { brollTargets } from '../../server/core/model.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const projects: Project[] = [];
 afterEach(async () => { for (const project of projects.splice(0)) await project.close(); });
@@ -20,7 +20,7 @@ async function until(check: () => boolean | Promise<boolean>): Promise<void> {
   while (!(await check())) { if (Date.now() > end) throw new Error('Condition did not arrive'); await delay(); }
 }
 async function setup(mode = 'success', ceilingMs = 60_000, confirmed = true, afterLaunch?: (cwd: string) => void) {
-  const dir = mkdtempSync(join(tmpdir(), 'Kinotta space \u65e5\u672c\u8a9e '));
+  const dir = tempDir('Kinotta space \u65e5\u672c\u8a9e ');
   cpSync(copyFixture('footage-project'), dir, { recursive: true });
   const fake = join(dir, 'fake agent.mjs');
   cpSync(resolve('tests/core/fake-broll-agent.mjs'), fake);

@@ -1,19 +1,19 @@
-import { cpSync, mkdtempSync, readdirSync, statSync, utimesSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, readdirSync, statSync, utimesSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { tempDir } from './temp.ts';
 
 const FIXTURES_DIR = resolve(import.meta.dirname, '../fixtures/projects');
 
 /** Copies a sample project into a fresh temp dir and returns the copy's path. */
 export function copyFixture(name: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-test-'));
+  const dir = tempDir('kinotta-test-');
   cpSync(join(FIXTURES_DIR, name), dir, { recursive: true });
   return dir;
 }
 
 /** Creates an empty temp project dir (no reels folder). */
 export function emptyProject(): string {
-  return mkdtempSync(join(tmpdir(), 'kinotta-test-'));
+  return tempDir('kinotta-test-');
 }
 
 /** Sets every file and folder inside a reel to one mtime, so "last change" is deterministic. */

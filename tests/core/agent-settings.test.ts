@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 const command = vi.hoisted(() => vi.fn());
 vi.mock('../../server/core/_internal/runner.ts', () => ({
@@ -15,7 +15,7 @@ it.each([
 ])('defaults with Claude %s and Codex %s to %s without saving, and caches detection', async (claude, codex, provider) => {
   command.mockImplementation(async (name: string) => ({ code: (name === 'claude' ? claude : codex) ? 0 : 1 }));
   const { readAgentSettings, detectAgents } = await import('../../server/core/_internal/agent-settings.ts');
-  const dir = await mkdtemp(join(tmpdir(), 'agent-settings-'));
+  const dir = tempDir('agent-settings-');
   expect(await readAgentSettings(dir)).toEqual({ provider });
   expect(await readAgentSettings(dir)).toEqual({ provider });
   await detectAgents();
@@ -25,7 +25,7 @@ it.each([
 
 it('honors an existing provider and confirmation without detection', async () => {
   const { readAgentSettings } = await import('../../server/core/_internal/agent-settings.ts');
-  const dir = await mkdtemp(join(tmpdir(), 'agent-settings-'));
+  const dir = tempDir('agent-settings-');
   await writeFile(join(dir, '.kinotta-agent.json'), JSON.stringify({ provider: 'codex', confirmed: true }));
   expect(await readAgentSettings(dir)).toEqual({ provider: 'codex', confirmed: true });
   expect(command).not.toHaveBeenCalled();
@@ -34,7 +34,7 @@ it('honors an existing provider and confirmation without detection', async () =>
 it('saves confirmation and provider independently, preserving the other field', async () => {
   command.mockResolvedValue({ code: 1 });
   const { readAgentSettings, saveAgentSettings } = await import('../../server/core/_internal/agent-settings.ts');
-  const dir = await mkdtemp(join(tmpdir(), 'agent-settings-'));
+  const dir = tempDir('agent-settings-');
   await saveAgentSettings(dir, { provider: 'claude' });
   expect(await saveAgentSettings(dir, { confirmed: true })).toEqual({ provider: 'claude', confirmed: true });
   expect(await saveAgentSettings(dir, { provider: 'codex' })).toEqual({ provider: 'codex', confirmed: true });

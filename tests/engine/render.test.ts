@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 const RENDER_SCRIPT = resolve(import.meta.dirname, '../../skill/kinotta/engine/render.js');
 const RENDER_TIMEOUT_MS = 60_000;
@@ -14,7 +14,7 @@ const TINY_PAGE = `<!DOCTYPE html><html><head><style>html,body{margin:0}#stage{w
 <script>window.DURATION=0.3;window.seek=function(t){document.getElementById('box').style.left=(t*800)+'px';};seek(0);</script></body></html>`;
 
 function tinyPage(): { dir: string; page: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-render-'));
+  const dir = tempDir('kinotta-render-');
   const page = join(dir, 'tiny.html');
   writeFileSync(page, TINY_PAGE);
   return { dir, page };

@@ -1,13 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const HAS_LIBROSA = spawnSync(PYTHON, ['-c', 'import importlib.util,sys;sys.exit(0 if importlib.util.find_spec("librosa") else 1)']).status === 0;
 it.skipIf(!HAS_LIBROSA)('detects a 120 BPM accented click track and returns silence without invented beats', { timeout: 120_000 }, () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-beats-'));
+  const dir = tempDir('kinotta-beats-');
   const audio = join(dir, 'click.wav'); const output = join(dir, 'beats.json');
   const make = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', "aevalsrc='if(lt(mod(t,0.5),0.015),if(lt(mod(t,2),0.015),0.8,0.2)*sin(2*PI*1000*t),0)':s=22050:d=12", audio], { encoding: 'utf8' });
   expect(make.status, make.stderr).toBe(0);
@@ -30,7 +30,7 @@ it.skipIf(!HAS_LIBROSA)('detects a 120 BPM accented click track and returns sile
 });
 
 it('reports how to install the optional runtime and validates arguments without loading it', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-beats-args-'));
+  const dir = tempDir('kinotta-beats-args-');
   const audio = join(dir, 'silent.wav');
   expect(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=22050:cl=mono', '-t', '1', audio]).status).toBe(0);
   const script = resolve('skill/kinotta/scripts/beats.py');

@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
+import { tempDir } from '../helpers/temp.ts';
 
 it('fails instead of writing review pages when a MOV preview cannot be converted', { timeout: 30_000 }, () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta pages '));
+  const dir = tempDir('kinotta pages ');
   try {
     const plan = join(dir, 'plan.json');
     writeFileSync(plan, JSON.stringify({ title: 'Test', video: 'video.mp4', clips: [
@@ -19,7 +19,7 @@ it('fails instead of writing review pages when a MOV preview cannot be converted
 });
 
 it.skipIf(process.platform === 'win32')('reads a preview whose name contains shell expansion characters literally', { timeout: 30_000 }, () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta pages '));
+  const dir = tempDir('kinotta pages ');
   try {
     const preview = join(dir, 'preview $KINOTTA_MISSING.mp4');
     copyFileSync(resolve('tests/fixtures/projects/footage-project/media/talk.mp4'), preview);

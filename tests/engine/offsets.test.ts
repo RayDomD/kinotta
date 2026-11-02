@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
 import { composePlan } from '../helpers/engine.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const BROWSER_TIMEOUT_MS = 60_000;
 const PAGE = { width: 1920, height: 1080 };
@@ -23,7 +23,7 @@ M.scene({W:1920,H:1080,bg:null,T:3,center:[960,540],intro:null,SH:{p:{w:400,h:30
 type Offsets = Record<string, { x: number; y: number; scale: number }>;
 
 function compose(offsets: Offsets | undefined): string {
-  const dir = mkdtempSync(join(tmpdir(), 'kinotta-offsets-'));
+  const dir = tempDir('kinotta-offsets-');
   mkdirSync(join(dir, 'clips'));
   writeFileSync(join(dir, 'clips', '09-mover.html'), MOVER);
   const clip = { id: '09', title: 'Mover', in: 0, out: 3, kind: 'panel', clip: 'clips/09-mover.html', ...(offsets ? { offsets } : {}) };

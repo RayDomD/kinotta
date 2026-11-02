@@ -1,11 +1,11 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, test } from '../helpers/editor-test.ts';
 import type { Locator, Page } from '../helpers/editor-test.ts';
 import { buildClip, composePlan, exampleClip } from '../helpers/engine.ts';
 import { serverUrl } from './ports.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 // The broll-project sample: the engine's six-clip example composed into one page over stand-in footage.
 const BROLL_SERVER = serverUrl('broll');
@@ -30,7 +30,7 @@ test.describe('clips composed on one page', () => {
   test.use({ viewport: VIEWPORT });
 
   test('two clips with the same ids each draw exactly as they do alone, at their own time', async ({ page }) => {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-compose-'));
+    const dir = tempDir('kinotta-compose-');
     const plan = join(dir, 'plan.json');
     writeFileSync(plan, JSON.stringify({ clips: PAIR.map((c) => ({ ...c, kind: 'full', clip: exampleClip(c.file) })) }));
     composePlan(plan, join(dir, 'page.html'));
@@ -50,7 +50,7 @@ test.describe('captions on a composed page', () => {
   test.use({ viewport: VIEWPORT });
 
   test('the phrase under way shows over the clips, with the word being said marked', async ({ page }) => {
-    const dir = mkdtempSync(join(tmpdir(), 'kinotta-captions-'));
+    const dir = tempDir('kinotta-captions-');
     const words = [['Hi,', 0, 0.4], ['my', 0.5, 0.7], ['name', 0.7, 0.9], ['is', 0.9, 1.0], ['Ryan.', 1.0, 1.4], ['Later', 3, 3.3], ['words', 3.3, 3.6]];
     writeFileSync(join(dir, 'transcript.json'), JSON.stringify({ words: words.map(([text, start, end]) => ({ text, start, end })) }));
     const plan = { duration: 5, transcript: 'transcript.json', captions: true, clips: [{ id: '06', in: 0, out: 1.5, kind: 'full', clip: exampleClip('06-chapter.html') }] };

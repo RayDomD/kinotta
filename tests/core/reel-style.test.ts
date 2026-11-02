@@ -1,6 +1,4 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { startServer, type RunningServer } from '../../server/main.ts';
@@ -9,9 +7,10 @@ import { CLAUDE_BROLL_ALLOWED_TOOLS } from '../../server/core/_internal/runner.t
 import { briefRequest, brollJobPrompt, makeBrollJobRequest } from '../../server/core/_internal/requests.ts';
 import type { Style } from '../../server/core/_internal/style.ts';
 import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
 
 const running: RunningServer[] = [];
-beforeEach(() => { vi.stubEnv('KINOTTA_HOME', mkdtempSync(join(tmpdir(), 'kinotta-home-'))); });
+beforeEach(() => { vi.stubEnv('KINOTTA_HOME', tempDir('kinotta-home-')); });
 afterEach(async () => {
   for (const server of running.splice(0)) await server.close();
   vi.unstubAllEnvs();
