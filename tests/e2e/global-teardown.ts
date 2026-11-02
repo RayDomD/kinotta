@@ -26,7 +26,6 @@ function alive() {
   const deadline = Date.now() + 60_000;
   do {
     try {
-      if (containsLink(root)) return;
       rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
       if (!existsSync(root)) return;
     } catch (error) {
