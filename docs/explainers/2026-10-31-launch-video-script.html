@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch Video Script</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500&family=Doto:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  /* Tokens from DESIGN.md (Kinotta, "The Light Table"), values verbatim. Dark is the house default. */
+  :root {
+    --ground: oklch(.184 .004 106);
+    --ground-deep: oklch(.150 .003 106);
+    --card: oklch(.214 .005 90);
+    --card-raised: oklch(.246 .005 90);
+    --ink: oklch(.945 .004 106);
+    --ink-2: oklch(.820 .007 106);
+    --muted: oklch(.640 .008 106);
+    --rule: oklch(.945 .004 106 / .14);
+    --hairline: oklch(.945 .004 106 / .24);
+    --light: oklch(.84 .11 225);
+    --light-wash: oklch(.84 .11 225 / .07);
+    --font-body: "Outfit", "Segoe UI", sans-serif;
+    --font-num: "Doto", monospace;
+    --gutter: 16px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ground: oklch(.972 .004 106);
+      --ground-deep: oklch(.940 .005 106);
+      --card: oklch(.992 .003 106);
+      --card-raised: oklch(.985 .004 106);
+      --ink: oklch(.200 .006 106);
+      --ink-2: oklch(.330 .008 106);
+      --muted: oklch(.480 .01 106);
+      --rule: oklch(.200 .006 106 / .14);
+      --hairline: oklch(.200 .006 106 / .26);
+      --light: oklch(.50 .13 235);
+      --light-wash: oklch(.50 .13 235 / .08);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--ground); }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 17px/1.6 var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 56px var(--gutter) 96px; }
+  h1, h2, h3 { font-weight: 500; letter-spacing: -0.4px; margin: 0; }
+  h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.1; }
+  h2 { font-size: 24px; margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--rule); }
+  h3 { font-size: 17px; letter-spacing: 0; }
+  p { margin: 0 0 1em; max-width: 65ch; }
+  .meta { font-size: 13px; color: var(--muted); }
+  .lede { font-size: 20px; line-height: 1.5; color: var(--ink-2); margin-top: 20px; max-width: 60ch; }
+  .num { font-family: var(--font-num); font-weight: 800; font-feature-settings: "tnum"; letter-spacing: .5px; }
+
+  /* Hex marker: the only ornament, same shape as Kinotta's pins. */
+  .hex {
+    display: inline-grid; place-items: center; flex: none;
+    width: 34px; height: 38px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background: var(--light); color: var(--ground);
+    font: 800 13px/1 var(--font-num);
+  }
+  .hex.pending { background: var(--hairline); }
+  .hex.pending::after, .hex.none::after { content: ""; }
+  .hex.pending, .hex.none { color: var(--ink); }
+  .hex.none { background: var(--rule); }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 28px; font-size: 13px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { width: 10px; height: 11px; display: inline-block; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .legend .k-ok i { background: var(--light); }
+  .legend .k-pend i { background: var(--hairline); }
+  .legend .k-none i { background: var(--rule); outline: 1px solid var(--hairline); }
+
+  /* Beats */
+  .beats { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 14px; }
+  .beat {
+    display: grid; grid-template-columns: 42px 1fr; gap: 14px;
+    background: var(--card); border: 1px solid var(--rule); padding: 16px 16px 6px;
+  }
+  .beat.hook { border-color: var(--hairline); background: var(--card-raised); }
+  .beat header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 8px; }
+  .time { font: 700 13px/1 var(--font-num); color: var(--ink-2); font-feature-settings: "tnum"; }
+  .tag { font-size: 12px; color: var(--muted); }
+  dl { margin: 0; }
+  dt { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  dd { margin: 0 0 12px; max-width: 62ch; }
+  dd.vo { color: var(--ink); font-size: 18px; line-height: 1.5; }
+  dd.vo::before { content: "\201C"; color: var(--muted); }
+  dd.vo::after { content: "\201D"; color: var(--muted); }
+  dd.screen { color: var(--ink-2); }
+  .status { font-size: 13px; color: var(--muted); }
+  .status b { font-weight: 500; color: var(--ink-2); }
+
+  .option { background: var(--light-wash); border-left: 2px solid var(--light); padding: 10px 14px; margin: 0 0 12px; font-size: 15px; color: var(--ink-2); }
+
+  /* Hook options */
+  .alts { display: grid; gap: 12px; margin-top: 18px; }
+  .alt { border: 1px solid var(--rule); background: var(--card); padding: 14px 16px; }
+  .alt p { margin: 0; }
+  .alt .meta { margin-top: 4px; }
+
+  /* Lists and notes */
+  ul.plain { padding-left: 1.2em; max-width: 62ch; }
+  ul.plain li { margin-bottom: .55em; }
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 15px; background: var(--card); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 500; font-size: 12px; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  code { font: 14px/1.4 ui-monospace, Consolas, monospace; background: var(--ground-deep); padding: 1px 6px; }
+  .note { border: 1px solid var(--hairline); padding: 14px 16px; background: var(--card); max-width: 65ch; }
+  .note p:last-child { margin: 0; }
+  footer { margin-top: 72px; }
+
+  @media (max-width: 520px) {
+    body { font-size: 16px; }
+    .beat { grid-template-columns: 1fr; padding: 14px 14px 4px; }
+    .hex { width: 30px; height: 34px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<p class="meta"><span class="num">2026-10-31</span> · Draft 1 · for review</p>
+<h1>Kinotta launch video: the script</h1>
+<p class="lede">A 76-second vertical video that shows Kinotta doing the one thing it is for: your own footage and your own brand in, a finished reel out, changed by pinning exactly what you want different. It opens with a RayDom talking-head take, raw, then finished.</p>
+
+<div class="legend" aria-label="Legend">
+  <span class="k-ok"><i></i>Exists in the repo's docs. I have not run it.</span>
+  <span class="k-pend"><i></i>Decided or planned, not built</span>
+  <span class="k-none"><i></i>No plan yet</span>
+</div>
+
+<h2>The hook, 0 to 8 seconds</h2>
+<p style="margin-top:16px">The hook is a before and after in one project. A raw talking-head take plays plain, the RayDom folder lands on Kinotta, and the same take comes back finished in the RayDom look. The drag is the pitch, and it is on screen by second 3.</p>
+
+<ol class="beats">
+  <li class="beat hook">
+    <span class="hex num">1</span>
+    <div>
+      <header><h3>Raw take, then the drop</h3><span class="time">00:00 – 00:05</span><span class="tag">9:16</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">0–3s: a raw talking-head take, one camera, no captions, no graphics. It is plain on purpose. 3–5s: the RayDom project folder drops onto Kinotta and <code>reels/brand.md</code> fills in with Sora, Manrope, the rd mark and the amber accent.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">This is one take of me talking to my phone. Drop in my project.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Needs a check.</b> Kinotta reading a project's brand is documented (ADR 0002, README). Whether it can turn this specific raw take into the finished reel is not yet confirmed.</dd>
+      </dl>
+    </div>
+  </li>
+  <li class="beat hook">
+    <span class="hex num">2</span>
+    <div>
+      <header><h3>Hard cut to the finished reel</h3><span class="time">00:05 – 00:08</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">The same take, finished: brand captions, clay pieces over the footage, one keynote cutaway.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Same take. Now it looks like mine.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Source exists.</b> <code>RayDom/footage/socsci-6-final.mp4</code> is a finished reel at version 6. Which raw take is its "before" still needs confirming.</dd>
+      </dl>
+    </div>
+  </li>
+</ol>
+
+<h3 style="margin-top:32px">Two other ways to open</h3>
+<div class="alts">
+  <div class="alt"><p><b style="font-weight:500">Pain first.</b> “I used to spend a weekend on one thirty-second video.”</p><p class="meta">Relatable, but a viewer sees the product later.</p></div>
+  <div class="alt"><p><b style="font-weight:500">Result first.</b> Open on the finished reel, freeze it, then rewind to the raw take.</p><p class="meta">The strongest scroll-stopper, but the reveal lands before the drag.</p></div>
+</div>
+
+<h2>The full script</h2>
+<p style="margin-top:16px">The two hook beats above are beats 1 and 2. Voiceover lines are written as a peer talking to the viewer, which matches <code>brand/voice.md</code>. Rewrite any of them in your own words.</p>
+
+<ol class="beats">
+  <li class="beat">
+    <span class="hex num">3</span>
+    <div>
+      <header><h3>Pin the thing, not the pixel</h3><span class="time">00:08 – 00:22</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">The storyboard grid of stills. Hover and an element is outlined and named. Click it and a numbered hex pin lands on a clay piece. Type “bigger.” The next version arrives with only that piece changed.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Don't re-prompt the whole video. Pin the exact thing you want different.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Exists.</b> README, “Pin the element, not just the pixel.”</dd>
+      </dl>
+    </div>
+  </li>
+
+  <li class="beat">
+    <span class="hex num">4</span>
+    <div>
+      <header><h3>Drag a motion effect onto a shot</h3><span class="time">00:22 – 00:32</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">Drag a keynote cutaway template from the shelf onto a line of speech. It builds at once in the reel's style, with no waiting.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Drag an effect onto a line. It comes out in my brand, not a stock template.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Exists.</b> <code>CONTEXT.md</code> defines an instant pin: Kinotta fills the template locally, with no agent and no tokens. The plan for templates in footage reels is approved.</dd>
+      </dl>
+    </div>
+  </li>
+
+  <li class="beat">
+    <span class="hex num">5</span>
+    <div>
+      <header><h3>Talking head, fixed in the frame</h3><span class="time">00:32 – 00:44</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">Split screen, raw take on the left and finished on the right. A caption has a wrong word. Click it, fix it, and the timing follows.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Talking-head video is mostly cleanup. Captions, cutaways, the words you got wrong. Fix them where they are.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Plans exist</b> for captions, fixing and retiming words, and talking-head effects. Confirm the caption fix works on this footage before filming it.</dd>
+      </dl>
+    </div>
+  </li>
+
+  <li class="beat">
+    <span class="hex pending num">6</span>
+    <div>
+      <header><h3>Options on the shot itself</h3><span class="time">00:44 – 00:54</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">One shot card. The alternates cycle in place with animated playback. A chip reads “3 options, #2 in the reel.” Apply one.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Don't like it? Flip through other options right on the shot.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Not built.</b> This is the pending owner decision in <code>AGENTS.md</code>: alternates previewed, switched and applied inside one Storyboard card. Cut this beat if it is not finished by launch.</dd>
+      </dl>
+    </div>
+  </li>
+
+  <li class="beat">
+    <span class="hex num">7</span>
+    <div>
+      <header><h3>Every kind of video</h3><span class="time">00:54 – 01:04</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">Fast cuts of four finished reels: a talking head, a vlog with b-roll, a vertical short, a screen-recorded tutorial.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Talking head, vlog, tutorial, short. Same drag, same pin.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Partly.</b> Plans exist for portrait reels and talking-head effects. We need four real reels to show, and the repo does not hold them yet.</dd>
+      </dl>
+    </div>
+  </li>
+
+  <li class="beat">
+    <span class="hex num">8</span>
+    <div>
+      <header><h3>Sound and export</h3><span class="time">01:04 – 01:11</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">The sound lane, then the render picker: 1080p by default, 4K as an option.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">Sound's in. Export at 1080p, or 4K from your original files.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Exists.</b> Sound planning docs and render settings plans. 1080p default with 4K always available is a recorded decision.</dd>
+      </dl>
+    </div>
+  </li>
+
+  <li class="beat">
+    <span class="hex num">9</span>
+    <div>
+      <header><h3>Close</h3><span class="time">01:11 – 01:16</span></header>
+      <dl>
+        <dt>On screen</dt>
+        <dd class="screen">This video's own storyboard in Kinotta, every shot of the video you just watched.</dd>
+        <dt>Voiceover</dt>
+        <dd class="vo">I made this video in Kinotta.</dd>
+        <dt>Status</dt>
+        <dd class="status"><b>Only true if we build it that way.</b> You asked for this to be made with Kinotta, so build the launch video as a reel and film the final shot from its own storyboard.</dd>
+      </dl>
+    </div>
+  </li>
+</ol>
+
+<h2>An idea with no plan: the inspiration edit</h2>
+<div class="note" style="margin-top:16px">
+  <p>You asked about dragging in an editing style you like. Nothing in the docs does that. The nearest thing is the taste list (<code>docs/plans/2026-10-20-taste-list.md</code>), which the skill reads before every build. A cheap version would be: drop a video you like, and Kinotta writes taste-list entries from it. Treat it as a feature to build first, and add a beat only if it exists.</p>
+</div>
+
+<h2>More beats we could add</h2>
+<div class="scroll">
+<table>
+  <thead><tr><th>Beat</th><th>Why it helps</th><th>Check first</th></tr></thead>
+  <tbody>
+    <tr><td>Version compare, v1 sliding to v6</td><td>Shows the reel improving with each round of pins.</td><td>Plan exists: <code>2026-10-13-version-compare</code>.</td></tr>
+    <tr><td>Pin on playing footage</td><td>Strong demo for a talking-head creator.</td><td>README lists it as a Review-phase feature. Confirm it works.</td></tr>
+    <tr><td>“No timeline, no keyframes”</td><td>A one-line hook for editors who dread timelines.</td><td>The line is a claim; the Review tab does show lanes.</td></tr>
+    <tr><td>Runs inside your project, files stay local</td><td>Trust, and it fits the open-source plan.</td><td>Only say “open source” once you have announced it.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>What I need from you</h2>
+<ul class="plain">
+  <li><b style="font-weight:500">The raw talking-head take for the hook.</b> Candidates in <code>RayDom/footage</code> are <code>shot 2 .mp4</code> and the DJI Mimo clip. I have not watched either one.</li>
+  <li><b style="font-weight:500">Where the other three reels for beat 7 come from.</b> A vlog, a short, and a tutorial, ideally already made in Kinotta.</li>
+  <li><b style="font-weight:500">Length.</b> This is the 76-second hero cut. A 30-second social cut would keep beats 1, 2, 3, 4 and 9.</li>
+</ul>
+
+<footer class="meta">Design source: this repo's <code>DESIGN.md</code> (the Light Table), tokens used as written. Facts come from <code>README.md</code>, <code>CONTEXT.md</code>, <code>AGENTS.md</code> and the plans in <code>docs/plans/</code>, plus the RayDom project folder. Nothing on this page was run or played.</footer>
+
+</main>
+</body>
+</html>
