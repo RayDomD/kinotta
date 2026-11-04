@@ -8,16 +8,18 @@ import { copyFixture } from '../helpers/project.ts';
 const REEL = 'product-showreel';
 const PIN = { shot: '01', x: 0.3, y: 0.4, element: null };
 
-/** The showreel sample with three files in its renders folder, an older Draft, a newer Final and a temp file. */
+/** The showreel sample with files across its renders and output folders, an older Draft, a newer Final and a temp file. */
 function withRenders(): string {
   const dir = copyFixture('showreel-project');
   const renders = join(dir, 'reels', REEL, 'renders');
   mkdirSync(join(renders, '.work-abc'), { recursive: true });
+  const output = join(dir, 'output', REEL);
+  mkdirSync(output, { recursive: true });
   writeFileSync(join(renders, `${REEL}-v1-draft-540p30.mp4`), 'draft bytes');
-  writeFileSync(join(renders, `${REEL}-v2-final-1080p30-high.mp4`), '0123456789');
+  writeFileSync(join(output, `${REEL}-v2-final-1080p30-high.mp4`), '0123456789');
   writeFileSync(join(renders, '.render-abc.mp4'), 'partial');
   utimesSync(join(renders, `${REEL}-v1-draft-540p30.mp4`), new Date('2026-10-01T10:00:00Z'), new Date('2026-10-01T10:00:00Z'));
-  utimesSync(join(renders, `${REEL}-v2-final-1080p30-high.mp4`), new Date('2026-10-02T10:00:00Z'), new Date('2026-10-02T10:00:00Z'));
+  utimesSync(join(output, `${REEL}-v2-final-1080p30-high.mp4`), new Date('2026-10-02T10:00:00Z'), new Date('2026-10-02T10:00:00Z'));
   return dir;
 }
 
@@ -74,7 +76,7 @@ describe('past renders', () => {
     await expect(project.listRenders('nope')).rejects.toMatchObject({ code: 'not-found' });
   });
 
-  it('serves the list and the files, with byte ranges, and nothing outside the renders folder', async () => {
+  it('serves the list and the files, with byte ranges, and nothing outside the render folders', async () => {
     const url = await serve(withRenders());
 
     const listed = (await (await fetch(`${url}/api/reels/${REEL}/renders`)).json()) as { renders: Array<{ file: string }> };

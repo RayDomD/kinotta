@@ -1,13 +1,15 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listRenders } from '../../server/core/_internal/past-renders.ts';
+import { listRenders, renderPath, revealRender } from '../../server/core/_internal/past-renders.ts';
+import { revealInFolder } from '../../server/core/_internal/runner.ts';
 import { prepareRender, runRender } from '../../server/core/_internal/render.ts';
 import type { RenderJob, RenderPreset } from '../../server/core/index.ts';
 import { copyFixture } from '../helpers/project.ts';
 
 vi.mock('../../server/core/_internal/runner.ts', async (importOriginal) => ({
   ...await importOriginal<typeof import('../../server/core/_internal/runner.ts')>(),
+  revealInFolder: vi.fn(),
   pageInfo: vi.fn(async () => ({ width: 320, height: 180, duration: 0.5, alpha: true })),
   renderPage: vi.fn(async ({ out }: { out: string }) => {
     writeFileSync(out, 'finished video');
@@ -73,4 +75,24 @@ it('lists both folders newest first, including legacy Finals, and skips dot name
   expect(await listRenders(dir, REEL)).toEqual([entries[1]!, entries[2]!, entries[0]!].map((entry) => ({
     file: entry.name, version: 1, preset: entry.preset, bytes: 5, at: new Date(entry.date).toISOString(),
   })));
+});
+
+it('looks up output first, falls back to legacy renders, and reveals the resolved file', async () => {
+  const dir = copyFixture('showreel-project');
+  mkdirSync(rendersDir(dir), { recursive: true });
+  mkdirSync(outputDir(dir), { recursive: true });
+  const final = `${REEL}-v1-final-180p30.mp4`;
+  const draft = `${REEL}-v1-draft-180p30.mp4`;
+  writeFileSync(join(rendersDir(dir), final), 'legacy');
+  writeFileSync(join(rendersDir(dir), draft), 'draft');
+  expect(await renderPath(dir, REEL, final)).toBe(join(rendersDir(dir), final));
+  writeFileSync(join(outputDir(dir), final), 'new');
+  expect(await renderPath(dir, REEL, final)).toBe(join(outputDir(dir), final));
+  expect(await renderPath(dir, REEL, draft)).toBe(join(rendersDir(dir), draft));
+  await revealRender(dir, REEL, final);
+  expect(revealInFolder).toHaveBeenCalledWith(join(outputDir(dir), final));
+  for (const name of ['..', '.', '.hidden.mp4', '../reel.json', '..\\reel.json', 'nested/file.mp4', 'nested\\file.mp4', 'missing.mp4']) {
+    await expect(renderPath(dir, REEL, name)).rejects.toMatchObject({ code: 'not-found' });
+  }
+  await expect(renderPath(dir, 'unknown', final)).rejects.toMatchObject({ code: 'not-found' });
 });

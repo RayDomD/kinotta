@@ -29,11 +29,14 @@ export async function listRenders(projectDir: string, slug: string): Promise<Ren
 
 /** The path of one of a reel's finished renders. Throws `not-found` for an unknown reel or file, or a name that isn't one. */
 export async function renderPath(projectDir: string, slug: string, file: string): Promise<string> {
-  const dir = join(await requireReelDir(projectDir, slug), RENDERS_DIR);
-  const path = join(dir, file);
-  const isRender = !file.startsWith('.') && !/[\\/]/.test(file) && (await stat(path).then((s) => s.isFile(), () => false));
-  if (!isRender) throw new KinottaError('not-found', `Render "${file}" of reel "${slug}" not found.`);
-  return path;
+  const reelDir = await requireReelDir(projectDir, slug);
+  if (!file.startsWith('.') && !/[\\/]/.test(file)) {
+    for (const dir of [join(projectDir, OUTPUT_DIR, slug), join(reelDir, RENDERS_DIR)]) {
+      const path = join(dir, file);
+      if (await stat(path).then((info) => info.isFile(), () => false)) return path;
+    }
+  }
+  throw new KinottaError('not-found', `Render "${file}" of reel "${slug}" not found.`);
 }
 
 /** Shows a finished render in the system's file manager. Throws `not-found` as `renderPath` does. */
