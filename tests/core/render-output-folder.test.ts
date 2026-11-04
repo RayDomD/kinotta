@@ -1,11 +1,17 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { copyFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listRenders, renderPath, revealRender } from '../../server/core/_internal/past-renders.ts';
-import { revealInFolder } from '../../server/core/_internal/runner.ts';
+import { renderPage, revealInFolder } from '../../server/core/_internal/runner.ts';
 import { prepareRender, runRender } from '../../server/core/_internal/render.ts';
 import type { RenderJob, RenderPreset } from '../../server/core/index.ts';
 import { copyFixture } from '../helpers/project.ts';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, rename: vi.fn(actual.rename), copyFile: vi.fn(actual.copyFile) };
+});
 
 vi.mock('../../server/core/_internal/runner.ts', async (importOriginal) => ({
   ...await importOriginal<typeof import('../../server/core/_internal/runner.ts')>(),
@@ -95,4 +101,55 @@ it('looks up output first, falls back to legacy renders, and reveals the resolve
     await expect(renderPath(dir, REEL, name)).rejects.toMatchObject({ code: 'not-found' });
   }
   await expect(renderPath(dir, 'unknown', final)).rejects.toMatchObject({ code: 'not-found' });
+});
+
+it('copies then removes the temporary file when rename crosses filesystems', async () => {
+  const dir = copyFixture('showreel-project');
+  vi.mocked(rename).mockRejectedValueOnce(Object.assign(new Error('cross-device'), { code: 'EXDEV' }));
+  const file = await render(dir, 'final');
+  expect(readFileSync(join(dir, file), 'utf8')).toBe('finished video');
+  expect(copyFile).toHaveBeenCalledWith(join(rendersDir(dir), `.render-${JOB.id}.mp4`), join(dir, file));
+  expect(readdirSync(rendersDir(dir))).toEqual([]);
+});
+
+it.each([false, true])('cleans a failed Final publication, preserving a pre-existing output folder (%s)', async (existing) => {
+  const dir = copyFixture('showreel-project');
+  if (existing) mkdirSync(outputDir(dir), { recursive: true });
+  vi.mocked(rename).mockRejectedValueOnce(Object.assign(new Error('access denied'), { code: 'EACCES' }));
+  await expect(render(dir, 'final')).rejects.toThrow('access denied');
+  expect(readdirSync(rendersDir(dir))).toEqual([]);
+  expect(existsSync(outputDir(dir))).toBe(existing);
+});
+
+it.each(['cancel', 'fail'])('cleans temporary files and work folders when a Final stops: %s', async (reason) => {
+  const dir = copyFixture('showreel-project');
+  const task = await prepareRender(dir, { reel: REEL, version: 1, preset: 'final' });
+  const stop = new AbortController();
+  vi.mocked(renderPage).mockImplementationOnce(async ({ out }) => {
+    writeFileSync(out, 'partial');
+    mkdirSync(join(rendersDir(dir), `.work-${JOB.id}`));
+    writeFileSync(join(rendersDir(dir), `.work-${JOB.id}`, 'segment.mp4'), 'partial segment');
+    if (reason === 'cancel') {
+      stop.abort();
+      stop.signal.throwIfAborted();
+    }
+    throw new Error('render failed');
+  });
+  await expect(runRender(dir, task, JOB, () => {}, stop.signal, 1)).rejects.toBeDefined();
+  expect(readdirSync(rendersDir(dir))).toEqual([]);
+  expect(existsSync(outputDir(dir))).toBe(false);
+});
+
+it('removes the output folder it created when Final publication is cancelled', async () => {
+  const dir = copyFixture('showreel-project');
+  const task = await prepareRender(dir, { reel: REEL, version: 1, preset: 'final' });
+  const stop = new AbortController();
+  vi.mocked(rename).mockImplementationOnce(async () => {
+    expect(existsSync(outputDir(dir))).toBe(true);
+    stop.abort();
+    stop.signal.throwIfAborted();
+  });
+  await expect(runRender(dir, task, JOB, () => {}, stop.signal, 1)).rejects.toMatchObject({ name: 'AbortError' });
+  expect(readdirSync(rendersDir(dir))).toEqual([]);
+  expect(existsSync(outputDir(dir))).toBe(false);
 });
