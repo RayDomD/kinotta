@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { listRenders } from '../../server/core/_internal/past-renders.ts';
 import { prepareRender, runRender } from '../../server/core/_internal/render.ts';
 import type { RenderJob, RenderPreset } from '../../server/core/index.ts';
 import { copyFixture } from '../helpers/project.ts';
@@ -51,4 +52,25 @@ it('writes an Overlay .mov into output/<reel>', async () => {
   expect(file).toBe(`output/${REEL}/${REEL}-v1-overlay-180p30.mov`);
   expect(readFileSync(join(dir, file), 'utf8')).toBe('finished video');
   expect(readdirSync(rendersDir(dir))).toEqual([]);
+});
+
+it('lists both folders newest first, including legacy Finals, and skips dot names and directories', async () => {
+  const dir = copyFixture('showreel-project');
+  const entries = [
+    { folder: rendersDir(dir), name: `${REEL}-v1-final-180p30.mp4`, preset: 'final', date: '2026-10-01' },
+    { folder: outputDir(dir), name: `${REEL}-v1-overlay-180p30.mov`, preset: 'overlay', date: '2026-10-03' },
+    { folder: rendersDir(dir), name: `${REEL}-v1-draft-180p30.mp4`, preset: 'draft', date: '2026-10-02' },
+  ];
+  for (const entry of entries) {
+    mkdirSync(entry.folder, { recursive: true });
+    const file = join(entry.folder, entry.name);
+    writeFileSync(file, 'video');
+    utimesSync(file, new Date(entry.date), new Date(entry.date));
+    writeFileSync(join(entry.folder, '.render-temp.mp4'), 'partial');
+    writeFileSync(join(entry.folder, 'notes.txt'), 'not a render');
+    mkdirSync(join(entry.folder, `${REEL}-v2-final-180p30.mp4`), { recursive: true });
+  }
+  expect(await listRenders(dir, REEL)).toEqual([entries[1]!, entries[2]!, entries[0]!].map((entry) => ({
+    file: entry.name, version: 1, preset: entry.preset, bytes: 5, at: new Date(entry.date).toISOString(),
+  })));
 });
