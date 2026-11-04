@@ -12,11 +12,11 @@ Match the work to the requested outcome. Animating reel assets, changing editor 
 
 Verify the exact user interaction on the requested surface. Report what the check demonstrated and what remains unfinished. A valid asset or passing backend check does not establish that the editor interaction works.
 
-## Pending owner decision: inline alternatives
+## Inline alternatives
 
-The owner confirmed that alternatives should be previewed, switched, and applied directly within one stacked Storyboard shot card, including animated playback. The card retains its alternate count and indication of the option in the reel. The large chooser and playback only in Review do not satisfy this decision.
+The owner decided that alternatives are previewed, switched, and applied directly within one stacked Storyboard shot card, including animated playback. The card keeps its alternate count and the indication of the option in the reel. The large chooser and playback only in Review do not satisfy this decision.
 
-This is a requested interaction, not a claim that it is implemented. Read `docs/mockups/2026-10-13-alternates-in-storyboard.html` for earlier context, but use the owner's newer inline-card decision when implementing this change. Preserve the existing animated revisions and the fix that makes Review load the chosen Working revision.
+This is implemented (`docs/plans/2026-10-18-inline-alternates-card.md`, `web/src/Storyboard.tsx`). It was driven in the running Storyboard on 2026-11-04 against the parts fixture with alternates: hovering a card starts one player and leaving stops it; the dots and the Up and Down keys switch the shown alternate without an edit; Use adds one Working edit, moves later shots and undoes with Ctrl+Z; Not this takes an optional reason and Escape cancels it; clicking the card opens the shot sheet on the shown alternate. Not observed: the playback loop's length, because the fixture's shots are static. Keep the existing animated revisions and the fix that makes Review load the chosen Working revision.
 
 ## Render tests for editor and media changes
 
