@@ -11,6 +11,7 @@ __pycache__/
 
 # Rendered videos
 /reels/*/renders/
+/output/
 
 # Agent hand-off briefs and local test output
 .herdr/
