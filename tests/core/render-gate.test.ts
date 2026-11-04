@@ -58,7 +58,7 @@ describe('the render gate', () => {
 
     const job = await project.whenRendered((await project.render({ reel: 'tiny', version: 1, preset: 'final' })).id);
 
-    expect(job).toMatchObject({ state: 'done', output: 'reels/tiny/renders/tiny-v1-final-1080p30.mp4' });
+    expect(job).toMatchObject({ state: 'done', output: 'output/tiny/tiny-v1-final-1080p30.mp4' });
   });
 
   it('refuses an older footage version built before plans were kept, renders a Draft of it, and lets the newest through', { timeout: RENDER_TIMEOUT_MS }, async () => {

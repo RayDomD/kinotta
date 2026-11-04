@@ -106,3 +106,32 @@ test('a reel switch does not show another reel’s settings or past renders when
   await expect(form.getByLabel('Size')).toHaveCount(0);
   await expect(form.getByRole('button', { name: 'Render', exact: true })).toBeDisabled();
 });
+
+test('Export lists and plays a Final stored in the project output folder', async ({ page }) => {
+  test.setTimeout(RENDER_WAIT_MS + 30_000);
+  const response = await page.request.post('/api/renders', { data: {
+    reel: 'product-showreel', version: 1, preset: 'final', size: 'half', fps: 24,
+  } });
+  expect(response.ok()).toBe(true);
+  const queued = await response.json();
+  await expect.poll(async () => {
+    const jobs = await (await page.request.get('/api/renders')).json();
+    return jobs.jobs.some((job: { id: string }) => job.id === queued.id);
+  }, { timeout: RENDER_WAIT_MS }).toBe(false);
+
+  const file = 'product-showreel-v1-final-540p24.mp4';
+  const listed = await (await page.request.get('/api/reels/product-showreel/renders')).json();
+  expect(listed.renders).toContainEqual(expect.objectContaining({ file, preset: 'final' }));
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
+  await menuButton(page).click();
+  const row = menu(page).getByRole('list', { name: 'Past renders' }).getByRole('listitem').filter({ hasText: file });
+  await expect(row).toHaveCount(1);
+  await row.getByRole('button', { name: 'Play', exact: true }).click();
+  const video = page.getByLabel(`Render ${file}`, { exact: true });
+  await expect(video).toBeVisible();
+  await video.focus();
+  await video.press('Space');
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false);
+});
