@@ -44,3 +44,11 @@ describe('render output folders', () => {
     expect(existsSync(outputDir(dir))).toBe(false);
   });
 });
+
+it('writes an Overlay .mov into output/<reel>', async () => {
+  const dir = copyFixture('showreel-project');
+  const file = await render(dir, 'overlay');
+  expect(file).toBe(`output/${REEL}/${REEL}-v1-overlay-180p30.mov`);
+  expect(readFileSync(join(dir, file), 'utf8')).toBe('finished video');
+  expect(readdirSync(rendersDir(dir))).toEqual([]);
+});
