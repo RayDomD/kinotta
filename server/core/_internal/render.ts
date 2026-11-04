@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, readFile, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { availableParallelism, freemem } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { requireVersionDir } from './version.ts';
@@ -14,8 +14,10 @@ import { mediaPlanTimeline } from './edit-model.ts';
 import type { RenderJob, RenderPreset, RenderRequest, RenderSettings, Version } from './types.ts';
 import { readCapturedVersion, readVersion, requireReelDir } from './version.ts';
 
-/** Where a reel's renders go, beside its versions (R7). */
+/** Drafts and temporary render files, beside the reel's versions (R7). */
 export const RENDERS_DIR = 'renders';
+/** Finished Finals and Overlays, grouped by reel under the project. */
+export const OUTPUT_DIR = 'output';
 const PAGE_FILE = 'index.html';
 /** A version's own plan (E14): the one its pieces come from. */
 const VERSION_PLAN_FILE = 'plan.json';
@@ -227,7 +229,7 @@ async function renderSegments(work: string, ext: string, ranges: Array<[number, 
 }
 
 /**
- * Renders a checked request into the reel's renders/ folder and returns the file, relative to the project. It is written
+ * Renders a checked request into renders/ (Draft) or output/<reel>/ (Final and Overlay), relative to the project. It is written
  * under a temp name and renamed when complete, replacing a render with the same settings. A long render runs in parallel
  * segments in `renders/.work-<job>/`, joined without re-encoding the video and removed afterwards. A failure, or `signal`
  * aborting, stops the render's processes and leaves nothing: no temp file and no `.work-<job>/` folder.
@@ -242,6 +244,8 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
   await mkdir(dir, { recursive: true });
   const temp = join(dir, `.render-${job.id}.${ext}`);
   const work = join(dir, `.work-${job.id}`);
+  const destination = request.preset === 'draft' ? dir : join(projectDir, OUTPUT_DIR, request.reel);
+  let createdOutput = false;
   const cleanup = { force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS };
   try {
     const page = join(versionDir, PAGE_FILE);
@@ -333,11 +337,21 @@ export async function runRender(projectDir: string, task: RenderTask, job: Rende
         rendered = { ...rendered, height };
       }
     }
-    const file = join(dir, renderName(request, settings, sound, rendered.height, fps, ext, job.id));
-    await rename(temp, file);
+    signal.throwIfAborted();
+    if (destination !== dir) createdOutput = (await mkdir(destination, { recursive: true })) !== undefined;
+    signal.throwIfAborted();
+    const file = join(destination, renderName(request, settings, sound, rendered.height, fps, ext, job.id));
+    try {
+      await rename(temp, file);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err;
+      await copyFile(temp, file);
+      await rm(temp, cleanup);
+    }
     return relative(projectDir, file).split(sep).join('/');
   } catch (err) {
     await rm(temp, cleanup);
+    if (createdOutput) await rmdir(destination).catch(() => {});
     throw err;
   } finally {
     await rm(work, { ...cleanup, recursive: true });
