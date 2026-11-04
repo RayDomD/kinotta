@@ -151,5 +151,23 @@ it('removes the output folder it created when Final publication is cancelled', a
   });
   await expect(runRender(dir, task, JOB, () => {}, stop.signal, 1)).rejects.toMatchObject({ name: 'AbortError' });
   expect(readdirSync(rendersDir(dir))).toEqual([]);
+  expect(readdirSync(join(dir, 'output'))).not.toContain(REEL);
   expect(existsSync(outputDir(dir))).toBe(false);
+});
+
+it('lists a duplicate filename once, preferring output metadata even when the legacy file is newer', async () => {
+  const dir = copyFixture('showreel-project');
+  const file = `${REEL}-v1-final-180p30.mp4`;
+  mkdirSync(rendersDir(dir), { recursive: true });
+  mkdirSync(outputDir(dir), { recursive: true });
+  writeFileSync(join(rendersDir(dir), file), 'legacy final');
+  writeFileSync(join(outputDir(dir), file), 'output');
+  const outputAt = new Date('2026-10-01');
+  const legacyAt = new Date('2026-10-03');
+  utimesSync(join(outputDir(dir), file), outputAt, outputAt);
+  utimesSync(join(rendersDir(dir), file), legacyAt, legacyAt);
+  expect(await listRenders(dir, REEL)).toEqual([
+    { file, version: 1, preset: 'final', bytes: 6, at: outputAt.toISOString() },
+  ]);
+  expect(await renderPath(dir, REEL, file)).toBe(join(outputDir(dir), file));
 });

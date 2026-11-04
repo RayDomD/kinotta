@@ -24,7 +24,12 @@ export async function listRenders(projectDir: string, slug: string): Promise<Ren
       }),
     );
   }))).flat();
-  return files.filter((file): file is RenderFile => file !== null).sort((a, b) => b.at.localeCompare(a.at));
+  // Output entries come first, matching renderPath's priority for duplicate names.
+  const unique = new Map<string, RenderFile>();
+  for (const file of files) {
+    if (file !== null && !unique.has(file.file)) unique.set(file.file, file);
+  }
+  return [...unique.values()].sort((a, b) => b.at.localeCompare(a.at));
 }
 
 /** The path of one of a reel's finished renders. Throws `not-found` for an unknown reel or file, or a name that isn't one. */
