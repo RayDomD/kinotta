@@ -91,9 +91,12 @@ The optional parts `alpha: true` emits the existing transparent-page class for O
   `.render-<job>.*` and `renders/.work-<job>/`, and resolves once that is done. A finished job comes back unchanged; an
   unknown one is `not-found`. The engine
   (`_internal/render.ts`) runs the skill's `render.js` through the runner and writes
-  `reels/<reel>/renders/<reel>-v<n>-<preset>-<height>p<fps>.mp4` under a temp name (`.render-<job>.mp4`), renamed when
-  complete so the same settings replace the file and a failure leaves nothing; `output` is that path relative to the
-  project. Presets (R2): Draft is half size, CRF 28, no motion blur; Final is full size, CRF 16, with motion blur;
+  temporary files in `reels/<reel>/renders/` (`.render-<job>.*`). Completed Drafts stay there; Finals and Overlays
+  go to `output/<reel>/`, created on demand, keeping the same `<reel>-v<n>-<preset>-<height>p<fps>` file names.
+  Publication renames the file, or copies then removes the temp file across filesystems. The same settings replace
+  the file; a failure or cancellation removes temp/work files and any empty output folder it created. Job `output`
+  is the finished path relative to the project. Presets (R2): Draft is half size, CRF 28, no motion blur; Final is
+  full size, CRF 16, with motion blur;
   Overlay is ProRes 4444 with alpha in a `.mov`, the page alone with no sound. Four settings (R3) go on top, each
   optional in the request: `fps` (`'source'`, 24, 25, 30, 60), `size` (`'half'`, `'source'`, `'1080p'`, `'4k'`: the
   short side, the long side keeping the source's aspect ratio, the page scaled through `deviceScaleFactor`), `quality`
@@ -120,9 +123,11 @@ The optional parts `alpha: true` emits the existing transparent-page class for O
   `acceptOverload: true`; levels are never changed (AM38). Overlay is silent and skips it. Mono sources play at full level
   on both sides, as Web Audio plays them in preview. FFmpeg's AAC encoder applies its own clip avoidance inside an
   accepted overload, so only the onset of an overloaded passage keeps its full peak in the file.
-- `listRenders(slug)` lists `reels/<reel>/renders/` newest first, skipping dot names (temp files, work folders): `{ file,
+- `listRenders(slug)` lists both `output/<reel>/` and `reels/<reel>/renders/` newest first, including older Finals
+  left in `renders/`, without moving them. It skips dot names (temp files, work folders): `{ file,
   version, preset, bytes, at }`, the version and preset read from the file name. `renderFile(slug, file)` is a finished
-  render's path, for serving it, and `revealRender(slug, file)` shows it in the system's file manager through the runner
+  render's path, checking `output/<reel>/` before `reels/<reel>/renders/`, for serving it. `revealRender(slug, file)`
+  shows it in the system's file manager through the runner
   (`explorer /select,` on Windows, `open -R` on macOS, `xdg-open` on the folder elsewhere). Both throw `not-found` for an
   unknown reel or file, or a name that isn't a finished render.
 - `versionIssues(version)` is every static issue of a version: its contract issues, then a footage reel's footage

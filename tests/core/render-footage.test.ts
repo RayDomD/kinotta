@@ -135,7 +135,7 @@ describe('Final and Overlay of a footage reel', () => {
     const watch = setInterval(() => existsSync(renders) && readdirSync(renders).forEach((name) => seen.add(name)), 50);
     const job = await rendered(reel, { version: 2, preset: 'final' }).finally(() => clearInterval(watch));
 
-    expect(job.output).toBe(`reels/${reel.slug}/renders/${reel.slug}-v2-final-360p10.mp4`);
+    expect(job.output).toBe(`output/${reel.slug}/${reel.slug}-v2-final-360p10.mp4`);
     const { streams, duration } = probe(join(reel.dir, job.output!));
     expect(duration).toBeCloseTo(TIMELINE_SECONDS, 1);
     expect(streams.find((s) => s.codec_type === 'video')).toMatchObject({ codec_name: 'h264', width: 640, height: 360, r_frame_rate: '10/1' });
@@ -193,7 +193,7 @@ describe('Final and Overlay of a footage reel', () => {
   it('writes an Overlay as ProRes 4444 with alpha and no sound', { timeout: SLOW_MS }, async () => {
     const job = await rendered(reel, { version: 2, preset: 'overlay' });
 
-    expect(job.output).toBe(`reels/${reel.slug}/renders/${reel.slug}-v2-overlay-360p10.mov`);
+    expect(job.output).toBe(`output/${reel.slug}/${reel.slug}-v2-overlay-360p10.mov`);
     const { streams, duration } = probe(join(reel.dir, job.output!));
     expect(streams).toHaveLength(1);
     // ffprobe names the decoded format: any yuva444 is 4:4:4 with alpha.
@@ -290,9 +290,9 @@ describe('Final and Overlay of a code-only reel', () => {
     const overlay = await project.whenRendered((await project.render({ reel: 'tiny', version: 1, preset: 'overlay' })).id);
     const final = await project.whenRendered((await project.render({ reel: 'tiny', version: 1, preset: 'final' })).id);
 
-    expect(overlay.output).toBe('reels/tiny/renders/tiny-v1-overlay-1080p30.mov');
+    expect(overlay.output).toBe('output/tiny/tiny-v1-overlay-1080p30.mov');
     expect(probe(join(dir, overlay.output!)).streams[0]).toMatchObject({ codec_name: 'prores', pix_fmt: expect.stringMatching(/^yuva444/), width: 1920, height: 1080 });
-    expect(final.output).toBe('reels/tiny/renders/tiny-v1-final-1080p30.mp4');
+    expect(final.output).toBe('output/tiny/tiny-v1-final-1080p30.mp4');
     expect(readFileSync(join(dir, final.output!)).toString('latin1')).toContain('crf=16.0');
   });
 });

@@ -17,7 +17,7 @@
 - `dist/`, `node_modules/`, `package-lock.json`, `test-results/`, `.vitest/`
 - `docs/plans/index.html` and other generated dashboards
 - Binary fixtures and media (`*.wav`, `*.mp4`, `*.png`) beyond checking they are referenced and licensed
-- `reels/*/renders/`, `footage/`, `.herdr/`, `.worktrees/`
+- `reels/*/renders/`, `output/`, `footage/`, `.herdr/`, `.worktrees/`
 
 ## Findings
 

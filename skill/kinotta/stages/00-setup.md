@@ -20,6 +20,7 @@ This folder is a Kinotta project.
 - Brand sources: [paths to the project’s brand sources]
 - Reels: `reels/`
 - Footage: `footage/`
+- Output: `output/`
 - Saved project styles: `reels/styles/`
 ```
 
