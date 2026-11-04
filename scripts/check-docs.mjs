@@ -6,6 +6,8 @@ import { join, relative, sep } from 'node:path';
 
 const root = process.cwd();
 const DOC_PATH = /`(docs\/[A-Za-z0-9_./-]+\.(?:md|html|png|json))`/g;
+// Built on a machine and gitignored, so it is never in a clean checkout.
+const GENERATED = new Set(['docs/plans/index.html']);
 
 function files(dir) {
   if (!existsSync(dir)) return [];
@@ -27,7 +29,7 @@ const problems = [];
 for (const file of [...files(join(root, 'docs/plans')), ...files(join(root, 'docs/briefs'))]) {
   const name = relative(root, file).split(sep).join('/');
   for (const [, path] of readFileSync(file, 'utf8').matchAll(DOC_PATH)) {
-    if (path.includes('*') || path.includes('<')) continue;
+    if (path.includes('*') || path.includes('<') || GENERATED.has(path)) continue;
     if (!existsSync(join(root, path)) && !known.has(`${name}: ${path}`)) problems.push(`${name}: ${path}`);
   }
 }
