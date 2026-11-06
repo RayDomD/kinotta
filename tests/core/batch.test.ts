@@ -8,7 +8,7 @@ const REEL = 'product-showreel';
 const BATCH_PATH = 'reels/product-showreel/v2/comments.json';
 
 function stateFile(dir: string): string {
-  return join(dir, 'reels', '.kinotta', REEL, 'v2.json');
+  return join(dir, 'reels', REEL, '.kinotta', 'v2.json');
 }
 
 async function withTwoComments() {

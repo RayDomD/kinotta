@@ -65,7 +65,7 @@ describe('pin reliability through the project API', () => {
       });
       await expect(project.editComment('parts', 1, title.id, 'Keep this note')).rejects.toThrow('Working write failed');
       vi.mocked(fs.rename).mockImplementation(actualFs.rename);
-      const state = JSON.parse(await fs.readFile(join(dir, 'reels/.kinotta/parts/v1.json'), 'utf8'));
+      const state = JSON.parse(await fs.readFile(join(dir, 'reels/parts/.kinotta/v1.json'), 'utf8'));
       expect(state.comments).toEqual([]);
       expect(await project.listComments('parts', 1)).toEqual([expect.objectContaining({ id: title.id, instant: true, text: '' })]);
       await project.editComment('parts', 1, title.id, 'Keep this note');

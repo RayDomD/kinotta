@@ -7,7 +7,7 @@ import { copyFixture } from '../helpers/project.ts';
 const REEL = 'product-showreel';
 
 function stateFile(dir: string, version = 2): string {
-  return join(dir, 'reels', '.kinotta', REEL, `v${version}.json`);
+  return join(dir, 'reels', REEL, '.kinotta', `v${version}.json`);
 }
 
 describe('comments', () => {
@@ -59,7 +59,7 @@ describe('comments', () => {
       { id: comment.id, pin: comment.pin, text: 'Hold ICONS.', createdAt: comment.createdAt },
     ]);
     expect(readdirSync(versionDir).sort()).toEqual(before);
-    expect(readdirSync(join(dir, 'reels', '.kinotta', REEL))).toEqual(['v2.json']);
+    expect(readdirSync(join(dir, 'reels', REEL, '.kinotta'))).toEqual(['v2.json']);
   });
 
   it('keeps comments when the project is opened again', async () => {

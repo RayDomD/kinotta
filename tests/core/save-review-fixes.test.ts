@@ -10,7 +10,7 @@ const SHOWREEL = 'product-showreel';
 const SAVE_INTENT_FILE = 'save-intent.json';
 const readJson = (path: string): any => JSON.parse(readFileSync(path, 'utf8'));
 const readJsonText = (text: string): any => JSON.parse(text);
-const stateOf = (dir: string, slug: string, n: number): any => readJson(join(dir, 'reels', '.kinotta', slug, `v${n}.json`));
+const stateOf = (dir: string, slug: string, n: number): any => readJson(join(dir, 'reels', slug, '.kinotta', `v${n}.json`));
 const WORD_PIN = { kind: 'word', shot: '03', time: 8.65, word: 'lose' } as const;
 const CUBE_OFFSET = { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 4, y: 4, scale: 1 } as const;
 
