@@ -31,6 +31,47 @@ function tree(dir: string): Record<string, string> {
 }
 
 describe('deleting saved versions', () => {
+  it('matches render versions after the exact reel slug, even when the slug contains version-like text', async () => {
+    const { dir, reelDir } = alternatesFixture(true);
+    const slug = 'ad-v9-draft-cut';
+    const target = join(dir, 'reels', slug);
+    cpSync(reelDir, target, { recursive: true });
+    for (const number of [2, 3]) cpSync(join(target, 'v1'), join(target, `v${number}`), { recursive: true });
+    const render = join(dir, 'output', slug, `${slug}-v2-final-test.mp4`);
+    put(render);
+    const project = open(dir);
+    await project.deleteVersion(slug, 2);
+    expect(existsSync(render)).toBe(false);
+  });
+  it('protects a version named by pending Save recovery without replaying or changing the journal', async () => {
+    const { dir, reelDir } = alternatesFixture(true);
+    cpSync(join(reelDir, 'v1'), join(reelDir, 'v2'), { recursive: true });
+    put(join(reelDir, 'save-intent.json'), JSON.stringify({ version: 1, files: [], operations: [], working: { base: 1, operations: [], undo: [], redo: [], flagged: {} } }));
+    const project = open(dir);
+    const before = tree(dir);
+    await expect(project.deleteVersion('parts', 1)).rejects.toMatchObject({ code: 'frozen', message: expect.stringMatching(/Save.*recover/i) });
+    expect(tree(dir)).toEqual(before);
+  });
+  it('refuses a saved media path into another version instead of breaking its original', async () => {
+    const { dir, reelDir } = alternatesFixture(true);
+    for (const number of [2, 3]) cpSync(join(reelDir, 'v1'), join(reelDir, `v${number}`), { recursive: true });
+    put(join(reelDir, 'v1', 'media', 'original.png'));
+    put(join(reelDir, 'v2', 'media.json'), JSON.stringify({ media: { sources: [{ path: '../v1/media/original.png' }] } }));
+    const project = open(dir);
+    const before = tree(dir);
+    await expect(project.deleteVersion('parts', 1)).rejects.toMatchObject({ code: 'frozen', message: expect.stringContaining('v2') });
+    expect(tree(dir)).toEqual(before);
+  });
+
+  it('refuses unreadable Working history before writing metadata or removing files', async () => {
+    const { dir, reelDir } = alternatesFixture(true);
+    cpSync(join(reelDir, 'v1'), join(reelDir, 'v2'), { recursive: true });
+    put(join(reelDir, 'edit-list.json'), '{broken');
+    const project = open(dir);
+    const before = tree(dir);
+    await expect(project.deleteVersion('parts', 1)).rejects.toMatchObject({ code: 'invalid' });
+    expect(tree(dir)).toEqual(before);
+  });
   it('names every surviving version inheriting the deleted plan and leaves all files unchanged (D1)', async () => {
     const dir = copyFixture('footage-project');
     const reelDir = join(dir, 'reels', 'founder-talk');

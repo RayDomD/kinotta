@@ -9,6 +9,7 @@ import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Pro
 const PIN_NOTES_API = /^\/api\/reels\/([^/]+)\/pin-notes(?:\/([a-f0-9]{64}))?$/;
 const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
+const REEL_API = /^\/api\/reels\/([^/]+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
 const COMMENT_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments\/([^/]+)$/;
 const NOTE_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/note$/;
@@ -396,6 +397,7 @@ export function createHandler(project: Project, webRoot: string) {
         return;
       }
       const versionRoute = VERSION_API.exec(pathname);
+      const reelRoute = REEL_API.exec(pathname);
       const pinNotesRoute = PIN_NOTES_API.exec(pathname);
       const commentsRoute = COMMENTS_API.exec(pathname);
       const commentRoute = COMMENT_API.exec(pathname);
@@ -539,6 +541,18 @@ export function createHandler(project: Project, webRoot: string) {
         sendJson(res, 201, await project.startReelFromBrief((await readJsonBody(req)) as NewBriefReel));
       } else if (pathname === '/api/reels' && req.method === 'POST') {
         sendJson(res, 201, await project.startReel((await readJsonBody(req)) as NewReel));
+      } else if ((versionRoute || reelRoute) && req.method === 'DELETE') {
+        if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin !== undefined && !allowedHosts.some((host) => req.headers.origin === `http://${host}`))) {
+          sendJson(res, 403, { error: 'Deletion requests must come from this editor.' });
+        } else {
+          const slug = safeDecode((versionRoute ?? reelRoute)![1]!);
+          if (slug === null) sendNotFound(res);
+          else {
+            if (versionRoute) await project.deleteVersion(slug, Number(versionRoute[2]));
+            else await project.deleteReel(slug, searchParams.get('openReel') ?? '');
+            res.writeHead(HTTP_NO_CONTENT).end();
+          }
+        }
       } else if (pathname === '/api/footage' && req.method === 'POST') {
         // The body is the video itself, streamed to disk: no size limit and never held in memory.
         const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';

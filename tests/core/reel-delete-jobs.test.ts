@@ -38,6 +38,7 @@ it.each(['running', 'queued'] as const)('refuses version deletion during a %s re
   await vi.waitFor(() => expect(project.renderJobs().find((entry) => entry.id === job.id)?.state).toBe(state));
   const before = contents(dir);
   await expect(project.deleteVersion('parts', 2)).rejects.toMatchObject({ code: 'frozen', message: expect.stringContaining(`${state} render`) });
+  await expect(project.deleteReel('parts', 'another-open-reel')).rejects.toMatchObject({ code: 'frozen', message: expect.stringContaining(`${state} render`) });
   expect(contents(dir)).toEqual(before);
 });
 
@@ -50,6 +51,7 @@ it('refuses version deletion while a comment batch is handed off', async () => {
   await project.copyBatch('parts', 3);
   const before = contents(dir);
   await expect(project.deleteVersion('parts', 2)).rejects.toMatchObject({ code: 'frozen', message: expect.stringMatching(/handed.off/i) });
+  await expect(project.deleteReel('parts', 'another-open-reel')).rejects.toMatchObject({ code: 'frozen', message: expect.stringMatching(/handed.off/i) });
   expect(contents(dir)).toEqual(before);
 });
 
@@ -64,5 +66,6 @@ it('refuses version deletion while an agent job is handed off for Copy', async (
   await project.agentJob('parts');
   const before = contents(dir);
   await expect(project.deleteVersion('parts', 2)).rejects.toMatchObject({ code: 'frozen', message: expect.stringMatching(/agent.*handed.off/i) });
+  await expect(project.deleteReel('parts', 'another-open-reel')).rejects.toMatchObject({ code: 'frozen', message: expect.stringMatching(/agent.*handed.off/i) });
   expect(contents(dir)).toEqual(before);
 });
