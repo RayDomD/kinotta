@@ -14,6 +14,12 @@ export interface StateMigrationReport {
   conflicts: string[];
   /** Slugs whose old state was left in place because the reel folder does not exist. */
   orphans: string[];
+  /** Files or folders left for a later open to retry after an error. */
+  failed: { slug: string; file: string; error: string }[];
+}
+
+function failed(report: StateMigrationReport, slug: string, file: string, error: unknown): void {
+  report.failed.push({ slug, file, error: error instanceof Error ? error.message : String(error) });
 }
 
 const sameBytes = (a: string, b: string): boolean => readFileSync(a).equals(readFileSync(b));
@@ -30,27 +36,32 @@ function copyChecked(from: string, to: string): void {
   if (!sameBytes(from, to)) throw new Error(`The copy of ${from} does not match the original.`);
 }
 
-function moveReelState(from: string, reelDir: string, report: StateMigrationReport): void {
+function moveReelState(from: string, reelDir: string, slug: string, report: StateMigrationReport): void {
   const to = join(reelDir, STATE_DIR);
   for (const entry of readdirSync(from, { withFileTypes: true })) {
     if (!entry.isFile() || TEMP_FILE.test(entry.name)) continue;
     const source = join(from, entry.name);
     const target = join(to, entry.name);
-    mkdirSync(to, { recursive: true });
-    if (!existsSync(target)) {
-      copyChecked(source, target);
-      report.moved++;
-    } else if (!sameBytes(source, target)) {
-      const aside = join(to, `${entry.name}.conflict-${new Date().toISOString().replace(/[:.]/g, '-')}`);
-      copyChecked(source, aside);
-      report.conflicts.push(aside);
+    try {
+      mkdirSync(to, { recursive: true });
+      if (!existsSync(target)) {
+        copyChecked(source, target);
+        report.moved++;
+      } else if (!sameBytes(source, target)) {
+        const aside = join(to, `${entry.name}.conflict-${new Date().toISOString().replace(/[:.]/g, '-')}`);
+        copyChecked(source, aside);
+        report.conflicts.push(aside);
+      }
+      rmSync(source);
+    } catch (error) {
+      failed(report, slug, entry.name, error);
     }
-    rmSync(source);
   }
   try {
     rmdirSync(from);
-  } catch {
+  } catch (error) {
     // Not empty (a temp file or folder we leave alone): nothing is lost, the next open tries again.
+    if (!['ENOTEMPTY', 'EEXIST', 'ENOENT'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
   }
 }
 
@@ -60,19 +71,27 @@ function moveReelState(from: string, reelDir: string, report: StateMigrationRepo
  * copies and the next run finishes. The reel-folder copy always wins; state with no reel folder is never touched.
  */
 export function migrateReelState(projectDir: string): StateMigrationReport {
-  const report: StateMigrationReport = { moved: 0, conflicts: [], orphans: [] };
+  const report: StateMigrationReport = { moved: 0, conflicts: [], orphans: [], failed: [] };
   const oldRoot = join(projectDir, REELS_DIR, STATE_DIR);
   let slugs: string[];
   try {
     slugs = readdirSync(oldRoot, { withFileTypes: true }).filter((e) => e.isDirectory() && !PROJECT_LEVEL.has(e.name)).map((e) => e.name);
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      failed(report, '', oldRoot, error);
+      console.warn('[kinotta] reel state migration', JSON.stringify(report));
+    }
     return report;
   }
   for (const slug of slugs) {
-    const reelDir = join(projectDir, REELS_DIR, slug);
-    if (!existsSync(reelDir)) report.orphans.push(slug);
-    else moveReelState(join(oldRoot, slug), reelDir, report);
+    try {
+      const reelDir = join(projectDir, REELS_DIR, slug);
+      if (!existsSync(reelDir)) report.orphans.push(slug);
+      else moveReelState(join(oldRoot, slug), reelDir, slug, report);
+    } catch (error) {
+      failed(report, slug, join(oldRoot, slug), error);
+    }
   }
-  if (report.moved > 0 || report.conflicts.length > 0 || report.orphans.length > 0) console.warn('[kinotta] reel state migration', JSON.stringify(report));
+  if (report.moved > 0 || report.conflicts.length > 0 || report.orphans.length > 0 || report.failed.length > 0) console.warn('[kinotta] reel state migration', JSON.stringify(report));
   return report;
 }

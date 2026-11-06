@@ -1,9 +1,12 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { openProject } from '../../server/core/index.ts';
 import { migrateReelState } from '../../server/core/_internal/state-migration.ts';
 import { copyFixture } from '../helpers/project.ts';
+
+vi.mock('node:fs', { spy: true });
 
 const REEL = 'product-showreel';
 const COMMENT = { id: 'c1', pin: { kind: 'frame', version: 2, section: null, shot: '03', time: 3.6, x: 0.5, y: 0.5, element: null }, text: 'Hold ICONS.', createdAt: '2026-11-01T00:00:00.000Z' };
@@ -17,6 +20,36 @@ function put(folder: string, name: string, text: string): void {
 }
 
 describe('reel state migration', () => {
+  it('opens despite an unreadable old file, reports it, migrates healthy state and retries later', async () => {
+    const dir = copyFixture('showreel-project');
+    const blocked = join(oldDir(dir), 'v2.json');
+    put(oldDir(dir), 'v2.json', state('blocked'));
+    put(oldDir(dir), 'markers.json', '[]');
+    mkdirSync(join(dir, 'reels', 'healthy'));
+    put(oldDir(dir, 'healthy'), 'v1.json', state('healthy'));
+    const { readFileSync: read } = await vi.importActual<typeof fs>('node:fs');
+    const fault = vi.spyOn(fs, 'readFileSync').mockImplementation((...args: Parameters<typeof fs.readFileSync>) => {
+      if (String(args[0]) === blocked) throw new Error('injected EBUSY');
+      return read(...args);
+    });
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(() => openProject(dir)).not.toThrow();
+      const report = migrateReelState(dir);
+      expect(report.failed).toEqual([{ slug: REEL, file: 'v2.json', error: 'injected EBUSY' }]);
+      expect(log.mock.calls.some((call) => call.join(' ').includes('injected EBUSY'))).toBe(true);
+      expect(existsSync(blocked)).toBe(true);
+      expect(readFileSync(join(newDir(dir), 'markers.json'), 'utf8')).toBe('[]');
+      expect(readFileSync(join(newDir(dir, 'healthy'), 'v1.json'), 'utf8')).toBe(state('healthy'));
+    } finally {
+      fault.mockRestore();
+      log.mockRestore();
+    }
+    expect(migrateReelState(dir).failed).toEqual([]);
+    expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('blocked'));
+    expect(existsSync(blocked)).toBe(false);
+  });
+
   it('reads comments, note, markers and style from the reel folder after opening an old-layout project', async () => {
     const dir = copyFixture('showreel-project');
     put(oldDir(dir), 'v2.json', state('old'));
