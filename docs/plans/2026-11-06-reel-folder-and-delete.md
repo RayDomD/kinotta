@@ -22,7 +22,7 @@ Two PRs. PR 1 moves a reel's state into its folder. PR 2 adds delete and the fol
 
 ## Approach
 
-**PR 1, the move.** The state path is built in `state.ts` (`stateFilePath`) and `watch.ts`. Point both at `reels/<slug>/.kinotta/`. On opening a project, move any `reels/.kinotta/<slug>/` into its reel folder, once, copying first and removing the old folder only after the copy is read back. Update the skill docs that name the old path. Project-level files in `reels/.kinotta/` (stills, effects box) do not move.
+**PR 1, the move.** The state path is built in `state.ts` (`stateFilePath`) and `watch.ts`. Point both at `reels/<slug>/.kinotta/`. On opening a project, move any `reels/.kinotta/<slug>/` into its reel folder, once, copying first and removing the old folder only after the copy is read back. Update the skill docs that name the old path. The move carries every file in that folder, including the reel's own `style.json` (its path is derived from the state path in `style.ts:212`). Project-level files in `reels/.kinotta/` (stills, effects box) do not move. Agent job folders already live inside the reel (`reels/<slug>/.agent/jobs`).
 
 **PR 2, delete.**
 1. `deleteVersion(slug, n)`: removes the version folder, its state file, and its renders in `reels/<slug>/renders` and `output/<slug>`.
@@ -40,6 +40,7 @@ PR 1
 
 PR 2
 - [ ] Write the "leaves nothing" test: build a reel with versions, comments, renders in both places, alternates and a shared cache; delete; assert the project tree equals the tree before the reel existed. Proof: fails before, passes after.
+- [ ] The same test points `KINOTTA_HOME` and the temp folder at empty sandbox folders and asserts both are unchanged after the delete, so nothing leaks outside the project. Proof: passes.
 - [ ] A second test where another reel still uses a cache: delete keeps it. Proof: passes.
 - [ ] `deleteVersion`, `deleteReel`, the refusals, and the HTTP routes. Proof: tests above, plus a refusal test per case.
 - [ ] Foldable rail, Delete rows and the confirm sheet. Proof: driven in the running editor on a copy of RayDom: fold and unfold, delete a version, delete a reel, Escape cancels, the open reel's Delete is refused.
