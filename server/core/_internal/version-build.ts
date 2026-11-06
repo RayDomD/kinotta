@@ -15,6 +15,7 @@ import { scanPage, checkShotsAgainstPage } from './contract.ts';
 import { EDITS_CSS, MEDIA_SIDECAR_FILE } from './code-edits.ts';
 import type { PartsManifest } from './types.ts';
 import type { MediaPlan } from './media-model.ts';
+import { rememberVersionNumber } from './version.ts';
 
 /** Where a version is built before it exists: not a `v<n>` folder, and hidden from the watcher. */
 export const STAGE_DIR = '.save';
@@ -182,6 +183,7 @@ export async function publishVersion(reelDir: string, staged: StagedVersion, num
   try {
     const exists = await stat(target).then(() => true, () => false);
     if (exists) throw new KinottaError('frozen', `v${number} already exists.`);
+    await rememberVersionNumber(reelDir, number);
     await rename(staged.dir, target);
   } catch (err) {
     await rm(staged.dir, { recursive: true, force: true });

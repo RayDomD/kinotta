@@ -10,7 +10,7 @@ import { SAFE_SLUG, addFootage } from './footage.ts';
 import { readTitle } from './reels.ts';
 import { brollRequest } from './requests.ts';
 import { readSections } from './sections.ts';
-import { readState, stateFilePath } from './state.ts';
+import { readState, stateFilePath, writeFileAtomic } from './state.ts';
 import { versionIssues } from './footage-issues.ts';
 import type { Overlay, Shot, Version, VersionEntry } from './types.ts';
 
@@ -44,6 +44,30 @@ async function versionNumbers(reelDir: string): Promise<number[]> {
 /** The newest version's number, or 0 for a reel with no version yet (one still being transcribed). */
 export async function newestVersionNumber(reelDir: string): Promise<number> {
   return Math.max(0, ...(await versionNumbers(reelDir)));
+}
+
+async function reelMetadata(reelDir: string): Promise<Record<string, unknown>> {
+  try {
+    const value: unknown = JSON.parse(await readFile(join(reelDir, 'reel.json'), 'utf8'));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid reel metadata');
+    return value as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    throw new KinottaError('invalid', 'The reel metadata is unreadable. Repair reel.json before changing versions.');
+  }
+}
+
+/** Allocation is independent of the newest surviving folder. Deleted numbers keep their meaning. */
+export async function nextVersionNumber(reelDir: string): Promise<number> {
+  const metadata = await reelMetadata(reelDir);
+  return Math.max(await newestVersionNumber(reelDir), Number.isSafeInteger(metadata.versionHighWater) ? Number(metadata.versionHighWater) : 0) + 1;
+}
+
+/** Caller holds the reel lock. Reserve before publication or removal, including numbers from older builds. */
+export async function rememberVersionNumber(reelDir: string, number: number): Promise<void> {
+  const metadata = await reelMetadata(reelDir);
+  const highWater = Math.max(number, await newestVersionNumber(reelDir), Number.isSafeInteger(metadata.versionHighWater) ? Number(metadata.versionHighWater) : 0);
+  await writeFileAtomic(join(reelDir, 'reel.json'), `${JSON.stringify({ ...metadata, versionHighWater: highWater }, null, 2)}\n`);
 }
 
 export async function requireReelDir(projectDir: string, slug: string): Promise<string> {

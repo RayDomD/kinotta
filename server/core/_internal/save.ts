@@ -17,7 +17,7 @@ import { KinottaError } from './errors.ts';
 import { pieceMap, toTimelineSpan } from './pieces.ts';
 import type { EditList, SavedVersion, SkippedEdit } from './types.ts';
 import { STAGE_DIR, publishVersion, snapshotLegacyVersion, stageVersion } from './version-build.ts';
-import { newestVersionNumber, readVersion, requireReelDir } from './version.ts';
+import { nextVersionNumber, newestVersionNumber, readVersion, requireReelDir } from './version.ts';
 import { checkPartsManifest } from './parts.ts';
 import { assembleParts } from './parts-assembler.ts';
 import { assertPartsHashes, partsRevisionHashes, readPartsInputs } from './parts-files.ts';
@@ -149,7 +149,7 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
     await writeJsonAtomic(file, { ...JSON.parse(await readFile(file, 'utf8')), frozenBy: options.reason });
   }
   if (options.capture) return options.capture(stage);
-  try { await options.validate?.(stage, newest + 1); } catch (error) {
+  try { await options.validate?.(stage, await nextVersionNumber(reelDir)); } catch (error) {
     await rm(stage, { recursive: true, force: true });
     throw error;
   }
@@ -157,7 +157,7 @@ async function freezeCodeOnly(projectDir: string, slug: string, reelDir: string,
     await rm(stage, { recursive: true, force: true });
     return { version: newest };
   }
-  const number = newest + 1;
+  const number = await nextVersionNumber(reelDir);
   try {
     await beginSave(reelDir, number, [], list.operations.map((op) => op.id), withoutFlagged(await workingState(reelDir), skipped, number));
     await publishVersion(reelDir, { dir: stage }, number);
@@ -206,7 +206,8 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
     const { plan, words } = sources;
     const edit: Sources = await withPreservedMediaHashes(reelDir, applyOperations(sources, applying));
     const edited: Sources = edit.plan.media ? { ...edit, plan: { ...edit.plan, media: await withSpeech(projectDir, planDir, mediaWithTracks(edit.plan.media)) } } : edit;
-    const number = (await newestVersionNumber(reelDir)) + 1;
+    const newest = await newestVersionNumber(reelDir);
+    const number = await nextVersionNumber(reelDir);
 
     const staged = await stageVersion(reelDir, {
       freezeSources: true,
@@ -233,10 +234,10 @@ async function buildWorking(projectDir: string, slug: string, options: CaptureOp
     const stored = await workingState(reelDir);
     const capturesSpeech = edited.plan.media?.sources.some((source) => source.words && !edit.plan.media?.sources.find((original) => original.id === source.id)?.words) ?? false;
     // No edits means unchanged only on the newest inputs; a used version is a change even with nothing after it.
-    if (((applying.length === 0 && applied.base === list.base && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${number - 1}`))))) {
+    if (((applying.length === 0 && applied.base === list.base && list.frozen === undefined && !capturesSpeech) || identity === (stored.frozenIdentity ?? await contentIdentity(join(reelDir, `v${newest}`))))) {
       await rm(staged.dir, { recursive: true, force: true });
-      await recordFreeze(reelDir, number - 1, withoutFlagged(stored, skipped, number - 1), identity);
-      return result(number - 1);
+      await recordFreeze(reelDir, newest, withoutFlagged(stored, skipped, newest), identity);
+      return result(newest);
     }
 
     try {
