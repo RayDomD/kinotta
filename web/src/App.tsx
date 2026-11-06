@@ -1,6 +1,6 @@
 import { AgentStrip } from './AgentStrip.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchWorkingVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
+import { deleteReel, deleteVersion, fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchWorkingVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
 import type { Comment, ProjectEvent, ReelListing, ReelSummary, RenderJob, TranscriptionProgress, Version, VersionEntry } from './api/index.ts';
 import { BUILT_BY_YOU } from '../../server/core/model.ts';
 import { BriefWaiting } from './BriefReel.tsx';
@@ -28,6 +28,8 @@ import { useNote } from './useNote.ts';
 import type { NoteState } from './useNote.ts';
 import { MODE_STORAGE_KEY, SimpleMode, startsInSimpleMode } from './SimpleMode.tsx';
 import { Library } from './Library.tsx';
+import { RailDelete, RailFold } from './RailDelete.tsx';
+import type { DeleteTarget } from './RailDelete.tsx';
 
 type Load =
   | { status: 'loading' }
@@ -226,7 +228,7 @@ const reelPosition = (edits: EditsState, newest: number | undefined): ReelPositi
 /** True when the current reel already is saved version `number`, so using it would change nothing. */
 const isCurrentReel = ({ frozenVersion, editsSinceFreeze }: ReelPosition, number: number | undefined): boolean => number === frozenVersion && editsSinceFreeze === 0;
 
-function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edits, entries, selected, ready, sectionIds, onOpen, onUse }: VersionRailProps) {
+function VersionRail({ project, onDelete, working, editsSinceFreeze, frozenVersion, onWorking, edits, entries, selected, ready, sectionIds, onOpen, onUse }: VersionRailProps & { project: string; onDelete(number: number, trigger: HTMLElement): void }) {
   const newestFirst = [...entries].sort((a, b) => b.number - a.number);
   // Using the version the current reel already is changes nothing.
   const same = isCurrentReel({ frozenVersion, editsSinceFreeze }, selected);
@@ -238,13 +240,13 @@ function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edit
     <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canUndo} onClick={() => void edits.undo()}>Undo</button>
     <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canRedo} onClick={() => void edits.redo()}>Redo</button>
   </div>
-  <div className="label">Saved versions</div>
+  <RailFold project={project} section="versions" label="Saved versions" summary={<><span className="num">{newestFirst.length === 1 ? `v${newestFirst[0]!.number}` : `v${newestFirst.at(-1)?.number} to v${newestFirst[0]?.number}`}</span> &#183; <span className="num">{entries.length}</span> saved</>}>
   <nav className="versions" aria-label="Versions">
     {newestFirst.map((entry) => {
       const who = entry.frozenBy ?? whoMade(entry.builtBy);
       const tag = versionTag(entry, sectionIds);
       return (
-        <button key={entry.number} type="button" data-version={entry.number} aria-current={!working && entry.number === selected ? 'true' : undefined} onClick={() => onOpen(entry.number)}>
+        <div className="rail-row" key={entry.number}><button type="button" data-version={entry.number} aria-current={!working && entry.number === selected ? 'true' : undefined} onClick={() => onOpen(entry.number)}>
           <span>
             <span className="num">{`v${entry.number}`}</span>
             {who !== null && <span className="rv-who">{who}</span>}
@@ -254,9 +256,11 @@ function VersionRail({ working, editsSinceFreeze, frozenVersion, onWorking, edit
             {ready.has(entry.number) && <small className="ready-mark">new</small>}
           </span>
         </button>
+        <button type="button" className="rail-delete" aria-label={`Delete v${entry.number}`} onClick={(event) => onDelete(entry.number, event.currentTarget)}>Delete</button>
+        </div>
       );
     })}
-  </nav>
+  </nav></RailFold>
   {!working && selected !== undefined && (
     <button type="button" className="c-act rail-use" disabled={edits.busy || same} title={same ? `The current reel already is v${selected}.` : undefined} onClick={() => onUse(selected)}>Use this version</button>
   )}
@@ -306,26 +310,39 @@ interface RailProps {
   /** The New reel screen is open. */
   creating: boolean;
   onNewReel(): void;
+  onDeleted(target: DeleteTarget): Promise<void>;
 }
 
 function Rail(props: RailProps) {
   const { project, listing, current, sections, versions, onOpen, creating, onNewReel } = props;
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null);
+  function closeDelete(deleted = false): void {
+    const target = deleting;
+    setDeleting(null);
+    requestAnimationFrame(() => {
+      if (!deleted && target?.trigger.isConnected) target.trigger.focus();
+      else document.querySelector<HTMLButtonElement>(`[data-rail-fold="${target?.kind === 'reel' ? 'reels' : 'versions'}"]`)?.focus();
+    });
+  }
   return (
     <EditorRail reviewMode={props.reviewMode}>
       <div>
-        <div className="label">Reels in {project}/reels</div>
+        <RailFold key={project} project={project} section="reels" label="Reels" summary={<><span className="num">{listing.reels.length}</span> reels</>}>
         {listing.reels.length > 0 ? (
           <nav className="reels" aria-label="Reels">
             {listing.reels.map((reel) => (
-              <button key={reel.slug} type="button" aria-current={reel.slug === current && !creating ? 'true' : undefined} onClick={() => onOpen(reel.slug)}>
+              <div className="rail-row" key={reel.slug}><button type="button" aria-current={reel.slug === current && !creating ? 'true' : undefined} onClick={() => onOpen(reel.slug)}>
                 {reel.title}
                 {reel.brief !== undefined && reel.newestVersion === null && <WaitingMark />}
               </button>
+              {reel.slug !== current && current !== undefined && <button type="button" className="rail-delete" aria-label={`Delete reel ${reel.title}`} onClick={(event) => setDeleting({ kind: 'reel', slug: reel.slug, title: reel.title, trigger: event.currentTarget })}>Delete</button>}
+              </div>
             ))}
           </nav>
         ) : (
           <div className="meta rail-none">None</div>
         )}
+        </RailFold>
         <nav className="reels" aria-label="New reel">
           <button type="button" aria-current={creating ? 'true' : undefined} onClick={onNewReel}>New reel</button>
         </nav>
@@ -333,6 +350,9 @@ function Rail(props: RailProps) {
       {sections !== null && !creating && <SectionRail {...sections} />}
       {current !== undefined && versions.entries.length > 0 && !creating && (
         <VersionRail
+          key={project}
+          project={project}
+          onDelete={(number, trigger) => setDeleting({ kind: 'version', slug: current, title: current, number, trigger })}
           edits={versions.edits}
           working={versions.working}
           editsSinceFreeze={versions.editsSinceFreeze}
@@ -346,6 +366,9 @@ function Rail(props: RailProps) {
           onOpen={versions.onOpenVersion}
         />
       )}
+      {deleting && <RailDelete target={deleting} onClose={closeDelete} onDelete={async () => {
+        await props.onDeleted(deleting);
+      }} />}
     </EditorRail>
   );
 }
@@ -868,6 +891,18 @@ function Studio() {
           onOpen={openReel}
           creating={creating}
           onNewReel={() => setCreating(true)}
+          onDeleted={async (target) => {
+            if (target.kind === 'version') {
+              await deleteVersion(target.slug, target.number!);
+              if (!working && chosen === target.number) { setWorking(true); setChosen(newest); }
+              setReady((previous) => new Set([...previous].filter((number) => number !== target.number)));
+              setVersionsTick((tick) => tick + 1);
+            } else {
+              await deleteReel(target.slug, reel!.slug);
+            }
+            const listing = await fetchReels();
+            setLoad((previous) => previous.status === 'ready' ? { ...previous, listing } : previous);
+          }}
         />
         <Main
           working={working}

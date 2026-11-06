@@ -328,6 +328,13 @@ export interface NewComment {
   text: string;
 }
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -338,7 +345,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request to ${path} failed (${res.status})`);
+    throw new ApiError(body?.error ?? `Request to ${path} failed (${res.status})`, res.status);
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') {
     return undefined as T;
@@ -354,6 +361,8 @@ export const fetchBuiltPinNotes = (slug: string): Promise<BuiltPinNote[]> => get
 export const decidePinNote = (slug: string, id: string, keep: boolean): Promise<void> => requestJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes/${encodeURIComponent(id)}`, jsonBody('POST', { keep }));
 export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
 export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
+export const deleteReel = (slug: string, openReel: string): Promise<void> => requestJson(`/api/reels/${encodeURIComponent(slug)}?openReel=${encodeURIComponent(openReel)}`, { method: 'DELETE' });
+export const deleteVersion = (slug: string, number: number): Promise<void> => requestJson(versionPath(slug, number), { method: 'DELETE' });
 /** Whether Python 3, ffmpeg and faster-whisper are installed, which starting a reel from a video needs. */
 export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
 /** A reel's versions, oldest first. */
