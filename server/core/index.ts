@@ -44,6 +44,7 @@ import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/
 import { mediaStill } from './_internal/media-stills.ts';
 import { migrateReelState } from './_internal/state-migration.ts';
 import { deleteVersion } from './_internal/delete.ts';
+import { KinottaError } from './_internal/errors.ts';
 export type { TimelineMarker } from './_internal/markers.ts';
 
 export { removeStaleDrafts } from './_internal/render-queue.ts';
@@ -158,6 +159,12 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
   const beats = createMediaBeats(dir);
+  const assertDeletionIdle = async (slug: string): Promise<void> => {
+    const reason = await agents.deletionReason(slug);
+    const job = renders.jobs().find((entry) => entry.reel === slug);
+    if (job) throw new KinottaError('frozen', `This reel has a ${job.state} render. Finish or cancel it before deleting it or a version.`);
+    if (reason) throw new KinottaError('frozen', reason);
+  };
   const render = async (request: RenderRequest): Promise<RenderJob> => {
     removeStaleDrafts(dir);
     const task = await prepareRender(dir, request);
@@ -226,7 +233,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
       });
     },
     listVersions: (slug) => listVersions(dir, slug),
-    deleteVersion: (slug, number) => deleteVersion(dir, slug, number),
+    deleteVersion: (slug, number) => deleteVersion(dir, slug, number, () => assertDeletionIdle(slug)),
     subscribe: (listener) => {
       listeners.add(listener);
       const stopWatching = watcher.subscribe(settling(dir, listener));

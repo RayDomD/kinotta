@@ -368,6 +368,11 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   return {
+    async deletionReason(reel: string): Promise<string | null> {
+      await ready;
+      const job = latest.get(reel);
+      return running.has(reel) || job && (activeState(job.state) || job.state === 'copy-ready') ? 'An agent job is running or handed off for this reel. Finish it before deleting it or a version.' : null;
+    },
     ready,
     start,
     async status(reel: string): Promise<AgentJob | null> { await ready; await requireReelDir(projectDir, reel); return latest.has(reel) ? { ...latest.get(reel)! } : null; },
