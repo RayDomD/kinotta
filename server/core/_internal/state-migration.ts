@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REELS_DIR, STATE_DIR } from './state.ts';
 
-/** Folders directly under `reels/.kinotta/` that belong to the project, not to a reel. */
-const PROJECT_LEVEL = new Set(['stills']);
+/** The shared stills folder can also hold old state for a reel with that slug. */
+const STILLS_STATE_FILE = /^(?:v\d+|markers|style)\.json$/;
 const TEMP_FILE = /\.tmp$/;
 
 export interface StateMigrationReport {
@@ -40,6 +40,7 @@ function moveReelState(from: string, reelDir: string, slug: string, report: Stat
   const to = join(reelDir, STATE_DIR);
   for (const entry of readdirSync(from, { withFileTypes: true })) {
     if (!entry.isFile() || TEMP_FILE.test(entry.name)) continue;
+    if (slug === 'stills' && !STILLS_STATE_FILE.test(entry.name)) continue;
     const source = join(from, entry.name);
     const target = join(to, entry.name);
     try {
@@ -75,7 +76,7 @@ export function migrateReelState(projectDir: string): StateMigrationReport {
   const oldRoot = join(projectDir, REELS_DIR, STATE_DIR);
   let slugs: string[];
   try {
-    slugs = readdirSync(oldRoot, { withFileTypes: true }).filter((e) => e.isDirectory() && !PROJECT_LEVEL.has(e.name)).map((e) => e.name);
+    slugs = readdirSync(oldRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       failed(report, '', oldRoot, error);
@@ -86,6 +87,7 @@ export function migrateReelState(projectDir: string): StateMigrationReport {
   for (const slug of slugs) {
     try {
       const reelDir = join(projectDir, REELS_DIR, slug);
+      if (slug === 'stills' && (!existsSync(reelDir) || !statSync(reelDir).isDirectory())) continue;
       if (!existsSync(reelDir)) report.orphans.push(slug);
       else moveReelState(join(oldRoot, slug), reelDir, slug, report);
     } catch (error) {

@@ -162,6 +162,28 @@ describe('reel state migration', () => {
     expect(existsSync(oldDir(dir))).toBe(false);
   });
 
+  it('migrates a stills reel without touching cache subfolders or unrelated direct files', async () => {
+    const dir = copyFixture('showreel-project');
+    fs.renameSync(join(dir, 'reels', REEL), join(dir, 'reels', 'stills'));
+    const folder = oldDir(dir, 'stills');
+    put(folder, 'v2.json', state('stills'));
+    put(folder, 'markers.json', '[]');
+    put(folder, 'style.json', '{"rules":["keep"]}');
+    put(folder, 'unrelated.json', 'leave');
+    put(join(folder, 'abc'), '1-160.jpg', 'jpg');
+
+    const project = openProject(dir);
+
+    expect((await project.listComments('stills', 2)).map((c) => c.text)).toEqual(['stills']);
+    expect(await project.readNote('stills', 2)).toBe('note stills');
+    expect(readFileSync(join(newDir(dir, 'stills'), 'markers.json'), 'utf8')).toBe('[]');
+    expect(readFileSync(join(newDir(dir, 'stills'), 'style.json'), 'utf8')).toBe('{"rules":["keep"]}');
+    expect(readdirSync(folder).sort()).toEqual(['abc', 'unrelated.json']);
+    expect(readFileSync(join(folder, 'unrelated.json'), 'utf8')).toBe('leave');
+    expect(readdirSync(join(folder, 'abc'))).toEqual(['1-160.jpg']);
+    expect(readFileSync(join(folder, 'abc', '1-160.jpg'), 'utf8')).toBe('jpg');
+  });
+
   it('saving a comment emits no version event and does emit a comments event', async () => {
     const dir = copyFixture('showreel-project');
     const project = openProject(dir);
