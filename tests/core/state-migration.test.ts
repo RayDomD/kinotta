@@ -64,6 +64,42 @@ describe('reel state migration', () => {
     expect(existsSync(oldDir(dir))).toBe(false);
   });
 
+  it.each(['remove', 'list'] as const)('survives overlapping migrations at the old-state %s step', async (step) => {
+    const dir = copyFixture('showreel-project');
+    put(oldDir(dir), 'v2.json', state('same'));
+    const original = await vi.importActual<typeof fs>('node:fs');
+    let nested: ReturnType<typeof migrateReelState> | undefined;
+    let interleaved = false;
+    const interleave = (): void => {
+      if (interleaved) return;
+      interleaved = true;
+      nested = migrateReelState(dir);
+    };
+    const fault = step === 'remove'
+      ? vi.spyOn(fs, 'rmSync').mockImplementation((path, options) => {
+        if (String(path) === join(oldDir(dir), 'v2.json')) interleave();
+        return original.rmSync(path, options);
+      })
+      : vi.spyOn(fs, 'readdirSync').mockImplementation((...args: Parameters<typeof fs.readdirSync>) => {
+        if (String(args[0]) === oldDir(dir)) interleave();
+        return original.readdirSync(...args);
+      });
+    try {
+      const report = migrateReelState(dir);
+      expect(interleaved).toBe(true);
+      expect(nested?.failed).toEqual([]);
+      expect(report.failed).toEqual([{
+        slug: REEL,
+        file: step === 'remove' ? 'v2.json' : oldDir(dir),
+        error: expect.stringContaining('ENOENT'),
+      }]);
+      expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('same'));
+      expect(existsSync(oldDir(dir))).toBe(false);
+    } finally {
+      fault.mockRestore();
+    }
+  });
+
   it('keeps the reel-folder copy when both exist and sets the other aside as a reported conflict', () => {
     const dir = copyFixture('showreel-project');
     put(newDir(dir), 'v2.json', state('new'));
