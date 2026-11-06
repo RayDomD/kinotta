@@ -43,7 +43,7 @@ import { effectsBox, saveEffectsBox } from './_internal/effects-box.ts';
 import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/markers.ts';
 import { mediaStill } from './_internal/media-stills.ts';
 import { migrateReelState } from './_internal/state-migration.ts';
-import { deleteVersion } from './_internal/delete.ts';
+import { deleteReel, deleteVersion } from './_internal/delete.ts';
 import { KinottaError } from './_internal/errors.ts';
 export type { TimelineMarker } from './_internal/markers.ts';
 
@@ -234,6 +234,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     },
     listVersions: (slug) => listVersions(dir, slug),
     deleteVersion: (slug, number) => deleteVersion(dir, slug, number, () => assertDeletionIdle(slug)),
+    deleteReel: (slug, openReel) => deleteReel(dir, slug, openReel, () => assertDeletionIdle(slug)),
     subscribe: (listener) => {
       listeners.add(listener);
       const stopWatching = watcher.subscribe(settling(dir, listener));

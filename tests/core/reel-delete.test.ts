@@ -89,6 +89,7 @@ describe('deleting saved versions', () => {
     }
     await project.addOperation('parts', { kind: 'shot-alternate', shot: 'proof', revision: 'r3' });
     expect(await project.freezeEdits('parts')).toMatchObject({ version: 4 });
+    expect((await project.listComments('parts', 4)).map((comment) => comment.text)).toContain('Delete this version too.');
     expect(JSON.parse(readFileSync(join(reelDir, 'reel.json'), 'utf8')).title).toBe('Parts fixture');
   });
 });

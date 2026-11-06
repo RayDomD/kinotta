@@ -46,6 +46,11 @@ export async function newestVersionNumber(reelDir: string): Promise<number> {
   return Math.max(0, ...(await versionNumbers(reelDir)));
 }
 
+/** The nearest surviving predecessor; saved version numbers may have gaps after deletion. */
+export async function previousVersionNumber(reelDir: string, number: number): Promise<number> {
+  return Math.max(0, ...(await versionNumbers(reelDir)).filter((candidate) => candidate < number));
+}
+
 async function reelMetadata(reelDir: string): Promise<Record<string, unknown>> {
   try {
     const value: unknown = JSON.parse(await readFile(join(reelDir, 'reel.json'), 'utf8'));
@@ -231,15 +236,16 @@ export async function readVersion(projectDir: string, slug: string, number: numb
   const version = await readVersionFiles(projectDir, slug, number);
   if (number < 2) return version;
   const reelDir = join(projectDir, REELS_DIR, slug);
+  const previousNumber = await previousVersionNumber(reelDir, number);
   let previous: Version;
   try {
-    previous = await readVersionFiles(projectDir, slug, number - 1);
+    previous = await readVersionFiles(projectDir, slug, previousNumber);
   } catch {
     // The version before is missing or unreadable, so there is nothing to compare with.
     return version;
   }
   const { changed, claimMismatch } = detectChanges(
-    { version: previous, ...(await readPageText(reelDir, number - 1)) },
+    { version: previous, ...(await readPageText(reelDir, previousNumber)) },
     { version, ...(await readPageText(reelDir, number)) },
   );
   return { ...version, changedSections: changed, claimMismatch };

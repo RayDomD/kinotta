@@ -476,6 +476,8 @@ export interface Project {
   removeVideo(path: string): Promise<{ removed: boolean }>;
   /** Remove an unreferenced saved version and its comments and renders. Refusals carry a displayable reason. */
   deleteVersion(slug: string, number: number): Promise<void>;
+  /** Remove a closed reel and its outputs, retaining project footage and shared content caches. */
+  deleteReel(slug: string, openReel: string): Promise<void>;
   /**
    * Starts a reel from a short brief: writes `reel.json` with the title and the brief, and returns the request to give
    * whoever builds it. The reel has no version (it is waiting) until a version with a shots.json appears. Throws
