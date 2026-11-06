@@ -59,6 +59,7 @@ describe('reel state migration', () => {
     const project = openProject(dir);
 
     expect((await project.listComments(REEL, 2)).map((c) => c.text)).toEqual(['old']);
+    expect(await project.readNote(REEL, 2)).toBe('note old');
     expect(await project.listMarkers(REEL)).toEqual([{ id: 'm1', time: 1, name: 'Intro' }]);
     expect(readFileSync(join(newDir(dir), 'style.json'), 'utf8')).toBe('{"rules":["keep"]}');
     expect(existsSync(oldDir(dir))).toBe(false);
