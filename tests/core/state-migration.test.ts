@@ -153,12 +153,15 @@ describe('reel state migration', () => {
     const dir = copyFixture('showreel-project');
     put(join(dir, 'reels', '.kinotta'), 'effects-box.json', '["big-word"]');
     put(join(dir, 'reels', '.kinotta', 'stills', 'abc'), '1-160.jpg', 'jpg');
+    put(oldDir(dir, 'stills'), 'v2.json', state('cache only'));
     put(oldDir(dir), 'v2.json', state('old'));
 
     migrateReelState(dir);
 
     expect(readFileSync(join(dir, 'reels', '.kinotta', 'effects-box.json'), 'utf8')).toBe('["big-word"]');
     expect(readFileSync(join(dir, 'reels', '.kinotta', 'stills', 'abc', '1-160.jpg'), 'utf8')).toBe('jpg');
+    expect(readdirSync(oldDir(dir, 'stills')).sort()).toEqual(['abc', 'v2.json']);
+    expect(readFileSync(join(oldDir(dir, 'stills'), 'v2.json'), 'utf8')).toBe(state('cache only'));
     expect(existsSync(oldDir(dir))).toBe(false);
   });
 
