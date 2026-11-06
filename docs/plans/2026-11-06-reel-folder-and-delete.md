@@ -1,7 +1,7 @@
 ---
 title: reel-folder-and-delete
 date: 2026-11-06
-status: Draft
+status: In Progress
 summary: Keep everything a reel owns in its own folder, then add Delete reel and Delete version that leave nothing behind, with foldable rail sections.
 spec: docs/mockups/2026-11-06-reel-delete-version-list.html
 ---
@@ -43,7 +43,7 @@ Project-level files in `reels/.kinotta/` (stills, effects box) do not move. Agen
 ## Steps
 
 PR 1
-- [ ] Test: open a project with the old layout; every comment, note, marker and the style are read from the reel folder. Proof: fails before the change, passes after.
+- [x] Test: open a project with the old layout; every comment, note, marker and the style are read from the reel folder. Proof: fails before the change, passes after.
 - [ ] Test: both locations exist (older build kept writing): the reel-folder copy wins, the other is set aside and reported. Test: a crash between copy and remove loses nothing and finishes on the next open. Proof: both pass.
 - [ ] Test: saving a comment emits no version event from the watcher. Proof: passes.
 - [ ] Point `state.ts` and `watch.ts` at the reel folder and add the move. Proof: the tests pass; a copy of RayDom opens with all comments intact.
@@ -78,3 +78,6 @@ PR 2
 ### 2026-11-06
 - Plan created. Owner decided: keep `output/`, move state into the reel folder.
 - Reviewed by the advisor before approval; added the version-reference map, never-reused numbers, a file-by-file move rule, the watcher test, a narrower sweep, wider refusals, the Windows temp variables, the render gate and the High review tier.
+
+### 2026-11-07
+- Owner approved the plan. PR 1 merged as #133 (18cf2c0). PR 2 in progress on `feat/reel-delete`.
