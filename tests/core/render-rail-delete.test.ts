@@ -101,6 +101,17 @@ it('folds the rail, deletes a version and a closed reel, cancels with Escape and
     await page.keyboard.press('Escape');
     await sheet.waitFor({ state: 'detached' });
 
+    // Deleting the version on screen falls back to Working and never leaves the main pane loading.
+    await versions.locator('[data-version="1"]').click();
+    await expect.poll(() => page.getByRole('heading', { level: 1 }).textContent()).toContain('v1');
+    await versions.locator('[data-version="1"]').focus();
+    await versions.getByRole('button', { name: 'Delete v1', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete version', exact: true }).click();
+    await expect.poll(() => versions.locator('[data-version="1"]').count()).toBe(0);
+    await expect.poll(() => rail.getAttribute('data-verify-working')).toBe('true');
+    await expect.poll(() => page.getByRole('heading', { level: 1 }).textContent()).not.toContain('v1');
+    expect(await page.getByText(/loading/i).count()).toBe(0);
+
     await reels.getByRole('button', { name: 'Closed fixture', exact: true }).focus();
     await reels.getByRole('button', { name: 'Delete reel Closed fixture', exact: true }).click();
     sheet = page.getByRole('dialog', { name: 'Delete reel "Closed fixture"?', exact: true });
@@ -110,6 +121,6 @@ it('folds the rail, deletes a version and a closed reel, cancels with Escape and
     expect(existsSync(closedReel)).toBe(false);
     expect(existsSync(reelDir)).toBe(true);
     await expect.poll(() => reelsFold.evaluate((node) => node === document.activeElement)).toBe(true);
-    expect(deletes).toHaveLength(3);
+    expect(deletes).toHaveLength(4);
   } finally { await browser.close(); await server.close(); }
 });

@@ -209,9 +209,10 @@ input { font: inherit; color: inherit; cursor: text; }
 .rail-row:hover > button.rail-delete, .rail-row:focus-within > button.rail-delete { visibility: visible; }
 .rail-row > button.rail-delete:focus-visible { visibility: visible; }
 .rail-row > button.rail-delete:hover { color: var(--ink); }
+@media (hover: none) { .rail-row > button.rail-delete { visibility: visible; } }
 .rail-row:hover .rv-who, .rail-row:focus-within .rv-who { visibility: hidden; }
 .sheet.rail-delete-sheet { width: min(420px, calc(100vw - 32px)); padding: 18px 20px; }
-.rail-delete-sheet h2 { font-size: 15px; font-weight: 500; margin: 0 0 8px; }
+.rail-delete-sheet h2 { font-size: 15px; font-weight: 500; margin: 0 0 8px; overflow-wrap: anywhere; }
 .rail-delete-sheet p { font-size: 14px; color: var(--ink-2); margin: 0 0 6px; }
 .rail-delete-sheet ul { margin: 8px 0 10px; padding: 0; list-style: none; color: var(--muted); font-size: 13px; }
 .rail-delete-sheet li { border-top: 1px solid var(--rule); padding: 3px 0; }

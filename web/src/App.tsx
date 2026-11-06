@@ -700,6 +700,8 @@ function Studio() {
     return subscribe((event: ProjectEvent) => {
       if (event.type === 'reels-changed') {
         refreshListing();
+        // A version deleted from another tab changes this reel's list too.
+        setVersionsTick((n) => n + 1);
       } else if (event.type === 'edits-changed') {
         // The save event can arrive before its HTTP reply. Keep the local preview until that reply settles.
         afterPendingEdits(event.reel, () => {
@@ -894,7 +896,9 @@ function Studio() {
           onDeleted={async (target) => {
             if (target.kind === 'version') {
               await deleteVersion(target.slug, target.number!);
-              if (!working && chosen === target.number) { setWorking(true); setChosen(newest); }
+              // The version on screen is gone: fall back to Working, whose version number is picked from the refreshed list.
+              if (!working && chosen === target.number) { setWorking(true); setChosen(undefined); }
+              setPlayingRender(null);
               setReady((previous) => new Set([...previous].filter((number) => number !== target.number)));
               setVersionsTick((tick) => tick + 1);
             } else {
