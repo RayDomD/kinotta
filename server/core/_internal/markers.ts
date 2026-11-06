@@ -6,7 +6,7 @@ import { requireReelDir } from './version.ts';
 import { serialized, writeFileAtomic } from './state.ts';
 
 export interface TimelineMarker { id: string; time: number; name: string }
-const markersFile = (dir: string, slug: string): string => join(dir, 'reels', '.kinotta', slug, 'markers.json');
+const markersFile = (dir: string, slug: string): string => join(dir, 'reels', slug, '.kinotta', 'markers.json');
 async function fileFor(dir: string, slug: string) {
   await requireReelDir(dir, slug);
   return markersFile(dir, slug);

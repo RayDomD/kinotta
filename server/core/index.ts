@@ -42,6 +42,7 @@ import { createTranscriptions } from './_internal/transcription.ts';
 import { effectsBox, saveEffectsBox } from './_internal/effects-box.ts';
 import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/markers.ts';
 import { mediaStill } from './_internal/media-stills.ts';
+import { migrateReelState } from './_internal/state-migration.ts';
 export type { TimelineMarker } from './_internal/markers.ts';
 
 export { removeStaleDrafts } from './_internal/render-queue.ts';
@@ -141,6 +142,7 @@ export interface ProjectOptions {
 
 export function openProject(projectDir: string, options: ProjectOptions = {}): Project {
   const dir = resolve(projectDir);
+  migrateReelState(dir);
   if (options.proxies) ensureProjectProxies(dir).catch(() => undefined);
   const watcher = createWatcher(join(dir, 'reels'));
   const listeners = new Set<(event: ProjectEvent) => void>();

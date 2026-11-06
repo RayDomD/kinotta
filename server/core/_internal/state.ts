@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { KinottaError } from './errors.ts';
 import type { FramePin, WordPin } from './types.ts';
 
-const REELS_DIR = 'reels';
-const STATE_DIR = '.kinotta';
+export const REELS_DIR = 'reels';
+/** Holds a reel's own state, inside the reel folder. */
+export const STATE_DIR = '.kinotta';
 /** Windows refuses a rename over a file another handle has open for a moment (a reader, the folder watcher, a scanner). */
 const BUSY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
 const RENAME_ATTEMPTS = 8;
@@ -62,7 +63,7 @@ export function serialized<T>(file: string, task: () => Promise<T>): Promise<T> 
 }
 
 export function stateFilePath(projectDir: string, slug: string, number: number): string {
-  return join(projectDir, REELS_DIR, STATE_DIR, slug, `v${number}.json`);
+  return join(projectDir, REELS_DIR, slug, STATE_DIR, `v${number}.json`);
 }
 
 export async function readState(file: string, number: number): Promise<StateFile> {
