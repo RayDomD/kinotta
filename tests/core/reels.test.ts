@@ -52,6 +52,24 @@ describe('listReels', () => {
     expect(listing.reels[0]).toMatchObject({ slug: 'product-showreel', lastChange: later.getTime() });
   });
 
+  it('does not count reel state under .kinotta as a change to the reel', async () => {
+    const dir = copyFixture('showreel-project');
+    setReelMtime(dir, 'product-showreel', OLDER);
+    setReelMtime(dir, 'broll-cutdown', NEWER);
+    const state = join(dir, 'reels', 'product-showreel', '.kinotta', 'v2.json');
+    mkdirSync(join(dir, 'reels', 'product-showreel', '.kinotta'), { recursive: true });
+    writeFileSync(state, '{}');
+    const later = new Date('2026-03-01T10:00:00Z');
+    utimesSync(state, later, later);
+
+    const listing = await openProject(dir).listReels();
+
+    expect(listing.reels.map((r) => [r.slug, r.lastChange])).toEqual([
+      ['broll-cutdown', NEWER.getTime()],
+      ['product-showreel', OLDER.getTime()],
+    ]);
+  });
+
   it('lists a reel when its only file disappears during the last-change scan', async () => {
     const dir = emptyProject();
     const reelDir = join(dir, 'reels', 'vanishing');
