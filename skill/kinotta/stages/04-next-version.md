@@ -81,7 +81,7 @@ works out which sections changed by comparing each section's scenes and shots wi
 before, and moves every unsent comment forward by itself, to the same moment of the footage in the new version.
 
 1. **Read the batch file** and confirm `v<n>` is the newest version, as in section 4 steps 1 and 2.
-   Read the reel's style (`reels/.kinotta/<slug>/style.json`), treating its `rules` as kept notes and
+   Read the reel's style (`reels/<slug>/.kinotta/style.json`), treating its `rules` as kept notes and
    any `direction` in the request as the owner's ask; a missing reel style falls back to the built-in style
    that fits the video type. The look follows section 5.
 2. **Confirm the sources build `v<n>`.** Compose the plan (see "The plan" below) into a scratch file and compare it

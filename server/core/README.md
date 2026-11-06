@@ -154,7 +154,7 @@ comments never move. Comments say whether they were `sent` and which version the
   `builtBy` (from `shots.json`) says who made it. `startReel` and a freeze both write them.
 - `startReel` returns once the reel and its plan exist; transcription runs in the background (`_internal/transcription.ts`). `transcriptionProgress(slug)` and `transcription-progress` events say how far it is, with an estimate; `whenTranscribed(slug)` resolves when the job ends. When it does, the transcript, the plan's sections (one, or about one per three minutes split at the largest pause) and v1 are written. A reel with no version yet collects edits (base 0) that replay onto v1; Working renders and hand-offs wait until it exists. Progress is in memory only.
 
-Comments live in the editor's working state at `reels/.kinotta/<reel>/v<n>.json`
+Comments live in the editor's working state at `reels/<reel>/.kinotta/v<n>.json`
 (`{ comments: [{ id, pin, text, createdAt }], note }`), written atomically (temp file, then rename), one save at
 a time per file. Nothing is written into a version folder.
 
@@ -166,7 +166,7 @@ Outside code imports from `index.ts` only.
   `missingToolsMessage(check)` is the startup text naming each missing tool under what needs it, or null when all are
   present. The server serves the check at `GET /api/tools`.
 
-Review markers are saved per reel under `reels/.kinotta/<slug>/markers.json`. `listMarkers`, `addMarker`,
+Review markers are saved per reel under `reels/<slug>/.kinotta/markers.json`. `listMarkers`, `addMarker`,
 `changeMarker` and `removeMarker` serialize writes to that file; markers never enter a version, render or comment batch.
 `mediaStill` resolves registered or saved video sources (or the reel's legacy footage), then caches a JPEG by source
 content, time and width. The encoder runs through `runner.ts`, and concurrent requests reuse one extraction.

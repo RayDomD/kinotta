@@ -79,10 +79,10 @@ Files you may find or write inside a version folder, besides the page and `shots
 | `edits.json` | Kinotta | The operations a Kinotta save applied. Never copy it into a new version. |
 | `answers.md`, `comments*.json` | you, the editor | As above. |
 
-At the reel level, `edit-list.json` (durable Working history), `handoff.json` (a batch is out) and
-`.save/` are Kinotta's. Never read, write or delete them.
+At the reel level, `edit-list.json` (durable Working history), `handoff.json` (a batch is out),
+`.kinotta/` (the editor's working state) and `.save/` are Kinotta's. Never read, write or delete them.
 
-`reels/.kinotta/` is the editor's working state. Never read or write it.
+`reels/.kinotta/` holds project-level stills and effects-box. Never read or write it.
 
 ## The page
 

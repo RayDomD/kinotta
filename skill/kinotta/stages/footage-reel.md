@@ -60,7 +60,7 @@ built page and the shot list go in the version.
    `contact.png`; `video.json` gives the length, and where the speaker is full frame or in a box.
 6. **Sections.** Split the video by topic into sections of a few minutes each, contiguous from 0 to
    the video's length. A video under about three minutes is one section. Ids are short kebab-case.
-   Read the reel's style (`reels/.kinotta/<slug>/style.json`), treating its `rules` as kept notes and
+   Read the reel's style (`reels/<slug>/.kinotta/style.json`), treating its `rules` as kept notes and
    `direction` fields (form, look, settings, fonts, music, effects, shots) as the owner's request. When
    missing, use the built-in style that fits the `videoType` (`clean`, `creator`, or `editorial`, default `clean`).
    No style is enforced on every reel: universal checks stay mechanical, and style guidance and checks

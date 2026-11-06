@@ -25,7 +25,7 @@ Follow [00-setup.md](00-setup.md) for the brand file.
 
 ## 3. Build storyboard v1
 
-1. **Read the reel's style and rules.** Read `reels/.kinotta/<slug>/style.json` (where `readReelStyle`
+1. **Read the reel's style and rules.** Read `reels/<slug>/.kinotta/style.json` (where `readReelStyle`
    places it) when present. Treat its `rules` as the owner's kept notes for this reel, and treat any
    `direction` in the request (or fields in the style: `form`, `look`, `settings` like pace/broll/captions,
    `fonts`, `music`, `effects`, `shots`) as the owner's request. If the reel has no style file yet, use the
