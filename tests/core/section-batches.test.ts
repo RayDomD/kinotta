@@ -113,7 +113,7 @@ describe('section batches', () => {
   it('records each copy as the latest hand-off of its section, replacing an earlier one', async () => {
     const { dir, project } = await withComments();
     await project.copyBatch(REEL, 1, { section: COLD });
-    const stateFile = join(dir, 'reels', '.kinotta', REEL, 'v1.json');
+    const stateFile = join(dir, 'reels', REEL, '.kinotta', 'v1.json');
     const first = readJson<{ handedOff: Record<string, { commentIds: string[] }> }>(stateFile).handedOff;
     expect(first[COLD]!.commentIds).toHaveLength(2);
     expect(first[SYNC]).toBeUndefined();
@@ -351,8 +351,8 @@ describe('carry-forward', () => {
     const { project, dir } = await withComments();
     addVersion(dir, 1, 2, { shots: renameShot('01', 'Two laptops, one file') });
     const first = await project.listComments(REEL, 2);
-    const oldState = join(dir, 'reels', '.kinotta', REEL, 'v1.json');
-    const newState = join(dir, 'reels', '.kinotta', REEL, 'v2.json');
+    const oldState = join(dir, 'reels', REEL, '.kinotta', 'v1.json');
+    const newState = join(dir, 'reels', REEL, '.kinotta', 'v2.json');
     const before = [readFileSync(oldState, 'utf8'), readFileSync(newState, 'utf8')];
 
     const second = await project.listComments(REEL, 2);
@@ -375,7 +375,7 @@ describe('carry-forward', () => {
     unsubscribe();
 
     expect(seen).toEqual([2]);
-    expect(readJson<{ carriedFrom: { version: number; ids: string[] } }>(join(dir, 'reels', '.kinotta', REEL, 'v2.json')).carriedFrom).toMatchObject({ version: 1 });
+    expect(readJson<{ carriedFrom: { version: number; ids: string[] } }>(join(dir, 'reels', REEL, '.kinotta', 'v2.json')).carriedFrom).toMatchObject({ version: 1 });
   });
 
   it('leaves the batch files of the old version exactly as they were', async () => {

@@ -41,18 +41,18 @@ function takeSnapshot(reelsDir: string): Snapshot {
       if (match && existsSync(join(reelsDir, reel, name, SHOTS_FILE))) snapshot.versions.add(`${reel}/${match[1]}`);
     }
   }
-  const stateRoot = join(reelsDir, STATE_DIR);
-  try {
-    for (const reel of readdirSync(stateRoot, { withFileTypes: true }).filter((e) => e.isDirectory())) {
-      for (const file of readdirSync(join(stateRoot, reel.name))) {
+  for (const reel of snapshot.reels) {
+    const stateDir = join(reelsDir, reel, STATE_DIR);
+    try {
+      for (const file of readdirSync(stateDir)) {
         const match = /^v(\d+)\.json$/.exec(file);
         if (!match || TEMP_FILE.test(file)) continue;
-        const { mtimeMs, size } = statSync(join(stateRoot, reel.name, file));
-        snapshot.states.set(`${reel.name}/${match[1]}`, `${mtimeMs}:${size}`);
+        const { mtimeMs, size } = statSync(join(stateDir, file));
+        snapshot.states.set(`${reel}/${match[1]}`, `${mtimeMs}:${size}`);
       }
+    } catch {
+      // No editor state for this reel yet, or a file was replaced while reading. The next check sees it.
     }
-  } catch {
-    // No editor state yet, or a file was replaced while reading. The next check sees it.
   }
   return snapshot;
 }

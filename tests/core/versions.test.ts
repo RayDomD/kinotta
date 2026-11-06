@@ -76,7 +76,7 @@ describe('frozen versions', () => {
       code: 'frozen',
       message: 'v1 is a saved version. Only the newest version, v2, takes comments.',
     });
-    expect(existsSync(join(dir, 'reels', '.kinotta', REEL, 'v1.json'))).toBe(false);
+    expect(existsSync(join(dir, 'reels', REEL, '.kinotta', 'v1.json'))).toBe(false);
     expect(await project.listComments(REEL, 1)).toEqual([]);
   });
 
@@ -84,8 +84,8 @@ describe('frozen versions', () => {
     const dir = copyFixture('showreel-project');
     const project = openProject(dir);
     await project.addComment(REEL, 2, { pin: PIN, text: 'Fine while v2 is newest.' });
-    const stateV2 = join(dir, 'reels', '.kinotta', REEL, 'v2.json');
-    cpSync(stateV2, join(dir, 'reels', '.kinotta', REEL, 'v1.json'));
+    const stateV2 = join(dir, 'reels', REEL, '.kinotta', 'v2.json');
+    cpSync(stateV2, join(dir, 'reels', REEL, '.kinotta', 'v1.json'));
 
     await expect(project.copyBatch(REEL, 1)).rejects.toMatchObject({ code: 'frozen' });
     expect(existsSync(join(dir, 'reels', REEL, 'v1', 'comments.json'))).toBe(false);

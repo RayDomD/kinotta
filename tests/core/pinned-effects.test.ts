@@ -77,7 +77,7 @@ describe('Storyboard pinned effects', () => {
       await project.addComment('parts', 1, { pin, effect: 'big-word', text: '' });
       const batch = await project.copyBatch('parts', 1);
       const number = Number(/v(\d+)\//.exec(batch.file)![1]);
-      const state = JSON.parse(await readFile(join(dir, 'reels/.kinotta/parts', `v${number}.json`), 'utf8'));
+      const state = JSON.parse(await readFile(join(dir, 'reels/parts/.kinotta', `v${number}.json`), 'utf8'));
       expect(state.comments.some((comment: { instant?: boolean }) => comment.instant)).toBe(false);
       await project.undoEdit('parts');
       expect((await project.listComments('parts', number)).some((comment) => comment.instant)).toBe(false);

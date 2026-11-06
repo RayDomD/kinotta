@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { agentTold } from './direction.ts';
 import { briefRequest } from './requests.ts';
+import { STATE_DIR } from './state.ts';
 import { readReelStyle } from './style.ts';
 import type { ReelListing, ReelSummary } from './types.ts';
 
@@ -19,11 +20,12 @@ async function readDirs(dir: string): Promise<string[] | null> {
   }
 }
 
-/** Newest mtime of any file inside dir (the folder's own mtime when it holds no files). */
+/** Newest mtime of any file inside dir, ignoring the reel's own `.kinotta` state (the folder's own mtime when it holds no files). */
 async function newestMtime(dir: string): Promise<number> {
   let newest = 0;
   let sawFile = false;
   for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name === STATE_DIR) continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       const inner = await newestMtime(path);

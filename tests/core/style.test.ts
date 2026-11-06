@@ -87,7 +87,7 @@ describe('style validation and storage', () => {
     expect(copy).toEqual({ ...sample(), scope: 'project', basedOn: 'custom' });
     await saveStyle(dir, 'user', { ...sample(), rules: ['Changed source'], settings: { pace: 'fast' } });
     expect(await readReelStyle(dir, 'demo')).toEqual(copy);
-    expect(JSON.parse(await readFile(join(dir, 'reels', '.kinotta', 'demo', 'style.json'), 'utf8'))).toEqual(copy);
+    expect(JSON.parse(await readFile(join(dir, 'reels', 'demo', '.kinotta', 'style.json'), 'utf8'))).toEqual(copy);
     await expect(copyStyleToReel(dir, '../escape', { id: 'clean' })).rejects.toMatchObject({ code: 'not-found' });
     await expect(copyStyleToReel(dir, 'demo', { id: '../escape' })).rejects.toMatchObject({ code: 'invalid' });
   });
@@ -149,7 +149,7 @@ describe('style storage security', () => {
     const folder = ['user-folder', 'project-folder', 'reels'].includes(kind);
     if (folder) await mkdir(target);
     else await writeFile(target, kind === 'taste' ? '- Private rule\n' : kind === 'marker' ? '{}' : kind === 'default' ? '{"id":"clean"}' : JSON.stringify(sample()));
-    const file = kind === 'user-folder' ? join(home, 'styles') : kind === 'project-folder' ? join(dir, 'reels', 'styles') : kind === 'taste' ? join(dir, 'reels', 'taste.md') : kind === 'style' ? join(home, 'styles', 'custom.json') : kind === 'marker' ? join(home, 'migrations.json') : kind === 'default' ? join(home, 'style-default.json') : kind === 'reel' ? join(dir, 'reels', '.kinotta', 'demo', 'style.json') : join(dir, 'reels');
+    const file = kind === 'user-folder' ? join(home, 'styles') : kind === 'project-folder' ? join(dir, 'reels', 'styles') : kind === 'taste' ? join(dir, 'reels', 'taste.md') : kind === 'style' ? join(home, 'styles', 'custom.json') : kind === 'marker' ? join(home, 'migrations.json') : kind === 'default' ? join(home, 'style-default.json') : kind === 'reel' ? join(dir, 'reels', 'demo', '.kinotta', 'style.json') : join(dir, 'reels');
     if (kind === 'reels') await rm(file, { recursive: true });
     await mkdir(join(file, '..'), { recursive: true });
     try { await symlink(target, file, folder ? (process.platform === 'win32' ? 'junction' : 'dir') : 'file'); }

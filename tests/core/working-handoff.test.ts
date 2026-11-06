@@ -17,7 +17,7 @@ describe('working comment hand-off', () => {
     expect(batch.file).toContain('/v3/');
     expect(JSON.parse(readFileSync(join(dir, batch.file), 'utf8')).version).toBe(3);
     expect((await project.listComments(REEL, 3))[0]?.sent).toBe(true);
-    const state = JSON.parse(readFileSync(join(dir, 'reels', '.kinotta', REEL, 'v3.json'), 'utf8'));
+    const state = JSON.parse(readFileSync(join(dir, 'reels', REEL, '.kinotta', 'v3.json'), 'utf8'));
     expect(state.carriedFrom.ids).toEqual(state.comments.map((comment: { id: string }) => comment.id));
     const after = await project.addOperation(REEL, move('cube-lands', 20));
     expect(after.operations).toHaveLength(2);

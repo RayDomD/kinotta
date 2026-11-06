@@ -32,7 +32,7 @@ describe('word pins', () => {
     await expect(attempt({ ...LOSE, shot: '04' })).rejects.toMatchObject({ code: 'invalid' });
     await expect(attempt({ ...LOSE, shot: '99' })).rejects.toMatchObject({ code: 'invalid' });
     await expect(attempt({ ...LOSE, time: Number.NaN })).rejects.toMatchObject({ code: 'invalid' });
-    expect(existsSync(join(dir, 'reels', '.kinotta', REEL, 'v1.json'))).toBe(false);
+    expect(existsSync(join(dir, 'reels', REEL, '.kinotta', 'v1.json'))).toBe(false);
   });
 
   it('refuses a word pin on a reel without a transcript', async () => {

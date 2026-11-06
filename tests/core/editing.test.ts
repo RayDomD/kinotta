@@ -9,7 +9,7 @@ const EARLY = { shot: '03', x: 0.5, y: 0.6, element: 'icons-word' };
 const LATE = { shot: '06', x: 0.52, y: 0.61, element: null };
 
 function stateFile(dir: string, version = 2): string {
-  return join(dir, 'reels', '.kinotta', REEL, `v${version}.json`);
+  return join(dir, 'reels', REEL, '.kinotta', `v${version}.json`);
 }
 
 async function withThree() {

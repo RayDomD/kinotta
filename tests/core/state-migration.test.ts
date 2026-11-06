@@ -1,0 +1,205 @@
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import { openProject } from '../../server/core/index.ts';
+import { migrateReelState } from '../../server/core/_internal/state-migration.ts';
+import { copyFixture } from '../helpers/project.ts';
+
+vi.mock('node:fs', { spy: true });
+
+const REEL = 'product-showreel';
+const COMMENT = { id: 'c1', pin: { kind: 'frame', version: 2, section: null, shot: '03', time: 3.6, x: 0.5, y: 0.5, element: null }, text: 'Hold ICONS.', createdAt: '2026-11-01T00:00:00.000Z' };
+const state = (text: string): string => `${JSON.stringify({ comments: [{ ...COMMENT, text }], note: `note ${text}` })}\n`;
+
+const oldDir = (dir: string, slug = REEL): string => join(dir, 'reels', '.kinotta', slug);
+const newDir = (dir: string, slug = REEL): string => join(dir, 'reels', slug, '.kinotta');
+function put(folder: string, name: string, text: string): void {
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(join(folder, name), text);
+}
+
+describe('reel state migration', () => {
+  it('opens despite an unreadable old file, reports it, migrates healthy state and retries later', async () => {
+    const dir = copyFixture('showreel-project');
+    const blocked = join(oldDir(dir), 'v2.json');
+    put(oldDir(dir), 'v2.json', state('blocked'));
+    put(oldDir(dir), 'markers.json', '[]');
+    mkdirSync(join(dir, 'reels', 'healthy'));
+    put(oldDir(dir, 'healthy'), 'v1.json', state('healthy'));
+    const { readFileSync: read } = await vi.importActual<typeof fs>('node:fs');
+    const fault = vi.spyOn(fs, 'readFileSync').mockImplementation((...args: Parameters<typeof fs.readFileSync>) => {
+      if (String(args[0]) === blocked) throw new Error('injected EBUSY');
+      return read(...args);
+    });
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(() => openProject(dir)).not.toThrow();
+      const report = migrateReelState(dir);
+      expect(report.failed).toEqual([{ slug: REEL, file: 'v2.json', error: 'injected EBUSY' }]);
+      expect(log.mock.calls.some((call) => call.join(' ').includes('injected EBUSY'))).toBe(true);
+      expect(existsSync(blocked)).toBe(true);
+      expect(readFileSync(join(newDir(dir), 'markers.json'), 'utf8')).toBe('[]');
+      expect(readFileSync(join(newDir(dir, 'healthy'), 'v1.json'), 'utf8')).toBe(state('healthy'));
+    } finally {
+      fault.mockRestore();
+      log.mockRestore();
+    }
+    expect(migrateReelState(dir).failed).toEqual([]);
+    expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('blocked'));
+    expect(existsSync(blocked)).toBe(false);
+  });
+
+  it('reads comments, note, markers and style from the reel folder after opening an old-layout project', async () => {
+    const dir = copyFixture('showreel-project');
+    put(oldDir(dir), 'v2.json', state('old'));
+    put(oldDir(dir), 'markers.json', JSON.stringify([{ id: 'm1', time: 1, name: 'Intro' }]));
+    put(oldDir(dir), 'style.json', '{"rules":["keep"]}');
+
+    const project = openProject(dir);
+
+    expect((await project.listComments(REEL, 2)).map((c) => c.text)).toEqual(['old']);
+    expect(await project.readNote(REEL, 2)).toBe('note old');
+    expect(await project.listMarkers(REEL)).toEqual([{ id: 'm1', time: 1, name: 'Intro' }]);
+    expect(readFileSync(join(newDir(dir), 'style.json'), 'utf8')).toBe('{"rules":["keep"]}');
+    expect(existsSync(oldDir(dir))).toBe(false);
+  });
+
+  it.each(['remove', 'list'] as const)('survives overlapping migrations at the old-state %s step', async (step) => {
+    const dir = copyFixture('showreel-project');
+    put(oldDir(dir), 'v2.json', state('same'));
+    const original = await vi.importActual<typeof fs>('node:fs');
+    let nested: ReturnType<typeof migrateReelState> | undefined;
+    let interleaved = false;
+    const interleave = (): void => {
+      if (interleaved) return;
+      interleaved = true;
+      nested = migrateReelState(dir);
+    };
+    const fault = step === 'remove'
+      ? vi.spyOn(fs, 'rmSync').mockImplementation((path, options) => {
+        if (String(path) === join(oldDir(dir), 'v2.json')) interleave();
+        return original.rmSync(path, options);
+      })
+      : vi.spyOn(fs, 'readdirSync').mockImplementation((...args: Parameters<typeof fs.readdirSync>) => {
+        if (String(args[0]) === oldDir(dir)) interleave();
+        return original.readdirSync(...args);
+      });
+    try {
+      const report = migrateReelState(dir);
+      expect(interleaved).toBe(true);
+      expect(nested?.failed).toEqual([]);
+      expect(report.failed).toEqual([{
+        slug: REEL,
+        file: step === 'remove' ? 'v2.json' : oldDir(dir),
+        error: expect.stringContaining('ENOENT'),
+      }]);
+      expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('same'));
+      expect(existsSync(oldDir(dir))).toBe(false);
+    } finally {
+      fault.mockRestore();
+    }
+  });
+
+  it('keeps the reel-folder copy when both exist and sets the other aside as a reported conflict', () => {
+    const dir = copyFixture('showreel-project');
+    put(newDir(dir), 'v2.json', state('new'));
+    put(oldDir(dir), 'v2.json', state('old'));
+
+    const report = migrateReelState(dir);
+
+    expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('new'));
+    const aside = readdirSync(newDir(dir)).filter((n) => n.startsWith('v2.json.conflict-'));
+    expect(aside).toHaveLength(1);
+    expect(readFileSync(join(newDir(dir), aside[0]!), 'utf8')).toBe(state('old'));
+    expect(existsSync(join(oldDir(dir), 'v2.json'))).toBe(false);
+    expect(report.conflicts).toEqual([join(newDir(dir), aside[0]!)]);
+  });
+
+  it('finishes after a crash between copy and remove without losing anything or reporting a conflict', () => {
+    const dir = copyFixture('showreel-project');
+    put(oldDir(dir), 'v2.json', state('same'));
+    put(newDir(dir), 'v2.json', state('same'));
+
+    const report = migrateReelState(dir);
+
+    expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('same'));
+    expect(existsSync(oldDir(dir))).toBe(false);
+    expect(report.conflicts).toEqual([]);
+  });
+
+  it('ignores a half-written temp file left in the reel folder and still migrates', () => {
+    const dir = copyFixture('showreel-project');
+    put(oldDir(dir), 'v2.json', state('old'));
+    put(newDir(dir), 'v2.json.abc.tmp', '{"comm');
+
+    migrateReelState(dir);
+
+    expect(readFileSync(join(newDir(dir), 'v2.json'), 'utf8')).toBe(state('old'));
+    expect(existsSync(oldDir(dir))).toBe(false);
+  });
+
+  it('leaves state for a slug with no reel folder where it is and reports it', () => {
+    const dir = copyFixture('showreel-project');
+    put(oldDir(dir, 'gone'), 'v1.json', state('orphan'));
+
+    const report = migrateReelState(dir);
+
+    expect(readFileSync(join(oldDir(dir, 'gone'), 'v1.json'), 'utf8')).toBe(state('orphan'));
+    expect(existsSync(join(dir, 'reels', 'gone'))).toBe(false);
+    expect(report.orphans).toEqual(['gone']);
+  });
+
+  it('does not touch the project-level effects box and stills', () => {
+    const dir = copyFixture('showreel-project');
+    put(join(dir, 'reels', '.kinotta'), 'effects-box.json', '["big-word"]');
+    put(join(dir, 'reels', '.kinotta', 'stills', 'abc'), '1-160.jpg', 'jpg');
+    put(oldDir(dir, 'stills'), 'v2.json', state('cache only'));
+    put(oldDir(dir), 'v2.json', state('old'));
+
+    migrateReelState(dir);
+
+    expect(readFileSync(join(dir, 'reels', '.kinotta', 'effects-box.json'), 'utf8')).toBe('["big-word"]');
+    expect(readFileSync(join(dir, 'reels', '.kinotta', 'stills', 'abc', '1-160.jpg'), 'utf8')).toBe('jpg');
+    expect(readdirSync(oldDir(dir, 'stills')).sort()).toEqual(['abc', 'v2.json']);
+    expect(readFileSync(join(oldDir(dir, 'stills'), 'v2.json'), 'utf8')).toBe(state('cache only'));
+    expect(existsSync(oldDir(dir))).toBe(false);
+  });
+
+  it('migrates a stills reel without touching cache subfolders or unrelated direct files', async () => {
+    const dir = copyFixture('showreel-project');
+    fs.renameSync(join(dir, 'reels', REEL), join(dir, 'reels', 'stills'));
+    const folder = oldDir(dir, 'stills');
+    put(folder, 'v2.json', state('stills'));
+    put(folder, 'markers.json', '[]');
+    put(folder, 'style.json', '{"rules":["keep"]}');
+    put(folder, 'unrelated.json', 'leave');
+    put(join(folder, 'abc'), '1-160.jpg', 'jpg');
+
+    const project = openProject(dir);
+
+    expect((await project.listComments('stills', 2)).map((c) => c.text)).toEqual(['stills']);
+    expect(await project.readNote('stills', 2)).toBe('note stills');
+    expect(readFileSync(join(newDir(dir, 'stills'), 'markers.json'), 'utf8')).toBe('[]');
+    expect(readFileSync(join(newDir(dir, 'stills'), 'style.json'), 'utf8')).toBe('{"rules":["keep"]}');
+    expect(readdirSync(folder).sort()).toEqual(['abc', 'unrelated.json']);
+    expect(readFileSync(join(folder, 'unrelated.json'), 'utf8')).toBe('leave');
+    expect(readdirSync(join(folder, 'abc'))).toEqual(['1-160.jpg']);
+    expect(readFileSync(join(folder, 'abc', '1-160.jpg'), 'utf8')).toBe('jpg');
+  });
+
+  it('saving a comment emits no version event and does emit a comments event', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    const events: string[] = [];
+    const stop = project.subscribe((event) => events.push(event.type));
+
+    await project.addComment(REEL, 2, { pin: { shot: '03', x: 0.5, y: 0.5, element: null }, text: 'Hold.' });
+    await new Promise((done) => setTimeout(done, 700));
+    stop();
+
+    expect(events).toContain('comments-changed');
+    expect(events).not.toContain('version-added');
+    expect(events).not.toContain('reels-changed');
+  });
+});
