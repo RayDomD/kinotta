@@ -19,7 +19,7 @@ it('folds the rail, deletes a version and a closed reel, cancels with Escape and
     const page = await browser.newPage({ viewport: { width: 1272, height: 950 } });
     const deletes: string[] = [];
     page.on('request', (request) => { if (request.method() === 'DELETE') deletes.push(request.url()); });
-    await openDetailedEditor(page, server.url);
+    await openDetailedEditor(page, server.url, { foldedRail: true });
     const reelsFold = page.locator('[data-rail-fold="reels"]');
     const versionsFold = page.locator('[data-rail-fold="versions"]');
     const reels = page.getByRole('navigation', { name: 'Reels', exact: true });
@@ -71,7 +71,7 @@ it('folds the rail, deletes a version and a closed reel, cancels with Escape and
     expect(await sheet.textContent()).toContain('Working never changes.');
     await page.keyboard.press('Escape');
     await sheet.waitFor({ state: 'detached' });
-    expect(await removeVersion.evaluate((node) => node === document.activeElement)).toBe(true);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('Delete v2');
     expect(deletes).toHaveLength(0);
     expect(existsSync(join(reelDir, 'v2'))).toBe(true);
     await removeVersion.click();

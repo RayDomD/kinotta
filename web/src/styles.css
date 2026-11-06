@@ -205,9 +205,9 @@ input { font: inherit; color: inherit; cursor: text; }
 .rail-row { display: flex; align-items: center; min-width: 0; }
 .rail-row:hover, .rail-row:focus-within { background: var(--card); outline: 1px solid var(--hairline); }
 .rail-row > button:first-child { flex: 1; min-width: 0; width: auto; overflow-wrap: anywhere; }
-.rail-row > button.rail-delete { flex: 0 0 auto; width: auto; margin: 0; padding: 6px 2px; border: 0; font-size: 13px; color: var(--muted); visibility: hidden; }
-.rail-row:hover > button.rail-delete, .rail-row:focus-within > button.rail-delete { visibility: visible; }
-.rail-row > button.rail-delete:focus-visible { visibility: visible; }
+.rail-row > button.rail-delete { flex: 0 0 auto; width: auto; margin: 0; padding: 6px 2px; border: 0; font-size: 13px; color: var(--muted); opacity: 0; }
+.rail-row:hover > button.rail-delete, .rail-row:focus-within > button.rail-delete { opacity: 1; }
+.rail-row > button.rail-delete:focus-visible { opacity: 1; }
 .rail-row > button.rail-delete:hover { color: var(--ink); }
 .rail-row:hover .rv-who, .rail-row:focus-within .rv-who { visibility: hidden; }
 .sheet.rail-delete-sheet { width: min(420px, calc(100vw - 32px)); padding: 18px 20px; }

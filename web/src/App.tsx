@@ -319,10 +319,8 @@ function Rail(props: RailProps) {
   function closeDelete(deleted = false): void {
     const target = deleting;
     setDeleting(null);
-    requestAnimationFrame(() => {
-      if (!deleted && target?.trigger.isConnected) target.trigger.focus();
-      else document.querySelector<HTMLButtonElement>(`[data-rail-fold="${target?.kind === 'reel' ? 'reels' : 'versions'}"]`)?.focus();
-    });
+    if (!deleted && target?.trigger.isConnected) target.trigger.focus();
+    else document.querySelector<HTMLButtonElement>(`[data-rail-fold="${target?.kind === 'reel' ? 'reels' : 'versions'}"]`)?.focus();
   }
   return (
     <EditorRail reviewMode={props.reviewMode}>
