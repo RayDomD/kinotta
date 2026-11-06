@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reel delete and version list, hifi</title>
+<style>
+:root{
+  --ground:oklch(.184 .004 106);--ground-deep:oklch(.150 .003 106);--card:oklch(.214 .005 90);--card-raised:oklch(.246 .005 90);
+  --ink:oklch(.945 .004 106);--ink-2:oklch(.820 .007 106);--muted:oklch(.640 .008 106);
+  --rule:oklch(.945 .004 106 / .14);--hairline:oklch(.945 .004 106 / .24);
+  --light:oklch(.84 .11 225);--light-glow:oklch(.84 .11 225 / .5);--light-wash:oklch(.84 .11 225 / .07);
+  --scrim:oklch(.12 .003 106 / .86);--still:oklch(.13 .006 50);
+}
+*{box-sizing:border-box;border-radius:0}
+body{margin:0;background:var(--ground);color:var(--ink);font:400 15px/1.5 Outfit,"Segoe UI",sans-serif;min-height:100vh}
+.num{font-family:Doto,ui-monospace,monospace;font-weight:800;font-size:12px;font-feature-settings:"tnum";letter-spacing:.02em}
+.meta{font-size:13px;color:var(--muted)}
+.top{height:52px;display:flex;align-items:center;gap:18px;padding:0 22px;border-bottom:1px solid var(--rule)}
+.brand{font-weight:600;letter-spacing:.14em;font-size:13px;display:flex;align-items:center;gap:8px}
+.top .title{font-weight:500}
+.shell{display:grid;grid-template-columns:220px 1fr 320px;height:calc(100vh - 52px);min-height:620px}
+.rail{border-right:1px solid var(--rule);padding:16px;overflow:hidden}
+.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px}
+.sp{height:22px}
+.row{position:relative;display:flex;align-items:center;gap:8px;padding:7px 8px;margin:0 -8px;border:1px solid transparent;color:var(--ink-2);font-size:14px;cursor:default}
+.row .name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .who{font-size:12px;color:var(--muted)}
+.row.current{color:var(--ink);background:var(--light-wash);border-left:2px solid var(--light)}
+.row.current .num{color:var(--light);text-shadow:0 0 10px var(--light-glow)}
+.del{display:none;background:none;border:0;color:var(--muted);font:inherit;font-size:13px;padding:0 2px;cursor:pointer}
+.del:hover,.del:focus-visible{color:var(--ink)}
+.row:hover,.row.hover{border-color:var(--hairline);background:var(--card)}
+.row:hover .del,.row.hover .del{display:block}
+.row:hover .who,.row.hover .who{display:none}
+.fold{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;border-bottom:1px solid var(--rule);color:var(--ink-2);font:inherit;padding:4px 0 6px;margin-bottom:6px;cursor:pointer;text-align:left}
+.fold .label{margin:0;flex:0 0 auto}
+.fold .chev{color:var(--muted);font-size:11px;width:10px}
+.fold .summary{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.fold[aria-expanded="true"] .summary{display:none}
+.fold:hover .label,.fold:focus-visible .label{color:var(--ink)}
+.hint{margin:22px 0 0;font-size:12px}
+.main{padding:22px;position:relative}
+.main h1{font:500 22px/1.2 Outfit,"Segoe UI",sans-serif;letter-spacing:-.4px;margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px 22px}
+.still{aspect-ratio:16/9;background:var(--still);border:1px solid var(--rule)}
+.side{border-left:1px solid var(--rule);padding:16px}
+.empty{border:1.4px dashed var(--hairline);padding:14px;color:var(--muted);font-size:13px}
+.scrim{position:fixed;inset:52px 0 0 220px;background:var(--scrim);display:grid;place-items:center}
+.sheet{width:420px;background:var(--card);border:1.5px solid var(--ink);padding:18px 20px;
+  box-shadow:5px 5px 0 -1.6px var(--ground),5px 5px 0 0 oklch(.945 .004 106 / .42),10px 10px 0 -1.6px var(--ground),10px 10px 0 0 oklch(.945 .004 106 / .18)}
+.sheet h2{font:500 15px/1.4 Outfit,"Segoe UI",sans-serif;margin:0 0 8px}
+.sheet p{margin:0 0 6px;color:var(--ink-2);font-size:14px}
+.sheet ul{margin:8px 0 0;padding:0;list-style:none;font-size:13px;color:var(--muted)}
+.sheet li{padding:3px 0;border-top:1px solid var(--rule);display:flex;justify-content:space-between}
+.sheet .actions{display:flex;justify-content:flex-end;gap:14px;margin-top:18px;align-items:center}
+.quiet{background:none;border:0;color:var(--muted);font:inherit;padding:8px 6px;cursor:pointer}
+.quiet:hover{color:var(--ink)}
+.primary{background:var(--ink);color:var(--ground);border:0;font:600 15px Outfit,"Segoe UI",sans-serif;padding:8px 16px;cursor:pointer;box-shadow:2px 2px 0 0 oklch(.945 .004 106 / .42)}
+.note{position:fixed;left:244px;bottom:18px;font-size:13px;color:var(--muted);max-width:520px}
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="brand"><svg width="16" height="14" viewBox="0 0 16 14"><polygon points="4,1 12,1 15,7 12,13 4,13 1,7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>KINOTTA</span>
+  <span class="title">socsci-6-final</span>
+  <span class="meta num">00:42</span>
+</div>
+
+<div class="shell">
+  <nav class="rail" aria-label="Reels and versions">
+    <button class="fold" aria-expanded="false" data-fold="reels"><span class="chev">▸</span><span class="label">Reels</span><span class="summary">socsci-6-final · <span class="num">4</span></span></button>
+    <div class="body" id="reels" hidden>
+      <div class="row current"><span class="name">socsci-6-final</span><span class="who num">3</span><button class="del" aria-label="Delete reel socsci-6-final">Delete</button></div>
+      <div class="row hover"><span class="name">socsci-6-raw</span><span class="who num">1</span><button class="del" aria-label="Delete reel socsci-6-raw">Delete</button></div>
+      <div class="row"><span class="name">raydom-showcase</span><span class="who num">6</span><button class="del" aria-label="Delete reel raydom-showcase">Delete</button></div>
+      <div class="row"><span class="name">brand-intro</span><span class="who num">2</span><button class="del" aria-label="Delete reel brand-intro">Delete</button></div>
+    </div>
+
+    <div class="sp"></div>
+    <div class="label">Reel</div>
+    <div class="row"><span class="name">Current</span><span class="who">2 edits</span></div>
+
+    <div class="sp"></div>
+    <button class="fold" aria-expanded="false" data-fold="versions"><span class="chev">▸</span><span class="label">Saved versions</span><span class="summary"><span class="num">v3</span> · <span class="num">3</span></span></button>
+    <div class="body" id="versions" hidden>
+      <div class="row current"><span class="num">v3</span><span class="name">Saved by you</span><span class="who">00:42</span><button class="del" aria-label="Delete v3">Delete</button></div>
+      <div class="row"><span class="num">v2</span><span class="name">Claude</span><span class="who">00:44</span><button class="del" aria-label="Delete v2">Delete</button></div>
+      <div class="row"><span class="num">v1</span><span class="name">Claude</span><span class="who">00:44</span><button class="del" aria-label="Delete v1">Delete</button></div>
+    </div>
+    <p class="meta hint">Both sections start folded. The open one is remembered per project.</p>
+  </nav>
+
+  <main class="main">
+    <h1>Storyboard</h1>
+    <div class="grid">
+      <div class="still"></div><div class="still"></div><div class="still"></div>
+      <div class="still"></div><div class="still"></div><div class="still"></div>
+    </div>
+  </main>
+
+  <aside class="side">
+    <div class="label">Comments</div>
+    <div class="empty">No pins yet.</div>
+  </aside>
+</div>
+
+<div class="scrim" role="dialog" aria-modal="true" aria-labelledby="dlg">
+  <div class="sheet">
+    <h2 id="dlg">Delete reel "socsci-6-raw"?</h2>
+    <p>This removes the reel folder from <span class="num">reels/</span>. Your footage stays where it is.</p>
+    <ul>
+      <li><span>Versions</span><span class="num">1</span></li>
+      <li><span>Comments and notes</span><span class="num">4</span></li>
+      <li><span>Renders (reels/ and output/)</span><span class="num">2</span></li>
+      <li><span>Cached copies no other reel uses</span><span class="num">3</span></li>
+    </ul>
+    <p class="meta" style="margin-top:10px">This can't be undone.</p>
+    <div class="actions">
+      <button class="quiet">Cancel</button>
+      <button class="primary">Delete reel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.fold').forEach(function(b){b.addEventListener('click',function(){
+  var open=b.getAttribute('aria-expanded')==='true';
+  b.setAttribute('aria-expanded',String(!open));
+  b.querySelector('.chev').textContent=open?'▸':'▾';
+  document.getElementById(b.dataset.fold).hidden=open;
+});});
+</script>
+<div class="note">Hover a row to swap its detail for Delete. The open reel can't be deleted until another is open. A version in use by the Current reel can't be deleted. Both go to the same confirm sheet.</div>
+</body>
+</html>
