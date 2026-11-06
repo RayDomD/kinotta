@@ -71,7 +71,7 @@ it('folds the rail, deletes a version and a closed reel, cancels with Escape and
     expect(await sheet.textContent()).toContain('Working never changes.');
     await page.keyboard.press('Escape');
     await sheet.waitFor({ state: 'detached' });
-    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('Delete v2');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-version'))).toBe('2');
     expect(deletes).toHaveLength(0);
     expect(existsSync(join(reelDir, 'v2'))).toBe(true);
     await removeVersion.click();

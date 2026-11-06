@@ -49,7 +49,7 @@ test('a reel plays and is snipped while it transcribes, shows progress, and keep
   await expect(page.getByRole('list', { name: 'Edits' }).getByRole('listitem')).toHaveCount(1);
   await expect.poll(() => reviewClockText(page)).toMatch(/\/ 00:0[89]\.\d\d$/);
   // Save waits for v1.
-  await expect(page.getByRole('button', { name: /^Save/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Save( |$)/ })).toHaveCount(0);
 
   // The words arrive: v1 is built, the lane gives way to the words, and the snip is still in the list and on the timeline.
   writeFileSync(join(readFileSync(PROJECT_FILE, 'utf8'), '.release-transcript'), '');

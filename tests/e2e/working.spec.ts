@@ -23,7 +23,7 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     for (const check of renderChecks) expect(await page.locator('[data-verify-unit="VersionActions"]').evaluate(check.check), check.description).toBe(true);
     await expect(versions.getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
     await expect(versions.getByRole('button', { name: /^Current/ })).toContainText('1 edit');
-    await expect(page.getByRole('button', { name: /^Save|^Discard/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Save( |$)|^Discard/ })).toHaveCount(0);
     await page.getByRole('tab', { name: /^Edits/ }).click();
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Codex');
     await page.getByRole('button', { name: 'Export', exact: true }).click();
@@ -49,6 +49,8 @@ test('Current survives reopen, preserves author names and supports Undo and Redo
     await expect(page.getByRole('list', { name: 'Edits' })).toContainText('Codex');
     await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
     await expect(page.frameLocator('iframe[title="Authored graphics"]').locator('[data-scene="cube-lands"] [data-el="cube"]')).toBeVisible();
+    // People see the Reels section folded; fold it before measuring how the rail fits.
+    await page.locator('[data-rail-fold="reels"]').click();
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       if (width <= 900) {

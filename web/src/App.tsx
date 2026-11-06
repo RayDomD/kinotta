@@ -319,7 +319,9 @@ function Rail(props: RailProps) {
   function closeDelete(deleted = false): void {
     const target = deleting;
     setDeleting(null);
-    if (!deleted && target?.trigger.isConnected) target.trigger.focus();
+    // Delete is hidden until its row has focus, so a hidden trigger cannot take it back: the row's own button does.
+    const row = !deleted && target?.trigger.isConnected ? target.trigger.closest('.rail-row')?.querySelector<HTMLButtonElement>('button') : null;
+    if (row) row.focus();
     else document.querySelector<HTMLButtonElement>(`[data-rail-fold="${target?.kind === 'reel' ? 'reels' : 'versions'}"]`)?.focus();
   }
   return (
