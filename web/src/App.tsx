@@ -240,7 +240,7 @@ function VersionRail({ project, onDelete, working, editsSinceFreeze, frozenVersi
     <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canUndo} onClick={() => void edits.undo()}>Undo</button>
     <button type="button" className="c-act" disabled={edits.busy || !edits.list?.canRedo} onClick={() => void edits.redo()}>Redo</button>
   </div>
-  <RailFold project={project} section="versions" label="Saved versions" summary={<><span className="num">{newestFirst.length === 1 ? `v${newestFirst[0]!.number}` : `v${newestFirst.at(-1)?.number} to v${newestFirst[0]?.number}`}</span> &#183; <span className="num">{entries.length}</span> saved</>}>
+  <RailFold project={project} section="versions" label="Saved versions" summary={<span title={`v${newestFirst.at(-1)?.number} to v${newestFirst[0]?.number}; ${entries.length} saved`}><span className="num">v{newestFirst[0]?.number}</span> &#183; <span className="num">{entries.length}</span><span className="sr-only"> saved</span></span>}>
   <nav className="versions" aria-label="Versions">
     {newestFirst.map((entry) => {
       const who = entry.frozenBy ?? whoMade(entry.builtBy);
