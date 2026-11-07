@@ -65,4 +65,4 @@ F. **E2e port base (optional, ask first).** `KINOTTA_E2E_PORT_BASE` in `playwrig
 
 ## Result
 
-Shipped in PR #74. Steps A to F done: e2e servers exit with the runner, the render project builds first, the seven Playwright failures were fixed or marked, herdr docs updated, and `KINOTTA_E2E_PORT_BASE` added. The one nit (non-numeric port base becomes NaN) was left as is. Closed 2026-11-08.
+Shipped across PR #73 (step A) and PR #74 (steps B, C, D, F; step E was made in the home Claude repositories). Steps A to F done: e2e servers exit with the runner, the render project builds first, the seven Playwright failures were fixed or marked, herdr docs updated, and `KINOTTA_E2E_PORT_BASE` added. The one nit (non-numeric port base becomes NaN) was left as is. Closed 2026-11-08.
