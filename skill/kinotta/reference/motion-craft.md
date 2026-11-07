@@ -4,7 +4,7 @@ Read this before planning a code-built motion reel (parts shots, contract 2) tha
 
 ## 1. Treatment first
 
-Agree a written treatment with the owner before building anything. Record it in the reel's notes.
+Agree a written treatment with the owner before building anything. Record it in the reel's notes. In an unattended job (see `stages/direction.md`), the request's supplied choices and defaults stand in for that agreement: write the treatment down before any code, and list what was assumed.
 
 - **Concept line:** what the viewer understands or feels, and how every shot serves it.
 - **World:** what the ground is, what objects persist across shots, and which one colour may glow.
@@ -125,7 +125,7 @@ During the build, preview each shot alone in a scratch page (`seek` exposed on `
 
 After `kinotta build`, check the built `v<n>/index.html?render` in a browser:
 
-- each shot's still at its start time, all five showing content;
+- each shot's still at its start time, every shot showing content;
 - the backward seek again across the whole reel;
 - move one scene inside the reel's length and confirm it shows only in its new range, then restore it;
 - `elementFromPoint` at the centre of each important `data-el` lands on that element;
