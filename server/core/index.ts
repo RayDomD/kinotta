@@ -161,7 +161,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const beats = createMediaBeats(dir);
   // Activity preparation and deletion share a gate; a render/job cannot acquire inputs during deletion preflight.
   const withActivity = <T>(slug: string, task: () => Promise<T>): Promise<T> => withReelLock(join(dir, 'reels', slug, '.activity'), task);
-  const startAgentJob = (slug: string, retry?: boolean) => withActivity(slug, () => agents.start(slug, retry));
+  const startAgentJob = (slug: string, retry?: boolean, kind?: 'make-broll' | 'regenerate') => withActivity(slug, () => agents.start(slug, retry, kind));
   const assertDeletionIdle = async (slug: string): Promise<void> => {
     const reason = await agents.deletionReason(slug);
     const job = renders.jobs().find((entry) => entry.reel === slug);

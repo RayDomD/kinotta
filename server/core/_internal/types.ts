@@ -335,7 +335,7 @@ export interface Project {
   saveAgentSettings(input: unknown): Promise<import('./agent-settings.ts').AgentSettings>;
   detectAgents(): ReturnType<typeof import('./agent-settings.ts').detectAgents>;
   agentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
-  startAgentJob(slug: string, retry?: boolean): Promise<import('./agent-jobs.ts').AgentJob>;
+  startAgentJob(slug: string, retry?: boolean, kind?: 'make-broll' | 'regenerate'): Promise<import('./agent-jobs.ts').AgentJob>;
   cancelAgentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
   copyAgentRequest(slug: string): Promise<{ request: string }>;
   acceptAgentOutput(slug: string, id: string): Promise<import('./agent-jobs.ts').AgentJob>;

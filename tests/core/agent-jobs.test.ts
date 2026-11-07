@@ -355,3 +355,44 @@ describe('new reel agent confirmation', { timeout: 90_000 }, () => {
     expect((await fixture.project.agentSettings()).confirmed).toBe(confirmed ? true : undefined);
   });
 });
+
+
+describe('Simple Regenerate', { timeout: 90_000 }, () => {
+  it('sends only new or changed pins after reload and preserves Working during publication', async () => {
+    const test = await setup();
+    const slug = await make(test.project);
+    await test.project.whenAgentDone(slug);
+    const first = (await test.project.addComment(slug, 2, { text: 'Make this warmer', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    const unchanged = (await test.project.addComment(slug, 2, { text: 'Keep this blue', pin: { kind: 'frame', shot: '', time: 1, x: 0.5, y: 0.5, element: null } })).comment;
+    const job = await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    const request = readJson(join(test.dir, 'reels', slug, '.agent/jobs', job.id, 'request.json'));
+    expect(request.kind).toBe('regenerate');
+    expect(request.pins.map((pin: any) => pin.id)).toEqual([first.id, unchanged.id]);
+    await test.project.close();
+    const reopened = openProject(test.dir, { agent: { launch: async (input) => {
+      await new Promise<void>((done, reject) => { release = done; input.signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }); });
+      await launchAgent({ ...input, executable: { command: process.execPath, prefix: [join(test.dir, 'fake agent.mjs'), 'success'] } });
+    } } });
+    projects.push(reopened);
+    let release: (() => void) | undefined;
+    const carried = (await reopened.listComments(slug, 3)).find((pin) => pin.text === 'Make this warmer')!;
+    await reopened.editComment(slug, 3, carried.id, 'Make this much warmer');
+    const fresh = (await reopened.addComment(slug, 3, { text: 'Add a title', pin: { kind: 'frame', shot: '', time: 2, x: 0.5, y: 0.5, element: null } })).comment;
+    const next = await reopened.startAgentJob(slug, false, 'regenerate');
+    try {
+      await until(() => !!release);
+      const changed = readJson(join(test.dir, 'reels', slug, '.agent/jobs', next.id, 'request.json'));
+      expect(changed.pins.map((pin: any) => ({ id: pin.id, text: pin.text }))).toEqual([{ id: carried.id, text: 'Make this much warmer' }, { id: fresh.id, text: 'Add a title' }]);
+      expect(JSON.stringify(changed)).not.toContain('Keep this blue');
+      await expect(reopened.startAgentJob(slug, false, 'regenerate')).rejects.toMatchObject({ code: 'frozen' });
+      const edits = await reopened.addOperation(slug, { kind: 'word-text', at: 0.5, text: 'owner correction', was: 'hello' });
+      expect((await reopened.readWorkingVersion(slug)).number).toBe(3);
+      release!(); await reopened.whenAgentDone(slug);
+      expect(await reopened.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'succeeded', version: 4, pins: [{ text: 'Make this much warmer', state: 'done' }, { text: 'Add a title', state: 'done' }] });
+      expect((await reopened.readEditList(slug)).operations).toMatchObject(edits.operations);
+      expect((await reopened.readEditList(slug)).flagged ?? {}).toEqual({});
+      await expect(reopened.startAgentJob(slug, false, 'regenerate')).rejects.toThrow('No new or changed pins');
+    } finally { release?.(); }
+  });
+});
