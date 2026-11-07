@@ -11,7 +11,7 @@ Agree a written treatment with the owner before building anything. Record it in 
 - **Beats:** one row per shot with its seconds, what happens, the camera move, and the transition out.
 - **Signature move:** one moment the reel is remembered by. Give it the longest shot.
 - **Illustrative items:** list invented copy, numbers and names, and say they are illustrative.
-- **Sound:** ask. Do not add it unasked.
+- **Sound:** ask. Without an answer, follow the first-build default in `reference/sound.md` (a first build adds sound unless the request says otherwise).
 
 A treatment table looks like this:
 
