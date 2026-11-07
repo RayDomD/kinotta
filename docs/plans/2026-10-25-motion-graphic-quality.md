@@ -1,7 +1,7 @@
 ---
 title: Motion graphic quality in Kinotta
 date: 2026-10-25
-status: In Progress
+status: Blocked
 summary: Close the quality gap between reels an agent builds in Kinotta and Opus's standalone Light Table film, starting with agent guidance, then render features.
 spec:
 ---
@@ -112,3 +112,5 @@ Pass: `kinotta check` clean, the built page passes the v5 browser checks, the dr
 - Status Blocked on the owner: (1) the side-by-side comparison of `kinotta-pin` v5/v6 with the Light Table frames; (2) the bar: "looks like the Light Table" or "close within Kinotta constraints"; (3) Phase 2 order (canvas pins, render-side blur and bloom, preview quality mode). Phase 2 needs an approved approach per feature before code.
 - Verified the bundler myself: a test shot importing three.js bundled to one 669 KB file with no import statements, valid syntax and an exported `seek`. esbuild resolves from the repo root (present through vite and tsx), so the bundler needs the repo checkout to run. Linked the guide from `stages/new-reel.md` (the code-only build stage) so a stage-following agent reaches it.
 - Next, agent-runnable: the plan's own check (a fresh session builds a short motion reel from the guide, then `kinotta check`, a still per beat, a backward seek, a draft render). After that the plan waits on the three owner decisions above.
+- Fresh-session check (codex, existing conversation, not an isolated session; evidence in `.herdr/reviews/motion-check/` of the main checkout): built `hex-resolve` from the guide, a three-beat reel with one WebGL shot bundled by `bundle_shot.js`. `kinotta check` clean; three backward-seek frame hashes identical; 12 frames sampled (a still per beat, mid-move and both ends); camera endpoints match at each cut; the draft render (540p30, 10.5 s) decodes and plays to the end. It is silent: the guide's default sound path cannot be added to an initial parts build (issue #147). Other frictions: the treatment rule had no unattended exception and a checklist said "all five" shots (both fixed in this change); the new-reel stage numbering mixes the parts and legacy paths (issue #148).
+- Status Blocked on the owner only: (1) side-by-side comparison of the check reel and `kinotta-pin` v5/v6 with the Light Table; (2) the bar, "looks like the Light Table" or "close within Kinotta constraints"; (3) Phase 2 order; (4) how sound should work in an initial parts build (#147).
