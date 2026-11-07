@@ -79,6 +79,21 @@ describe('versions', () => {
     } finally { await project.close(); }
   });
 
+  it('keeps the version number on no-op saves with a retired approval record', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    writeFileSync(join(dir, 'reels', REEL, 'v2/approval.json'), JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00Z' }));
+    try {
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 2 });
+      await project.addComment(REEL, 2, { pin: PIN, text: 'Warm up this title.' });
+      await project.copyBatch(REEL, 2);
+      expect((await project.listVersions(REEL)).map((version) => version.number)).toEqual([1, 2]);
+      await project.addOperation(REEL, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 4, y: 0, scale: 1 });
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
+    } finally { await project.close(); }
+  });
+
   it('does not copy the retired approval record into a new version', async () => {
     const dir = copyFixture('showreel-project');
     const project = openProject(dir);

@@ -1,3 +1,4 @@
+import { mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { launchAgent } from '../../server/core/_internal/runner.ts';
 import { afterEach, expect, it } from 'vitest';
@@ -82,4 +83,68 @@ it('rejects code-only Regenerate with a plain invalid error and no absolute path
   expect(JSON.stringify(body)).not.toMatch(/[A-Za-z]:[\\/]|ENOENT|plan\.json/);
   await expect(server.project.startAgentJob('product-showreel', false, 'regenerate')).rejects.toMatchObject({ code: 'invalid' });
   expect(await server.project.agentJob('product-showreel')).toBeNull();
+});
+
+it.each([
+  ['invalid JSON', '{not json'], ['null', 'null'], ['array', '[]'], ['string', '"old marker"'], ['read error', null],
+])('regenerates with a %s marker and rewrites it after success', { timeout: 30_000 }, async (_failure, contents) => {
+  const dir = copyFixture('footage-project');
+  let release!: () => void;
+  const gate = new Promise<void>((done) => { release = done; });
+  const server = await startServer({ projectDir: dir, port: 0, transcriber: async () => [{ text: 'hello', start: 0.5, end: 1 }], agent: { launch: async (input) => {
+    await gate;
+    await launchAgent({ ...input, executable: { command: process.execPath, prefix: [resolve('tests/core/fake-broll-agent.mjs'), 'success'] } });
+  } } });
+  running.push(server);
+  await server.project.saveAgentSettings({ provider: 'copy' });
+  const { slug } = await server.project.startReel({ video: 'media/talk.mp4' });
+  await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
+  await server.project.saveAgentSettings({ provider: 'claude' });
+  for (const text of ['Warm up the title', 'Brighten the background']) {
+    await server.project.addComment(slug, 1, { text, pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+  }
+  const marker = join(dir, 'reels', slug, '.agent/regenerate-pins.json');
+  if (contents === null) mkdirSync(marker);
+  else writeFileSync(marker, contents);
+  try {
+    const response = await fetch(`${server.url}/api/reels/${slug}/agent/regenerate`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+    });
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({ kind: 'regenerate', pins: [{ text: 'Warm up the title' }, { text: 'Brighten the background' }] });
+    // Release the read-error fixture so a successful run can replace it with a file.
+    if (contents === null) rmdirSync(marker);
+    release();
+    await server.project.whenAgentDone(slug);
+    expect(await server.project.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'succeeded', version: 2 });
+    const comments = await server.project.listComments(slug, 2);
+    expect(comments).toHaveLength(2);
+    expect(JSON.parse(readFileSync(marker, 'utf8'))).toEqual(Object.fromEntries(comments.map((comment) => [comment.id, comment.text])));
+    expect(comments.every((comment) => comment.regenerated)).toBe(true);
+  } finally { release(); await server.project.whenAgentDone(slug); }
+});
+
+it('returns a path-free 422 when retrying Regenerate after its plan is removed', { timeout: 30_000 }, async () => {
+  const dir = copyFixture('footage-project');
+  const server = await startServer({ projectDir: dir, port: 0, transcriber: async () => [], agent: { launch: async (input) => {
+    await launchAgent({ ...input, executable: { command: process.execPath, prefix: [resolve('tests/core/fake-broll-agent.mjs'), 'exit1'] } });
+  } } });
+  running.push(server);
+  await server.project.saveAgentSettings({ provider: 'copy' });
+  const { slug } = await server.project.startReel({ video: 'media/talk.mp4' });
+  await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
+  await server.project.saveAgentSettings({ provider: 'claude' });
+  await server.project.addComment(slug, 1, { text: 'Warm up the title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+  const path = `${server.url}/api/reels/${slug}/agent`;
+  const post = (action: string) => fetch(`${path}/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  expect((await post('regenerate')).status).toBe(202);
+  await server.project.whenAgentDone(slug);
+  expect(await server.project.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'failed', canRetry: true });
+  unlinkSync(join(dir, 'reels', slug, 'v1/plan.json'));
+  const response = await post('retry');
+  const body = await response.json();
+  expect(response.status).toBe(422);
+  expect(body).toEqual({ error: 'Use Copy request to regenerate a reel without a footage plan.' });
+  expect(JSON.stringify(body)).not.toContain(dir);
+  expect(JSON.stringify(body)).not.toMatch(/[A-Za-z]:[\\/]|ENOENT|plan\.json/);
 });

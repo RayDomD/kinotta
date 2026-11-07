@@ -146,9 +146,10 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   async function pinMarkers(reel: string, version: number): Promise<Record<string, string>> {
-    const stored = await json<Record<string, string>>(join(projectDir, 'reels', reel, '.agent/regenerate-pins.json')).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return {}; throw error; });
+    const stored = await json<unknown>(join(projectDir, 'reels', reel, '.agent/regenerate-pins.json')).catch(() => null);
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {};
     const aliases = await pinAliases(reel, version);
-    return Object.fromEntries(Object.entries(stored).map(([id, text]) => [aliases.get(id) ?? id, text]));
+    return Object.fromEntries(Object.entries(stored).filter(([, text]) => typeof text === 'string').map(([id, text]) => [aliases.get(id) ?? id, text]));
   }
 
   async function carryJobPins(job: AgentJob, version: number): Promise<void> {
@@ -246,6 +247,8 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const reelDir = await requireReelDir(projectDir, reel);
       const previous = latest.get(reel);
       if (retry && !previous?.canRetry) throw new KinottaError('invalid', 'This run cannot be retried.');
+      const previousRequest = retry && previous ? await json<BrollJobRequest>(join(jobDir(previous), 'request.json')) : undefined;
+      if (previousRequest) kind = previousRequest.kind;
       const baseVersion = await newestVersionNumber(reelDir);
       if (!baseVersion) throw new KinottaError('invalid', 'Wait for the first version before adding b-roll.');
       const source = join(reelDir, `v${baseVersion}`);
@@ -261,8 +264,6 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const style = await readReelStyle(projectDir, reel);
       const frame = await json<{ frame?: Frame }>(join(reelDir, 'reel.json')).then((file) => file.frame, () => undefined);
       const context = frame ? { frame, frameFound: true } : {};
-      const previousRequest = retry && previous ? await json<BrollJobRequest>(join(jobDir(previous), 'request.json')) : undefined;
-      if (previousRequest) kind = previousRequest.kind;
       const request = retry && previous
         ? makeBrollJobRequest(id, reel, baseVersion, { ...(await json<BrollJobRequest>(join(jobDir(previous), 'request.json'))).options, captions: captionMode }, manifest.duration, style, context)
         : makeBrollJobRequest(id, reel, baseVersion, { videoType: plan.videoType, broll: plan.broll, pace: plan.pace, captions: captionMode, notes: plan.notes }, manifest.duration, style, context);
