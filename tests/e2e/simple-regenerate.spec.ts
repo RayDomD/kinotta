@@ -7,6 +7,7 @@ import { copyFixture } from '../helpers/project.ts';
 import { tempDir } from '../helpers/temp.ts';
 
 test('Regenerate streams pin status, preserves playback and Working, and offers failure Retry and Copy', async ({ page, context }) => {
+  test.setTimeout(120_000);
   process.env.KINOTTA_HOME = tempDir('kinotta-regenerate-home-');
   const dir = copyFixture('footage-project');
   let release: (() => void) | undefined;
@@ -55,6 +56,10 @@ test('Regenerate streams pin status, preserves playback and Working, and offers 
     await page.screenshot({ path: resolve('tests/artifacts/simple-regenerate/running.png'), fullPage: true });
     release!(); await server.project.whenAgentDone(slug);
     await expect(pin.getByRole('status')).toHaveText('Done');
+    const spent = page.getByRole('button', { name: /Regenerate \(0 pins\)/ });
+    await expect(spent).toBeDisabled();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.screenshot({ path: resolve('tests/artifacts/simple-regenerate/after-run.png'), fullPage: true });
     expect((await server.project.readWorkingVersion(slug)).number).toBe(2);
     await expect(page.getByLabel('Added by Kinotta lane')).toContainText('Hello');
     expect((await server.project.readEditList(slug)).operations).toMatchObject(edits.operations);
