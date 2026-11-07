@@ -394,7 +394,7 @@ export function SimpleMode({
   const regenerate = async () => {
     if (!reel || !version || busy || isJobActive || provider === null) return;
     // Keep clipboard access in the click task for browsers that require user activation.
-    if (provider === 'copy' || !version.footage) return copyRequest();
+    if (provider === 'copy' || !version.agentRegenerate) return copyRequest();
     setBusy(true); setError(''); setStatus('Saving the request...'); setRequest('');
     try {
       await regenerateReel(reel.slug);

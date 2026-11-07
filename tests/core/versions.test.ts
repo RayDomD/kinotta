@@ -38,6 +38,28 @@ function addVersion(dir: string, from: number, to: number): void {
 }
 
 describe('versions', () => {
+  it('reports regenerate capability for the current version when Working displays older inputs', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    try {
+      writeFileSync(join(dir, 'reels', REEL, 'v1/plan.json'), '{}');
+      await project.addOperation(REEL, { kind: 'use-version', version: 1 });
+      expect((await project.readVersion(REEL, 1)).agentRegenerate).toBe(true);
+      expect(await project.readWorkingVersion(REEL)).toMatchObject({ number: 2, workingBase: 1, agentRegenerate: false });
+      await expect(project.startAgentJob(REEL, false, 'regenerate')).rejects.toMatchObject({ code: 'invalid', message: 'Use Copy request to regenerate a reel without a footage plan.' });
+    } finally { await project.close(); }
+  });
+
+  it('reports no agent regenerate capability for code-only versions and still copies their pins', async () => {
+    const project = openProject(copyFixture('showreel-project'));
+    try {
+      expect((await project.readVersion(REEL, 1)).agentRegenerate).toBe(false);
+      expect((await project.readVersion(REEL, 2)).agentRegenerate).toBe(false);
+      await project.addComment(REEL, 2, { pin: PIN, text: 'Warm up this title.' });
+      expect(await project.copyBatch(REEL, 2)).toMatchObject({ count: 1, text: expect.stringContaining('Warm up this title.') });
+    } finally { await project.close(); }
+  });
+
   it('lists a reel versions in order, marking the newest and the storyboard', async () => {
     const project = openProject(copyFixture('showreel-project'));
 

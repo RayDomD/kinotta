@@ -11,7 +11,7 @@ import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch 
 import { readAgentSettings, type AgentProvider } from './agent-settings.ts';
 import { appendAgentCutsNow, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { AGENT_CUT_BY } from './dead-air.ts';
-import { requireReelDir, newestVersionNumber, nextVersionNumber } from './version.ts';
+import { canAgentRegenerate, requireReelDir, newestVersionNumber, nextVersionNumber } from './version.ts';
 import { publishVersion } from './version-build.ts';
 import { settleNewest } from './carry.ts';
 import { validateAgentOutput } from './agent-output.ts';
@@ -249,10 +249,10 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const baseVersion = await newestVersionNumber(reelDir);
       if (!baseVersion) throw new KinottaError('invalid', 'Wait for the first version before adding b-roll.');
       const source = join(reelDir, `v${baseVersion}`);
-      const plan = await json<Record<string, any>>(join(source, 'plan.json')).catch((error: NodeJS.ErrnoException) => {
-        if (kind === 'regenerate' && error.code === 'ENOENT') throw new KinottaError('invalid', 'Use Copy request to regenerate a reel without a footage plan.');
-        throw error;
-      });
+      if (kind === 'regenerate' && !(await canAgentRegenerate(source))) {
+        throw new KinottaError('invalid', 'Use Copy request to regenerate a reel without a footage plan.');
+      }
+      const plan = await json<Record<string, any>>(join(source, 'plan.json'));
       const captionMode = plan.captions === false ? 'off' : plan.captions?.look === 'phrase' ? 'phrases' : plan.captions?.look === 'words' ? 'word-by-word' : undefined;
       const manifest = await json<{ duration: number }>(join(source, 'shots.json'));
       const provider = (await readAgentSettings(projectDir)).provider;

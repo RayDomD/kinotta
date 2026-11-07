@@ -116,6 +116,8 @@ export interface Version {
   media?: MediaPlan;
   number: number;
   isNewest: boolean;
+  /** Whether this version has the plan required to run agent Regenerate. */
+  agentRegenerate: boolean;
   duration: number;
   shots: Shot[];
   overlays: Overlay[];

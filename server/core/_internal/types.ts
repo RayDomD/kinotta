@@ -140,6 +140,8 @@ export interface Version {
   frozenBy?: string;
   number: number;
   isNewest: boolean;
+  /** Whether this version has the plan required to run agent Regenerate. */
+  agentRegenerate: boolean;
   /** Seconds. */
   duration: number;
   /** Source/placement model for versions authored with multiple media. */

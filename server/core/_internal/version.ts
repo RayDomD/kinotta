@@ -30,6 +30,9 @@ async function isDirectory(path: string): Promise<boolean> {
 
 const isFile = (path: string): Promise<boolean> => stat(path).then((s) => s.isFile(), () => false);
 
+/** Regenerate needs a version-local plan, including versions frozen with a media plan. */
+export const canAgentRegenerate = (versionDir: string): Promise<boolean> => isFile(join(versionDir, 'plan.json'));
+
 async function versionNumbers(reelDir: string): Promise<number[]> {
   return (await readdir(reelDir, { withFileTypes: true }))
     .filter((e) => e.isDirectory())
@@ -198,6 +201,7 @@ async function readVersionFiles(projectDir: string, slug: string, number: number
     ...(parts?.manifest ? { parts: parts.manifest } : {}),
     number,
     isNewest: number === (await newestVersionNumber(reelDir)),
+    agentRegenerate: await canAgentRegenerate(join(reelDir, `v${number}`)),
     duration,
     shots,
     overlays: listOf<Overlay>(file.overlays),

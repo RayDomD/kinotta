@@ -358,6 +358,25 @@ describe('new reel agent confirmation', { timeout: 90_000 }, () => {
 
 
 describe('Simple Regenerate', { timeout: 90_000 }, () => {
+  it('reports agent regenerate capability after a footage reel freezes with a media plan', async () => {
+    const test = await setup();
+    const slug = await make(test.project);
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    await test.project.addOperation(slug, { kind: 'track-add', track: { id: 'extra', name: 'Extra', order: 1, gain: 1, mute: false } });
+    expect(await test.project.freezeEdits(slug)).toEqual({ version: 3 });
+    const versions = await Promise.all([1, 2, 3].map((number) => test.project.readVersion(slug, number)));
+    expect(versions[1].footage).toBeDefined();
+    expect(versions[2].media).toBeDefined();
+    expect(versions[2].footage).toBeUndefined();
+    expect(versions.map((version) => version.agentRegenerate)).toEqual([true, true, true]);
+    await test.project.addComment(slug, 3, { text: 'Warm up this title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+    const job = await test.project.startAgentJob(slug, false, 'regenerate');
+    expect(job).toMatchObject({ kind: 'regenerate', pins: [{ text: 'Warm up this title', state: 'waiting' }] });
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 4 });
+  });
+
   it('sends only new or changed pins after reload and preserves Working during publication', async () => {
     const test = await setup();
     const slug = await make(test.project);
