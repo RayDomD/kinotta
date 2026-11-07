@@ -396,3 +396,33 @@ describe('Simple Regenerate', { timeout: 90_000 }, () => {
     } finally { release?.(); }
   });
 });
+
+
+describe('Regenerate failure and Retry', { timeout: 90_000 }, () => {
+  it.each(['exit1', 'bad', 'timeout'])('keeps the cut on %s and retries the submitted pins', async (mode) => {
+    const test = await setup(mode === 'timeout' ? 'hang' : mode, mode === 'timeout' ? 4000 : 60_000, true, mode === 'bad' ? (cwd) => writeFileSync(join(cwd, 'output/shots.json'), '{}') : undefined);
+    await test.project.saveAgentSettings({ provider: 'copy' });
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    await test.project.saveAgentSettings({ provider: 'claude' });
+    const pin = (await test.project.addComment(slug, 1, { text: 'Add a title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    const events: any[] = [];
+    test.project.subscribe((event) => { if (event.type === 'agent-progress') events.push(event.job); });
+    await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'failed', canRetry: true, canCopy: true, pins: [{ id: pin.id, state: 'failed' }] });
+    expect((await test.project.readWorkingVersion(slug)).number).toBe(1);
+    expect((await test.project.listVersions(slug)).map((version) => version.number)).toEqual([1]);
+    expect((await test.project.copyAgentRequest(slug)).request).toContain('Add a title');
+    expect(events.some((job) => job.pins?.[0]?.state === 'waiting')).toBe(true);
+    expect(events.some((job) => job.pins?.[0]?.state === 'running')).toBe(true);
+    if (mode === 'exit1') {
+      await test.project.editComment(slug, 1, pin.id, 'Change after failure');
+      test.setMode('success');
+      const retry = await test.project.startAgentJob(slug, true);
+      const request = readJson(join(test.dir, 'reels', slug, '.agent/jobs', retry.id, 'request.json'));
+      expect(request).toMatchObject({ kind: 'regenerate', pins: [{ text: 'Add a title' }] });
+      await test.project.whenAgentDone(slug);
+      expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    }
+  });
+});
