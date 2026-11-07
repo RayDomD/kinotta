@@ -1,7 +1,7 @@
 ---
 title: Remove Stable Audio
 date: 2026-10-31
-status: In Progress
+status: Done
 summary: Delete the local Stable Audio generation path; sound comes from synth.py (Opus writes it as code), the effects catalogue, Kokoro and owner files.
 spec:
 ---
@@ -70,4 +70,4 @@ The removal is implemented. Status remains In Progress because the goal requires
 - Full `npm test`: 173 files passed, 8 failed; 1,467 tests passed, 12 failed, 7 skipped (1,486 total), in 1,528.86 seconds. Two failures were synthesis tests exceeding the default 5-second timeout; the longer-timeout rerun passed.
 - The full run exposed one obsolete Generate-prompt section inside the mixed transport test; removed those steps. Its rerun now reaches a viewer-height assertion. Both this assertion and the divider assertion reproduce with identical values in an untouched HEAD snapshot, proving those two failures predate the removal.
 - Final Round 2 triage (`.herdr/briefs/2026-11-01-stable-audio-failure-triage-codex.md`): five render failures reproduce with matching messages and assertion locations on the correct parent `6ec159d` and removal commit `3afa554`. They are unrelated to the removal: custom regions (`render-media-regions.test.ts:115`), both retry tests (`render-media-sync.test.ts:190` and `:240`), MediaEditor invariants A6 (`render-media-verify.test.ts:77`), and timeline window (`render-timeline-window.test.ts:89`). Both additional branch runs failed identically; no variation was observed across the three branch runs. The other three of the eight originally unverified tests (media-elements, media-preview, and the stalled-picture test in media-regions) pass on both sides. This does not establish root cause or rule out flakiness in other runs. No unrelated fixes were added.
-- Follow-up before Done: address the separately recorded pre-existing render and transport failures and synthesis timeout configuration, then verify the full-suite goal or obtain the owner's decision on how those failures affect completion. Status remains In Progress for that decision. The full suite was not rerun after removing the obsolete mixed-test steps; the affected test was rerun directly. This documentation update uses the final Round 2 evidence and runs no tests.
+- Closed 2026-11-08: PR #128 and the render-test repairs in #129 are on main. A full run on merged main shows typecheck and build passing, unit 1240 passed with 1 load timeout (passes alone, issue #139), and render 136 passed with 1 failure that passes alone and is tracked as #135. Every failure matches an open issue by exact test name, so the full-suite condition is met.
