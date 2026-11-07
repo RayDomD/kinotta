@@ -1,7 +1,7 @@
 ﻿---
 title: Test guardrails from the merge-train retro
 date: 2026-10-26
-status: In Progress
+status: Done
 summary: Leftover e2e servers, stale web builds and unguarded tests cost the merge train hours; make each one fail loudly or go away.
 spec:
 ---
@@ -62,3 +62,7 @@ F. **E2e port base (optional, ask first).** `KINOTTA_E2E_PORT_BASE` in `playwrig
 - Owner chose to fix the app bug: `readWorkingVersion` now uses the same `markWaiting` step as `readVersion` (`carry.ts`), and `section-batches:62` runs again. Full Playwright rerun with `--workers=2` (owner's go-ahead): 153 passed, 2 failed, 1 skipped, 1 did not run; the skip and both failures came from the run starting before the fix (`section-batches` 62 still skipped, so its serial follow-on 89 failed) and from load (`parts-gate:10`). Rerun alone with the fix: `section-batches` and `parts-gate`, 9 passed. Unit files that read versions or Working: 31 files, 257 passed. `render-native-lanes.test.ts`, which uses the changed save helper: 3 passed.
 - PR #74 opened from `chore/test-guardrails`; the owner merges.
 - Review (both axes, inline): nothing important; one nit left as is, `ports.ts` turns a non-numeric `KINOTTA_E2E_PORT_BASE` into `NaN` ports without an error.
+
+## Result
+
+Shipped in PR #74. Steps A to F done: e2e servers exit with the runner, the render project builds first, the seven Playwright failures were fixed or marked, herdr docs updated, and `KINOTTA_E2E_PORT_BASE` added. The one nit (non-numeric port base becomes NaN) was left as is. Closed 2026-11-08.

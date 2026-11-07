@@ -1,7 +1,7 @@
 ---
 title: Repo guardrails from the 2026-10-25 retro
 date: 2026-10-25
-status: In Progress
+status: Done
 summary: Stop tests dirtying tracked files, check doc paths and commit messages, run cheap checks and unit tests on every pull request, and block AI attribution.
 spec:
 ---
@@ -70,3 +70,7 @@ Each fix is a small deterministic check, not a rule in `REVIEW.md`.
 - E verified on draft PR #67. The first run failed 84 of 890 unit tests in 39 s, all on missing tools. The job now installs ffmpeg, `python3-numpy`, `python3-scipy` (for `skill/kinotta/scripts/synth.py`; apt, because the runner's Python refuses pip installs) and Playwright's Chromium. Final run: 887 passed, 3 skipped (librosa beat tests and real Whisper, skipped by design), unit step 119 s, job about 3 min. Locally the unit project passes 889 in 256 s. D's original three steps also ran green on GitHub.
 - agy reviewed PR #67: the trailer rule matched the name "Claude", which blocked human co-authors named Claude and missed an Anthropic-email trailer without the name. It now matches `<noreply@anthropic.com>` on a `Co-Authored-By:` line; verified on both AI trailers, two human "Claude" co-authors, and `c604fc1`. Footer variants, other Anthropic emails and Chromium caching were judged not worth changing.
 - Rebased onto `origin/main` (26 commits behind; only the generated plans index conflicted, regenerated each step). `check-commits.mjs` now also rejects a `Claude-Session:` trailer, per step A of `2026-10-26-test-guardrails.md`; verified on a throwaway commit with the trailer (flagged), one without (passes), and this branch (passes).
+
+## Result
+
+Shipped in PR #65 (doc, commit and typecheck guardrails) and PR #73 (CI unit tests and the attribution block, replacing closed #67). Steps A to F were verified as recorded in the Changelog. Closed 2026-11-08.

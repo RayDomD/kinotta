@@ -1,7 +1,7 @@
 ---
 title: reel-folder-and-delete
 date: 2026-11-06
-status: In Progress
+status: Done
 summary: Keep everything a reel owns in its own folder, then add Delete reel and Delete version that leave nothing behind, with foldable rail sections.
 spec: docs/mockups/2026-11-06-reel-delete-version-list.html
 ---
@@ -58,8 +58,8 @@ PR 2
 - [x] Refusal tests: open reel, Current's base version, a version named by an edit or Redo entry, a running render, a queued render, a handed-off job. Proof: each refused with its reason.
 - [x] `deleteVersion`, `deleteReel` and the HTTP routes. Proof: the tests above.
 - [x] Foldable rail, Delete rows and the confirm sheet. Proof: driven in the running editor on a copy of RayDom (server on port 4390, Playwright script): fold and unfold, Escape cancels, deleting v5 of a 6-version reel worked (about 8 s), the Current base v6 was refused with its reason, a closed reel was deleted (about 5 s), two reels referenced by other project files were refused with the file named, no `.delete-*` folder and no footage change left behind.
-- [ ] Gate: `npm run typecheck`, unit tests, and `npx vitest run --project render` (AGENTS.md covers `web/src/review/**` and `server/core/_internal/media-*`; run it if either is touched). Proof: output shown.
-- [ ] Review: five hunters, verifier PASS, `/security-review`, `/blast-radius`. Proof: findings and verdicts in the PR.
+- [x] Gate: `npm run typecheck`, unit tests, and `npx vitest run --project render` (AGENTS.md covers `web/src/review/**` and `server/core/_internal/media-*`; run it if either is touched). Proof: output shown. Evidence: 2026-11-08 on merged main (acf5fed): typecheck and build pass; unit 1240 passed, 1 failed (`simpler-versions` timeout under load, passes alone, issue #139); render 136 passed, 1 failed (`render-native-lanes` closes up on Delete, passes alone, issue #135).
+- [x] Review: five hunters, verifier PASS, `/security-review`, `/blast-radius`. Proof: findings and verdicts in the PR. Evidence: PR #134 body records an agy hunt and an Opus verifier on the server half (no Important findings), a second agy hunt on the UI half whose findings G1 to G5 were fixed in 16e208c (no separate verifier recorded for those), and `/security-review` and `/blast-radius` runs.
 
 ## Risks
 
@@ -88,3 +88,7 @@ PR 2
 - Existing specs changed because the rail changed: Reels and Saved versions start folded for people, so specs start them unfolded through one shared helper (`unfoldRailByDefault`); `smoke.spec.ts` checks the Reels fold header instead of the old "Reels in <project>/reels" label; the three `/^Save/` button-count checks became `/^Save( |$)/` because the "Saved versions" fold header also starts with Save; `working.spec.ts` folds Reels before it measures the narrow layout.
 - Deferred as follow-ups (issue #137): F1 newest version not counted as a dependent, F3 stale `.delete-*` staging folder after a crash, F5 no Windows retry on the staging renames, and the cost of hashing all media on each delete. Other issues: #135 flaky render test, #136 absolute paths in error text.
 
+
+## Result
+
+Shipped as planned: PR 1 (#133) moved reel state into `reels/<slug>/.kinotta/` with a file-by-file migration; PR 2 (#134) added `deleteVersion`, `deleteReel`, the HTTP routes, the foldable rail and the confirm sheet. Deviations are in the Changelog (decision D1, high-water mark written only on delete, Delete hidden until row focus). Follow-ups are tracked in #137 and #136. Gate on merged main: see the Gate step. Still answers the Intent: a reel's files live in its folder and delete leaves nothing behind.

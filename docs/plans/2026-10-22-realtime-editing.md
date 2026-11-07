@@ -1,7 +1,7 @@
 ---
 title: Realtime editing
 date: 2026-10-22
-status: In Progress
+status: Done
 summary: Cuts close up without the timeline jumping, playback never stalls for a late picture, edits show instantly, seeks are fast on real footage, and Ctrl+Z works on Simple-mode captions.
 spec: .herdr/briefs/2026-10-22-timeline-feel-diagnosis2-codex.md
 ---
@@ -114,3 +114,7 @@ Review fix F6, by Claude (owner, 2026-10-22: both parts):
 ### 2026-10-23
 - Review fixes merged (codex ff39676, agy a30ff95, F6 49ad93e). Final tree: typecheck and build pass; `npm test` 1130 passed, 1 skipped, 1 failed (editor-settings, fails on main). Legacy reel sound checked in a real browser in Review and Simple: one `200 /footage/founder-talk/audio` request, speaker level 0.088. PR #60 opened.
 - e2e on the final tree: 139 passed, 10 failed, 5 did not run. Rerun alone: 8 pass (load); `section-batches.spec.ts:62` also fails on main; `clips.spec.ts:41` fails every run here and on both lane branches but passes on main. Cause: Review and MediaEditor handlers return early while an earlier edit is saving, so an edit made right after an optimistic one is silently dropped. Owner: fix in PR #60; sent to codex (`.herdr/briefs/2026-10-23-queue-edits-while-saving-codex.md`).
+
+## Result
+
+Shipped in PR #60. Closing cuts, snips and deletes, proxies at 540p, optimistic edits and timeline anchoring all landed, plus the review fixes and the legacy cut-resize fix. Harness numbers (main vs branch, same fixture): Waiting-for-picture 20 episodes / 1307 ms to 0. You tried the merged build on RayDom: "looking well, it feels good". The branch-only regression found by e2e (a dropped edit made while an earlier one saved, `clips.spec.ts:41`) was fixed before merge in c600d42 (`queued-review-edits`, red then green; `clips.spec.ts` 3 of 3). Failures that also fail on main (`editor-settings.test.ts:11`) were listed, not fixed. `render-media-sync.test.ts:86` (snip preview) was flaky before and after, and PR #60 left it as a follow-up. Closed 2026-11-08.
