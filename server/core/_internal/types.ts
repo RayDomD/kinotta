@@ -742,6 +742,8 @@ export interface Comment {
   createdAt: string;
   /** Copied to an agent in its section's latest batch. */
   sent?: true;
+  /** Simple mode's Regenerate already sent this note as it reads now. Cleared when the note is edited. */
+  regenerated?: true;
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };
   /**

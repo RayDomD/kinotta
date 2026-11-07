@@ -29,6 +29,9 @@ import { pieceMap, snipPieces, MIN_SNIP } from '../../server/core/model.ts';
 import type { Piece, SnipOperation } from '../../server/core/model.ts';
 import './simple.css';
 
+/** Regenerate sends a pin that is not waiting on attention and has not already been regenerated with its current note. */
+const isRegeneratable = (pin: { state?: unknown; regenerated?: true }): boolean => !pin.state && !pin.regenerated;
+
 /** Handles undo/redo keyboard shortcuts in Simple mode. */
 export function handleSimpleUndoRedo(
   event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'defaultPrevented' | 'target' | 'preventDefault'>,
@@ -529,7 +532,7 @@ export function SimpleMode({
                     <span className="num">{pin.number} · {formatClock(pin.pin.time)}</span>
                     <span role="status">{(() => {
                       const progress = agentJob?.pins?.find((sent) => sent.id === pin.id && sent.text === pin.text);
-                      return progress ? { waiting: 'Waiting', running: 'Running', done: 'Done', failed: 'Failed' }[progress.state] : pin.state ? 'Needs attention' : pin.sent ? 'Copied' : 'New';
+                      return progress ? { waiting: 'Waiting', running: 'Running', done: 'Done', failed: 'Failed' }[progress.state] : pin.state ? 'Needs attention' : pin.regenerated ? 'Done' : pin.sent ? 'Copied' : 'New';
                     })()}</span>
                     {pin.pin.kind === 'frame' && pin.pin.element && <span className="sm-pin-element">{pin.pin.element}</span>}
                     <span>{pin.text}</span>
@@ -599,10 +602,10 @@ export function SimpleMode({
               <button
                 type="button"
                 className="btn"
-                disabled={busy || isJobActive || provider === null || !version || !pins.some((pin) => !pin.state)}
+                disabled={busy || isJobActive || provider === null || !version || !pins.some(isRegeneratable)}
                 onClick={() => void regenerate()}
               >
-                Regenerate (<span className="num">{pins.filter((pin) => !pin.state).length}</span> pins)
+                Regenerate (<span className="num">{pins.filter(isRegeneratable).length}</span> pins)
               </button>
               <p className="meta">{isJobActive ? 'Available when the background run finishes.' : 'Uses your agent setting to regenerate or copy the request.'}</p>
             </div>

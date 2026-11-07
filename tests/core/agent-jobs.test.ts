@@ -453,4 +453,28 @@ describe('Regenerate success markers', { timeout: 90_000 }, () => {
     expect(readJson(join(agentDir, 'regenerate-pins.json'))).toEqual({ [carried.id]: 'Add a warm title' });
     await expect(test.project.startAgentJob(slug, false, 'regenerate')).rejects.toThrow('No new or changed pins');
   });
+
+  it('reports which pins were already regenerated, through a carry-forward hop, until the note changes', async () => {
+    const test = await setup();
+    await test.project.saveAgentSettings({ provider: 'copy' });
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    await test.project.saveAgentSettings({ provider: 'claude' });
+    const sent = (await test.project.addComment(slug, 1, { text: 'Add a warm title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    expect(sent.regenerated).toBeUndefined();
+    await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    const afterRun = (await test.project.listComments(slug, 2)).find((comment) => comment.text === 'Add a warm title')!;
+    expect(afterRun.regenerated).toBe(true);
+    const fresh = (await test.project.addComment(slug, 2, { text: 'Brighten it', pin: { kind: 'frame', shot: '', time: 1, x: 0.5, y: 0.5, element: null } })).comment;
+    expect(fresh.regenerated).toBeUndefined();
+    const edited = await test.project.editComment(slug, 2, afterRun.id, 'Add a cool title');
+    expect(edited.comments.find((comment) => comment.id === afterRun.id)!.regenerated).toBeUndefined();
+    expect((await test.project.listComments(slug, 2)).find((comment) => comment.id === afterRun.id)!.regenerated).toBeUndefined();
+    // A second run carries the unsent pins to v3; the note that was not edited again stays regenerated across the hop.
+    await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 3 });
+    expect((await test.project.listComments(slug, 3)).filter((comment) => comment.regenerated).map((comment) => comment.text).sort()).toEqual(['Add a cool title', 'Brighten it']);
+  });
 });

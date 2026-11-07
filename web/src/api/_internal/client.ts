@@ -302,6 +302,8 @@ export interface Comment {
   createdAt: string;
   /** Copied to an agent in its section's latest batch. */
   sent?: true;
+  /** Simple mode's Regenerate already sent this note as it reads now. */
+  regenerated?: true;
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };
   /** The comment's moment was snipped out of the footage: it keeps its text and waits to be re-pinned or deleted. */
