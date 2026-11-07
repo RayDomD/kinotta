@@ -42,3 +42,28 @@ it('exposes explicit agent settings, Copy fallback, reconnect status, retry, and
   const privateFile = await call(`/reels/${slug}/.agent/jobs/${first.job.id}/request.json`);
   expect(privateFile.status).toBe(404);
 });
+
+
+it('refuses a second Regenerate while the reel job runs', { timeout: 30_000 }, async () => {
+  let release: (() => void) | undefined;
+  const server = await startServer({ projectDir: copyFixture('footage-project'), port: 0, transcriber: async () => [], agent: { launch: async (input) => {
+    await new Promise<void>((done, reject) => { release = done; input.signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }); });
+  } } });
+  running.push(server);
+  await server.project.saveAgentSettings({ provider: 'copy' });
+  const { slug } = await server.project.startReel({ video: 'media/talk.mp4' });
+  await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
+  await server.project.saveAgentSettings({ provider: 'claude' });
+  await server.project.addComment(slug, 1, { text: 'Keep this moment', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+  const path = `${server.url}/api/reels/${slug}/agent/regenerate`;
+  const post = () => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  try {
+    const first = await post();
+    expect(first.status).toBe(202);
+    expect(await first.json()).toMatchObject({ kind: 'regenerate', pins: [{ state: 'waiting' }] });
+    const refused = await post();
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toMatchObject({ error: expect.stringContaining('already has an agent run') });
+    expect((await server.project.listVersions(slug)).map((version) => version.number)).toEqual([1]);
+  } finally { release?.(); await server.project.cancelAgentJob(slug); }
+});
