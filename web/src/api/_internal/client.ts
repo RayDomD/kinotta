@@ -116,6 +116,8 @@ export interface Version {
   media?: MediaPlan;
   number: number;
   isNewest: boolean;
+  /** Whether this version has the plan required to run agent Regenerate. */
+  agentRegenerate: boolean;
   duration: number;
   shots: Shot[];
   overlays: Overlay[];
@@ -152,19 +154,10 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version: `you`, or an agent's name. */
   builtBy?: string;
-  /** The version is approved: it is final. */
-  approved: boolean;
   /** How many comments it holds. */
   comments: number;
   /** How many contract issues it has: the ones Final and Overlay refuse on. */
   issues: number;
-}
-
-/** What approving a version returns. `warning` names the contract issues it still has. */
-export interface Approval {
-  approved: true;
-  at: string;
-  warning?: string;
 }
 
 export type RenderPreset = 'draft' | 'final' | 'overlay';
@@ -215,6 +208,8 @@ export const AGENT_PROVIDER_LABELS: Record<AgentProvider, string> = {
 export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
 
 export interface AgentJob {
+  kind?: 'make-broll' | 'regenerate';
+  pins?: { id: string; text: string; state: 'waiting' | 'running' | 'done' | 'failed' }[];
   id: string;
   reel: string;
   provider: AgentProvider;
@@ -309,6 +304,8 @@ export interface Comment {
   createdAt: string;
   /** Copied to an agent in its section's latest batch. */
   sent?: true;
+  /** Simple mode's Regenerate already sent this note as it reads now. */
+  regenerated?: true;
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };
   /** The comment's moment was snipped out of the footage: it keeps its text and waits to be re-pinned or deleted. */
@@ -617,6 +614,8 @@ export const fetchReelAgentJob = async (slug: string): Promise<AgentJob | null> 
   (await getJson<{ job: AgentJob | null }>(`/api/reels/${encodeURIComponent(slug)}/agent`)).job;
 export const cancelReelAgentJob = async (slug: string): Promise<AgentJob> =>
   (await requestJson<{ job: AgentJob }>(`/api/reels/${encodeURIComponent(slug)}/agent`, { method: 'DELETE' })).job;
+export const regenerateReel = (slug: string): Promise<AgentJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/regenerate`, jsonBody('POST', {}));
 export const retryReelAgentJob = (slug: string): Promise<AgentJob> =>
   requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/retry`, jsonBody('POST', {}));
 export const copyReelAgentJob = (slug: string): Promise<{ request: string }> =>

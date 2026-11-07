@@ -7,7 +7,7 @@ import { KinottaError, checkTools, removeStaleDrafts } from '../../core/index.ts
 import type { BatchOptions, NewBriefReel, NewComment, NewOperation, NewReel, Project, RenderRequest } from '../../core/index.ts';
 
 const PIN_NOTES_API = /^\/api\/reels\/([^/]+)\/pin-notes(?:\/([a-f0-9]{64}))?$/;
-const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish))?$/;
+const AGENT_API = /^\/api\/reels\/([^/]+)\/agent(?:\/(retry|copy|publish|regenerate))?$/;
 const VERSION_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)$/;
 const REEL_API = /^\/api\/reels\/([^/]+)$/;
 const COMMENTS_API = /^\/api\/reels\/([^/]+)\/versions\/(\d+)\/comments$/;
@@ -532,6 +532,7 @@ export function createHandler(project: Project, webRoot: string) {
           if (typeof body.id !== 'string') throw new KinottaError('invalid', 'Supply the request id.');
           sendJson(res, 200, await project.acceptAgentOutput(slug, body.id));
         }
+        else if (agentRoute[2] === 'regenerate' && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug, false, 'regenerate'));
         else if (agentRoute[2] === 'retry' && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug, true));
         else if (!agentRoute[2] && req.method === 'GET') sendJson(res, 200, { job: await project.agentJob(slug) });
         else if (!agentRoute[2] && req.method === 'POST') sendJson(res, 202, await project.startAgentJob(slug));

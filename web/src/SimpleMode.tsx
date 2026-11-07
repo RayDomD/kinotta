@@ -2,10 +2,14 @@ import { copySavedText } from './clipboard.ts';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   copyBatch,
+  fetchAgentSettings,
+  regenerateReel,
   fetchWorkingVersion,
   migrateStyleProfile,
 } from './api/_internal/client.ts';
 import type {
+  AgentJob,
+  AgentProvider,
   NewComment,
   ReelListing,
   ReelSummary,
@@ -14,7 +18,7 @@ import type {
 import { migrateSimpleOptionsProfile } from './simple-options.ts';
 import { BriefWaiting } from './BriefReel.tsx';
 import { SimpleMake } from './SimpleMake.tsx';
-import { Review } from './review/index.ts';
+import { Review, useEditorWorkspace } from './review/index.ts';
 import { EditorIcon } from './review/_internal/EditorIcon.tsx';
 import type { EditsState } from './review/index.ts';
 import type { CommentsState } from './useComments.ts';
@@ -24,6 +28,9 @@ import type { CutBlock, SimpleCutsValue } from './SimpleTimeline.tsx';
 import { pieceMap, snipPieces, MIN_SNIP } from '../../server/core/model.ts';
 import type { Piece, SnipOperation } from '../../server/core/model.ts';
 import './simple.css';
+
+/** Regenerate sends a pin that is not waiting on attention and has not already been regenerated with its current note. */
+const isRegeneratable = (pin: { state?: unknown; regenerated?: true }): boolean => !pin.state && !pin.regenerated;
 
 /** Handles undo/redo keyboard shortcuts in Simple mode. */
 export function handleSimpleUndoRedo(
@@ -165,6 +172,7 @@ export function computeSimpleCuts(
 export function SimpleMode({
   agentStripSlot,
   isJobActive,
+  agentJob,
   listing,
   reel,
   version,
@@ -183,6 +191,7 @@ export function SimpleMode({
 }: {
   agentStripSlot: ReactNode;
   isJobActive: boolean;
+  agentJob?: AgentJob | null;
   listing: ReelListing;
   reel: ReelSummary | undefined;
   version: Version | undefined;
@@ -200,6 +209,17 @@ export function SimpleMode({
   renderPlayer?: ReactNode;
   onRefresh(): void;
 }) {
+  const { settingsOpen } = useEditorWorkspace();
+  const [provider, setProvider] = useState<AgentProvider | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    const refresh = () => {
+      void fetchAgentSettings().then((settings) => { if (!disposed) setProvider(settings.provider); }, () => { if (!disposed) setProvider(null); });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { disposed = true; window.removeEventListener('focus', refresh); };
+  }, [settingsOpen, reel?.slug]);
   const [draft, setDraft] = useState<NewComment['pin'] | null>(null);
   const [pinMode, setPinMode] = useState(false);
   const bubble = useRef<HTMLFormElement>(null);
@@ -330,7 +350,7 @@ export function SimpleMode({
 
   const problem = (err: unknown) => setError(err instanceof Error ? err.message : 'Could not complete that action. Try again.');
 
-  const regenerate = async () => {
+  const copyRequest = async () => {
     // A copied batch can freeze Working into a new version, which would fail the running job's publish.
     if (!reel || !version || busy || isJobActive) return;
     setBusy(true);
@@ -369,6 +389,18 @@ export function SimpleMode({
     } finally {
       setBusy(false);
     }
+  };
+
+  const regenerate = async () => {
+    if (!reel || !version || busy || isJobActive || provider === null) return;
+    // Keep clipboard access in the click task for browsers that require user activation.
+    if (provider === 'copy' || !version.agentRegenerate) return copyRequest();
+    setBusy(true); setError(''); setStatus('Saving the request...'); setRequest('');
+    try {
+      await regenerateReel(reel.slug);
+      setStatus('Regenerating your pins. You can keep watching the current cut.');
+    } catch (err) { problem(err); setStatus(''); }
+    finally { setBusy(false); }
   };
 
   // The reel picker: in the start page's top bar, and beside the reel's own actions once one is open.
@@ -498,7 +530,10 @@ export function SimpleMode({
                     onClick={() => jumpTo(index)}
                   >
                     <span className="num">{pin.number} · {formatClock(pin.pin.time)}</span>
-                    <span>{pin.state ? 'Needs attention' : pin.sent ? 'Copied' : 'New'}</span>
+                    <span role="status">{(() => {
+                      const progress = agentJob?.pins?.find((sent) => sent.id === pin.id && sent.text === pin.text);
+                      return progress ? { waiting: 'Waiting', running: 'Running', done: 'Done', failed: 'Failed' }[progress.state] : pin.state ? 'Needs attention' : pin.regenerated ? 'Done' : pin.sent ? 'Copied' : 'New';
+                    })()}</span>
                     {pin.pin.kind === 'frame' && pin.pin.element && <span className="sm-pin-element">{pin.pin.element}</span>}
                     <span>{pin.text}</span>
                   </button>
@@ -567,12 +602,12 @@ export function SimpleMode({
               <button
                 type="button"
                 className="btn"
-                disabled={busy || isJobActive || !version || !pins.some((pin) => !pin.state)}
+                disabled={busy || isJobActive || provider === null || !version || !pins.some(isRegeneratable)}
                 onClick={() => void regenerate()}
               >
-                Regenerate (<span className="num">{pins.filter((pin) => !pin.state).length}</span> pins)
+                Regenerate (<span className="num">{pins.filter(isRegeneratable).length}</span> pins)
               </button>
-              <p className="meta">{isJobActive ? 'Available when the background run finishes.' : 'Copies the request for your agent.'}</p>
+              <p className="meta">{isJobActive ? 'Available when the background run finishes.' : 'Uses your agent setting to regenerate or copy the request.'}</p>
             </div>
           </aside>
         </div>

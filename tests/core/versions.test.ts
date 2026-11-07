@@ -38,13 +38,74 @@ function addVersion(dir: string, from: number, to: number): void {
 }
 
 describe('versions', () => {
+  it('reports regenerate capability for the current version when Working displays older inputs', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    try {
+      writeFileSync(join(dir, 'reels', REEL, 'v1/plan.json'), '{}');
+      await project.addOperation(REEL, { kind: 'use-version', version: 1 });
+      expect((await project.readVersion(REEL, 1)).agentRegenerate).toBe(true);
+      expect(await project.readWorkingVersion(REEL)).toMatchObject({ number: 2, workingBase: 1, agentRegenerate: false });
+      await expect(project.startAgentJob(REEL, false, 'regenerate')).rejects.toMatchObject({ code: 'invalid', message: 'Use Copy request to regenerate a reel without a footage plan.' });
+    } finally { await project.close(); }
+  });
+
+  it('reports no agent regenerate capability for code-only versions and still copies their pins', async () => {
+    const project = openProject(copyFixture('showreel-project'));
+    try {
+      expect((await project.readVersion(REEL, 1)).agentRegenerate).toBe(false);
+      expect((await project.readVersion(REEL, 2)).agentRegenerate).toBe(false);
+      await project.addComment(REEL, 2, { pin: PIN, text: 'Warm up this title.' });
+      expect(await project.copyBatch(REEL, 2)).toMatchObject({ count: 1, text: expect.stringContaining('Warm up this title.') });
+    } finally { await project.close(); }
+  });
+
   it('lists a reel versions in order, marking the newest and the storyboard', async () => {
     const project = openProject(copyFixture('showreel-project'));
 
     expect(await project.listVersions(REEL)).toEqual([
-      { number: 1, isNewest: false, isStoryboard: true, approved: false, comments: 0, issues: 0 },
-      { number: 2, isNewest: true, isStoryboard: false, approved: false, comments: 0, issues: 0 },
+      { number: 1, isNewest: false, isStoryboard: true, comments: 0, issues: 0 },
+      { number: 2, isNewest: true, isStoryboard: false, comments: 0, issues: 0 },
     ]);
+  });
+
+  it('ignores an old approval record when listing versions', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    try {
+      const before = await project.listVersions(REEL);
+      writeFileSync(join(dir, 'reels', REEL, 'v2/approval.json'), JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00Z' }));
+      expect(await project.listVersions(REEL)).toEqual(before);
+    } finally { await project.close(); }
+  });
+
+  it('keeps the version number on no-op saves with a retired approval record', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    writeFileSync(join(dir, 'reels', REEL, 'v2/approval.json'), JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00Z' }));
+    try {
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 2 });
+      await project.addComment(REEL, 2, { pin: PIN, text: 'Warm up this title.' });
+      await project.copyBatch(REEL, 2);
+      expect((await project.listVersions(REEL)).map((version) => version.number)).toEqual([1, 2]);
+      await project.addOperation(REEL, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 4, y: 0, scale: 1 });
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
+    } finally { await project.close(); }
+  });
+
+  it('does not copy the retired approval record into a new version', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    const original = join(dir, 'reels', REEL, 'v2/approval.json');
+    writeFileSync(original, JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00Z' }));
+    try {
+      await project.addOperation(REEL, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 4, y: 0, scale: 1 });
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
+      expect(existsSync(join(dir, 'reels', REEL, 'v3/index.html'))).toBe(true);
+      expect(existsSync(join(dir, 'reels', REEL, 'v3/approval.json'))).toBe(false);
+      expect(existsSync(original)).toBe(true);
+    } finally { await project.close(); }
   });
 
   it('moves the newest mark when a version folder appears', async () => {

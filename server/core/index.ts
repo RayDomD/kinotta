@@ -81,7 +81,6 @@ export type {
   MediaEntry,
   MediaFilter,
   AddedComment,
-  Approval,
   BatchOptions,
   BuiltPartsVersion,
   Comment,
@@ -128,7 +127,6 @@ export type {
   Version,
   VideoEntry,
   VersionEntry,
-  Withdrawal,
   WordPin,
 } from './_internal/types.ts';
 
@@ -161,7 +159,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const beats = createMediaBeats(dir);
   // Activity preparation and deletion share a gate; a render/job cannot acquire inputs during deletion preflight.
   const withActivity = <T>(slug: string, task: () => Promise<T>): Promise<T> => withReelLock(join(dir, 'reels', slug, '.activity'), task);
-  const startAgentJob = (slug: string, retry?: boolean) => withActivity(slug, () => agents.start(slug, retry));
+  const startAgentJob = (slug: string, retry?: boolean, kind?: 'make-broll' | 'regenerate') => withActivity(slug, () => agents.start(slug, retry, kind));
   const assertDeletionIdle = async (slug: string): Promise<void> => {
     const reason = await agents.deletionReason(slug);
     const job = renders.jobs().find((entry) => entry.reel === slug);
@@ -248,10 +246,10 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     },
     footageFile: (slug) => footageFile(dir, slug),
     footageAudioFile: (slug) => footageAudioFile(dir, slug),
-    listComments: (slug, number) => listComments(dir, slug, number),
-    addComment: async (slug, number, input) => { const result = await addComment(dir, slug, number, input); if (input.effect || input.insertShot) emit({ type: 'edits-changed', reel: slug }); return result; },
-    editComment: async (slug, number, id, text) => { const result = await editComment(dir, slug, number, id, text); if (result.comment.effect || result.comment.insertShot) emit({ type: 'edits-changed', reel: slug }); return result; },
-    deleteComment: async (slug, number, id) => { const result = await deleteComment(dir, slug, number, id); emit({ type: 'edits-changed', reel: slug }); return result; },
+    listComments: async (slug, number) => agents.markRegenerated(slug, number, await listComments(dir, slug, number)),
+    addComment: async (slug, number, input) => { const result = await addComment(dir, slug, number, input); if (input.effect || input.insertShot) emit({ type: 'edits-changed', reel: slug }); return { ...result, comments: await agents.markRegenerated(slug, number, result.comments) }; },
+    editComment: async (slug, number, id, text) => { const result = await editComment(dir, slug, number, id, text); if (result.comment.effect || result.comment.insertShot) emit({ type: 'edits-changed', reel: slug }); return { ...result, comments: await agents.markRegenerated(slug, number, result.comments) }; },
+    deleteComment: async (slug, number, id) => { const result = await deleteComment(dir, slug, number, id); emit({ type: 'edits-changed', reel: slug }); return { ...result, comments: await agents.markRegenerated(slug, number, result.comments) }; },
     readNote: (slug, number) => readNote(dir, slug, number),
     setNote: (slug, number, note) => setNote(dir, slug, number, note),
     copyBatch: (slug, number, options) => copyBatch(dir, slug, number, options),

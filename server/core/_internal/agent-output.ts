@@ -10,7 +10,7 @@ import { checkShotsAgainstPage, checkShotsFile, scanVersionPage } from './contra
 import { validateAgentPage } from './runner.ts';
 
 /** Agent output is self-contained: no symlinks, remote dependencies or escaping file references. */
-export async function validateAgentOutput(output: string, signal: AbortSignal, expectedPlan?: Record<string, unknown>, expectedTranscript?: string): Promise<void> {
+export async function validateAgentOutput(output: string, signal: AbortSignal, expectedPlan?: Record<string, unknown>, expectedTranscript?: string, kind: 'make-broll' | 'regenerate' = 'make-broll'): Promise<void> {
   const root = resolve(output);
   const rootInfo = await lstat(root);
   if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) throw new Error('Agent output must be a real private directory.');
@@ -94,7 +94,7 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
       if (!isDeepStrictEqual(fields, originalFields)) throw new Error(`Agent output changed fields other than text on transcript word ${index + 1}.`);
     }
   }
-  if (!Array.isArray(plan.clips) || !plan.clips.length) throw new Error('Agent output has no b-roll clips.');
+  if (!Array.isArray(plan.clips) || (kind === 'make-broll' && !plan.clips.length)) throw new Error('Agent output has no b-roll clips.');
   for (const key of ['video', 'transcript']) if (typeof plan[key] === 'string') await local(plan[key], root);
   for (const clip of plan.clips) if (typeof clip.clip === 'string') await local(clip.clip, root, !!clip.template);
   for (const source of plan.media?.sources ?? []) if (typeof source.path === 'string') await local(source.path, root);
@@ -162,7 +162,7 @@ export async function validateAgentOutput(output: string, signal: AbortSignal, e
   const manifest = JSON.parse(await readFile(join(root, 'shots.json'), 'utf8'));
   const shots = checkShotsFile(manifest, null);
   if (expectedPlan && Math.abs(manifest.duration - pieceMap(expectedPlan.pieces as Piece[] | undefined, Number(expectedPlan.duration)).length) > 0.01) throw new Error('Agent output changed the reel timeline duration.');
-  if (!(manifest.duration > 0) || !shots.shots.length) throw new Error('Agent output has no playable shots.');
+  if (!(manifest.duration > 0) || (kind === 'make-broll' && !shots.shots.length)) throw new Error('Agent output has no playable shots.');
   const page = await scanVersionPage(await readFile(join(root, 'index.html'), 'utf8'), root, root);
   const issues = [...shots.issues, ...page.issues, ...checkShotsAgainstPage(shots.shots, page.scenes)];
   if (issues.length) throw new Error(`Agent output breaks the page contract: ${issues[0]!.message}`);

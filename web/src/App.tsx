@@ -1,3 +1,4 @@
+import type { AgentJob } from './api/_internal/client.ts';
 import { AgentStrip } from './AgentStrip.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deleteReel, deleteVersion, fetchProject, fetchReels, fetchRenderJobs, fetchTranscription, fetchVersion, fetchWorkingVersion, fetchVersions, revealRender, subscribe, versionPageUrl } from './api/index.ts';
@@ -403,7 +404,7 @@ interface MainProps {
   edits: EditsState;
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
-  /** The reel's versions: the one on show carries its approval. */
+  /** The reel's saved versions. */
   entries: VersionEntry[];
   /** The finished render Review is playing instead of the version, if any. */
   playingRender: string | null;
@@ -536,6 +537,7 @@ function Studio() {
   const [simple, setSimple] = useState(startsInSimpleMode);
   const [stripTarget, setStripTarget] = useState<HTMLDivElement | null>(null);
   const [agentActive, setAgentActive] = useState(false);
+  const [agentJob, setAgentJob] = useState<AgentJob | null>(null);
   const [library, setLibrary] = useState(() => typeof window !== 'undefined' && (window.location.hash === '#library' || new URLSearchParams(window.location.search).get('page') === 'library'));
 
   useEffect(() => {
@@ -835,7 +837,7 @@ function Studio() {
   </div>;
 
   // Both edit views use the same top bar and preserve the open Working or frozen version.
-  if (creating || !reel || (simple && phase === 'Review')) return <SimpleMode topBar={topBar} agentStripSlot={<div className="agent-strip-slot" ref={setStripTarget} />} isJobActive={agentActive} listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
+  if (creating || !reel || (simple && phase === 'Review')) return <SimpleMode topBar={topBar} agentStripSlot={<div className="agent-strip-slot" ref={setStripTarget} />} isJobActive={agentActive} agentJob={agentJob?.reel === reel?.slug ? agentJob : null} listing={load.listing} reel={reel} version={openVersion} state={version.status} message={version.status === 'error' ? version.message : undefined} creating={creating}
     renderPlayer={playingRender && reel ? <main className="main rv-main" aria-label="Edit"><RenderPlayer slug={reel.slug} file={playingRender} version={openVersion?.number} onBack={() => setPlayingRender(null)} /></main> : undefined}
     comments={comments} edits={edits} onOpen={openReel} onNew={() => setCreating(true)} onStarted={reelStarted} onBriefStarted={briefStarted}
     onRefresh={() => { setVersionTick((tick) => tick + 1); setVersionsTick((tick) => tick + 1); setCommentsTick((tick) => tick + 1); }} />;
@@ -968,7 +970,7 @@ function Studio() {
 
   return <>
     <AgentStrip slug={reel?.slug} title={reel?.title} nextVersion={(newest ?? 1) + 1} target={stripTarget}
-      onActiveChange={setAgentActive} onRefresh={refreshAgentResult}
+      onActiveChange={setAgentActive} onJobChange={setAgentJob} onRefresh={refreshAgentResult}
       onOpenVersion={(number) => {
         setLibrary(false);
         if (window.location.hash === '#library') history.replaceState(null, '', window.location.pathname + window.location.search);

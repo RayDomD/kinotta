@@ -355,3 +355,165 @@ describe('new reel agent confirmation', { timeout: 90_000 }, () => {
     expect((await fixture.project.agentSettings()).confirmed).toBe(confirmed ? true : undefined);
   });
 });
+
+
+describe('Simple Regenerate', { timeout: 90_000 }, () => {
+  it('reports agent regenerate capability after a footage reel freezes with a media plan', async () => {
+    const test = await setup();
+    const slug = await make(test.project);
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    await test.project.addOperation(slug, { kind: 'track-add', track: { id: 'extra', name: 'Extra', order: 1, gain: 1, mute: false } });
+    expect(await test.project.freezeEdits(slug)).toEqual({ version: 3 });
+    const versions = await Promise.all([1, 2, 3].map((number) => test.project.readVersion(slug, number)));
+    expect(versions[1].footage).toBeDefined();
+    expect(versions[2].media).toBeDefined();
+    expect(versions[2].footage).toBeUndefined();
+    expect(versions.map((version) => version.agentRegenerate)).toEqual([true, true, true]);
+    await test.project.addComment(slug, 3, { text: 'Warm up this title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+    const job = await test.project.startAgentJob(slug, false, 'regenerate');
+    expect(job).toMatchObject({ kind: 'regenerate', pins: [{ text: 'Warm up this title', state: 'waiting' }] });
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 4 });
+  });
+
+  it('sends only new or changed pins after reload and preserves Working during publication', async () => {
+    const test = await setup();
+    const slug = await make(test.project);
+    await test.project.whenAgentDone(slug);
+    const first = (await test.project.addComment(slug, 2, { text: 'Make this warmer', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    const unchanged = (await test.project.addComment(slug, 2, { text: 'Keep this blue', pin: { kind: 'frame', shot: '', time: 1, x: 0.5, y: 0.5, element: null } })).comment;
+    const job = await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    const request = readJson(join(test.dir, 'reels', slug, '.agent/jobs', job.id, 'request.json'));
+    expect(request.kind).toBe('regenerate');
+    expect(request.pins.map((pin: any) => pin.id)).toEqual([first.id, unchanged.id]);
+    await test.project.close();
+    const reopened = openProject(test.dir, { agent: { launch: async (input) => {
+      await new Promise<void>((done, reject) => { release = done; input.signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }); });
+      await launchAgent({ ...input, executable: { command: process.execPath, prefix: [join(test.dir, 'fake agent.mjs'), 'success'] } });
+    } } });
+    projects.push(reopened);
+    let release: (() => void) | undefined;
+    const carried = (await reopened.listComments(slug, 3)).find((pin) => pin.text === 'Make this warmer')!;
+    await reopened.editComment(slug, 3, carried.id, 'Make this much warmer');
+    const fresh = (await reopened.addComment(slug, 3, { text: 'Add a title', pin: { kind: 'frame', shot: '', time: 2, x: 0.5, y: 0.5, element: null } })).comment;
+    const next = await reopened.startAgentJob(slug, false, 'regenerate');
+    try {
+      await until(() => !!release);
+      const changed = readJson(join(test.dir, 'reels', slug, '.agent/jobs', next.id, 'request.json'));
+      expect(changed.pins.map((pin: any) => ({ id: pin.id, text: pin.text }))).toEqual([{ id: carried.id, text: 'Make this much warmer' }, { id: fresh.id, text: 'Add a title' }]);
+      expect(JSON.stringify(changed)).not.toContain('Keep this blue');
+      await expect(reopened.startAgentJob(slug, false, 'regenerate')).rejects.toMatchObject({ code: 'frozen' });
+      const edits = await reopened.addOperation(slug, { kind: 'word-text', at: 0.5, text: 'owner correction', was: 'hello' });
+      expect((await reopened.readWorkingVersion(slug)).number).toBe(3);
+      release!(); await reopened.whenAgentDone(slug);
+      expect(await reopened.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'succeeded', version: 4, pins: [{ text: 'Make this much warmer', state: 'done' }, { text: 'Add a title', state: 'done' }] });
+      expect((await reopened.readEditList(slug)).operations).toMatchObject(edits.operations);
+      expect((await reopened.readEditList(slug)).flagged ?? {}).toEqual({});
+      await expect(reopened.startAgentJob(slug, false, 'regenerate')).rejects.toThrow('No new or changed pins');
+    } finally { release?.(); }
+  });
+});
+
+
+describe('Regenerate failure and Retry', { timeout: 90_000 }, () => {
+  it.each(['exit1', 'bad', 'timeout'])('keeps the cut on %s and retries the submitted pins', async (mode) => {
+    const test = await setup(mode === 'timeout' ? 'hang' : mode, mode === 'timeout' ? 4000 : 60_000, true, mode === 'bad' ? (cwd) => writeFileSync(join(cwd, 'output/shots.json'), '{}') : undefined);
+    await test.project.saveAgentSettings({ provider: 'copy' });
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    await test.project.saveAgentSettings({ provider: 'claude' });
+    const pin = (await test.project.addComment(slug, 1, { text: 'Add a title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    const events: any[] = [];
+    test.project.subscribe((event) => { if (event.type === 'agent-progress') events.push(event.job); });
+    await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'failed', canRetry: true, canCopy: true, pins: [{ id: pin.id, state: 'failed' }] });
+    expect((await test.project.readWorkingVersion(slug)).number).toBe(1);
+    expect((await test.project.listVersions(slug)).map((version) => version.number)).toEqual([1]);
+    expect((await test.project.copyAgentRequest(slug)).request).toContain('Add a title');
+    expect(events.some((job) => job.pins?.[0]?.state === 'waiting')).toBe(true);
+    expect(events.some((job) => job.pins?.[0]?.state === 'running')).toBe(true);
+    if (mode === 'exit1') {
+      await test.project.editComment(slug, 1, pin.id, 'Change after failure');
+      test.setMode('success');
+      const retry = await test.project.startAgentJob(slug, true);
+      const request = readJson(join(test.dir, 'reels', slug, '.agent/jobs', retry.id, 'request.json'));
+      expect(request).toMatchObject({ kind: 'regenerate', pins: [{ text: 'Add a title' }] });
+      await test.project.whenAgentDone(slug);
+      expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    }
+  });
+});
+
+
+describe('Regenerate success markers', { timeout: 90_000 }, () => {
+  it.each(['invalid JSON', 'read error'])('lists and adds comments without regenerated flags when the marker has %s', async (failure) => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir); projects.push(project);
+    const slug = 'product-showreel';
+    const pin = { shot: '03', x: 0.5, y: 0.5, element: null };
+    const existing = (await project.addComment(slug, 2, { text: 'Keep the title', pin })).comment;
+    const agentDir = join(dir, 'reels', slug, '.agent');
+    mkdirSync(agentDir, { recursive: true });
+    const marker = join(agentDir, 'regenerate-pins.json');
+    if (failure === 'invalid JSON') writeFileSync(marker, '{not json');
+    else mkdirSync(marker);
+
+    expect(await project.listComments(slug, 2)).toEqual([existing]);
+    const added = await project.addComment(slug, 2, { text: 'Warm up the background', pin });
+    expect(added.comments).toHaveLength(2);
+    expect(added.comments.map((comment) => comment.text)).toEqual(['Keep the title', 'Warm up the background']);
+    expect(added.comments.every((comment) => !Object.hasOwn(comment, 'regenerated'))).toBe(true);
+    expect(await project.listComments(slug, 2)).toEqual(added.comments);
+  });
+
+  it.each(['failed', 'cancelled'])('accepts fresh Regenerate after a %s run and marks pins only on success', async (state) => {
+    const test = await setup(state === 'failed' ? 'exit1' : 'hang');
+    await test.project.saveAgentSettings({ provider: 'copy' });
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    await test.project.saveAgentSettings({ provider: 'claude' });
+    const pin = (await test.project.addComment(slug, 1, { text: 'Add a warm title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    const first = await test.project.startAgentJob(slug, false, 'regenerate');
+    const agentDir = join(test.dir, 'reels', slug, '.agent');
+    if (state === 'cancelled') {
+      await until(() => existsSync(join(agentDir, 'jobs', first.id, 'descendant.pid')));
+      await test.project.cancelAgentJob(slug);
+    }
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state, canRetry: true });
+    test.setMode('success');
+    const fresh = await test.project.startAgentJob(slug, false, 'regenerate');
+    expect(fresh.id).not.toBe(first.id);
+    expect(readJson(join(agentDir, 'jobs', fresh.id, 'request.json'))).toMatchObject({ kind: 'regenerate', pins: [{ id: pin.id, text: 'Add a warm title' }] });
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    const carried = (await test.project.listComments(slug, 2)).find((comment) => comment.text === 'Add a warm title')!;
+    expect(readJson(join(agentDir, 'regenerate-pins.json'))).toEqual({ [carried.id]: 'Add a warm title' });
+    await expect(test.project.startAgentJob(slug, false, 'regenerate')).rejects.toThrow('No new or changed pins');
+  });
+
+  it('reports which pins were already regenerated, through a carry-forward hop, until the note changes', async () => {
+    const test = await setup();
+    await test.project.saveAgentSettings({ provider: 'copy' });
+    const slug = await make(test.project); await test.project.whenAgentDone(slug);
+    await test.project.saveAgentSettings({ provider: 'claude' });
+    const sent = (await test.project.addComment(slug, 1, { text: 'Add a warm title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } })).comment;
+    expect(sent.regenerated).toBeUndefined();
+    await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    const afterRun = (await test.project.listComments(slug, 2)).find((comment) => comment.text === 'Add a warm title')!;
+    expect(afterRun.regenerated).toBe(true);
+    const fresh = (await test.project.addComment(slug, 2, { text: 'Brighten it', pin: { kind: 'frame', shot: '', time: 1, x: 0.5, y: 0.5, element: null } })).comment;
+    expect(fresh.regenerated).toBeUndefined();
+    const edited = await test.project.editComment(slug, 2, afterRun.id, 'Add a cool title');
+    expect(edited.comments.find((comment) => comment.id === afterRun.id)!.regenerated).toBeUndefined();
+    expect((await test.project.listComments(slug, 2)).find((comment) => comment.id === afterRun.id)!.regenerated).toBeUndefined();
+    // A second run carries the unsent pins to v3; the note that was not edited again stays regenerated across the hop.
+    await test.project.startAgentJob(slug, false, 'regenerate');
+    await test.project.whenAgentDone(slug);
+    expect(await test.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 3 });
+    expect((await test.project.listComments(slug, 3)).filter((comment) => comment.regenerated).map((comment) => comment.text).sort()).toEqual(['Add a cool title', 'Brighten it']);
+  });
+});

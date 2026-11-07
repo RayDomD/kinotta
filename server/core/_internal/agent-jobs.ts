@@ -3,19 +3,21 @@ import { copyFile, cp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { brollJobPrompt, makeBrollJobRequest, type BrollJobRequest } from './requests.ts';
 import { assertSafeCopyOutput, COPY_SETTLE_MS, removeCopyDoneMarker, watchCopyOutput, type CopyWatchHandle } from './copy-watch.ts';
+import { readState, stateFilePath } from './state.ts';
+import { listComments } from './comments.ts';
 import type { Frame } from './direction.ts';
 import { readReelStyle } from './style.ts';
 import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch } from './runner.ts';
 import { readAgentSettings, type AgentProvider } from './agent-settings.ts';
 import { appendAgentCutsNow, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { AGENT_CUT_BY } from './dead-air.ts';
-import { requireReelDir, newestVersionNumber, nextVersionNumber } from './version.ts';
+import { canAgentRegenerate, requireReelDir, newestVersionNumber, nextVersionNumber } from './version.ts';
 import { publishVersion } from './version-build.ts';
 import { settleNewest } from './carry.ts';
 import { validateAgentOutput } from './agent-output.ts';
 import { KinottaError } from './errors.ts';
 import type { SnipOperation } from './edit-model.ts';
-import type { ProjectEvent } from './types.ts';
+import type { Comment, ProjectEvent } from './types.ts';
 
 export const AGENT_CEILING_MS = 45 * 60 * 1000;
 export const AGENT_QUIET_MS = 30_000;
@@ -25,6 +27,8 @@ const RETAINED_JOBS = 5;
 export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
 export interface AgentJob {
   id: string;
+  kind?: BrollJobRequest['kind'];
+  pins?: { id: string; text: string; state: 'waiting' | 'running' | 'done' | 'failed' }[];
   reel: string;
   provider: AgentProvider;
   state: AgentJobState;
@@ -107,6 +111,10 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   const set = (job: AgentJob): Promise<void> => {
+    if (job.pins) {
+      const state = job.state === 'succeeded' ? 'done' : ['failed', 'cancelled', 'interrupted'].includes(job.state) ? 'failed' : job.state === 'queued' ? 'waiting' : 'running';
+      job.pins = job.pins.map((pin) => ({ ...pin, state }));
+    }
     const snapshot = { ...job };
     latest.set(job.reel, job);
     const task = (writes.get(job.id) ?? Promise.resolve()).catch(() => {}).then(async () => {
@@ -116,6 +124,43 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     writes.set(job.id, task);
     return task;
   };
+
+  // Carry-forward assigns fresh pin IDs. Follow its recorded pairs so an unchanged note stays sent.
+  async function pinAliases(reel: string, version: number): Promise<Map<string, string>> {
+    const aliases = new Map<string, string>();
+    let number = version;
+    while (number > 1) {
+      const state = await readState(stateFilePath(projectDir, reel, number), number);
+      if (!state.carriedFrom) break;
+      const previous = state.carriedFrom.version;
+      const before = await readState(stateFilePath(projectDir, reel, previous), previous);
+      if (before.carriedTo?.version === number) {
+        before.carriedTo.carried.forEach((id, index) => {
+          const next = state.carriedFrom!.ids[index];
+          if (next) aliases.set(id, aliases.get(next) ?? next);
+        });
+      }
+      number = previous;
+    }
+    return aliases;
+  }
+
+  async function pinMarkers(reel: string, version: number): Promise<Record<string, string>> {
+    const stored = await json<unknown>(join(projectDir, 'reels', reel, '.agent/regenerate-pins.json')).catch(() => null);
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {};
+    const aliases = await pinAliases(reel, version);
+    return Object.fromEntries(Object.entries(stored).filter(([, text]) => typeof text === 'string').map(([id, text]) => [aliases.get(id) ?? id, text]));
+  }
+
+  async function carryJobPins(job: AgentJob, version: number): Promise<void> {
+    if (!job.pins) return;
+    const aliases = await pinAliases(job.reel, version);
+    job.pins = job.pins.map((pin) => ({ ...pin, id: aliases.get(pin.id) ?? pin.id }));
+    await writeJsonAtomic(join(projectDir, 'reels', job.reel, '.agent/regenerate-pins.json'), {
+      ...await pinMarkers(job.reel, version),
+      ...Object.fromEntries(job.pins.map((pin) => [pin.id, pin.text])),
+    });
+  }
 
   async function applyPendingCuts(job: AgentJob, version: number): Promise<void> {
     const reelDir = await requireReelDir(projectDir, job.reel);
@@ -148,6 +193,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
               const reelDir = await requireReelDir(projectDir, reel);
               await withReelLock(reelDir, () => applyPendingCuts(job, version));
               await settleNewest(projectDir, reel);
+              await carryJobPins(job, version);
               await set({ ...job, state: 'succeeded', version, canRetry: false, canCopy: false, error: undefined });
             } catch (error) {
               await set({ ...job, state: 'failed', version, canRetry: true, error: (error instanceof Error ? error.message : 'Could not recover agent cuts.').slice(0, ERROR_LENGTH) });
@@ -186,7 +232,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     }
   }
 
-  async function start(reel: string, retry = false): Promise<AgentJob> {
+  async function start(reel: string, retry = false, kind: BrollJobRequest['kind'] = 'make-broll'): Promise<AgentJob> {
     await ready;
     if (closed) throw new KinottaError('invalid', 'The server is shutting down.');
     if (running.has(reel) || (latest.get(reel) && activeState(latest.get(reel)!.state))) throw new KinottaError('frozen', 'This reel already has an agent run.');
@@ -201,9 +247,14 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const reelDir = await requireReelDir(projectDir, reel);
       const previous = latest.get(reel);
       if (retry && !previous?.canRetry) throw new KinottaError('invalid', 'This run cannot be retried.');
+      const previousRequest = retry && previous ? await json<BrollJobRequest>(join(jobDir(previous), 'request.json')) : undefined;
+      if (previousRequest) kind = previousRequest.kind;
       const baseVersion = await newestVersionNumber(reelDir);
       if (!baseVersion) throw new KinottaError('invalid', 'Wait for the first version before adding b-roll.');
       const source = join(reelDir, `v${baseVersion}`);
+      if (kind === 'regenerate' && !(await canAgentRegenerate(source))) {
+        throw new KinottaError('invalid', 'Use Copy request to regenerate a reel without a footage plan.');
+      }
       const plan = await json<Record<string, any>>(join(source, 'plan.json'));
       const captionMode = plan.captions === false ? 'off' : plan.captions?.look === 'phrase' ? 'phrases' : plan.captions?.look === 'words' ? 'word-by-word' : undefined;
       const manifest = await json<{ duration: number }>(join(source, 'shots.json'));
@@ -216,8 +267,17 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const request = retry && previous
         ? makeBrollJobRequest(id, reel, baseVersion, { ...(await json<BrollJobRequest>(join(jobDir(previous), 'request.json'))).options, captions: captionMode }, manifest.duration, style, context)
         : makeBrollJobRequest(id, reel, baseVersion, { videoType: plan.videoType, broll: plan.broll, pace: plan.pace, captions: captionMode, notes: plan.notes }, manifest.duration, style, context);
+      if (kind === 'regenerate') {
+        if (provider === 'copy') throw new KinottaError('invalid', 'Use Copy request to copy the pin batch.');
+        await settleNewest(projectDir, reel);
+        const markers = await pinMarkers(reel, baseVersion);
+        const pins = previousRequest?.pins ?? (await listComments(projectDir, reel, baseVersion)).filter((pin) => !pin.state && markers[pin.id] !== pin.text).map(({ id, number, text, pin }) => ({ id, number, text, pin }));
+        if (!pins.length) throw new KinottaError('invalid', 'No new or changed pins to regenerate.');
+        request.kind = 'regenerate';
+        request.pins = pins;
+      }
       const at = new Date().toISOString();
-      job = { id, reel, provider, state: 'queued', createdAt: at, updatedAt: at, elapsedSeconds: 0, quiet: false, canRetry: false, canCopy: false };
+      job = { id, kind, ...(request.pins ? { pins: request.pins.map(({ id, text }) => ({ id, text, state: 'waiting' as const })) } : {}), reel, provider, state: 'queued', createdAt: at, updatedAt: at, elapsedSeconds: 0, quiet: false, canRetry: false, canCopy: false };
       const dir = jobDir(job);
       await mkdir(join(dir, 'input'), { recursive: true });
       await mkdir(join(dir, 'output'));
@@ -247,7 +307,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   async function validateAndPublish(job: AgentJob, request: BrollJobRequest, controller: AbortController, frozenPlan: Record<string, unknown>, inputTranscript: string): Promise<void> {
     const output = join(jobDir(job), 'output');
     await assertSafeCopyOutput(jobDir(job), output);
-    await validateAgentOutput(output, controller.signal, frozenPlan, inputTranscript);
+    await validateAgentOutput(output, controller.signal, frozenPlan, inputTranscript, request.kind);
     const reelDir = await requireReelDir(projectDir, job.reel);
     await withReelLock(reelDir, async () => {
       if (controller.signal.aborted) throw new Error('Agent cancelled.');
@@ -267,6 +327,7 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       delete job.error;
     });
     await settleNewest(projectDir, job.reel);
+    await carryJobPins(job, job.version!);
     emit({ type: 'version-added', reel: job.reel, version: job.version! });
   }
 
@@ -375,6 +436,17 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     },
     ready,
     start,
+    /** Marks each comment whose current note Regenerate already sent, following pin aliases across carried versions. */
+    async markRegenerated(reel: string, version: number, comments: Comment[]): Promise<Comment[]> {
+      await ready;
+      try {
+        const markers = await pinMarkers(reel, version);
+        return comments.map((comment) => markers[comment.id] === comment.text ? { ...comment, regenerated: true as const } : comment);
+      } catch {
+        // Regenerate's optional marker must never make a comment operation fail.
+        return comments;
+      }
+    },
     async status(reel: string): Promise<AgentJob | null> { await ready; await requireReelDir(projectDir, reel); return latest.has(reel) ? { ...latest.get(reel)! } : null; },
     async copy(reel: string): Promise<{ request: string }> {
       await ready; await requireReelDir(projectDir, reel);

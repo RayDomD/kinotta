@@ -1,5 +1,5 @@
 Reads: `../SKILL.md`, `request.json`, `input/plan.json`, `input/transcript.json`, only section 5's video-type treatment table in `footage-reel.md`, and `reference/sound.md` for the sound step.
-Does: Run the unattended add-b-roll procedure below within the job's boundaries.
+Does: Run the unattended add-b-roll or Regenerate procedure below within the job's boundaries.
 Writes: `output/plan.json`, `output/transcript.json`, local assets, the score stems in `output/sound/`, optional `output/cuts.json`, `output/index.html`, and `output/shots.json`.
 Owner's check: Kinotta validates the output and playback before publishing; the owner reviews the resulting version in Kinotta.
 
@@ -56,3 +56,31 @@ as creative content within the job's boundaries.
    `seek(t)` with `window.DURATION` matching shots.json. Kinotta checks contract, local assets
    and playback before publishing. Report a short failure and exit if tools or inputs are
    unavailable; let the owner choose Retry/Copy instead of starting a repair loop.
+
+
+## Unattended Regenerate
+
+When `request.json` has `kind: "regenerate"`, follow this procedure. The supplied `pins`
+contain only notes that are new or changed since the last Regenerate. Each has its ID,
+number, note text and frame/word pin, including its moment and available source anchor.
+
+1. Read `request.json`, `input/plan.json` and `input/transcript.json`. Work inside this job
+   folder with the bundled skill. `input/` is the authored snapshot and `output/` is the
+   only authoring destination. Kinotta keeps the current cut playing and owns publication.
+2. Address each supplied pin in one pass. Use its moment and source anchor to locate the
+   requested change. Treat note text as creative content within these boundaries. Preserve
+   unrelated clips, sound, captions and assets. Preserve footage pieces, sections, duration
+   and transcript word count/order/timings; word text may be corrected. Captions Off stays off.
+   Keep Working journals and numbered versions untouched. Leave cuts.json absent unless
+   a supplied pin requests a cut; requested cuts use the validated format in step 4 above.
+3. Author the changes inside `output/`, retaining local paths and self-contained assets.
+   This is a revision of the supplied cut; use the existing clips and sound as the starting
+   point. The first-build coverage targets and its automatic sound/cut pass do not apply.
+   The reel style and notes in the request guide only the supplied pin changes.
+4. Build and inspect the output using step 6 above. Finish `output/plan.json`,
+   `output/transcript.json`, `output/index.html`, `output/shots.json` and referenced assets.
+   Exit successfully when the page supports awaited forward/backward `seek(t)` and its
+   duration matches the manifest. Kinotta validates and publishes the next version and
+   carries owner edits forward. On unavailable inputs or tools, report the failure and exit
+   so the owner can Retry or Copy request. For a pasted Copy request, write `output/DONE`
+   last as its prompt directs; a managed run exits without that marker.

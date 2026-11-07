@@ -140,6 +140,8 @@ export interface Version {
   frozenBy?: string;
   number: number;
   isNewest: boolean;
+  /** Whether this version has the plan required to run agent Regenerate. */
+  agentRegenerate: boolean;
   /** Seconds. */
   duration: number;
   /** Source/placement model for versions authored with multiple media. */
@@ -194,8 +196,6 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version, as its shots.json says. */
   builtBy?: string;
-  /** The version has an `approval.json`: it is final. */
-  approved: boolean;
   /** How many comments the version holds. */
   comments: number;
   /** How many static contract issues it has (`versionIssues`): the ones Final and Overlay refuse on. */
@@ -213,19 +213,6 @@ export interface RenderFile {
   bytes: number;
   /** When it was written, as an ISO time. */
   at: string;
-}
-
-/** What approving a version returns. `warning` names the contract issues an approved version still has (R10). */
-export interface Approval {
-  approved: true;
-  /** When the version was first approved, as an ISO time. */
-  at: string;
-  warning?: string;
-}
-
-/** What withdrawing an approval returns. */
-export interface Withdrawal {
-  approved: false;
 }
 
 /** A render's named defaults (R2): Draft is a quick check of any version, Final and Overlay are the deliverables. */
@@ -335,7 +322,7 @@ export interface Project {
   saveAgentSettings(input: unknown): Promise<import('./agent-settings.ts').AgentSettings>;
   detectAgents(): ReturnType<typeof import('./agent-settings.ts').detectAgents>;
   agentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
-  startAgentJob(slug: string, retry?: boolean): Promise<import('./agent-jobs.ts').AgentJob>;
+  startAgentJob(slug: string, retry?: boolean, kind?: 'make-broll' | 'regenerate'): Promise<import('./agent-jobs.ts').AgentJob>;
   cancelAgentJob(slug: string): Promise<import('./agent-jobs.ts').AgentJob | null>;
   copyAgentRequest(slug: string): Promise<{ request: string }>;
   acceptAgentOutput(slug: string, id: string): Promise<import('./agent-jobs.ts').AgentJob>;
@@ -382,7 +369,7 @@ export interface Project {
   listVersions(slug: string): Promise<VersionEntry[]>;
   /**
    * Calls `listener` when a version with a shots.json appears, a reel appears or goes, a version's saved
-   * comments change, or a version's `approval.json` appears or goes. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
+   * comments change. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
   /** Absolute path of the file the editor plays for the reel's footage (its proxy once made), or null (code-only reel, file missing, or a path outside the project). */
@@ -757,6 +744,8 @@ export interface Comment {
   createdAt: string;
   /** Copied to an agent in its section's latest batch. */
   sent?: true;
+  /** Simple mode's Regenerate already sent this note as it reads now. Cleared when the note is edited. */
+  regenerated?: true;
   /** Once a newer version has settled: this unsent comment moved on to it. */
   carried?: { to: number };
   /**

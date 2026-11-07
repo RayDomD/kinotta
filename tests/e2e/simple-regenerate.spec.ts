@@ -1,0 +1,90 @@
+﻿import { expect, test } from '@playwright/test';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { startServer } from '../../server/main.ts';
+import { launchAgent } from '../../server/core/_internal/runner.ts';
+import { copyFixture } from '../helpers/project.ts';
+import { tempDir } from '../helpers/temp.ts';
+
+test('Regenerate streams pin status, preserves playback and Working, and offers failure Retry and Copy', async ({ page, context }) => {
+  test.setTimeout(120_000);
+  process.env.KINOTTA_HOME = tempDir('kinotta-regenerate-home-');
+  const dir = copyFixture('footage-project');
+  let release: (() => void) | undefined;
+  let mode = 'codex-success';
+  const queued: string[] = [];
+  const server = await startServer({ projectDir: dir, port: 0,
+    transcriber: async () => [{ text: 'hello', start: 0.5, end: 1 }],
+    agent: { launch: async (input) => {
+      await new Promise<void>((done, reject) => { release = done; input.signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }); });
+      await launchAgent({ ...input, executable: { command: process.execPath, prefix: [resolve('tests/core/fake-broll-agent.mjs'), mode] } });
+    } },
+  });
+  try {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await server.project.saveAgentSettings({ provider: 'copy' });
+    const { slug } = await server.project.startReel({ video: 'media/talk.mp4', title: 'Regenerate fixture', captions: 'phrases' });
+    await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
+    await server.project.addComment(slug, 1, { text: 'Add a warm title', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+    await server.project.saveAgentSettings({ provider: 'codex' });
+    server.project.subscribe((event) => { if (event.type === 'agent-progress' && event.job.kind === 'regenerate') queued.push(event.job.pins?.[0]?.state ?? ''); });
+    await page.goto(server.url);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('dialog', { name: 'More' }).getByRole('button', { name: 'All reels', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Choose reel' }).selectOption(slug);
+    const pin = page.locator('.sm-pin-list li').first();
+    await expect(pin).toContainText('Add a warm title');
+    await expect(page.locator('.sm-preview .rv-page')).toHaveAttribute('data-state', 'ready');
+    const regenerate = page.getByRole('button', { name: /Regenerate \(1 pins\)/ });
+    await regenerate.click();
+    await expect(pin.getByRole('status')).toHaveText('Running', { timeout: 30_000 });
+    await expect(regenerate).toBeDisabled();
+    expect(queued).toContain('waiting');
+    const job = (await server.project.agentJob(slug))!;
+    expect(JSON.parse(readFileSync(join(dir, 'reels', slug, '.agent/jobs', job.id, 'request.json'), 'utf8'))).toMatchObject({ kind: 'regenerate', pins: [{ text: 'Add a warm title' }] });
+    const player = page.locator('[data-verify-unit="MediaEditor"]');
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    const before = Number(await player.getAttribute('data-verify-clock'));
+    await expect.poll(async () => Number(await player.getAttribute('data-verify-clock'))).toBeGreaterThan(before + 0.25);
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await page.reload();
+    await expect(pin.getByRole('status')).toHaveText('Running', { timeout: 30_000 });
+    await expect(regenerate).toBeDisabled();
+    const edits = await server.project.addOperation(slug, { kind: 'word-text', at: 0.5, text: 'owner correction', was: 'hello' });
+    expect((await server.project.readWorkingVersion(slug)).number).toBe(1);
+    mkdirSync(resolve('tests/artifacts/simple-regenerate'), { recursive: true });
+    await page.screenshot({ path: resolve('tests/artifacts/simple-regenerate/running.png'), fullPage: true });
+    release!(); await server.project.whenAgentDone(slug);
+    await expect(pin.getByRole('status')).toHaveText('Done');
+    const spent = page.getByRole('button', { name: /Regenerate \(0 pins\)/ });
+    await expect(spent).toBeDisabled();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.screenshot({ path: resolve('tests/artifacts/simple-regenerate/after-run.png'), fullPage: true });
+    expect((await server.project.readWorkingVersion(slug)).number).toBe(2);
+    await expect(page.getByLabel('Added by Kinotta lane')).toContainText('Hello');
+    expect((await server.project.readEditList(slug)).operations).toMatchObject(edits.operations);
+    await page.screenshot({ path: resolve('tests/artifacts/simple-regenerate/done.png'), fullPage: true });
+    await pin.getByRole('button', { name: 'Edit note', exact: true }).click();
+    await pin.getByRole('textbox').fill('Change the title colour');
+    await pin.getByRole('button', { name: 'Save note', exact: true }).click();
+    await expect(pin.getByRole('status')).toHaveText('New');
+    await server.project.saveAgentSettings({ provider: 'claude' }); mode = 'exit1'; release = undefined;
+    await regenerate.click();
+    await expect.poll(() => !!release).toBe(true);
+    release!(); await server.project.whenAgentDone(slug);
+    await expect(pin.getByRole('status')).toHaveText('Failed');
+    const strip = page.getByRole('region', { name: 'Regenerate progress' });
+    await expect(strip.getByRole('button', { name: 'Retry', exact: true })).toBeEnabled();
+    await expect(strip.getByRole('button', { name: 'Copy request', exact: true })).toBeEnabled();
+    await strip.getByRole('button', { name: 'Copy request', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Change the title colour');
+    expect((await server.project.readWorkingVersion(slug)).number).toBe(2);
+    await page.screenshot({ path: resolve('tests/artifacts/simple-regenerate/failed.png'), fullPage: true });
+    mode = 'success'; release = undefined;
+    await strip.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect.poll(() => !!release).toBe(true);
+    release!(); await server.project.whenAgentDone(slug);
+    await expect(pin.getByRole('status')).toHaveText('Done');
+    expect((await server.project.readWorkingVersion(slug)).number).toBe(3);
+  } finally { release?.(); await server.close(); }
+});

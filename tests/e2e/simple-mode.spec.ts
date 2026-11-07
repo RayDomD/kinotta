@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { SnipOperation } from '../../server/core/model.ts';
 import { startServer } from '../../server/main.ts';
+import { launchAgent } from '../../server/core/_internal/runner.ts';
 import { copyFixture } from '../helpers/project.ts';
 import type { AgentJob } from '../../web/src/api/_internal/client.ts';
 import { tempDir } from '../helpers/temp.ts';
@@ -583,4 +584,63 @@ test('Auto v1 opens uncut and has no dead-air snips', async ({ page }) => {
   } finally {
     await server.close();
   }
+});
+
+test('media-plan Regenerate posts to the agent after freezing a footage reel', async ({ page, context }) => {
+  const server = await startServer({ projectDir: copyFixture('footage-project'), port: 0,
+    transcriber: async () => [{ text: 'hello', start: 0.5, end: 1 }],
+    agent: { launch: async (input) => {
+      await launchAgent({ ...input, executable: { command: process.execPath, prefix: [resolve('tests/core/fake-broll-agent.mjs'), 'success'] } });
+    } },
+  });
+  try {
+    await server.project.saveAgentSettings({ provider: 'claude', confirmed: true });
+    const { slug } = await server.project.startReel({ video: 'media/talk.mp4', title: 'Media regenerate fixture' });
+    await server.project.whenTranscribed(slug); await server.project.whenAgentDone(slug);
+    expect(await server.project.agentJob(slug)).toMatchObject({ state: 'succeeded', version: 2 });
+    await server.project.addOperation(slug, { kind: 'track-add', track: { id: 'extra', name: 'Extra', order: 1, gain: 1, mute: false } });
+    expect(await server.project.freezeEdits(slug)).toEqual({ version: 3 });
+    // Display the frozen media version, rather than the pre-freeze Working inputs.
+    await server.project.discardEdits(slug);
+    expect((await server.project.readWorkingVersion(slug)).footage).toBeUndefined();
+    await server.project.addComment(slug, 3, { text: 'Warm up the media title.', pin: { kind: 'frame', shot: '', time: 0.5, x: 0.5, y: 0.5, element: null } });
+    const version = await (await page.request.get(`${server.url}/api/reels/${slug}/versions/3`)).json();
+    expect(version).toMatchObject({ agentRegenerate: true, media: expect.any(Object) });
+    expect(version.footage).toBeUndefined();
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const agentRequests: string[] = [];
+    page.on('request', (request) => { if (request.method() === 'POST' && request.url().endsWith('/agent/regenerate')) agentRequests.push(request.url()); });
+    await page.goto(server.url);
+    await expect(page.getByRole('heading', { name: 'Media regenerate fixture', exact: true })).toBeVisible();
+    await expect(page.locator('.sm-pin-list')).toContainText('Warm up the media title.');
+    await page.getByRole('button', { name: /Regenerate \(1 pins\)/ }).click();
+    await expect.poll(() => agentRequests.length).toBe(1);
+    await server.project.whenAgentDone(slug);
+    expect(await server.project.agentJob(slug)).toMatchObject({ kind: 'regenerate', state: 'succeeded', version: 4 });
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  } finally { await server.close(); }
+});
+
+test('code-only Regenerate copies with the Claude setting instead of starting a job', async ({ page, context }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    await server.project.saveAgentSettings({ provider: 'claude' });
+    await server.project.addComment('product-showreel', 2, { text: 'Warm up this title.', pin: { shot: '03', x: 0.5, y: 0.5, element: null } });
+    expect((await server.project.readVersion('product-showreel', 2)).agentRegenerate).toBe(false);
+    const before = await server.project.readEditList('product-showreel');
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const agentRequests: string[] = [];
+    page.on('request', (request) => { if (request.method() === 'POST' && request.url().endsWith('/agent/regenerate')) agentRequests.push(request.url()); });
+    await page.goto(server.url);
+    await expect(page.locator('.sm-preview .rv-page')).toHaveAttribute('data-state', 'ready');
+    await expect(page.locator('.sm-pin-list')).toContainText('Warm up this title.');
+    await page.getByRole('button', { name: /Regenerate \(1 pins\)/ }).click();
+    await expect(page.getByText('Request copied. Paste it into your agent to regenerate.', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Warm up this title.');
+    expect(agentRequests).toEqual([]);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(await server.project.agentJob('product-showreel')).toBeNull();
+    expect((await server.project.readEditList('product-showreel')).operations).toEqual(before.operations);
+    expect((await server.project.listVersions('product-showreel')).map((version) => version.number)).toEqual([1, 2]);
+  } finally { await server.close(); }
 });
