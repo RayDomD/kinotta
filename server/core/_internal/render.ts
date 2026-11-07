@@ -68,8 +68,7 @@ const exists = (path: string): Promise<boolean> => access(path).then(() => true,
 
 /**
  * Why a version can't be a deliverable (R10, R13, R19): an older footage version has no plan of its own, so its pieces
- * would come from a later plan; or it has contract issues, footage ones included. Empty when it can. Approval is not a
- * reason: pressing Render is the decision (R19).
+ * would come from a later plan; or it has contract issues, footage ones included. Empty when it can. Pressing Render is the decision (R19).
  */
 async function gateReasons(projectDir: string, request: RenderRequest, versionDir: string, codeOnly: boolean, captured?: Version): Promise<string[]> {
   const reasons: string[] = [];

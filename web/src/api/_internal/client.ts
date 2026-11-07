@@ -152,19 +152,10 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version: `you`, or an agent's name. */
   builtBy?: string;
-  /** The version is approved: it is final. */
-  approved: boolean;
   /** How many comments it holds. */
   comments: number;
   /** How many contract issues it has: the ones Final and Overlay refuse on. */
   issues: number;
-}
-
-/** What approving a version returns. `warning` names the contract issues it still has. */
-export interface Approval {
-  approved: true;
-  at: string;
-  warning?: string;
 }
 
 export type RenderPreset = 'draft' | 'final' | 'overlay';

@@ -81,7 +81,6 @@ export type {
   MediaEntry,
   MediaFilter,
   AddedComment,
-  Approval,
   BatchOptions,
   BuiltPartsVersion,
   Comment,
@@ -128,7 +127,6 @@ export type {
   Version,
   VideoEntry,
   VersionEntry,
-  Withdrawal,
   WordPin,
 } from './_internal/types.ts';
 

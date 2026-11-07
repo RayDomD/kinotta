@@ -403,7 +403,7 @@ interface MainProps {
   edits: EditsState;
   /** The open reel's transcription, while its v1 waits for it. */
   transcription: TranscriptionProgress | null;
-  /** The reel's versions: the one on show carries its approval. */
+  /** The reel's saved versions. */
   entries: VersionEntry[];
   /** The finished render Review is playing instead of the version, if any. */
   playingRender: string | null;

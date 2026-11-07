@@ -18,8 +18,6 @@ const REELS_DIR = 'reels';
 const SHOTS_FILE = 'shots.json';
 const PAGE_FILE = 'index.html';
 const STORYBOARD_VERSION = 1;
-/** The approval record in a version folder: `{ approvedBy, at }` (R5). Its presence is the approval. */
-export const APPROVAL_FILE = 'approval.json';
 const UNTITLED_SHOT = 'Untitled shot';
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -91,10 +89,9 @@ export async function listVersions(projectDir: string, slug: string): Promise<Ve
   return Promise.all(
     numbers.map(async (number): Promise<VersionEntry> => {
       const version = await readVersion(projectDir, slug, number).catch(() => null);
-      const approved = await isFile(join(reelDir, `v${number}`, APPROVAL_FILE));
       const comments = (await readState(stateFilePath(projectDir, slug, number), number).catch(() => ({ comments: [] }))).comments.length;
       const issues = version === null ? 0 : versionIssues(version).length;
-      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, approved, comments, issues, ...(version?.builtBy ? { builtBy: version.builtBy } : {}), ...(version?.frozenBy ? { frozenBy: version.frozenBy } : {}) };
+      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, comments, issues, ...(version?.builtBy ? { builtBy: version.builtBy } : {}), ...(version?.frozenBy ? { frozenBy: version.frozenBy } : {}) };
       if (number === STORYBOARD_VERSION) return entry;
       // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
       return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;

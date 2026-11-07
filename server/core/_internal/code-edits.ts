@@ -184,9 +184,9 @@ export function rulesFor(css: string, scene: string): string {
 
 /**
  * What sits in a version folder besides the page and its assets, by name: the version's own record (`shots.json`, written last, and
- * `edits.json`, written fresh), the agent's notes (`answers.md`), the comment batches Kinotta wrote when one was copied, and the version's approval.
+ * `edits.json`, written fresh), the agent's notes (`answers.md`), the comment batches Kinotta wrote when one was copied.
  */
-const PER_VERSION_FILE = /^(shots\.json|edits\.json|answers\.md|comments(-.+)?\.json|approval\.json)$/;
+const PER_VERSION_FILE = /^(shots\.json|edits\.json|answers\.md|comments(-.+)?\.json)$/;
 
 /** Copies a version folder to `dir`: the page and its assets, none of the per-version records above. */
 export async function copyVersion(from: string, dir: string): Promise<void> {

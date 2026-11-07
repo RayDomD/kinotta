@@ -194,8 +194,6 @@ export interface VersionEntry {
   changedSections?: string[];
   /** Who made the version, as its shots.json says. */
   builtBy?: string;
-  /** The version has an `approval.json`: it is final. */
-  approved: boolean;
   /** How many comments the version holds. */
   comments: number;
   /** How many static contract issues it has (`versionIssues`): the ones Final and Overlay refuse on. */
@@ -213,19 +211,6 @@ export interface RenderFile {
   bytes: number;
   /** When it was written, as an ISO time. */
   at: string;
-}
-
-/** What approving a version returns. `warning` names the contract issues an approved version still has (R10). */
-export interface Approval {
-  approved: true;
-  /** When the version was first approved, as an ISO time. */
-  at: string;
-  warning?: string;
-}
-
-/** What withdrawing an approval returns. */
-export interface Withdrawal {
-  approved: false;
 }
 
 /** A render's named defaults (R2): Draft is a quick check of any version, Final and Overlay are the deliverables. */
@@ -382,7 +367,7 @@ export interface Project {
   listVersions(slug: string): Promise<VersionEntry[]>;
   /**
    * Calls `listener` when a version with a shots.json appears, a reel appears or goes, a version's saved
-   * comments change, or a version's `approval.json` appears or goes. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
+   * comments change. Debounced and de-duplicated. Returns the unsubscribe function; watching stops with the last one.
    */
   subscribe(listener: (event: ProjectEvent) => void): () => void;
   /** Absolute path of the file the editor plays for the reel's footage (its proxy once made), or null (code-only reel, file missing, or a path outside the project). */

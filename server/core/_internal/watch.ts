@@ -13,7 +13,7 @@ const POLL_MS = 1000;
 
 type Listener = (event: ProjectEvent) => void;
 
-/** What is on disk that events are about: reels, version folders with a shots.json, saved comment files, and approvals. */
+/** What is on disk that events are about: reels, version folders with a shots.json, saved comment files. */
 interface Snapshot {
   reels: Set<string>;
   /** `<reel>/<n>` */

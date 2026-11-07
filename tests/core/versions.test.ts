@@ -42,9 +42,19 @@ describe('versions', () => {
     const project = openProject(copyFixture('showreel-project'));
 
     expect(await project.listVersions(REEL)).toEqual([
-      { number: 1, isNewest: false, isStoryboard: true, approved: false, comments: 0, issues: 0 },
-      { number: 2, isNewest: true, isStoryboard: false, approved: false, comments: 0, issues: 0 },
+      { number: 1, isNewest: false, isStoryboard: true, comments: 0, issues: 0 },
+      { number: 2, isNewest: true, isStoryboard: false, comments: 0, issues: 0 },
     ]);
+  });
+
+  it('ignores an old approval record when listing versions', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    try {
+      const before = await project.listVersions(REEL);
+      writeFileSync(join(dir, 'reels', REEL, 'v2/approval.json'), JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00Z' }));
+      expect(await project.listVersions(REEL)).toEqual(before);
+    } finally { await project.close(); }
   });
 
   it('moves the newest mark when a version folder appears', async () => {

@@ -14,7 +14,7 @@ function canonical(value: unknown): unknown {
 /** Exact captured page, plan, transcript, offsets and dependency bytes, independent of history. */
 export async function contentIdentity(dir: string): Promise<string> {
   const hash = createHash('sha256');
-  const ignored = new Set(['edits.json', 'approval.json', EDITS_CSS]);
+  const ignored = new Set(['edits.json', EDITS_CSS]);
   async function visit(folder: string, prefix = ''): Promise<void> {
     const entries = (await readdir(folder, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
