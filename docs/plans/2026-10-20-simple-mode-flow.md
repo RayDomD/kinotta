@@ -1,7 +1,7 @@
 ---
 title: Simple mode and a lighter editor
 date: 2026-10-20
-status: In Progress
+status: Done
 summary: Drop-a-video simple mode with timeline pins and one-pass regenerate; remove approval and version gating
 spec: docs/mockups/2026-10-20-simple-mode-single-pass.html
 ---
@@ -132,3 +132,11 @@ Checks for 5a: unit tests for the request builder (targets equal the preview's, 
 - Kept this plan In Progress. Steps 13 and 15, Phase 6, the dropped profile and alternates
   remain outside this brief. Full gate belongs to the orchestrator; the plans dashboard
   was not regenerated because the brief explicitly excludes docs/plans/index.html.
+
+### 2026-11-08
+- Audit against main: steps 1 to 4, 6, 8 to 11 and 5a (14a to 14f) were already built. Step 7 (About you) was dropped by the owner on 2026-10-21 (`2026-10-21-simple-type-and-lanes.md`). Phase 6 (a pin note becomes a rule) retargets to the reel style per `2026-10-25-direction-and-storyboard.md` answer 4 and is not built here. Step 15 stays a later item. Owner decision 2026-11-08: step 13 (per-pin alternates in Simple mode) is skipped; the detailed editor keeps the inline alternates card.
+- Built step 12 and the step 5 leftovers on `feat/simple-regenerate`; five independent review rounds (fresh Opus verifiers, agy Gemini 4 Argon, Sonnet) found and fixed: marker written only on success, per-pin regenerated flag, code-only reels keep Copy request, a server-reported `agentRegenerate` capability instead of a client guess, a corrupt marker file never breaks comments, retired `approval.json` excluded, retry path-free 422.
+
+## Result
+
+Shipped: Regenerate in Simple mode launches one headless Claude or Codex run through the existing job runner with only new or changed pins, streams per-pin status, keeps the current cut playing, and publishes through the existing path with carry-forward; code-only reels and the Copy request setting still copy. The approval API and its leftovers are removed. Not built, by decision: About you, per-pin alternates, the pin-note rule, glance covering. Checks on 8908953: typecheck pass; all three vitest projects 1550 passed, 2 load flakes that pass alone (#144, #145); Simple mode browser specs 18 of 18; Opus verifier PASS 8908953.
