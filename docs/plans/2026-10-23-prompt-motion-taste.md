@@ -1,7 +1,7 @@
 ---
 title: Motion taste and templates from Prompt Motion
 date: 2026-10-23
-status: Approved
+status: Done
 summary: Turn what prompt-motion.com's gallery analysis shows about strong AI motion graphics into Kinotta taste rules, a reel brief shape, and a few new clean-room effect templates.
 spec: docs/research/2026-10-23-prompt-motion.md
 ---
@@ -268,3 +268,6 @@ dashboard changes were made in this follow-up.
 ### Review-fix execution, 2026-10-23
 - Plan: join the README table, reuse activity-feed video synchronization exactly in phone/film-look/presenter-split, name diagram geometry and letter-swap timing/travel constants, then run engine tests and typecheck. Status stays Approved as requested.
 - Result: A1-A4 complete. README rows form one table; step 6 is ticked and Status remains Approved. All three syncVideos bodies match activity-feed exactly. `npx vitest run tests/engine`: 15 files, 72 tests passed; `npm run typecheck`: passed; `git diff --check`: passed. No editor or Working behavior changed; no separate video playback claim is made.
+
+### 2026-11-08
+- Closed. The work is on main: PR #62 (b9a7a9d, with review fixes in 20f54e9) merged the taste lines, brief shapes, borrowed methods and the nine optional templates (all nine folders exist under `skill/kinotta/templates/effects/`). The Result above was written before the merge and says nothing was pushed; that is no longer true.

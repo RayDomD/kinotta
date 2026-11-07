@@ -63,3 +63,6 @@ Close what is nearly finished first, then run the two larger plans. The motion-t
 - Added the synthesized score and effects plan (owner removed the bundled Pixabay effects).
 - Added the pin-comments-to-sounds plan.
 - Review fixes: six threads listed, stale gates updated, branch pointers added, media import plan committed as Draft.
+
+### 2026-11-08
+- State of the six children: codex cleanup (1), remove-leaves-gap (2), prompt motion taste (3, merged in #62, status now Done) and synth score and effects (5) are Done. Media import and folder reels (4) and pin comments to sounds (6) are still Drafts awaiting the owner. The bundle stays In Progress until the owner approves those two or closes the bundle as an umbrella.
