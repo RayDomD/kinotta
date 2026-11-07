@@ -438,8 +438,13 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     /** Marks each comment whose current note Regenerate already sent, following pin aliases across carried versions. */
     async markRegenerated(reel: string, version: number, comments: Comment[]): Promise<Comment[]> {
       await ready;
-      const markers = await pinMarkers(reel, version);
-      return comments.map((comment) => markers[comment.id] === comment.text ? { ...comment, regenerated: true as const } : comment);
+      try {
+        const markers = await pinMarkers(reel, version);
+        return comments.map((comment) => markers[comment.id] === comment.text ? { ...comment, regenerated: true as const } : comment);
+      } catch {
+        // Regenerate's optional marker must never make a comment operation fail.
+        return comments;
+      }
     },
     async status(reel: string): Promise<AgentJob | null> { await ready; await requireReelDir(projectDir, reel); return latest.has(reel) ? { ...latest.get(reel)! } : null; },
     async copy(reel: string): Promise<{ request: string }> {

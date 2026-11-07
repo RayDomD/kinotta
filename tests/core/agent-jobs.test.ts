@@ -429,6 +429,26 @@ describe('Regenerate failure and Retry', { timeout: 90_000 }, () => {
 
 
 describe('Regenerate success markers', { timeout: 90_000 }, () => {
+  it.each(['invalid JSON', 'read error'])('lists and adds comments without regenerated flags when the marker has %s', async (failure) => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir); projects.push(project);
+    const slug = 'product-showreel';
+    const pin = { shot: '03', x: 0.5, y: 0.5, element: null };
+    const existing = (await project.addComment(slug, 2, { text: 'Keep the title', pin })).comment;
+    const agentDir = join(dir, 'reels', slug, '.agent');
+    mkdirSync(agentDir, { recursive: true });
+    const marker = join(agentDir, 'regenerate-pins.json');
+    if (failure === 'invalid JSON') writeFileSync(marker, '{not json');
+    else mkdirSync(marker);
+
+    expect(await project.listComments(slug, 2)).toEqual([existing]);
+    const added = await project.addComment(slug, 2, { text: 'Warm up the background', pin });
+    expect(added.comments).toHaveLength(2);
+    expect(added.comments.map((comment) => comment.text)).toEqual(['Keep the title', 'Warm up the background']);
+    expect(added.comments.every((comment) => !Object.hasOwn(comment, 'regenerated'))).toBe(true);
+    expect(await project.listComments(slug, 2)).toEqual(added.comments);
+  });
+
   it.each(['failed', 'cancelled'])('accepts fresh Regenerate after a %s run and marks pins only on success', async (state) => {
     const test = await setup(state === 'failed' ? 'exit1' : 'hang');
     await test.project.saveAgentSettings({ provider: 'copy' });
