@@ -249,7 +249,10 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const baseVersion = await newestVersionNumber(reelDir);
       if (!baseVersion) throw new KinottaError('invalid', 'Wait for the first version before adding b-roll.');
       const source = join(reelDir, `v${baseVersion}`);
-      const plan = await json<Record<string, any>>(join(source, 'plan.json'));
+      const plan = await json<Record<string, any>>(join(source, 'plan.json')).catch((error: NodeJS.ErrnoException) => {
+        if (kind === 'regenerate' && error.code === 'ENOENT') throw new KinottaError('invalid', 'Use Copy request to regenerate a reel without a footage plan.');
+        throw error;
+      });
       const captionMode = plan.captions === false ? 'off' : plan.captions?.look === 'phrase' ? 'phrases' : plan.captions?.look === 'words' ? 'word-by-word' : undefined;
       const manifest = await json<{ duration: number }>(join(source, 'shots.json'));
       const provider = (await readAgentSettings(projectDir)).provider;

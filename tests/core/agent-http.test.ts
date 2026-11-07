@@ -67,3 +67,19 @@ it('refuses a second Regenerate while the reel job runs', { timeout: 30_000 }, a
     expect((await server.project.listVersions(slug)).map((version) => version.number)).toEqual([1]);
   } finally { release?.(); await server.project.cancelAgentJob(slug); }
 });
+
+it('rejects code-only Regenerate with a plain invalid error and no absolute path', async () => {
+  const dir = copyFixture('showreel-project');
+  const server = await startServer({ projectDir: dir, port: 0 }); running.push(server);
+  await server.project.saveAgentSettings({ provider: 'claude' });
+  const response = await fetch(`${server.url}/api/reels/product-showreel/agent/regenerate`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+  });
+  const body = await response.json();
+  expect(response.status).toBe(422);
+  expect(body).toEqual({ error: 'Use Copy request to regenerate a reel without a footage plan.' });
+  expect(JSON.stringify(body)).not.toContain(dir);
+  expect(JSON.stringify(body)).not.toMatch(/[A-Za-z]:[\\/]|ENOENT|plan\.json/);
+  await expect(server.project.startAgentJob('product-showreel', false, 'regenerate')).rejects.toMatchObject({ code: 'invalid' });
+  expect(await server.project.agentJob('product-showreel')).toBeNull();
+});

@@ -57,6 +57,20 @@ describe('versions', () => {
     } finally { await project.close(); }
   });
 
+  it('does not copy the retired approval record into a new version', async () => {
+    const dir = copyFixture('showreel-project');
+    const project = openProject(dir);
+    const original = join(dir, 'reels', REEL, 'v2/approval.json');
+    writeFileSync(original, JSON.stringify({ approvedBy: 'you', at: '2026-10-05T00:00:00Z' }));
+    try {
+      await project.addOperation(REEL, { kind: 'element-offset', clip: 'cube-lands', element: 'cube', x: 4, y: 0, scale: 1 });
+      expect(await project.freezeEdits(REEL)).toEqual({ version: 3 });
+      expect(existsSync(join(dir, 'reels', REEL, 'v3/index.html'))).toBe(true);
+      expect(existsSync(join(dir, 'reels', REEL, 'v3/approval.json'))).toBe(false);
+      expect(existsSync(original)).toBe(true);
+    } finally { await project.close(); }
+  });
+
   it('moves the newest mark when a version folder appears', async () => {
     const dir = copyFixture('showreel-project');
     const project = openProject(dir);

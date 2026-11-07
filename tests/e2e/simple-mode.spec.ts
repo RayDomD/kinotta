@@ -584,3 +584,26 @@ test('Auto v1 opens uncut and has no dead-air snips', async ({ page }) => {
     await server.close();
   }
 });
+
+test('code-only Regenerate copies with the Claude setting instead of starting a job', async ({ page, context }) => {
+  const server = await startServer({ projectDir: copyFixture('showreel-project'), port: 0 });
+  try {
+    await server.project.saveAgentSettings({ provider: 'claude' });
+    await server.project.addComment('product-showreel', 2, { text: 'Warm up this title.', pin: { shot: '03', x: 0.5, y: 0.5, element: null } });
+    const before = await server.project.readEditList('product-showreel');
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const agentRequests: string[] = [];
+    page.on('request', (request) => { if (request.method() === 'POST' && request.url().endsWith('/agent/regenerate')) agentRequests.push(request.url()); });
+    await page.goto(server.url);
+    await expect(page.locator('.sm-preview .rv-page')).toHaveAttribute('data-state', 'ready');
+    await expect(page.locator('.sm-pin-list')).toContainText('Warm up this title.');
+    await page.getByRole('button', { name: /Regenerate \(1 pins\)/ }).click();
+    await expect(page.getByText('Request copied. Paste it into your agent to regenerate.', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Warm up this title.');
+    expect(agentRequests).toEqual([]);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(await server.project.agentJob('product-showreel')).toBeNull();
+    expect((await server.project.readEditList('product-showreel')).operations).toEqual(before.operations);
+    expect((await server.project.listVersions('product-showreel')).map((version) => version.number)).toEqual([1, 2]);
+  } finally { await server.close(); }
+});
