@@ -7,6 +7,8 @@ Paths such as `reference/`, `assets/`, `templates/`, `engine/` and `scripts/` ar
 
 Follow [direction.md](direction.md) for direction before building and [check.md](check.md) for stills and readability.
 
+For a code-built motion reel that should feel filmed (moving camera, depth, light, WebGL shots), also read `reference/motion-craft.md` before writing the treatment.
+
 ## Parts workflow
 
 For new code-built reels, follow **Parts reels** in `reference/contract.md`. Write immutable shot revisions and the authored root manifest, then run `kinotta build <slug> --by <your name>`. Kinotta publishes the generated version. When no effect template fits a shot, start it from `examples/still-shot/r1/` (see Examples of the format; the parent `examples/still-shot/` folder carries the shared styles and manifest). Existing single-page reels follow sections 3 and 4 unless the owner asks to convert them. A request for alternates on a single-page reel is that ask: follow **Converting a single-page reel to parts** in `reference/contract.md`, building the conversion as the same reel's next version. Never start a new reel for it.
