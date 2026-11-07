@@ -59,7 +59,7 @@ PR 2
 - [x] `deleteVersion`, `deleteReel` and the HTTP routes. Proof: the tests above.
 - [x] Foldable rail, Delete rows and the confirm sheet. Proof: driven in the running editor on a copy of RayDom (server on port 4390, Playwright script): fold and unfold, Escape cancels, deleting v5 of a 6-version reel worked (about 8 s), the Current base v6 was refused with its reason, a closed reel was deleted (about 5 s), two reels referenced by other project files were refused with the file named, no `.delete-*` folder and no footage change left behind.
 - [x] Gate: `npm run typecheck`, unit tests, and `npx vitest run --project render` (AGENTS.md covers `web/src/review/**` and `server/core/_internal/media-*`; run it if either is touched). Proof: output shown. Evidence: 2026-11-08 on merged main (acf5fed): typecheck and build pass; unit 1240 passed, 1 failed (`simpler-versions` timeout under load, passes alone, issue #139); render 136 passed, 1 failed (`render-native-lanes` closes up on Delete, passes alone, issue #135).
-- [x] Review: five hunters, verifier PASS, `/security-review`, `/blast-radius`. Proof: findings and verdicts in the PR. Evidence: PR #134 body records the agy hunts, the Opus verifier, `/security-review` and `/blast-radius`.
+- [x] Review: five hunters, verifier PASS, `/security-review`, `/blast-radius`. Proof: findings and verdicts in the PR. Evidence: PR #134 body records an agy hunt and an Opus verifier on the server half (no Important findings), a second agy hunt on the UI half whose findings G1 to G5 were fixed in 16e208c (no separate verifier recorded for those), and `/security-review` and `/blast-radius` runs.
 
 ## Risks
 
