@@ -41,7 +41,7 @@ Build simple mode on the existing project model: version folders stay underneath
 4. Folder drop and "Choose a folder…": walk subfolders, import every video, skip hidden and non-video files, show "Found N videos in <folder>".
 
 ### Phase 2: Remove approval and version gating
-5. Remove `approval.ts`, its HTTP route, the approved badge and `approval-changed` event; move `requireVersionDir` to where `render.ts` can use it.
+5. [x] Remove `approval.ts`, its HTTP route, the approved badge and `approval-changed` event; move `requireVersionDir` to where `render.ts` can use it.
 6. Hide version history in the UI behind "current" plus undo. Version folders stay.
 
 ### Phase 3: Simple mode surface
@@ -54,7 +54,7 @@ Build simple mode on the existing project model: version folders stay underneath
 
 ### Phase 5: Agent launch and single pass
 11. Setting: Claude Code or Codex, with a setup check like the missing-tools screen; copy-request stays as fallback.
-12. Regenerate launches one headless run through `runner.ts`, scoped to the reel folder, sending only new or changed pins; per-pin status streams into the list; the old cut keeps playing.
+12. [x] Regenerate launches one headless run through `runner.ts`, scoped to the reel folder, sending only new or changed pins; per-pin status streams into the list; the old cut keeps playing.
 13. Per pin: 2–3 alternates plus Original, pick to apply.
 
 #### Phase 5a: Make builds the b-roll in the background (added 2026-10-21; owner decision 4 in `2026-10-21-simple-type-and-lanes.md`; design reviewed by codex in `.herdr/briefs/2026-10-21-phase5a-agent-design-codex.md`)
@@ -106,3 +106,29 @@ Checks for 5a: unit tests for the request builder (targets equal the preview's, 
 ### 2026-10-21
 - Added Phase 5a: Make launches the chosen agent to build b-roll from the picker's options (owner decision).
 - Rewrote 5a after codex review: background launch first, explicit agent choice, private job output validated before publish, interrupted-not-killed after crash, unattended skill path. Owner chose no watch mode and no chat surface for now. Owner approved 5a.
+
+
+### 2026-11-07
+- Completed step 5 leftovers: removed approval/withdrawal types, approved version fields,
+  the old metadata filters and stale comments. Case-insensitive approval/APPROVAL_FILE
+  search under server, web/src and skill (*.ts/*.tsx) returns no matches. Old approval.json
+  files need no reader; the legacy-record compatibility test confirms unchanged listings.
+- Completed step 12: Regenerate uses the selected agent and the existing job runner's
+  private-output validation/publication path. It sends only new or note-changed pins;
+  .agent/regenerate-pins.json survives reload and pruning and follows carry-forward IDs.
+  Submitted pins show Waiting, Running, Done or Failed from streamed job state. Retry
+  reuses the failed pin snapshot. Copy request retains the existing batch-copy path.
+- Red/green proof: the new changed-pin test failed before (make-broll request), then passed
+  after. Fake-agent tests cover reload, changed/new pin filtering, concurrent refusal,
+  success, owner edits during the run, exit 1, invalid output, timeout and explicit Retry.
+- Validation: 209 related tests across agent-jobs, agent-http, agent-output, agent-cuts,
+  code-only-edits and simpler-versions passed; 41 version/section-batch tests plus the new
+  legacy approval test passed; 11 native-media/sound skill tests passed. Typecheck, build,
+  check:docs and diff whitespace checks passed.
+- Browser: new simple-regenerate.spec.ts passed with fake Codex/Claude processes, proving
+  live playback, status after reload, newly authored content loading, owner-edit survival,
+  failure Copy request and Retry. Existing Simple copy-request and busy-guard browser tests
+  passed. Evidence: tests/artifacts/simple-regenerate/{running,done,failed}.png.
+- Kept this plan In Progress. Steps 13 and 15, Phase 6, the dropped profile and alternates
+  remain outside this brief. Full gate belongs to the orchestrator; the plans dashboard
+  was not regenerated because the brief explicitly excludes docs/plans/index.html.
