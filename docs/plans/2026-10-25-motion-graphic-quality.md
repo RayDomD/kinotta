@@ -1,7 +1,7 @@
 ---
 title: Motion graphic quality in Kinotta
 date: 2026-10-25
-status: Blocked
+status: In Progress
 summary: Close the quality gap between reels an agent builds in Kinotta and Opus's standalone Light Table film, starting with agent guidance, then render features.
 spec:
 ---
@@ -110,3 +110,5 @@ Pass: `kinotta check` clean, the built page passes the v5 browser checks, the dr
 ### 2026-11-08
 - Ported the three `docs/motion-craft` commits onto current main (130ff95, 62ded4d, 987c999): the guide, vendored three.js r170 with its MIT LICENSE, and `engine/bundle_shot.js`. SKILL.md links the guide. Checks: typecheck, `check:docs`, engine skill tests (11) pass; `bundle_shot.js` bundled a three.js shot and `kinotta check` was clean.
 - Status Blocked on the owner: (1) the side-by-side comparison of `kinotta-pin` v5/v6 with the Light Table frames; (2) the bar: "looks like the Light Table" or "close within Kinotta constraints"; (3) Phase 2 order (canvas pins, render-side blur and bloom, preview quality mode). Phase 2 needs an approved approach per feature before code.
+- Verified the bundler myself: a test shot importing three.js bundled to one 669 KB file with no import statements, valid syntax and an exported `seek`. esbuild resolves from the repo root (present through vite and tsx), so the bundler needs the repo checkout to run. Linked the guide from `stages/new-reel.md` (the code-only build stage) so a stage-following agent reaches it.
+- Next, agent-runnable: the plan's own check (a fresh session builds a short motion reel from the guide, then `kinotta check`, a still per beat, a backward seek, a draft render). After that the plan waits on the three owner decisions above.
