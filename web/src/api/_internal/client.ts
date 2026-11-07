@@ -206,6 +206,8 @@ export const AGENT_PROVIDER_LABELS: Record<AgentProvider, string> = {
 export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
 
 export interface AgentJob {
+  kind?: 'make-broll' | 'regenerate';
+  pins?: { id: string; text: string; state: 'waiting' | 'running' | 'done' | 'failed' }[];
   id: string;
   reel: string;
   provider: AgentProvider;
@@ -608,6 +610,8 @@ export const fetchReelAgentJob = async (slug: string): Promise<AgentJob | null> 
   (await getJson<{ job: AgentJob | null }>(`/api/reels/${encodeURIComponent(slug)}/agent`)).job;
 export const cancelReelAgentJob = async (slug: string): Promise<AgentJob> =>
   (await requestJson<{ job: AgentJob }>(`/api/reels/${encodeURIComponent(slug)}/agent`, { method: 'DELETE' })).job;
+export const regenerateReel = (slug: string): Promise<AgentJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/regenerate`, jsonBody('POST', {}));
 export const retryReelAgentJob = (slug: string): Promise<AgentJob> =>
   requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/retry`, jsonBody('POST', {}));
 export const copyReelAgentJob = (slug: string): Promise<{ request: string }> =>

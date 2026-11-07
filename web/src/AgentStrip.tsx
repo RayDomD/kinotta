@@ -44,12 +44,13 @@ function AgentRunTimer({ job, active }: { job: AgentJob; active: boolean }) {
 }
 
 /** One job controller stays mounted in App; its notice follows the current page's header slot. */
-export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, onRefresh, onOpenVersion }: {
+export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, onJobChange, onRefresh, onOpenVersion }: {
   slug?: string;
   title?: string;
   nextVersion: number;
   target: HTMLElement | null;
   onActiveChange(active: boolean): void;
+  onJobChange?(job: AgentJob | null): void;
   onRefresh(): void;
   onOpenVersion(number: number): void;
 }) {
@@ -89,6 +90,8 @@ export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, o
     });
     return () => { disposed = true; unsubscribe(); };
   }, [slug]);
+
+  useEffect(() => { onJobChange?.(currentJob); }, [currentJob, onJobChange]);
 
   useEffect(() => {
     onActiveChange(active);
@@ -152,15 +155,16 @@ export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, o
   const failed = currentJob.state === 'failed' || currentJob.state === 'interrupted';
   const cancelled = currentJob.state === 'cancelled';
   const copy = !ready && !failed && !cancelled && (currentJob.state === 'copy-ready' || (currentJob.provider === 'copy' && !active));
+  const regenerating = currentJob.kind === 'regenerate';
   const stage = currentJob.state === 'running'
-    ? `${AGENT_PROVIDER_LABELS[currentJob.provider]} is choosing and building cutaways`
+    ? `${AGENT_PROVIDER_LABELS[currentJob.provider]} is ${regenerating ? 'working on your pins' : 'choosing and building cutaways'}`
     : STAGE_LABELS[currentJob.state];
   const displayTitle = title ?? slug ?? 'this reel';
   return createPortal(
-    <section className="agent-strip" data-state={currentJob.state} data-active={active} aria-label="B-roll progress">
+    <section className="agent-strip" data-state={currentJob.state} data-active={active} aria-label={regenerating ? 'Regenerate progress' : 'B-roll progress'}>
       <div className="agent-strip-row">
         <div className="agent-strip-what" role="status">
-          <b>{ready ? (currentJob.provider === 'copy' ? 'Your agent finished' : `B-roll for ${displayTitle} is ready`) : failed ? 'Failed' : cancelled ? 'Cancelled' : copy ? `B-roll for ${displayTitle}` : `Adding b-roll to ${displayTitle}`}</b>
+          <b>{ready ? (currentJob.provider === 'copy' ? 'Your agent finished' : `${regenerating ? 'Regenerated cut' : 'B-roll'} for ${displayTitle} is ready`) : failed ? 'Failed' : cancelled ? 'Cancelled' : copy ? `B-roll for ${displayTitle}` : `${regenerating ? 'Regenerating' : 'Adding b-roll to'} ${displayTitle}`}</b>
           {!ready && !failed && !cancelled && <span className="agent-strip-stage">{stage}</span>}
           {currentJob.quiet && active && <span className="agent-strip-quiet">Running, no recent output</span>}
           {currentJob.error && <span className="agent-strip-error">{currentJob.error}</span>}
@@ -171,7 +175,7 @@ export function AgentStrip({ slug, title, nextVersion, target, onActiveChange, o
           {active && <button type="button" className="c-act" disabled={busy || currentJob.state === 'cancelling'} onClick={() => void act('cancel')}>Cancel</button>}
           {ready && currentJob.version !== undefined && <button type="button" className="btn" onClick={() => { onOpenVersion(currentJob.version!); setDismissed(currentJob.id); }}>Open v<span className="num">{currentJob.version}</span></button>}
           {!active && (failed || cancelled || currentJob.canRetry) && <button type="button" className="c-act" disabled={busy} onClick={() => void act('retry')}>Retry</button>}
-          {copy && <button type="button" className="btn" disabled={busy || !currentJob.canCopy} onClick={() => void act('copy')}>Copy request</button>}
+          {(copy || failed || cancelled) && <button type="button" className="btn" disabled={busy || !currentJob.canCopy} onClick={() => void act('copy')}>Copy request</button>}
           {(ready || cancelled || failed) && <button type="button" className="c-act" onClick={() => setDismissed(currentJob.id)}>Dismiss</button>}
         </div>
       </div>
