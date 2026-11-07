@@ -33,6 +33,7 @@ export type {
   WordPin,
 } from './_internal/client.ts';
 export { importVideo, removeVideo } from './_internal/client.ts';
+export { ApiError, deleteReel, deleteVersion } from './_internal/client.ts';
 export { fetchMarkers, addMarker, changeMarker, removeMarker } from './_internal/client.ts';
 export type { TimelineMarker } from './_internal/client.ts';
 export { alternatePageUrl, workingPartsPageUrl } from './_internal/client.ts';

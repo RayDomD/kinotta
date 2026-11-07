@@ -1,9 +1,21 @@
 import type { Page } from 'playwright';
 
 /** Render-unit checks open the same detailed surface they exercised before Simple became the default. */
-export async function openDetailedEditor(page: Page, url: string): Promise<void> {
+export async function openDetailedEditor(page: Page, url: string, options: { foldedRail?: boolean } = {}): Promise<void> {
   await page.addInitScript(() => { try { localStorage.setItem('kinotta-mode', 'editor'); } catch { /* Non-origin fixture page. */ } });
+  if (!options.foldedRail) await unfoldRailByDefault(page);
   await page.goto(url);
+}
+
+/** The rail's Reels and Saved versions sections start folded for people; specs that navigate through them start unfolded. A stored choice still wins. */
+export async function unfoldRailByDefault(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const read = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      const stored = read.call(this, key);
+      return stored === null && key.startsWith('kinotta-rail:') ? 'true' : stored;
+    };
+  });
 }
 
 /** Keyboard inspection reaches covered bars without adding a point on their volume line. */

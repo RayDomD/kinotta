@@ -1,7 +1,7 @@
 ---
 title: reel-folder-and-delete
 date: 2026-11-06
-status: Draft
+status: In Progress
 summary: Keep everything a reel owns in its own folder, then add Delete reel and Delete version that leave nothing behind, with foldable rail sections.
 spec: docs/mockups/2026-11-06-reel-delete-version-list.html
 ---
@@ -43,21 +43,21 @@ Project-level files in `reels/.kinotta/` (stills, effects box) do not move. Agen
 ## Steps
 
 PR 1
-- [ ] Test: open a project with the old layout; every comment, note, marker and the style are read from the reel folder. Proof: fails before the change, passes after.
-- [ ] Test: both locations exist (older build kept writing): the reel-folder copy wins, the other is set aside and reported. Test: a crash between copy and remove loses nothing and finishes on the next open. Proof: both pass.
-- [ ] Test: saving a comment emits no version event from the watcher. Proof: passes.
-- [ ] Point `state.ts` and `watch.ts` at the reel folder and add the move. Proof: the tests pass; a copy of RayDom opens with all comments intact.
-- [ ] Update the skill docs. Proof: `grep -rn "reels/.kinotta" skill` shows only project-level files.
+- [x] Test: open a project with the old layout; every comment, note, marker and the style are read from the reel folder. Proof: fails before the change, passes after.
+- [x] Test: both locations exist (older build kept writing): the reel-folder copy wins, the other is set aside and reported. Test: a crash between copy and remove loses nothing and finishes on the next open. Proof: both pass.
+- [x] Test: saving a comment emits no version event from the watcher. Proof: passes.
+- [x] Point `state.ts` and `watch.ts` at the reel folder and add the move. Proof: the tests pass; a copy of RayDom opens with all comments intact.
+- [x] Update the skill docs. Proof: `grep -rn "reels/.kinotta" skill` shows only project-level files.
 
 PR 2
-- [ ] Write down the version-to-version references (item 1 above). Proof: a short list in the PR body, each with the file and line.
-- [ ] Test: build a reel with versions, comments, renders in both places, alternates and a content-named cache; delete it; assert the project tree equals the tree before the reel existed (baseline taken after footage import). Proof: fails before, passes after.
-- [ ] Same test points `KINOTTA_HOME` and the temp folder (`TEMP` and `TMP` on Windows) at empty sandboxes and asserts both are unchanged. Proof: passes.
-- [ ] Test: another reel still uses a cache; delete keeps it. Proof: passes.
-- [ ] Test: after deleting version N, every surviving version passes `kinotta check` and Working loads; the next save gets a number above N. Proof: passes.
-- [ ] Refusal tests: open reel, Current's base version, a version named by an edit or Redo entry, a running render, a queued render, a handed-off job. Proof: each refused with its reason.
-- [ ] `deleteVersion`, `deleteReel` and the HTTP routes. Proof: the tests above.
-- [ ] Foldable rail, Delete rows and the confirm sheet. Proof: driven in the running editor on a copy of RayDom: fold and unfold, delete a version, delete a reel, Escape cancels, a refused delete says why.
+- [x] Write down the version-to-version references (item 1 above). Proof: a short list in the PR body, each with the file and line. Done in #134.
+- [x] Test: build a reel with versions, comments, renders in both places, alternates and a content-named cache; delete it; assert the project tree equals the tree before the reel existed (baseline taken after footage import). Proof: fails before, passes after.
+- [x] Same test points `KINOTTA_HOME` and the temp folder (`TEMP` and `TMP` on Windows) at empty sandboxes and asserts both are unchanged. Proof: passes.
+- [x] Test: another reel still uses a cache; delete keeps it. Proof: passes.
+- [x] Test: after deleting version N, every surviving version passes `kinotta check` and Working loads; the next save gets a number above N. Proof: passes.
+- [x] Refusal tests: open reel, Current's base version, a version named by an edit or Redo entry, a running render, a queued render, a handed-off job. Proof: each refused with its reason.
+- [x] `deleteVersion`, `deleteReel` and the HTTP routes. Proof: the tests above.
+- [x] Foldable rail, Delete rows and the confirm sheet. Proof: driven in the running editor on a copy of RayDom (server on port 4390, Playwright script): fold and unfold, Escape cancels, deleting v5 of a 6-version reel worked (about 8 s), the Current base v6 was refused with its reason, a closed reel was deleted (about 5 s), two reels referenced by other project files were refused with the file named, no `.delete-*` folder and no footage change left behind.
 - [ ] Gate: `npm run typecheck`, unit tests, and `npx vitest run --project render` (AGENTS.md covers `web/src/review/**` and `server/core/_internal/media-*`; run it if either is touched). Proof: output shown.
 - [ ] Review: five hunters, verifier PASS, `/security-review`, `/blast-radius`. Proof: findings and verdicts in the PR.
 
@@ -78,3 +78,13 @@ PR 2
 ### 2026-11-06
 - Plan created. Owner decided: keep `output/`, move state into the reel folder.
 - Reviewed by the advisor before approval; added the version-reference map, never-reused numbers, a file-by-file move rule, the watcher test, a narrower sweep, wider refusals, the Windows temp variables, the render gate and the High review tier.
+
+### 2026-11-07
+- Owner approved the plan. PR 1 merged as #133 (18cf2c0). PR 2 in progress on `feat/reel-delete`.
+- PR 1 evidence: #133 merged (18cf2c0) after hunt, fix round and Opus verifier PASS; known limitations H4 to H9 listed in its body.
+- Decision D1 (product behaviour): a version whose `plan.json`/`media.json` a later version inherits through `footage.ts:94-98` cannot be deleted; the refusal names the dependent versions. Chosen over copying the plan into dependents, which would rewrite surviving versions. Loosen later if wanted.
+- Decision: `versionHighWater` in `reel.json` is written only when a version is deleted. An earlier version wrote it on every publish; that made a crashed save use up a number and added a field to every new reel's `reel.json`. A published folder already covers its own number.
+- Decision: the rail's Delete button stays hidden until its row is hovered or focused (hidden from the accessibility tree otherwise, so existing specs and screen-reader lists are not doubled). After the sheet closes, focus returns to the row's own button, because a hidden button cannot take focus.
+- Existing specs changed because the rail changed: Reels and Saved versions start folded for people, so specs start them unfolded through one shared helper (`unfoldRailByDefault`); `smoke.spec.ts` checks the Reels fold header instead of the old "Reels in <project>/reels" label; the three `/^Save/` button-count checks became `/^Save( |$)/` because the "Saved versions" fold header also starts with Save; `working.spec.ts` folds Reels before it measures the narrow layout.
+- Deferred as follow-ups (issue #137): F1 newest version not counted as a dependent, F3 stale `.delete-*` staging folder after a crash, F5 no Windows retry on the staging renames, and the cost of hashing all media on each delete. Other issues: #135 flaky render test, #136 absolute paths in error text.
+

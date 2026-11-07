@@ -9,7 +9,7 @@ import { AgentTreeStopError, agentSkillDirectory, launchAgent, type AgentLaunch 
 import { readAgentSettings, type AgentProvider } from './agent-settings.ts';
 import { appendAgentCutsNow, readEditListNow, withReelLock, writeJsonAtomic } from './edit-list.ts';
 import { AGENT_CUT_BY } from './dead-air.ts';
-import { requireReelDir, newestVersionNumber } from './version.ts';
+import { requireReelDir, newestVersionNumber, nextVersionNumber } from './version.ts';
 import { publishVersion } from './version-build.ts';
 import { settleNewest } from './carry.ts';
 import { validateAgentOutput } from './agent-output.ts';
@@ -255,11 +255,12 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       if (newest !== request.baseVersion) throw new Error('A newer version appeared during this run. Retry against the latest version.');
       const manifest = await json<Record<string, unknown>>(join(output, 'shots.json'));
       await writeJsonAtomic(join(output, 'shots.json'), { ...manifest, agentJobId: job.id });
-      await publishVersion(reelDir, { dir: output }, newest + 1);
+      const number = await nextVersionNumber(reelDir);
+      await publishVersion(reelDir, { dir: output }, number);
       // Replay every still-pending owner operation; publication does not consume the owner's journal.
       await readEditListNow(projectDir, job.reel);
-      await applyPendingCuts(job, newest + 1);
-      job.version = newest + 1;
+      await applyPendingCuts(job, number);
+      job.version = number;
       job.state = 'succeeded';
       job.canRetry = false;
       job.canCopy = false;
@@ -367,6 +368,11 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
   }
 
   return {
+    async deletionReason(reel: string): Promise<string | null> {
+      await ready;
+      const job = latest.get(reel);
+      return running.has(reel) || job && (activeState(job.state) || job.state === 'copy-ready') ? 'An agent job is running or handed off for this reel. Finish it before deleting it or a version.' : null;
+    },
     ready,
     start,
     async status(reel: string): Promise<AgentJob | null> { await ready; await requireReelDir(projectDir, reel); return latest.has(reel) ? { ...latest.get(reel)! } : null; },

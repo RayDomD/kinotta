@@ -198,6 +198,25 @@ input { font: inherit; color: inherit; cursor: text; }
 .versions button[data-newest] small:first-child { color: var(--light); }
 .versions .ready-mark { color: var(--ink); border: 1.2px solid var(--ink); padding: 0 5px; }
 .versions .approved-mark { color: var(--ink); }
+.rail-fold { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border-bottom: 1px solid var(--rule); padding: 4px 0 6px; color: var(--muted); }
+.rail-fold .label { margin: 0; }
+.rail-fold:hover .label, .rail-fold:focus-visible .label { color: var(--ink); }
+.rail-summary { margin-left: auto; white-space: nowrap; font-size: 12px; }
+.rail-row { display: flex; align-items: center; min-width: 0; }
+.rail-row:hover, .rail-row:focus-within { background: var(--card); outline: 1px solid var(--hairline); }
+.rail-row > button:first-child { flex: 1; min-width: 0; width: auto; overflow-wrap: anywhere; }
+.rail-row > button.rail-delete { flex: 0 0 auto; width: auto; margin: 0; padding: 6px 2px; border: 0; font-size: 13px; color: var(--muted); visibility: hidden; }
+.rail-row:hover > button.rail-delete, .rail-row:focus-within > button.rail-delete { visibility: visible; }
+.rail-row > button.rail-delete:focus-visible { visibility: visible; }
+.rail-row > button.rail-delete:hover { color: var(--ink); }
+@media (hover: none) { .rail-row > button.rail-delete { visibility: visible; } }
+.rail-row:hover .rv-who, .rail-row:focus-within .rv-who { visibility: hidden; }
+.sheet.rail-delete-sheet { width: min(420px, calc(100vw - 32px)); padding: 18px 20px; }
+.rail-delete-sheet h2 { font-size: 15px; font-weight: 500; margin: 0 0 8px; overflow-wrap: anywhere; }
+.rail-delete-sheet p { font-size: 14px; color: var(--ink-2); margin: 0 0 6px; }
+.rail-delete-sheet ul { margin: 8px 0 10px; padding: 0; list-style: none; color: var(--muted); font-size: 13px; }
+.rail-delete-sheet li { border-top: 1px solid var(--rule); padding: 3px 0; }
+.rail-delete-actions { display: flex; justify-content: flex-end; gap: 14px; margin-top: 18px; }
 
 /* sections (sections-transcript mockup, option A) */
 .secs { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; }

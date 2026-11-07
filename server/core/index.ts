@@ -43,6 +43,8 @@ import { effectsBox, saveEffectsBox } from './_internal/effects-box.ts';
 import { addMarker, changeMarker, listMarkers, removeMarker } from './_internal/markers.ts';
 import { mediaStill } from './_internal/media-stills.ts';
 import { migrateReelState } from './_internal/state-migration.ts';
+import { deleteReel, deleteVersion } from './_internal/delete.ts';
+import { KinottaError } from './_internal/errors.ts';
 export type { TimelineMarker } from './_internal/markers.ts';
 
 export { removeStaleDrafts } from './_internal/render-queue.ts';
@@ -157,7 +159,16 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
   const renders = createRenderQueue(emit);
   const speech = createMediaSpeech(dir, options.transcriber ?? transcribeWithWhisper);
   const beats = createMediaBeats(dir);
-  const render = async (request: RenderRequest): Promise<RenderJob> => {
+  // Activity preparation and deletion share a gate; a render/job cannot acquire inputs during deletion preflight.
+  const withActivity = <T>(slug: string, task: () => Promise<T>): Promise<T> => withReelLock(join(dir, 'reels', slug, '.activity'), task);
+  const startAgentJob = (slug: string, retry?: boolean) => withActivity(slug, () => agents.start(slug, retry));
+  const assertDeletionIdle = async (slug: string): Promise<void> => {
+    const reason = await agents.deletionReason(slug);
+    const job = renders.jobs().find((entry) => entry.reel === slug);
+    if (job) throw new KinottaError('frozen', `This reel has a ${job.state} render. Finish or cancel it before deleting it or a version.`);
+    if (reason) throw new KinottaError('frozen', reason);
+  };
+  const renderNow = async (request: RenderRequest): Promise<RenderJob> => {
     removeStaleDrafts(dir);
     const task = await prepareRender(dir, request);
     if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
@@ -178,7 +189,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     saveAgentSettings: (input) => saveAgentSettings(dir, input),
     detectAgents,
     agentJob: agents.status,
-    startAgentJob: agents.start,
+    startAgentJob,
     cancelAgentJob: agents.cancel,
     copyAgentRequest: agents.copy,
     whenAgentDone: agents.whenDone,
@@ -225,6 +236,8 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
       });
     },
     listVersions: (slug) => listVersions(dir, slug),
+    deleteVersion: (slug, number) => withActivity(slug, () => deleteVersion(dir, slug, number, () => assertDeletionIdle(slug))),
+    deleteReel: (slug, openReel) => withActivity(slug, () => deleteReel(dir, slug, openReel, () => assertDeletionIdle(slug))),
     subscribe: (listener) => {
       listeners.add(listener);
       const stopWatching = watcher.subscribe(settling(dir, listener));
@@ -245,7 +258,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     listVideos: () => listVideos(dir),
     importVideo: (name, body) => importVideo(dir, name, body),
     removeVideo: (path) => removeVideo(dir, path),
-    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input, (slug) => agents.start(slug)),
+    startReel: (input) => startReel(dir, options.transcriber ?? transcribeWithWhisper, transcriptions, input, (slug) => startAgentJob(slug)),
     transcriptionProgress: (slug) => transcriptions.progress(slug),
     whenTranscribed: (slug) => transcriptions.whenDone(slug),
     readEditList: (slug) => readEditList(dir, slug),
@@ -259,13 +272,13 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
     freezeEdits: (slug) => freezeEdits(dir, slug),
     buildParts: (slug, by) => buildParts(dir, slug, by),
     startReelFromBrief: (input) => startReelFromBrief(dir, input),
-    render,
-    renderWorking: async (request) => {
+    render: (request) => withActivity(request.reel, () => renderNow(request)),
+    renderWorking: async (request) => withActivity(request.reel, async () => {
       removeStaleDrafts(dir);
       await checkRenderChoice(dir, request);
       if (request.preset !== 'draft') {
         const { version } = await freezeEdits(dir, request.reel, async (stage, number) => { await prepareRender(dir, { ...request, version: number }, stage); }, request.preset === 'final' ? 'Final render' : 'Overlay render');
-        return render({ ...request, version });
+        return renderNow({ ...request, version });
       }
       const capture = await captureWorking(dir, request.reel);
       const cleanup = () => rm(capture.dir, { recursive: true, force: true, maxRetries: CLEANUP_RETRIES, retryDelay: CLEANUP_RETRY_MS });
@@ -275,7 +288,7 @@ export function openProject(projectDir: string, options: ProjectOptions = {}): P
         if (request.remember === true) await saveRenderSettings(task.reelDir, request.preset, task.settings);
         return renders.add(draft, (job, report, signal) => runRender(dir, task, job, report, signal, options.renderSegments), cleanup);
       } catch (error) { await cleanup(); throw error; }
-    },
+    }),
     mixOverload: (slug, version) => mixOverload(dir, slug, version),
     renderJobs: () => renders.jobs(),
     renderSettings: (slug) => readRenderSettings(dir, slug),

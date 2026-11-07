@@ -6,6 +6,7 @@ import { startServer } from '../../server/main.ts';
 import { copyFixture, setReelMtime } from '../helpers/project.ts';
 import { alternatesFixture } from '../helpers/parts.ts';
 import { tempDir } from '../helpers/temp.ts';
+import { unfoldRailByDefault } from '../helpers/review-rail.ts';
 
 const SLUG = 'product-showreel';
 const MODE_KEY = 'kinotta-mode';
@@ -130,6 +131,7 @@ test('Export renders the frozen version that is open, including after switching 
       queued = route.request().postDataJSON();
       await route.fulfill({ json: { id: 'frozen-test', version: 1 } });
     });
+    await unfoldRailByDefault(page);
     await page.goto(server.url);
     await page.getByRole('button', { name: 'Open v1', exact: true }).click();
     await expect(page.locator('.frozen-version-line')).toContainText('You are viewing v1');
@@ -171,6 +173,7 @@ test('Export holds queue progress and Cancel, and recent renders with Play and S
 test('More opens Library, Settings, All reels in each view, and New reel', async ({ page }) => {
   const server = await startServer({ projectDir: fixture(), port: 0 });
   try {
+    await unfoldRailByDefault(page);
     await page.goto(server.url);
     await more(page, 'Library');
     await expect(page.locator('.library-page')).toBeVisible();
@@ -184,7 +187,7 @@ test('More opens Library, Settings, All reels in each view, and New reel', async
     await views(page).getByRole('button', { name: 'Editor', exact: true }).click();
     await more(page, 'All reels');
     await expect(page.getByRole('navigation', { name: 'Reels', exact: true })).toBeVisible();
-    await page.getByRole('navigation', { name: 'Reels', exact: true }).getByRole('button', { name: /Product showreel/ }).click();
+    await page.getByRole('navigation', { name: 'Reels', exact: true }).getByRole('button', { name: 'Product showreel', exact: true }).click();
     await more(page, 'New reel');
     await expect(page.locator('.sm-make')).toBeVisible();
   } finally { await server.close(); }

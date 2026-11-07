@@ -11,7 +11,7 @@ import type { Shot, Version } from './types.ts';
 import type { PlacementPin } from './types.ts';
 import { LEGACY_PREFIX, legacyMedia, legacySourceOfPlacement, mediaTimeline, remapMediaMoment, renameLegacySource, timelineMoment } from './media-model.ts';
 import { sameLegacyFootage } from './legacy-footage.ts';
-import { newestVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
+import { newestVersionNumber, previousVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
 
 /** The id of the section a shot belongs to. Every shot of a version has one, but a shot can be missing from a version. */
 export function sectionOfShot(version: Version, shot: Shot | undefined): string {
@@ -148,17 +148,19 @@ async function footageOf(projectDir: string, slug: string, from: Version, to: Ve
  */
 async function settle(projectDir: string, slug: string, n: number): Promise<void> {
   if (n < 2 || (await readState(stateFilePath(projectDir, slug, n), n)).carriedFrom !== undefined) return;
-  await settle(projectDir, slug, n - 1);
+  const previousNumber = await previousVersionNumber(await requireReelDir(projectDir, slug), n);
+  if (!previousNumber) return;
+  await settle(projectDir, slug, previousNumber);
   const file = stateFilePath(projectDir, slug, n);
   await serialized(file, async () => {
     const state = await readState(file, n);
     if (state.carriedFrom !== undefined) return;
-    const previousFile = stateFilePath(projectDir, slug, n - 1);
-    const previousState = await readState(previousFile, n - 1);
+    const previousFile = stateFilePath(projectDir, slug, previousNumber);
+    const previousState = await readState(previousFile, previousNumber);
     // A version before that saved nothing leaves nothing to carry or wait on, and gets no file written for it.
     const hasHistory = previousState.comments.length > 0 || (previousState.waiting ?? []).length > 0 || Object.keys(previousState.handedOff ?? {}).length > 0;
     if (!hasHistory) return;
-    const previous = await readVersionFiles(projectDir, slug, n - 1);
+    const previous = await readVersionFiles(projectDir, slug, previousNumber);
     const version = await readVersionFiles(projectDir, slug, n);
     const changed = new Set(version.changedSections ?? []);
     const page = await readPage(projectDir, slug, n);
@@ -182,7 +184,7 @@ async function settle(projectDir: string, slug: string, n: number): Promise<void
       ...state,
       comments: [...state.comments, ...moved],
       waiting: stillWaiting,
-      carriedFrom: { version: n - 1, ids: moved.map((c) => c.id) },
+      carriedFrom: { version: previousNumber, ids: moved.map((c) => c.id) },
     });
   });
 }

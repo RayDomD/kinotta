@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { copyFixture } from '../helpers/project.ts';
+import { unfoldRailByDefault } from '../helpers/review-rail.ts';
 import { startServer } from '../../server/main.ts';
 import { launchAgent } from '../../server/core/_internal/runner.ts';
 import { resolve } from 'node:path';
@@ -56,6 +57,7 @@ test('agent cuts: shows in the Editor with its reason, can be resized, and can b
 
     // 1. Check in Editor (Review / Edits panel) that the agent cut shows with its reason
     await page.addInitScript(() => sessionStorage.setItem('kinotta-mode', 'editor'));
+    await unfoldRailByDefault(page);
     await page.goto(server.url);
     await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: 'Agent cuts reel', exact: true }).click();
     await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();

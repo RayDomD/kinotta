@@ -34,7 +34,7 @@ test('hand-off freezes Working, later edits continue, and cancellation keeps the
   const note = page.getByRole('status').filter({ hasText: 'A comment batch for v2 is out' });
   await expect(note).toBeVisible();
   await expect(page.locator('[data-working-row][data-current-version="2"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Save|^Discard/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Save( |$)|^Discard/ })).toHaveCount(0);
 
   // Edits still collect: a second operation is accepted while the batch is out.
   expect((await page.request.post(`${api}/edits`, { data: { kind: 'clip-slide', clip: '02', delta: 0.2 } })).status()).toBe(201);

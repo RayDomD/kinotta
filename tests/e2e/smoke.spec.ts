@@ -4,7 +4,7 @@ test('editor shell lists reels newest change first and opens the newest', async 
   await page.goto('/');
 
   const rail = page.getByRole('navigation', { name: 'Reels' });
-  await expect(page.getByText(/^Reels in kinotta-e2e-.+\/reels$/)).toBeVisible();
+  await expect(page.locator('[data-rail-fold="reels"]')).toContainText('Reels');
   await expect(rail.getByRole('button')).toHaveText(['Product showreel', 'B-roll cutdown']);
 
   await expect(rail.getByRole('button', { name: 'Product showreel' })).toHaveAttribute('aria-current', 'true');

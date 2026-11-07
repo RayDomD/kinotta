@@ -6,7 +6,7 @@ import { applyOperations, inputsVersion, workingOperations } from './edit-model.
 import { carryPartsAlternates } from './parts.ts';
 import { KinottaError } from './errors.ts';
 import { assertPublishedPartsUnchanged, partsRevisionHashes, readAuthoredParts, readPartsInputs } from './parts-files.ts';
-import { newestVersionNumber, requireReelDir } from './version.ts';
+import { nextVersionNumber, newestVersionNumber, requireReelDir } from './version.ts';
 import { publishVersion, stagePartsVersion } from './version-build.ts';
 import type { BuiltPartsVersion, PartsManifest } from './types.ts';
 
@@ -30,7 +30,7 @@ export async function buildParts(projectDir: string, slug: string, by = DEFAULT_
     const inputs = await readPartsInputs(reelDir, manifest);
     const revisionHashes = await partsRevisionHashes(reelDir, manifest);
     await assertPublishedPartsUnchanged(reelDir, revisionHashes);
-    const number = previous + 1;
+    const number = await nextVersionNumber(reelDir);
     const staged = await stagePartsVersion(reelDir, { ...manifest, revisionHashes }, inputs, by.trim(), previous ? join(reelDir, `v${previous}`) : undefined);
     try { await writeFile(join(staged.dir, 'authored-shots.json'), JSON.stringify(authored), 'utf8'); }
     catch (error) { await rm(staged.dir, { recursive: true, force: true }); throw error; }
