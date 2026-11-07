@@ -155,7 +155,10 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
     if (!job.pins) return;
     const aliases = await pinAliases(job.reel, version);
     job.pins = job.pins.map((pin) => ({ ...pin, id: aliases.get(pin.id) ?? pin.id }));
-    await writeJsonAtomic(join(projectDir, 'reels', job.reel, '.agent/regenerate-pins.json'), await pinMarkers(job.reel, version));
+    await writeJsonAtomic(join(projectDir, 'reels', job.reel, '.agent/regenerate-pins.json'), {
+      ...await pinMarkers(job.reel, version),
+      ...Object.fromEntries(job.pins.map((pin) => [pin.id, pin.text])),
+    });
   }
 
   async function applyPendingCuts(job: AgentJob, version: number): Promise<void> {
@@ -260,13 +263,11 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const request = retry && previous
         ? makeBrollJobRequest(id, reel, baseVersion, { ...(await json<BrollJobRequest>(join(jobDir(previous), 'request.json'))).options, captions: captionMode }, manifest.duration, style, context)
         : makeBrollJobRequest(id, reel, baseVersion, { videoType: plan.videoType, broll: plan.broll, pace: plan.pace, captions: captionMode, notes: plan.notes }, manifest.duration, style, context);
-      const markerFile = join(reelDir, '.agent/regenerate-pins.json');
-      let markers: Record<string, string> | undefined;
       if (kind === 'regenerate') {
         if (provider === 'copy') throw new KinottaError('invalid', 'Use Copy request to copy the pin batch.');
         await settleNewest(projectDir, reel);
-        markers = await pinMarkers(reel, baseVersion);
-        const pins = previousRequest?.pins ?? (await listComments(projectDir, reel, baseVersion)).filter((pin) => !pin.state && markers![pin.id] !== pin.text).map(({ id, number, text, pin }) => ({ id, number, text, pin }));
+        const markers = await pinMarkers(reel, baseVersion);
+        const pins = previousRequest?.pins ?? (await listComments(projectDir, reel, baseVersion)).filter((pin) => !pin.state && markers[pin.id] !== pin.text).map(({ id, number, text, pin }) => ({ id, number, text, pin }));
         if (!pins.length) throw new KinottaError('invalid', 'No new or changed pins to regenerate.');
         request.kind = 'regenerate';
         request.pins = pins;
@@ -280,7 +281,6 @@ export function createAgentJobs(projectDir: string, emit: (event: ProjectEvent) 
       const { writeFile } = await import('node:fs/promises');
       await writeFile(join(dir, 'prompt.txt'), brollJobPrompt(request, true), 'utf8');
       await set(job);
-      if (markers && request.pins) await writeJsonAtomic(markerFile, { ...markers, ...Object.fromEntries(request.pins.map((pin) => [pin.id, pin.text])) });
       const current = job;
       void execute(current, source, plan, controller, request).catch(() => {
         // A status-write failure leaves the durable unfinished job recoverable as interrupted.
