@@ -1,0 +1,7 @@
+[data-scene="presenter-split"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="presenter-split"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="presenter-split"] .speaker-window { position:absolute; left:0; top:0; height:1080px; overflow:hidden; }
+[data-scene="presenter-split"] .plate { position:absolute; width:1920px; height:1080px; max-width:none; object-fit:cover; }
+[data-scene="presenter-split"] .insert { position:absolute; top:0; width:960px; height:1080px; background:var(--fx-panel); overflow:hidden; }
+[data-scene="presenter-split"] .insert img { position:absolute; left:150px; top:100px; width:660px; height:660px; object-fit:contain; }
+[data-scene="presenter-split"] .title { position:absolute; left:90px; right:90px; bottom:140px; font-size:64px; line-height:1.05; }

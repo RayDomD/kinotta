@@ -1,0 +1,8 @@
+[data-scene="captions"] .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* One word at a time. data-at is local seconds; data-kind is key, accent or filler (default); data-band="low" drops a word below the face when an overlay holds the top. */
+[data-scene="captions"] .caption { position: absolute; inset: 0; margin: 0; font-family: var(--cap-font); color: var(--fx-ink); text-align: center; }
+[data-scene="captions"] .w { position: absolute; left: 0; right: 0; top: var(--cap-top); opacity: 0; font-size: var(--cap-filler-size); font-weight: var(--cap-filler-weight); line-height: 1; text-shadow: var(--cap-shadow); }
+[data-scene="captions"] .w[data-band="low"] { top: var(--cap-low); }
+[data-scene="captions"] .w[data-kind="key"], [data-scene="captions"] .w[data-kind="accent"] { font-size: var(--cap-key-size); font-weight: var(--cap-key-weight); text-transform: uppercase; letter-spacing: -.01em; }
+[data-scene="captions"] .w[data-kind="accent"] { color: var(--fx-accent); }

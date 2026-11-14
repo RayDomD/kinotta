@@ -1,0 +1,308 @@
+import { KeepPinNotes } from './KeepPinNotes.tsx';
+import { EffectsDrawer, flushPinnedNotes, PinnedCommentCard } from './PinnedEffects.tsx';
+import { CopyButton } from './CopyButton.tsx';
+import type { EditsState } from './review/index.ts';
+import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
+import type { Comment, Shot } from './api/index.ts';
+import { alternateLabel } from './alternates.ts';
+import { NO_SHOT, sectionNumber } from './sections.ts';
+import { Empty } from './Empty.tsx';
+import { readOnlyNote } from './readOnly.ts';
+import { wordLabel } from './Transcript.tsx';
+import { formatTimecode } from './timecode.ts';
+import type { CommentsState } from './useComments.ts';
+import type { NoteState } from './useNote.ts';
+
+const UNDO_MS = 6000;
+const NOTE_PLACEHOLDER = 'Feedback that belongs to no single moment…';
+
+const failure = (err: unknown, fallback: string): string => (err instanceof Error ? err.message : fallback);
+
+interface CardProps {
+  comment: Comment;
+  /** The letter of the alternate the pin is on, or null. */
+  alternate: string | null;
+  /** False on a version that cannot take comments: no Edit and Delete. */
+  editable: boolean;
+  onOpen(opener: HTMLElement): void;
+  onEdit(text: string): Promise<void>;
+  onDelete(): void;
+}
+
+function CommentCard({ comment, alternate, editable, onOpen, onEdit, onDelete }: CardProps) {
+  const { pin } = comment;
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(comment.text);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const openButton = useRef<HTMLButtonElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editing) field.current?.focus();
+  }, [editing]);
+
+  function startEditing(): void {
+    setText(comment.text);
+    setError(null);
+    setEditing(true);
+  }
+
+  function stopEditing(): void {
+    setEditing(false);
+    setError(null);
+    // The field is going away; keep the keyboard where it was.
+    window.setTimeout(() => editButton.current?.focus());
+  }
+
+  async function save(): Promise<void> {
+    if (busy) return;
+    if (text.trim() === '') {
+      setError('A comment needs some text.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await onEdit(text.trim());
+      stopEditing();
+    } catch (err) {
+      setError(failure(err, 'Could not save the comment.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      void save();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      stopEditing();
+    }
+  }
+
+  const target = pin.kind === 'word' ? wordLabel(pin.word) : pin.element;
+  const where = target ?? 'position';
+  return (
+    <li className="c">
+      <div className="where">
+        <span className="dot">{comment.number}</span>
+        <span className="num">{`${pin.shot === NO_SHOT ? '' : `Shot ${pin.shot} · `}${alternate ? `${alternate} · ` : ''}${formatTimecode(pin.time)}s`}</span>
+        <span className={target ? 'el' : undefined}>{where}</span>
+        {comment.options !== undefined && <span className="options-chip">{`${comment.options} options`}</span>}
+      </div>
+      {(comment.sent || comment.carried || comment.state) && (
+        <div className="carry-state">
+          {[comment.stateReason ?? (comment.state === 'moment-removed' ? 'Moment removed' : comment.state === 'element-removed' ? 'Element removed' : ''), comment.sent ? 'Sent to your agent' : '', comment.carried ? `Moved to v${comment.carried.to}` : '']
+            .filter((part) => part !== '')
+            .join(' · ')}
+        </div>
+      )}
+      {editing ? (
+        <div className="c-edit">
+          <textarea
+            ref={field}
+            value={text}
+            rows={3}
+            aria-label={`Edit comment ${comment.number}`}
+            aria-describedby={error ? `c-${comment.id}-error` : undefined}
+            disabled={busy}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          {error && <p id={`c-${comment.id}-error`} role="alert" className="c-error">{error}</p>}
+          <div className="c-actions shown">
+            <button type="button" className="c-act strong" disabled={busy} onClick={() => void save()}>Save</button>
+            <button type="button" className="c-act" onClick={stopEditing}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p>{comment.text}</p>
+          <button
+            ref={openButton}
+            type="button"
+            className="c-open"
+            aria-label={pin.shot === NO_SHOT ? `Open comment ${comment.number}, ${where}` : `Open comment ${comment.number} on shot ${pin.shot}, ${where}`}
+            onClick={(e) => onOpen(e.currentTarget)}
+          />
+          {editable && (
+            <div className="c-actions">
+              <button ref={editButton} type="button" className="c-act" aria-label={`Edit comment ${comment.number}`} onClick={startEditing}>Edit</button>
+              <button type="button" className="c-act" aria-label={`Delete comment ${comment.number}`} onClick={onDelete}>Delete</button>
+            </div>
+          )}
+        </>
+      )}
+    </li>
+  );
+}
+
+function NoteBox({ note, readOnly }: { note: NoteState; readOnly: boolean }) {
+  const label = 'Note on the whole reel';
+  const saveState =
+    note.error !== null ? `Could not save the note. ${note.error}` : note.status === 'saving' ? 'Saving…' : note.status === 'saved' ? 'Saved' : '';
+  return (
+    <div className="note-box">
+      {readOnly ? (
+        <>
+          <div id="reel-note-label" className="label">{label}</div>
+          <p className="note-read">{note.text.trim() === '' ? 'No note.' : note.text}</p>
+        </>
+      ) : (
+        <>
+          <label className="label" htmlFor="reel-note">{label}</label>
+          <textarea
+            id="reel-note"
+            value={note.text}
+            placeholder={NOTE_PLACEHOLDER}
+            disabled={!note.loaded}
+            maxLength={4000}
+            onChange={(e) => note.edit(e.target.value)}
+            onBlur={() => void note.flush()}
+          />
+          <span className="note-state meta" role="status" aria-live="polite">{saveState}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+interface PanelProps {
+  slug?: string;
+  storyboard?: boolean;
+  edits?: EditsState;
+  onBuilt?(): void;
+  frozen?: boolean;
+  version: number | undefined;
+  newest: number | undefined;
+  state: CommentsState;
+  note: NoteState;
+  onOpenComment(comment: Comment, opener: HTMLElement): void;
+  /** On a multi-section reel: the current section's number and the shots it holds; the column lists only its comments. */
+  section?: { id?: string; number: string; shots: ReadonlySet<string> } | null;
+  /** The open version's shots, to name the alternate a pin is on. */
+  shots?: readonly Shot[];
+}
+
+/** The comments column: a card per pin (open, edit, delete with undo), and the note on the whole reel. */
+export function CommentsPanel({ version, newest, state, note, onOpenComment, section = null, frozen = false, shots = [], slug, storyboard = false, edits, onBuilt }: PanelProps) {
+  const { error } = state;
+  const comments = section ? state.comments.filter((c) => section.shots.has(c.pin.shot)) : state.comments;
+  const waitingCount = comments.filter((comment) => !comment.instant && !comment.sent).length;
+  const readOnly = frozen || version !== undefined && newest !== undefined && version !== newest;
+  const [undo, setUndo] = useState<{ comment: Comment; number: number } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const undoTimer = useRef<number | undefined>(undefined);
+  const undoButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => () => window.clearTimeout(undoTimer.current), []);
+  // The line about a deleted comment belongs to the version it happened on.
+  useEffect(() => {
+    window.clearTimeout(undoTimer.current);
+    setUndo(null);
+    setProblem(null);
+  }, [version]);
+  useEffect(() => {
+    if (undo) undoButton.current?.focus();
+  }, [undo]);
+
+  useEffect(() => {
+    if (!undo) return;
+    const onUndo = (event: globalThis.KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault(); event.stopImmediatePropagation(); void restore();
+      }
+    };
+    window.addEventListener('keydown', onUndo, true);
+    return () => window.removeEventListener('keydown', onUndo, true);
+  }, [undo, edits, state]);
+
+  async function remove(comment: Comment): Promise<void> {
+    setProblem(null);
+    try {
+      await state.remove(comment.id);
+    } catch (err) {
+      setProblem(failure(err, 'Could not delete the comment.'));
+      return;
+    }
+    window.clearTimeout(undoTimer.current);
+    setUndo({ comment, number: comment.number });
+    undoTimer.current = window.setTimeout(() => setUndo(null), UNDO_MS);
+  }
+
+  async function restore(): Promise<void> {
+    if (!undo) return;
+    if (undo.comment.instant && edits) {
+      window.clearTimeout(undoTimer.current); setUndo(null);
+      await edits.undo(); return;
+    }
+    const { pin, text, options } = undo.comment;
+    window.clearTimeout(undoTimer.current);
+    setUndo(null);
+    try {
+      await state.save({
+        pin: pin.kind === 'word' ? { kind: 'word', placement: pin.placement, shot: pin.shot, time: pin.time, word: pin.word } : { kind: 'frame', placement: pin.placement, time: pin.time, shot: pin.shot, x: pin.x, y: pin.y, element: pin.element, ...(pin.alternate ? { alternate: pin.alternate } : {}) },
+        text,
+        ...(options !== undefined ? { options } : {}),
+        ...(undo.comment.effect ? { effect: undo.comment.effect } : {}),
+        ...(undo.comment.insertShot ? { insertShot: true } : {}),
+      });
+    } catch (err) {
+      setProblem(failure(err, 'Could not restore the comment.'));
+    }
+  }
+
+  const empty = version === undefined ? 'No comments yet.' : readOnly ? `No comments on v${version}.` : `No comments on v${version} yet. Enlarge a shot and click the frame to pin one.`;
+  return (
+    <aside className="comments" aria-label="Comments">
+      {storyboard && version !== undefined && !readOnly && <EffectsDrawer />}
+      <header>
+        <h2>Comments</h2>
+        {version !== undefined && (
+          <span className="meta num">{section ? `v${version} · section ${section.number} · ${comments.length}` : `v${version} · ${comments.length}`}</span>
+        )}
+      </header>
+      {readOnly && version !== undefined && newest !== undefined && <p className="readonly-note">{frozen ? 'Open Working to add or change comments.' : readOnlyNote(version, newest)}</p>}
+      <div className="undo" role="status" aria-live="polite">
+        {undo && (
+          <>
+            <span>{`Comment ${undo.number} deleted`}</span>
+            <button ref={undoButton} type="button" className="c-act strong" onClick={() => void restore()}>Undo</button>
+          </>
+        )}
+      </div>
+      {problem && <p role="alert" className="c-error">{problem}</p>}
+      {error ? (
+        <Empty>{`Could not read the comments. ${error}`}</Empty>
+      ) : comments.length > 0 ? (
+        <ol className="clist" aria-label="Comments on this version">
+          {comments.map((comment) => comment.effect || comment.insertShot ? (
+            <PinnedCommentCard key={comment.id} comment={comment} state={state} editable={!readOnly} remove={() => remove(comment)} />
+          ) : (
+            <CommentCard
+              key={comment.id}
+              comment={comment}
+              alternate={alternateLabel(comment, shots)}
+              editable={!readOnly}
+              onOpen={(opener) => onOpenComment(comment, opener)}
+              onEdit={(text) => state.edit(comment.id, text)}
+              onDelete={() => void remove(comment)}
+            />
+          ))}
+        </ol>
+      ) : (
+        <Empty>{empty}</Empty>
+      )}
+      {storyboard && slug && version !== undefined && !readOnly && comments.some((comment) => comment.effect || comment.insertShot) && <div className="fx-build"><CopyButton slug={slug} version={version} count={waitingCount} build beforeCopy={async () => { await flushPinnedNotes(); await note.flush(); }} hasNote={!!note.text.trim()} section={section?.id ? { id: section.id, number: section.number } : null} onSaved={onBuilt} />
+        <p className="meta">{waitingCount > 0 ? `${waitingCount} waiting · 1 agent run · Copies the request` : 'Nothing needs the agent'}</p></div>}
+      {storyboard && slug && version !== undefined && newest !== undefined && !readOnly && <KeepPinNotes slug={slug} version={newest} />}
+      {version !== undefined && <NoteBox note={note} readOnly={readOnly} />}
+    </aside>
+  );
+}

@@ -1,0 +1,195 @@
+import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { parse } from 'node-html-parser';
+import { describe, expect, it } from 'vitest';
+import { composePlan, exampleClip } from '../helpers/engine.ts';
+import { tempDir } from '../helpers/temp.ts';
+
+const SHOTS_SCRIPT = resolve(import.meta.dirname, '../../skill/kinotta/scripts/shots.py');
+const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
+
+type Word = [string, number, number];
+
+/** Words as [text, start, end]: two sentences with a long pause between them. */
+const WORDS: Word[] = [
+  ['Hi,', 0.0, 0.4], ['my', 0.5, 0.7], ['name', 0.7, 0.9], ['is', 0.9, 1.0], ['Ryan', 1.0, 1.3], ['Dominic', 1.3, 1.7], ['Vidal', 1.7, 2.0], ['Cruz,', 2.0, 2.4],
+  ['a', 2.5, 2.6], ['student', 2.6, 3.0], ['at', 3.0, 3.1], ['<Central>', 3.1, 3.5], ['University.', 3.5, 4.0],
+  ['Later', 5.0, 5.3], ['words', 5.3, 5.6],
+];
+
+function project(captions: unknown): { dir: string; plan: string } {
+  const dir = tempDir('kinotta-captions-');
+  writeFileSync(join(dir, 'transcript.json'), JSON.stringify({ words: WORDS.map(([text, start, end]) => ({ text, start, end })) }));
+  const plan = {
+    title: 'Captions',
+    duration: 8,
+    transcript: 'transcript.json',
+    sections: [{ id: 'all', name: 'All', start: 0, end: 8 }],
+    clips: [{ id: '06', title: 'Chapter', in: 0, out: 1.5, kind: 'full', section: 'all', clip: exampleClip('06-chapter.html') }],
+    ...(captions === undefined ? {} : { captions }),
+  };
+  writeFileSync(join(dir, 'plan.json'), JSON.stringify(plan));
+  return { dir, plan: join(dir, 'plan.json') };
+}
+
+function composed(captions: unknown): ReturnType<typeof parse> {
+  const { dir, plan } = project(captions);
+  composePlan(plan, join(dir, 'page.html'));
+  return parse(readFileSync(join(dir, 'page.html'), 'utf8'));
+}
+
+describe('captions in a composed plan', () => {
+  it('writes each phrase as its own scene with one caption element, word by word', () => {
+    const html = composed(true);
+    const scenes = html.querySelectorAll('[data-scene][data-caption]');
+
+    expect(scenes.map((s) => s.getAttribute('data-scene'))).toEqual(['cap-001', 'cap-002', 'cap-003']);
+    const phrases = scenes.map((s) => s.querySelectorAll('[data-t]').map((w) => w.text).join(' '));
+    // Up to 8 words to reach the comma, then a break at the clause end, then a break at the pause.
+    expect(phrases).toEqual(['Hi, my name is Ryan Dominic Vidal Cruz,', 'a student at <Central> University.', 'Later words']);
+    for (const scene of scenes) {
+      expect(scene.querySelectorAll('[data-el]').map((el) => el.getAttribute('data-el'))).toEqual(['caption']);
+    }
+    expect(Number(scenes[0]!.getAttribute('data-start'))).toBe(0);
+    // A short gap holds the phrase until the next one starts; the pause does not.
+    expect(Number(scenes[0]!.getAttribute('data-duration'))).toBeCloseTo(2.5, 6);
+    expect(Number(scenes[1]!.getAttribute('data-duration'))).toBeCloseTo(1.5, 6);
+    expect(Number(scenes[1]!.querySelectorAll('[data-t]')[3]!.getAttribute('data-t'))).toBe(3.1);
+  });
+
+  it('puts the look and colour on each caption, highlight and the engine accent by default', () => {
+    const plain = composed(true).querySelector('[data-el="caption"]')!;
+    expect(plain.getAttribute('data-look')).toBe('highlight');
+    expect(plain.getAttribute('style')).toContain('--cap-color:#FF5A1F');
+
+    const chosen = composed({ look: 'words', color: '#3A7BFF' }).querySelector('[data-el="caption"]')!;
+    expect(chosen.getAttribute('data-look')).toBe('words');
+    expect(chosen.getAttribute('style')).toContain('--cap-color:#3A7BFF');
+  });
+
+  it('adds nothing to a plan without captions', () => {
+    const html = composed(undefined);
+
+    expect(html.querySelectorAll('[data-caption]')).toHaveLength(0);
+    expect(html.toString()).not.toContain('cap-color');
+  });
+
+  it('stops on an unknown look', () => {
+    const { dir, plan } = project({ look: 'karaoke' });
+
+    expect(() => composePlan(plan, join(dir, 'page.html'))).toThrow(/captions look must be one of/);
+  });
+
+  it('gives the shot list one Captions overlay over the spoken span', () => {
+    const { dir, plan } = project(true);
+    const run = spawnSync(PYTHON, [SHOTS_SCRIPT, plan, join(dir, 'shots.json')], { encoding: 'utf8' });
+
+    expect(run.status, run.stderr).toBe(0);
+    const { overlays } = JSON.parse(readFileSync(join(dir, 'shots.json'), 'utf8')) as { overlays: unknown[] };
+    expect(overlays).toEqual([{ kind: 'CAPTIONS', name: 'Captions', start: 0, end: 5.6 }]);
+  });
+});
+
+describe('caption font and background', () => {
+  const css = (html: ReturnType<typeof parse>): string => html.querySelectorAll('style').map((el) => el.text).join('');
+  const style = (html: ReturnType<typeof parse>): string => html.querySelector('[data-el="caption"]')!.getAttribute('style') ?? '';
+  /** A one-font brand: the file is only read and embedded, so its bytes need not be a real font here. */
+  function withBrand(captions: unknown): ReturnType<typeof parse> {
+    const { dir, plan } = project(captions);
+    writeFileSync(join(dir, 'Fraunces.woff2'), 'not-a-font');
+    writeFileSync(plan, JSON.stringify({ ...JSON.parse(readFileSync(plan, 'utf8')), brand: { fonts: [{ family: 'Fraunces', weight: 700, file: 'Fraunces.woff2' }] } }));
+    composePlan(plan, join(dir, 'page.html'));
+    return parse(readFileSync(join(dir, 'page.html'), 'utf8'));
+  }
+
+  it('builds the same page and the same caption CSS for a plan without them', () => {
+    const plain = composed(true);
+
+    expect(composed({ look: 'highlight' }).toString()).toBe(plain.toString());
+    expect(style(plain)).not.toContain('--cap-font');
+    expect(style(plain)).not.toContain('--cap-bg');
+    // Today's literals stay as the fallbacks of the variables.
+    expect(css(plain)).toContain('font:var(--cap-font,600 50px/1.18 "Geist",system-ui,sans-serif)');
+    expect(css(plain)).toContain('background:var(--cap-bg,rgba(11,11,11,.72))');
+  });
+
+  it('puts the font on each caption: a family alone, or with weight and size', () => {
+    expect(style(composed({ font: 'Geist' }))).toContain(`--cap-font:600 50px/1.18 'Geist',system-ui,sans-serif`);
+    expect(style(composed({ font: { family: 'Geist', weight: 800, size: 64 } }))).toContain(`--cap-font:800 64px/1.18 'Geist',system-ui,sans-serif`);
+  });
+
+  it('puts the background on each caption, none included', () => {
+    expect(style(composed({ background: 'rgba(0, 0, 0, .5)' }))).toContain('--cap-bg:rgba(0, 0, 0, .5)');
+    expect(style(composed({ background: 'none' }))).toContain('--cap-bg:none');
+  });
+
+  it('draws the words look box and the phrase box from the same background variable', () => {
+    const rules = css(composed({ look: 'words' }));
+
+    expect(rules.match(/var\(--cap-bg,/g)).toHaveLength(2);
+    expect(rules).not.toMatch(/background:rgba\(11,11,11,\.72\)/);
+  });
+
+  it('accepts a brand font family the page embeds', () => {
+    const html = withBrand({ font: { family: 'Fraunces', weight: 700 } });
+
+    expect(style(html)).toContain(`--cap-font:700 50px/1.18 'Fraunces',system-ui,sans-serif`);
+    expect(html.toString()).toContain('Fraunces');
+  });
+
+  it('stops on a font the project neither bundles nor brands, and on a malformed background', () => {
+    for (const [captions, message] of [
+      [{ font: 'Comic Sans' }, /captions font "Comic Sans" is not available.*Geist/],
+      [{ font: { family: 'Fraunces' } }, /captions font "Fraunces" is not available/],
+      [{ font: 5 }, /captions font must be/],
+      [{ background: 'dark' }, /captions background must be "none" or a CSS colour/],
+      [{ background: '#000;color:red' }, /captions background must be/],
+    ] as const) {
+      const { dir, plan } = project(captions);
+      expect(() => composePlan(plan, join(dir, 'page.html'))).toThrow(message);
+    }
+  });
+});
+
+describe('caption positions', () => {
+  const shifts = (html: ReturnType<typeof parse>): (string | null)[] =>
+    html.querySelectorAll('[data-caption]').map((scene) => /translate:([^;"]+)/.exec(scene.querySelector('.caption')!.getAttribute('style') ?? '')?.[1] ?? null);
+
+  function composedWith(captions: unknown, extra: Record<string, unknown> = {}): ReturnType<typeof parse> {
+    const { dir, plan } = project(captions);
+    writeFileSync(plan, JSON.stringify({ ...JSON.parse(readFileSync(plan, 'utf8')), ...extra }));
+    composePlan(plan, join(dir, 'page.html'));
+    return parse(readFileSync(join(dir, 'page.html'), 'utf8'));
+  }
+
+  it('builds the same page for a plan without positions', () => {
+    const plain = composed(true).toString();
+
+    expect(composed({ look: 'highlight' }).toString()).toBe(plain);
+    expect(composed({ position: { x: 0, y: 0 }, phrases: [] }).toString()).toBe(plain);
+    expect(plain).not.toContain('translate:');
+  });
+
+  it('moves every caption by the reel-wide position, with CSS translate', () => {
+    expect(shifts(composedWith({ position: { x: 40, y: -20 } }))).toEqual(['40px -20px', '40px -20px', '40px -20px']);
+  });
+
+  it('moves one phrase, found by its first word in source seconds, and adds it to the reel-wide position', () => {
+    // The second phrase opens on "a", which starts at 2.5 s.
+    expect(shifts(composedWith({ phrases: [{ at: 2.5, x: 0, y: -100 }] }))).toEqual([null, '0px -100px', null]);
+    expect(shifts(composedWith({ position: { x: 10, y: 10 }, phrases: [{ at: 2.5, x: 5, y: -100 }] }))).toEqual(['10px 10px', '15px -90px', '10px 10px']);
+  });
+
+  it('keeps a phrase at its place when the footage before it is snipped', () => {
+    const pieces = [{ in: 0, out: 0.4 }, { in: 2.4, out: 8 }];
+    const html = composedWith({ phrases: [{ at: 2.5, x: 0, y: -100 }] }, { pieces });
+
+    expect(shifts(html)).toEqual([null, '0px -100px', null]);
+    expect(Number(html.querySelectorAll('[data-caption]')[1]!.getAttribute('data-start'))).toBeCloseTo(0.5, 6);
+  });
+
+  it('ignores a phrase position that no phrase starts at', () => {
+    expect(shifts(composedWith({ phrases: [{ at: 2.9, x: 0, y: -100 }] }))).toEqual([null, null, null]);
+  });
+});

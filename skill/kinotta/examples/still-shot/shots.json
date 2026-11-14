@@ -1,0 +1,8 @@
+{
+  "contract": 2,
+  "duration": 4,
+  "shared": "r1",
+  "shots": [
+    { "name": "example", "revision": "r1", "duration": 4, "title": "Example", "description": "One line on what this shot shows and how it moves." }
+  ]
+}

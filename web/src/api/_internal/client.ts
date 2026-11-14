@@ -1,0 +1,747 @@
+import type { CaptionsPlan, ElementOffset, MediaPlan, NewOperation, Operation, PlanClip } from '../../../../server/core/model.ts';
+import type { Style, StyleListing } from '../../../../server/core/index.ts';
+export type { Style, StyleListing } from '../../../../server/core/index.ts';
+export const fetchStyles = (videoType?: string): Promise<StyleListing> => getJson(`/api/styles${videoType ? `?videoType=${encodeURIComponent(videoType)}` : ''}`);
+export const saveStyle = (scope: 'user' | 'project', style: Style): Promise<Style> => requestJson('/api/styles', jsonBody('PUT', { scope, style }));
+export const saveDefaultStyle = (id: string): Promise<Style> => requestJson('/api/styles/default', jsonBody('PUT', { id }));
+export const fetchReelStyle = (slug: string): Promise<Style | null> => getJson(`/api/reels/${encodeURIComponent(slug)}/style`);
+export const copyStyleToReel = (slug: string, id: string): Promise<Style> => requestJson(`/api/reels/${encodeURIComponent(slug)}/style`, jsonBody('PUT', { id }));
+export const migrateStyleProfile = (profile: unknown): Promise<Style> => requestJson('/api/styles/migrate-profile', jsonBody('POST', profile));
+import type { ImportedMedia, MediaEditingModel, MediaEntry, MediaFilter, MediaSpeech, MediaWaveform, MixOverload, PartsAlternate, PartsManifest, ProjectMediaFile, SoundEffect } from '../../../../server/core/index.ts';
+
+export interface ReelSummary {
+  made?: 'auto' | 'direct';
+  slug: string;
+  title: string;
+  newestVersion: number | null;
+  lastChange: number;
+  /** A reel started from a brief: the brief and the request copied for building it. Waiting while `newestVersion` is null. */
+  brief?: { text: string; request: string };
+}
+
+export type ReelsState = 'ok' | 'no-reels-folder' | 'no-reels';
+
+export interface ReelListing {
+  state: ReelsState;
+  reels: ReelSummary[];
+}
+
+export interface ToolStatus {
+  id: 'python' | 'ffmpeg' | 'faster-whisper' | 'chromium' | 'kokoro-onnx';
+  name: string;
+  present: boolean;
+  hint: string;
+  /** What it is for: starting a reel from a video, or rendering. */
+  neededFor: Array<'video' | 'render'>;
+}
+
+export interface ToolCheck {
+  tools: ToolStatus[];
+  missing: ToolStatus[];
+}
+
+export interface ProjectInfo {
+  name: string;
+}
+
+export interface Shot {
+  alternates?: Array<PartsAlternate & { inReel: boolean }>;
+  choiceMade?: boolean;
+  name?: string;
+  scene?: string;
+  revision?: string;
+  number: string;
+  start: number;
+  duration: number;
+  title: string;
+  description: string;
+  /** Footage reels only. */
+  section?: string;
+  type?: 'cutaway' | 'panel';
+  line?: { start: number; end: number };
+  /** Set when the shot is one state of a clip that changes (05a, 05b, …): the clip's number. */
+  clip?: string;
+  /** Footage reels with a transcript: the words spoken over the shot (on the timeline), and the same words joined. */
+  words?: TranscriptWord[];
+  spoken?: string;
+}
+
+export interface TranscriptWord {
+  text: string;
+  start: number;
+  end: number;
+}
+
+/** A stretch of the source video (seconds) kept in the reel, and where it starts on the reel's timeline. */
+export interface VersionPiece {
+  in: number;
+  out: number;
+  at: number;
+}
+
+export interface Overlay {
+  kind: string;
+  name: string;
+  start: number;
+  end: number;
+}
+
+export interface Section {
+  id: string;
+  name: string;
+  start: number;
+  end: number;
+  shots: number;
+  implicit?: true;
+  /** Handed off to an agent, with no newer version having changed the section yet. */
+  waiting?: true;
+}
+
+/** One way a version breaks the timing contract, found by the server's static check. */
+export interface ContractIssue {
+  code: string;
+  shot?: string;
+  scene?: string;
+  /** Plain words, complete on its own ("shot 04: no named elements"). */
+  message: string;
+}
+
+export interface Version {
+  workingEffectKey?: string;
+  parts?: PartsManifest;
+  workingParts?: { duration: number; shots: Shot[]; key: string };
+  workingBase?: number;
+  frozenBy?: string;
+  mediaSections?: { id: string; name: string; start: number; end: number; placement?: string; partOf?: string }[];
+  media?: MediaPlan;
+  number: number;
+  isNewest: boolean;
+  /** Whether this version has the plan required to run agent Regenerate. */
+  agentRegenerate: boolean;
+  duration: number;
+  shots: Shot[];
+  overlays: Overlay[];
+  sections: Section[];
+  /** Empty for a version that keeps the timing contract. */
+  issues: ContractIssue[];
+  changedSections?: string[];
+  claimMismatch?: string[];
+  /** Footage reels only. */
+  footage?: { path: string; exists: boolean };
+  /** Footage reels only: the stretches of the video the reel plays, in play order, with where each starts on the timeline. */
+  pieces?: VersionPiece[];
+  transcript?: TranscriptWord[];
+  transcriptProblem?: string;
+  /** Footage reels only: the plan's `captions` (`true`, or the look, colour and caption positions). Absent when captions are off. */
+  captions?: true | CaptionsPlan;
+  /** Footage reels only: the plan's clips in source seconds, with their `slid` flag. */
+  clips?: PlanClip[];
+  builtBy?: string;
+  /** Code-only reels only: the page's scene names and the element offsets its `kinotta-edits.css` holds, by scene then element. */
+  code?: { scenes: string[]; offsets: Record<string, Record<string, ElementOffset>> };
+  /** Set when the version has no shots: the request to copy for b-roll. */
+  brollRequest?: string;
+}
+
+/** One row of a reel's version rail. */
+export interface VersionEntry {
+  frozenBy?: string;
+  number: number;
+  isNewest: boolean;
+  /** v1 in this phase. */
+  isStoryboard: boolean;
+  /** Reels with several sections only: the ids of the sections this version changed. */
+  changedSections?: string[];
+  /** Who made the version: `you`, or an agent's name. */
+  builtBy?: string;
+  /** How many comments it holds. */
+  comments: number;
+  /** How many contract issues it has: the ones Final and Overlay refuse on. */
+  issues: number;
+}
+
+export type RenderPreset = 'draft' | 'final' | 'overlay';
+
+/** The four settings on top of a preset (R3). Size is the short side; the long side keeps the source's aspect ratio. */
+export interface RenderSettings {
+  fps: 'source' | 24 | 25 | 30 | 60;
+  size: 'half' | 'source' | '1080p' | '4k';
+  quality: 'standard' | 'high';
+  audio: 'smooth' | 'hard';
+}
+
+/** A finished render in a reel's renders/ folder. */
+export interface RenderFile {
+  working?: true;
+  file: string;
+  version: number;
+  preset: RenderPreset;
+  bytes: number;
+  /** When it was written, as an ISO time. */
+  at: string;
+}
+
+/** One render in the project's queue. */
+export interface RenderJob {
+  working?: true;
+  id: string;
+  reel: string;
+  version: number;
+  preset: RenderPreset;
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+  /** From 0 to 1. */
+  progress: number;
+  /** Seconds left, an estimate; null until known. */
+  remaining: number | null;
+  /** The finished file, relative to the project folder. */
+  output?: string;
+  error?: string;
+}
+
+export type AgentProvider = 'copy' | 'claude' | 'codex';
+/** Display names for explicit provider settings and build confirmation. */
+export const AGENT_PROVIDER_LABELS: Record<AgentProvider, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  copy: 'Copy request (paste it yourself)',
+};
+export type AgentJobState = 'queued' | 'running' | 'validating' | 'succeeded' | 'failed' | 'cancelling' | 'cancelled' | 'interrupted' | 'copy-ready';
+
+export interface AgentJob {
+  kind?: 'make-broll' | 'regenerate';
+  pins?: { id: string; text: string; state: 'waiting' | 'running' | 'done' | 'failed' }[];
+  id: string;
+  reel: string;
+  provider: AgentProvider;
+  state: AgentJobState;
+  createdAt: string;
+  updatedAt: string;
+  elapsedSeconds: number;
+  quiet: boolean;
+  error?: string;
+  version?: number;
+  canRetry: boolean;
+  canCopy: boolean;
+}
+
+export interface AgentSettings {
+  confirmed?: boolean;
+  provider: AgentProvider;
+  usageNotice?: string;
+}
+
+export interface AgentPresence {
+  provider: 'claude' | 'codex';
+  present: boolean;
+}
+
+/** What the server reports as it happens. */
+export type ProjectEvent =
+  | { type: 'edits-changed'; reel: string }
+  | { type: 'version-added'; reel: string; version: number }
+  | { type: 'reels-changed' }
+  | { type: 'comments-changed'; reel: string; version: number }
+  | { type: 'transcription-progress'; reel: string; progress: TranscriptionProgress }
+  | { type: 'render-progress'; job: RenderJob }
+  | { type: 'agent-progress'; reel: string; job: AgentJob; version?: undefined };
+
+/** How a reel's background transcription stands. `remaining` is an estimate in seconds, null until there is progress to base it on. */
+export interface TranscriptionProgress {
+  state: 'running' | 'done' | 'failed';
+  /** Seconds of audio in the video. */
+  duration: number;
+  /** Seconds of it transcribed so far. */
+  processed: number;
+  remaining: number | null;
+  error?: string;
+}
+
+export interface FramePin {
+  alternate?: string;
+  shotName?: string;
+  placement?: string;
+  sourceTime?: number;
+  offset?: number;
+  kind: 'frame';
+  version: number;
+  section: string | null;
+  shot: string;
+  /** The shot's start, in seconds. */
+  time: number;
+  /** Fractions of the frame, 0 to 1. */
+  x: number;
+  y: number;
+  /** The pinned element's name, or null for a position-only pin. */
+  element: string | null;
+}
+
+/** A pin on a spoken word of the shot's line. */
+export interface WordPin {
+  placement?: string;
+  sourceTime?: number;
+  offset?: number;
+  kind: 'word';
+  version: number;
+  section: string | null;
+  shot: string;
+  /** The word's start, in seconds. */
+  time: number;
+  word: string;
+}
+
+export interface Comment {
+  effect?: string;
+  effectName?: string;
+  instant?: true;
+  insertShot?: true;
+  stateReason?: string;
+  options?: 2 | 3 | 4;
+  id: string;
+  /** Position in the version's comments by pin time then creation. The number shown everywhere. */
+  number: number;
+  pin: FramePin | WordPin;
+  text: string;
+  createdAt: string;
+  /** Copied to an agent in its section's latest batch. */
+  sent?: true;
+  /** Simple mode's Regenerate already sent this note as it reads now. */
+  regenerated?: true;
+  /** Once a newer version has settled: this unsent comment moved on to it. */
+  carried?: { to: number };
+  /** The comment's moment was snipped out of the footage: it keeps its text and waits to be re-pinned or deleted. */
+  /** The comment's element is gone from the version it moved to: it keeps its text and waits to be re-pinned or deleted. */
+  state?: 'moment-removed' | 'element-removed';
+}
+
+export interface CommentsOfVersion {
+  comments: Comment[];
+}
+
+export interface NewComment {
+  effect?: string;
+  insertShot?: true;
+  options?: 2 | 3 | 4;
+  pin: { kind?: 'frame'; alternate?: string; shotName?: string; placement?: string; time?: number; shot: string; x: number; y: number; element: string | null } | { kind: 'word'; placement?: string; shot: string; time: number; word: string };
+  text: string;
+}
+
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(path, init);
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') throw err;
+    throw new Error('Could not reach the Kinotta server. Check your connection and retry.');
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(body?.error ?? `Request to ${path} failed (${res.status})`, res.status);
+  }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+  return (await res.json()) as T;
+}
+
+const getJson = <T>(path: string): Promise<T> => requestJson<T>(path);
+const versionPath = (slug: string, number: number): string => `/api/reels/${encodeURIComponent(slug)}/versions/${number}`;
+
+export interface BuiltPinNote { id: string; text: string }
+export const fetchBuiltPinNotes = (slug: string): Promise<BuiltPinNote[]> => getJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes`);
+export const decidePinNote = (slug: string, id: string, keep: boolean): Promise<void> => requestJson(`/api/reels/${encodeURIComponent(slug)}/pin-notes/${encodeURIComponent(id)}`, jsonBody('POST', { keep }));
+export const fetchProject = (): Promise<ProjectInfo> => getJson('/api/project');
+export const fetchReels = (): Promise<ReelListing> => getJson('/api/reels');
+export const deleteReel = (slug: string, openReel: string): Promise<void> => requestJson(`/api/reels/${encodeURIComponent(slug)}?openReel=${encodeURIComponent(openReel)}`, { method: 'DELETE' });
+export const deleteVersion = (slug: string, number: number): Promise<void> => requestJson(versionPath(slug, number), { method: 'DELETE' });
+/** Whether Python 3, ffmpeg and faster-whisper are installed, which starting a reel from a video needs. */
+export const fetchTools = (): Promise<ToolCheck> => getJson('/api/tools');
+/** A reel's versions, oldest first. */
+export const fetchVersions = async (slug: string): Promise<VersionEntry[]> =>
+  (await getJson<{ versions: VersionEntry[] }>(`/api/reels/${encodeURIComponent(slug)}/versions`)).versions;
+export const fetchVersion = (slug: string, number: number): Promise<Version> => getJson(versionPath(slug, number));
+
+/** Each preset's settings for a reel: the ones the last Render from Picker saved, else the preset's defaults. */
+export const fetchRenderSettings = async (slug: string): Promise<Record<RenderPreset, RenderSettings>> =>
+  (await getJson<{ settings: Record<RenderPreset, RenderSettings> }>(`/api/reels/${encodeURIComponent(slug)}/render-settings`)).settings;
+/**
+ * Queues a render with these settings and saves them as the reel's for the preset (R16). A refusal (the gate, an Overlay
+ * of an opaque page) throws with the reason.
+ */
+export const queueRender = (slug: string, version: number, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
+  requestJson('/api/renders', jsonBody('POST', { reel: slug, version, preset, ...settings, remember: true, acceptOverload }));
+/**
+ * Where a reel's mix passes full scale, measured from the mix a render makes (AM29, AM38): a saved version's, or with no
+ * version the current Working mix. No spans when it stays within full scale.
+ */
+export const fetchOverload = (slug: string, version?: number): Promise<MixOverload> =>
+  getJson<MixOverload>(`/api/reels/${encodeURIComponent(slug)}/overload${version === undefined ? '' : `?version=${version}`}`);
+/** The project's render queue: the jobs waiting or running, in order. Changes arrive as `render-progress` events. */
+export const fetchRenderJobs = async (): Promise<RenderJob[]> => (await getJson<{ jobs: RenderJob[] }>('/api/renders')).jobs;
+/** Cancels a render: a waiting one is dropped, a running one stopped. Either way it leaves no file. */
+export const cancelRender = (id: string): Promise<RenderJob> => requestJson(`/api/renders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/** A reel's finished renders, newest first. */
+export const fetchRenders = async (slug: string): Promise<RenderFile[]> =>
+  (await getJson<{ renders: RenderFile[] }>(`/api/reels/${encodeURIComponent(slug)}/renders`)).renders;
+/** Where a finished render is served, for playing it. */
+export const renderFileUrl = (slug: string, file: string): string => `/renders/${encodeURIComponent(slug)}/${encodeURIComponent(file)}`;
+/** Shows a finished render in the system's file manager, on the machine running Kinotta. */
+export async function revealRender(slug: string, file: string): Promise<void> {
+  const path = `/api/reels/${encodeURIComponent(slug)}/renders/${encodeURIComponent(file)}/reveal`;
+  const res = await fetch(path, { method: 'POST' });
+  if (!res.ok) throw new Error(((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? `Request to ${path} failed (${res.status})`);
+}
+
+/** A version's comments, in number order. */
+export const fetchComments = (slug: string, number: number): Promise<CommentsOfVersion> =>
+  getJson(`${versionPath(slug, number)}/comments`);
+
+/** Saves a pinned comment. Resolves with the saved comment and the version's renumbered comments. */
+export const addComment = (slug: string, number: number, input: NewComment): Promise<{ comment: Comment; comments: Comment[] }> =>
+  requestJson(`${versionPath(slug, number)}/comments`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+const commentPath = (slug: string, number: number, id: string): string => `${versionPath(slug, number)}/comments/${encodeURIComponent(id)}`;
+const jsonBody = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+/** Changes a comment's text. Resolves with the edited comment and the version's comments. */
+export const editComment = (slug: string, number: number, id: string, text: string): Promise<{ comment: Comment; comments: Comment[] }> =>
+  requestJson(commentPath(slug, number, id), jsonBody('PATCH', { text }));
+
+/** Removes a comment and its pin. Resolves with the version's renumbered comments. */
+export const deleteComment = async (slug: string, number: number, id: string): Promise<Comment[]> =>
+  (await requestJson<{ comments: Comment[] }>(commentPath(slug, number, id), { method: 'DELETE' })).comments;
+
+/** The version's note on the whole reel, empty when there is none. */
+export const fetchNote = async (slug: string, number: number): Promise<string> =>
+  (await getJson<{ note: string }>(`${versionPath(slug, number)}/note`)).note;
+
+/** Saves the version's note on the whole reel (an empty string clears it). Resolves with the note as saved. */
+export const saveNote = async (slug: string, number: number, note: string): Promise<string> =>
+  (await requestJson<{ note: string }>(`${versionPath(slug, number)}/note`, jsonBody('PUT', { note }))).note;
+
+export interface CopiedBatch {
+  /** The pasteable text for your agent. */
+  text: string;
+  /** Where the batch was saved, relative to the project root. */
+  file: string;
+  count: number;
+}
+
+/** What a batch covers and carries beyond the comments. */
+export interface BatchOptions {
+  /** On a reel with several sections: the section to copy. */
+  section?: string;
+  /** Add the contract issues to the batch. The server adds its own; `runtimeIssues` are the ones only this browser saw. */
+  includeIssues?: boolean;
+  runtimeIssues?: string[];
+}
+
+/**
+ * Saves a comment batch into the version's folder (replacing any earlier copy) and returns the text to paste. A reel
+ * with several sections copies one section, named by `options.section`.
+ */
+export const copyBatch = (slug: string, number: number, options: BatchOptions = {}): Promise<CopiedBatch> => {
+  const { section, ...extra } = options;
+  const url = `${versionPath(slug, number)}/batch${section === undefined ? '' : `?section=${encodeURIComponent(section)}`}`;
+  return requestJson(url, extra.includeIssues ? jsonBody('POST', extra) : { method: 'POST' });
+};
+
+/** Same-origin URL of a version's page. The stage loads it; nothing else builds server paths. */
+export const versionPageUrl = (slug: string, number: number): string =>
+  `/reels/${encodeURIComponent(slug)}/v${number}/index.html`;
+
+export const workingPartsPageUrl = (slug: string, key: string): string => `/reels/${encodeURIComponent(slug)}/working/index.html?state=${encodeURIComponent(key)}`;
+export const alternatePageUrl = (slug: string, version: number, shot: string, revision: string, workingKey?: string): string => `${workingKey ? workingPartsPageUrl(slug, workingKey) + '&' : `/reels/${encodeURIComponent(slug)}/v${version}/alternate.html?`}shot=${encodeURIComponent(shot)}&revision=${encodeURIComponent(revision)}`;
+
+/** Listens to the server's change events. Returns the function that stops listening; the browser reconnects on its own. */
+export function subscribe(onEvent: (event: ProjectEvent) => void): () => void {
+  const source = new EventSource('/api/events');
+  source.onmessage = (message: MessageEvent<string>) => {
+    try {
+      onEvent(JSON.parse(message.data) as ProjectEvent);
+    } catch {
+      // A message that is not an event is ignored.
+    }
+  };
+  return () => source.close();
+}
+
+/** Same-origin URL of a footage reel's footage file (served with byte ranges so video can seek). */
+export const footageUrl = (slug: string): string => `/footage/${encodeURIComponent(slug)}`;
+export const footageAudioUrl = (slug: string): string => `${footageUrl(slug)}/audio`;
+export const fetchMediaModel = (slug: string): Promise<MediaEditingModel> => getJson(`/api/reels/${encodeURIComponent(slug)}/media-model`);
+
+export const mediaUrl = (source: string, saved?: { reel: string; version: number; working?: boolean }): string => saved
+  ? `/media/${encodeURIComponent(saved.reel)}/${saved.version}/${encodeURIComponent(source)}${saved.working ? '?working=1' : ''}`
+  : `/media/${encodeURIComponent(source)}`;
+export const mediaAudioUrl = (id: string, saved?: { reel: string; version: number; working?: boolean }): string => {
+  const params = new URLSearchParams();
+  if (saved) {
+    params.set('reel', saved.reel);
+    params.set('version', String(saved.version));
+    if (saved.working) params.set('working', '1');
+  }
+  const query = params.toString();
+  return `/api/media/${encodeURIComponent(id)}/audio${query ? `?${query}` : ''}`;
+};
+export const mediaFileUrl = mediaUrl;
+
+export const fetchMedia = async (filter: MediaFilter = {}): Promise<MediaEntry[]> => {
+  const params = new URLSearchParams();
+  if (filter.kind) params.set('kind', filter.kind);
+  if (filter.search) params.set('search', filter.search);
+  const q = params.toString(); return (await getJson<{ media: MediaEntry[] }>(`/api/media${q ? `?${q}` : ''}`)).media;
+};
+export const fetchWaveform = (source: string, saved?: { reel: string; version: number; working?: boolean }): Promise<MediaWaveform> => {
+  const params = new URLSearchParams();
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); if (saved.working) params.set('working', '1'); }
+  const q = params.toString(); return getJson(`/api/media/${encodeURIComponent(source)}/waveform${q ? `?${q}` : ''}`);
+};
+const speechPath = (source: string, saved?: { reel: string; version: number }): string => {
+  const params = new URLSearchParams();
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
+  const q = params.toString(); return `/api/media/${encodeURIComponent(source)}/speech${q ? `?${q}` : ''}`;
+};
+export const fetchSpeech = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => getJson(speechPath(source, saved));
+export const detectMediaBeats = (source: string, saved?: { reel: string; version: number }, fresh = false): Promise<import('../../../../server/core/model.ts').BeatGrid> => {
+  const params = new URLSearchParams({ fresh: String(fresh) });
+  if (saved) { params.set('reel', saved.reel); params.set('version', String(saved.version)); }
+  return requestJson(`/api/media/${encodeURIComponent(source)}/beats?${params}`, { method: 'POST' });
+};
+/** Starts the source's transcription, or retries a failed one. Cached words come straight back. */
+export const transcribeMedia = (source: string, saved?: { reel: string; version: number }): Promise<MediaSpeech> => requestJson(speechPath(source, saved), { method: 'POST' });
+export const fetchProjectMedia = async (): Promise<ProjectMediaFile[]> => (await getJson<{ files: ProjectMediaFile[] }>('/api/media/project')).files;
+export const referenceMedia = (path: string): Promise<ImportedMedia> => requestJson('/api/media/reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) });
+export const relinkMedia = (source: string, path: string): Promise<MediaEntry> => requestJson('/api/media/relink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, path }) });
+export const importMedia = (file: File): Promise<ImportedMedia> => requestJson(`/api/media?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+export const fetchSoundEffects = async (): Promise<SoundEffect[]> => (await getJson<{ effects: SoundEffect[] }>('/api/sound-effects')).effects;
+export const soundEffectUrl = (id: string): string => `/sound-effects/${encodeURIComponent(id)}`;
+export const importSoundEffect = (id: string): Promise<ImportedMedia> => requestJson(`/api/sound-effects/${encodeURIComponent(id)}`, { method: 'POST' });
+/** Prefer extracted audio; older/missing routes fall back to the source bytes. */
+export async function mediaAudioBytes(source: string): Promise<ArrayBuffer> {
+  const url = new URL(source, window.location.origin);
+  const segments = url.pathname.split('/').filter(Boolean);
+  let audio: URL | null = null;
+  if (segments[0] === 'media' && (segments.length === 2 || segments.length === 4)) {
+    const saved = segments.length === 4 ? { reel: decodeURIComponent(segments[1]!), version: Number(segments[2]), working: url.searchParams.get('working') === '1' } : undefined;
+    audio = new URL(mediaAudioUrl(decodeURIComponent(segments.at(-1)!), saved), url.origin);
+  } else if (segments[0] === 'api' && segments[1] === 'media' && segments.length === 3) {
+    const reel = url.searchParams.get('reel');
+    audio = new URL(mediaAudioUrl(decodeURIComponent(segments[2]!), reel ? { reel, version: Number(url.searchParams.get('version')), working: url.searchParams.get('working') === '1' } : undefined), url.origin);
+  } else if (segments[0] === 'footage' && segments.length === 2) {
+    audio = new URL(footageAudioUrl(decodeURIComponent(segments[1]!)), url.origin);
+  }
+  if (!audio) return mediaBytes(source);
+  const response = await fetch(audio.href);
+  if (response.status === 404) return mediaBytes(source);
+  if (!response.ok) throw new Error('The sound could not be loaded. Check the source and retry.');
+  return response.arrayBuffer();
+}
+
+export async function mediaBytes(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('The sound could not be loaded. Check the source and retry.');
+  return response.arrayBuffer();
+}
+
+/** A video in the project, as the New reel screen lists it. */
+export interface VideoEntry {
+  /** Relative to the project folder. */
+  path: string;
+  name: string;
+  /** A reel name taken from the file name. */
+  suggestedTitle: string;
+  /** Seconds. */
+  duration: number;
+  codec: string;
+  /** Bytes. */
+  size: number;
+}
+
+/** The project's videos, for the New reel screen. */
+export const listVideos = async (): Promise<VideoEntry[]> => (await getJson<{ videos: VideoEntry[] }>('/api/videos')).videos;
+
+/** Starts a reel from a short brief. It has no version until one is built; `request` is what to hand to whoever builds it. */
+export const startReelFromBrief = (input: { title: string; brief: string }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
+
+export type DeadAirStrength = 'gentle' | 'normal' | 'tight';
+
+export interface NewReelInput {
+  made?: 'auto' | 'direct';
+  agentConfirmed?: boolean;
+  videoType?: 'explainer' | 'interview' | 'tutorial' | 'demo' | 'short' | 'lecture' | 'vlog';
+  broll?: 'light' | 'medium' | 'heavy';
+  captions?: 'off' | 'phrases' | 'word-by-word' | 'word by word';
+  pace?: 'calm' | 'normal' | 'fast';
+  notes?: string;
+  video: string;
+  title?: string;
+  deadAir?: DeadAirStrength | false;
+}
+
+/** Starts a reel from a video in the project. Resolves with the new reel's slug at once; transcription and v1 follow in the background. */
+export const startReel = (input: NewReelInput): Promise<{ slug: string }> =>
+  requestJson('/api/reels', jsonBody('POST', {
+    ...input,
+    ...(input.captions !== undefined ? { captions: input.captions === 'word by word' ? 'word-by-word' : input.captions } : {}),
+  }));
+
+export const fetchAgentSettings = (): Promise<AgentSettings> => getJson('/api/agent/settings');
+export const saveAgentSettings = (input: AgentProvider | { provider?: AgentProvider; confirmed?: true }): Promise<AgentSettings> =>
+  requestJson('/api/agent/settings', jsonBody('PUT', typeof input === 'string' ? { provider: input } : input));
+export const checkAgents = async (): Promise<AgentPresence[] & { agents: AgentPresence[] }> => {
+  const result = await getJson<{ agents: AgentPresence[] }>('/api/agent/check');
+  const arr = (result.agents ?? []) as AgentPresence[] & { agents: AgentPresence[] };
+  arr.agents = result.agents ?? [];
+  return arr;
+};
+export const fetchReelAgentJob = async (slug: string): Promise<AgentJob | null> =>
+  (await getJson<{ job: AgentJob | null }>(`/api/reels/${encodeURIComponent(slug)}/agent`)).job;
+export const cancelReelAgentJob = async (slug: string): Promise<AgentJob> =>
+  (await requestJson<{ job: AgentJob }>(`/api/reels/${encodeURIComponent(slug)}/agent`, { method: 'DELETE' })).job;
+export const regenerateReel = (slug: string): Promise<AgentJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/regenerate`, jsonBody('POST', {}));
+export const retryReelAgentJob = (slug: string): Promise<AgentJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/agent/retry`, jsonBody('POST', {}));
+export const copyReelAgentJob = (slug: string): Promise<{ request: string }> =>
+  getJson(`/api/reels/${encodeURIComponent(slug)}/agent/copy`);
+
+/** How the reel's transcription stands, or null when none has run since the server started. */
+export const fetchTranscription = async (slug: string): Promise<TranscriptionProgress | null> =>
+  (await getJson<{ progress: TranscriptionProgress | null }>(`/api/reels/${encodeURIComponent(slug)}/transcription`)).progress;
+
+/** A reel's unsaved edits. A `stale` list was made on a version that is no longer the newest. */
+export interface EditList {
+  frozen?: number;
+  editsSinceFreeze?: number;
+  base: number;
+  operations: Operation[];
+  canUndo: boolean;
+  canRedo: boolean;
+  /** Edits replayed from this authored base, with history for the new base. */
+  replayedFrom?: number;
+  stale?: true;
+  /** A comment batch is out. Working stays editable until the next version or cancellation. */
+  handedOff?: { version: number; copiedAt: string; reason: string };
+  /** Operations that no longer apply to the newest version, by id, with why. They are left out of the preview and a save leaves them out. */
+  flagged?: Record<string, string>;
+  /** Where each flagged operation acts on the newest version, by id, when it has a place: the time and the shot to show it at. */
+  flaggedAt?: Record<string, { time: number; shot?: string }>;
+  /** The last save left these edits out because they no longer applied. Undo brings them back, flagged. */
+  skipped?: { version: number; edits: { id: string; text: string; shot?: string; time?: number }[] };
+}
+
+const editsPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/edits`;
+export type { TimelineMarker } from '../../../../server/core/index.ts';
+type Marker = import('../../../../server/core/index.ts').TimelineMarker;
+const markersPath = (slug: string): string => `/api/reels/${encodeURIComponent(slug)}/markers`;
+export const fetchMarkers = (slug: string): Promise<Marker[]> => getJson(markersPath(slug));
+export const addMarker = (slug: string, input: { time: number; name: string }): Promise<Marker> => requestJson(markersPath(slug), jsonBody('POST', input));
+export const changeMarker = (slug: string, id: string, changes: Partial<{ time: number; name: string }>): Promise<Marker> => requestJson(`${markersPath(slug)}/${encodeURIComponent(id)}`, jsonBody('PATCH', changes));
+export const removeMarker = async (slug: string, id: string): Promise<void> => { const response = await fetch(`${markersPath(slug)}/${encodeURIComponent(id)}`, { method: 'DELETE' }); if (!response.ok) throw new Error('The marker could not be removed.'); };
+
+export const fetchEdits = (slug: string): Promise<EditList> => getJson(editsPath(slug));
+export const addOperation = (slug: string, operation: NewOperation): Promise<EditList> => requestJson(editsPath(slug), jsonBody('POST', operation));
+/** Drops one operation and keeps the later ones. */
+export const removeOperation = (slug: string, id: string): Promise<EditList> => requestJson(`${editsPath(slug)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const undoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/undo`, { method: 'POST' });
+export const redoEdit = (slug: string): Promise<EditList> => requestJson(`${editsPath(slug)}/redo`, { method: 'POST' });
+export const discardEdits = (slug: string): Promise<EditList> => requestJson(editsPath(slug), { method: 'DELETE' });
+/** Ends the hand-off a copied batch started, keeping Working and its history. */
+export const cancelHandoff = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/handoff`, { method: 'DELETE' });
+/** Dismisses the note about edits the last save left out. They stay in Undo. */
+export const dismissSkipped = (slug: string): Promise<EditList> => requestJson(`/api/reels/${encodeURIComponent(slug)}/skipped-edits`, { method: 'DELETE' });
+/** Builds the next version from the edits. Resolves with its number. */
+
+/** Takes back a video dropped into footage/: the server deletes it unless a reel uses it, and says which it did. */
+export const removeVideo = (path: string): Promise<{ removed: boolean }> =>
+  requestJson(`/api/footage?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+
+/**
+ * Sends a dropped video into the project's footage/ folder, reporting the share sent so far (0 to 1). XHR rather than
+ * fetch, because fetch reports no upload progress and a video can take a while to send.
+ */
+export const importVideo = (file: File, onProgress?: (sent: number) => void): Promise<{ path: string; copied: boolean }> =>
+  new Promise((resolve, reject) => {
+    const path = `/api/footage?name=${encodeURIComponent(file.name)}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', path);
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+    xhr.responseType = 'json';
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      const body = xhr.response as { path: string; copied: boolean; error?: string } | null;
+      if (xhr.status >= 200 && xhr.status < 300 && body !== null) resolve(body);
+      else reject(new Error(body?.error ?? `Request to ${path} failed (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error('Could not reach the Kinotta server'));
+    xhr.send(file);
+  });
+
+export const fetchWorkingVersion = (slug: string): Promise<Version> => getJson(`/api/reels/${encodeURIComponent(slug)}/working`);
+export const renderWorking = (slug: string, preset: RenderPreset, settings: RenderSettings, acceptOverload = false): Promise<RenderJob> =>
+  requestJson(`/api/reels/${encodeURIComponent(slug)}/working-render`, jsonBody('POST', { preset, ...settings, remember: true, acceptOverload }));
+
+// Auto and Direct, Direction (appended block).
+/** The picture as shown, when the server's probe could read it: Direction's Frame is detected from these. */
+export interface VideoEntry { width?: number; height?: number }
+/** A saved or built-in style by id (Auto), or a whole style as Direction left it (Direct); the reel keeps its own copy. */
+export type StyleChoice = { id: string } | Style;
+export interface NewReelInput { style?: StyleChoice }
+/** Starts a code-built reel from a brief in a chosen style. */
+export const startStyledBrief = (input: { title: string; brief: string; style: StyleChoice; made?: 'auto' | 'direct' }): Promise<{ slug: string; request: string }> =>
+  requestJson('/api/reels/brief', jsonBody('POST', input));
+export type { BrandFonts } from '../../../../server/core/index.ts';
+/** The brand fonts Direction preselects: the project's, or Kinotta's built-in brand's. */
+export const fetchBrandFonts = (): Promise<import('../../../../server/core/index.ts').BrandFonts> => getJson('/api/brand/fonts');
+/** Copies a font dropped on Direction into the project's fonts/, with a license note. */
+export const importFont = (file: File): Promise<import('../../../../server/core/index.ts').ImportedFont> =>
+  requestJson(`/api/fonts?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+// Effects catalogue (effects-library lane)
+export interface EffectCatalogueEntry {
+  id: string;
+  name: string;
+  category: 'words' | 'lists' | 'speaker' | 'screens' | 'looks' | 'structure';
+  description: string;
+  needs: string;
+  forms: string[];
+  instant: boolean;
+  instantFrom?: string;
+  ask?: string;
+}
+
+export const fetchEffectsBox = async (): Promise<string[]> => (await getJson<{ ids: string[] }>('/api/effects/box')).ids;
+export const saveEffectsBox = async (ids: string[]): Promise<string[]> => (await requestJson<{ ids: string[] }>('/api/effects/box', jsonBody('PUT', { ids }))).ids;
+export const fetchEffects = async (): Promise<EffectCatalogueEntry[]> => (await getJson<{ effects: EffectCatalogueEntry[] }>('/api/effects')).effects;
+
+export const effectPreviewUrl = (id: string, file: string): string =>
+  `/api/effects/${encodeURIComponent(id)}/preview/${encodeURIComponent(file)}`;
+
+const gradedPreviewPath = (reel: string, placement: string, kind: 'graded-still' | 'graded-playback', version: number, working?: boolean): string => {
+  const params = new URLSearchParams({ version: String(version) });
+  if (working) params.set('working', '1');
+  return `/api/reels/${encodeURIComponent(reel)}/placements/${encodeURIComponent(placement)}/${kind}?${params}`;
+};
+export const gradedStillUrl = (reel: string, placement: string, time: number, width: number, context: { version: number; working?: boolean }, grade?: import('../../../../server/core/model.ts').Grade): string => {
+  const params = new URLSearchParams({ time: String(time), width: String(width) });
+  if (grade !== undefined) params.set('grade', JSON.stringify(grade));
+  return `${gradedPreviewPath(reel, placement, 'graded-still', context.version, context.working)}&${params}`;
+};
+export const fetchGradedPlayback = (reel: string, placement: string, context: { version: number; working?: boolean }): Promise<{ status: 'rendering' } | { url: string; offset: number }> => getJson(gradedPreviewPath(reel, placement, 'graded-playback', context.version, context.working));

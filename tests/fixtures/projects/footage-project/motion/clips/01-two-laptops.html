@@ -1,0 +1,18 @@
+<title>01 Two laptops</title>
+<style>.lap{position:absolute;width:499px;height:333px;background:#2B3038;border-bottom:10px solid #9AA1AB;box-sizing:border-box}</style>
+<div data-slot="world">
+  <div class="lap" id="laptop-left" style="left:-653px;top:-101px"></div>
+  <div class="lap" id="laptop-right" style="left:154px;top:-101px"></div>
+</div><!--/world-->
+<div data-slot="shape">
+  <div class="L" id="Ldoc"><div class="a" id="document"></div></div>
+</div><!--/shape-->
+<script>
+const $=id=>document.getElementById(id);
+M.scene({
+  W:1920,H:1080,bg:'#E9E4DA',T:3.2,center:[960,425],intro:null,
+  SH:{doc:{w:230,h:288,r:10,bg:'#FF8A1F',cam:1}, open:{w:270,h:338,r:12,bg:'#FF8A1F',cam:1}},
+  start:'doc', SEQ:[[1.6,'open']],
+  layers:[{el:'Ldoc',tin:null,tout:null,update:(t,g)=>{const d=$('document').style;d.left=-g.w/2+'px';d.top=-g.h/2+'px';d.width=g.w+'px';d.height=g.h+'px';}}],
+});
+</script>

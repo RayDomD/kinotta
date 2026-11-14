@@ -1,0 +1,4 @@
+[data-scene="shape-morph"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="shape-morph"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="shape-morph"] .shape { position:absolute; left:50%; top:50%; box-sizing:border-box; background:var(--fx-accent); }
+[data-scene="shape-morph"] .title { position:absolute; inset:0; display:grid; place-items:center; font-size:64px; text-align:center; color:var(--fx-ink); padding:50px; }

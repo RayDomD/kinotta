@@ -1,0 +1,3 @@
+/* One spoken word at a time, filling the frame. data-at is the word's local start in seconds. */
+[data-scene="big-word"] .words { position: absolute; inset: 0; display: grid; place-items: center; }
+[data-scene="big-word"] .word { grid-area: 1 / 1; font-family: var(--fx-font); font-size: 260px; font-weight: 700; line-height: 1; letter-spacing: -.045em; text-transform: uppercase; color: var(--fx-ink); text-shadow: 0 6px 30px oklch(.1 0 0 / .35); }

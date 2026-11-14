@@ -1,0 +1,6 @@
+/* The line types at data-cps characters per second from data-type-at, then Send is pressed. */
+[data-scene="prompt"] .field { position: absolute; left: 50%; top: 150px; width: 1100px; margin-left: -550px; display: flex; align-items: center; gap: 20px; padding: 22px 22px 22px 36px; border-radius: 24px; background: var(--fx-ink); box-shadow: var(--fx-shadow); font-family: var(--fx-font); transform-origin: 50% 0; }
+[data-scene="prompt"] .text { flex: 1; margin: 0; font-size: 40px; font-weight: 500; color: var(--fx-panel); white-space: pre; overflow: hidden; }
+[data-scene="prompt"] .caret { display: inline-block; width: 3px; height: 1.05em; margin-left: 3px; vertical-align: -.15em; background: currentColor; }
+[data-scene="prompt"] .send { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--fx-panel); }
+[data-scene="prompt"] .send svg { width: 30px; height: 30px; fill: none; stroke: var(--fx-ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }

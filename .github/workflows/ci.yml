@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # Unit suites shell out to ffmpeg/ffprobe, the renderer's Chromium and synth.py (numpy, scipy).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg python3-numpy python3-scipy
+      - run: npx playwright install --with-deps chromium
+      # Render and process-heavy suites need stable timing; they stay local.
+      - run: npx vitest run --project unit

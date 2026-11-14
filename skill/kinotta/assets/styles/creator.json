@@ -1,0 +1,14 @@
+{
+  "id": "creator",
+  "name": "Creator",
+  "scope": "builtin",
+  "look": "creator",
+  "settings": {
+    "broll": "heavy",
+    "captions": "word-by-word",
+    "pace": "fast"
+  },
+  "yours": [],
+  "effects": [],
+  "rules": []
+}

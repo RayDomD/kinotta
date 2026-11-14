@@ -1,0 +1,10 @@
+{
+  "contract": 1,
+  "duration": 3.8,
+  "shots": [
+    { "number": "01", "start": 0.5, "title": "Slider at low",
+      "description": "The card waits with the effort slider at Low and one block of the castle." },
+    { "number": "02", "start": 3.5, "title": "Castle at max",
+      "description": "The cursor drags the slider to Max and the castle builds up block by block." }
+  ]
+}

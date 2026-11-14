@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B-roll cutdown v1</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#15130f;font-family:system-ui,sans-serif}
+[data-scene]{position:absolute;inset:0;display:none;place-items:center}
+[data-scene].active{display:grid}
+.a{background:#2a211a;color:#efe9df;font:700 8vh/1 system-ui}
+.b{background:#10151c;color:#9fd4ff;font:700 6vh/1 ui-monospace,monospace}
+</style></head>
+<body>
+<section class="a" data-scene="keyboard" data-start="0" data-duration="4"><span data-el="caption">Hands on keyboard</span></section>
+<section class="b" data-scene="screen" data-start="4" data-duration="4"><span data-el="prompt">&gt; ship it_</span></section>
+<script>
+window.DURATION = 8;
+var scenes = Array.prototype.slice.call(document.querySelectorAll('[data-scene]'));
+window.seek = function (t) {
+  scenes.forEach(function (s) {
+    var start = parseFloat(s.dataset.start), end = start + parseFloat(s.dataset.duration);
+    s.classList.toggle('active', t >= start && t < end);
+  });
+};
+window.seek(0);
+</script>
+</body></html>

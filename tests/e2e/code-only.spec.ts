@@ -1,0 +1,69 @@
+import { reviewClockText, focusReview } from '../helpers/review-clock.ts';
+import { freezeWorking, revealReelRail } from '../helpers/review-rail.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
+import { projectFile, serverUrl } from './ports.ts';
+
+const SAVE_WAIT_MS = 30_000;
+const PROJECT_FILE = projectFile('code-only');
+const DRAG_PX = 40;
+
+// The showreel sample: reels built from code, with no footage and no plan. Its own server (playwright.config.ts).
+test.use({ baseURL: serverUrl('codeOnly') });
+test.describe.configure({ mode: 'serial' });
+
+const review = (page: Page): Locator => page.getByRole('main', { name: 'Review' });
+
+test('drag an element on a code-only reel, Save, and see it moved in the next version; Final freezes the picture', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
+  await page.getByRole('navigation', { name: 'Phase' }).getByRole('button', { name: 'Edit', exact: true }).click();
+  await revealReelRail(page);
+  const tools = review(page).getByRole('toolbar', { name: 'Timeline tools' });
+  await expect(tools).toBeVisible();
+
+  // Whole-reel cuts stay off. Shots move independently on the Picture row.
+  await expect(tools.getByRole('button', { name: /^Blade/ })).toBeEnabled();
+  await expect(tools.getByRole('button', { name: /^Snip/ })).toBeDisabled();
+  await expect(review(page).getByText(/Drag or trim shots in the Picture row/)).toBeVisible();
+
+  // The first scene is on show at the start: click its cube, drag it.
+  const frame = page.frameLocator('iframe[title="Authored graphics"]');
+  const cube = frame.locator('[data-el="cube"]');
+  await expect(cube).toBeVisible();
+  const before = (await cube.boundingBox())!;
+  const grab = { x: before.x + before.width / 2, y: before.y + before.height / 2 };
+  await page.mouse.click(grab.x, grab.y);
+  await expect(review(page).getByTestId('element-tag')).toContainText(/cube-lands · cube\s*\+0, \+0 · 100%/);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + DRAG_PX / 2, grab.y + DRAG_PX / 2, { steps: 4 });
+  await page.mouse.move(grab.x + DRAG_PX, grab.y + DRAG_PX, { steps: 4 });
+  await page.mouse.up();
+
+  const edits = page.getByRole('list', { name: 'Edits' });
+  await expect(edits.getByRole('listitem')).toHaveCount(1);
+  await expect(edits).toContainText(/Scene cube-lands/);
+  await expect(edits).toContainText(/Moved cube by [1-9]\d*, [1-9]\d* at 100%/);
+  // A timing key does nothing here.
+  await page.keyboard.press('s');
+  await expect(tools.getByRole('button', { name: /^Select/ })).toHaveAttribute('aria-pressed', 'true');
+
+  await freezeWorking(page);
+  const versions = page.getByRole('navigation', { name: 'Current reel', exact: true });
+  await expect(versions.locator('[data-current-version="3"]')).toBeVisible({ timeout: SAVE_WAIT_MS });
+
+  // v3 is v2 plus the stylesheet, and the cube sits at its offset in the new version's page.
+  const reelDir = join(readFileSync(PROJECT_FILE, 'utf8'), 'reels', 'product-showreel');
+  expect(readFileSync(join(reelDir, 'v3', 'kinotta-edits.css'), 'utf8')).toMatch(/\[data-scene="cube-lands"\] \[data-el="cube"\] \{ translate: [1-9]\d*px [1-9]\d*px; \}/);
+  expect(existsSync(join(reelDir, 'v2', 'kinotta-edits.css'))).toBe(false);
+  await expect(versions.getByRole('button', { name: /^Current/ })).toHaveAttribute('aria-current', 'true');
+  const cubeV3 = frame.locator('[data-el="cube"]');
+  await expect(cubeV3).toBeVisible();
+  await expect(cubeV3).toHaveCSS('translate', /^[1-9]\d*px [1-9]\d*px$/);
+  const after = (await cubeV3.boundingBox())!;
+  expect(after.x).toBeGreaterThan(before.x + DRAG_PX / 2);
+  expect(after.y).toBeGreaterThan(before.y + DRAG_PX / 2);
+});

@@ -1,0 +1,14 @@
+{
+  "id": "layered-2d",
+  "name": "Layered 2D",
+  "scope": "builtin",
+  "look": "layered-2d",
+  "settings": {
+    "broll": "medium",
+    "captions": "off",
+    "pace": "normal"
+  },
+  "yours": [],
+  "effects": [],
+  "rules": []
+}

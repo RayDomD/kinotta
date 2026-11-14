@@ -1,0 +1,4 @@
+[data-scene="motif-carry"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="motif-carry"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="motif-carry"] .copy { position:absolute; left:230px; top:300px; width:1180px; font-size:100px; line-height:1.05; }
+[data-scene="motif-carry"] .motif { position:absolute; left:0; top:0; background:var(--fx-accent); }

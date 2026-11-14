@@ -1,0 +1,14 @@
+{
+  "id": "editorial",
+  "name": "Editorial",
+  "scope": "builtin",
+  "look": "editorial",
+  "settings": {
+    "broll": "medium",
+    "captions": "phrases",
+    "pace": "calm"
+  },
+  "yours": [],
+  "effects": [],
+  "rules": []
+}

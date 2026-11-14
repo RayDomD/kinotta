@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product showreel v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#211b16;font-family:system-ui,sans-serif}
+[data-scene]{position:absolute;inset:0;display:none;place-items:center;overflow:hidden}
+[data-scene].active{display:grid}
+.s1{background:#211b16}
+.s1 .cube{width:24vh;height:24vh;background:linear-gradient(135deg,#e8842c,#a8430f);transform:rotate(45deg) skew(8deg,8deg)}
+.s2{background:#efe9df;color:#26221d;font:800 9vh/1 system-ui;letter-spacing:-.03em}
+.s3{background:#efe9df;color:#26221d;font:800 7vh/1.15 system-ui;text-align:center}
+.s3 i{color:#e8741c;font-style:normal}
+.s4{background:#1b1f26;padding:9%;place-items:stretch}
+.s4 .dash{display:grid;grid-template-columns:1fr 2fr;gap:6%;height:100%}
+.s4 .dash div{background:#2c3440}
+.s4 .dash div:first-child{outline:2px solid #ff8a1f}
+.s5{background:#1b1f26}
+.s5 .icons{display:grid;grid-template-columns:repeat(3,1fr);gap:12%;width:38%}
+.s5 .icons span{aspect-ratio:1;background:#d9dde3}
+.s5 .icons span:first-child{background:#ff8a1f}
+.s6{background:#ff8a1f;color:#1d140b;font:800 8vh/1 system-ui}
+</style></head>
+<body>
+<section class="s1" data-scene="cube-lands" data-start="0" data-duration="1.8"><div class="cube" data-el="cube"></div></section>
+<section class="s2" data-scene="logo-lockup" data-start="1.8" data-duration="1.8"><span data-el="wordmark">PRODUCT</span></section>
+<section class="s3" data-scene="word-slams" data-start="3.6" data-duration="2.3"><div data-el="word-stack">FLOWS · SKILLS ·<br><i data-el="icons-word">ICONS</i> · DOCS</div></section>
+<section class="s4" data-scene="dashboard" data-start="5.9" data-duration="2.5"><div class="dash"><div data-el="panel-left"></div><div data-el="panel-main"></div></div></section>
+<section class="s5" data-scene="icons-flows" data-start="8.4" data-duration="3.8"><div class="icons" data-el="agent-grid"><span></span><span></span><span></span><span></span><span></span><span></span></div></section>
+<section class="s6" data-scene="cta" data-start="12.2" data-duration="2.8"><span data-el="cta">Start building →</span></section>
+<script>
+window.DURATION = 15;
+var scenes = Array.prototype.slice.call(document.querySelectorAll('[data-scene]'));
+window.seek = function (t) {
+  scenes.forEach(function (s) {
+    var start = parseFloat(s.dataset.start), end = start + parseFloat(s.dataset.duration);
+    s.classList.toggle('active', t >= start && t < end);
+  });
+};
+window.seek(0);
+</script>
+</body></html>

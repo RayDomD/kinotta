@@ -1,0 +1,107 @@
+// Playwright webServer entry: launches the real Kinotta server against a temp copy of a sample
+// project, with explicit mtimes so the rail order is deterministic.
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { register } from 'tsx/esm/api';
+
+// Exit when the Playwright runner is gone, so an aborted run does not leave this server holding its port.
+const RUNNER_POLL_MS = 2000;
+const runnerPid = Number(process.env.KINOTTA_E2E_RUNNER_PID);
+if (runnerPid) {
+  setInterval(() => {
+    try {
+      process.kill(runnerPid, 0);
+    } catch {
+      process.exit(0);
+    }
+  }, RUNNER_POLL_MS).unref();
+}
+
+// Register before allocating either folder, so a failed fixture copy is cleaned up too.
+const tempRoots = [];
+function cleanup() {
+  for (const root of tempRoots) {
+    try {
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch (error) {
+      // Windows may still hold a file; the next stale sweep is the backstop.
+      console.warn(`Could not remove e2e temp root ${root}: ${error.code}`);
+    }
+  }
+}
+process.once('exit', cleanup);
+// The CLI already closes its server on signals before exiting. The direct-server
+// branches below need the same ordering so cleanup does not race their watchers.
+function closeOnSignals(server) {
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, () => { void server.close().then(() => process.exit()); });
+  }
+}
+
+// The runner owns this parent root even when Windows force-kills this server.
+const runRoot = process.env.KINOTTA_E2E_ROOT;
+if (!runRoot) throw new Error('KINOTTA_E2E_ROOT must be supplied by the Playwright runner');
+
+// Isolate saved styles and migrations from the real home and other fixture servers.
+process.env.KINOTTA_HOME = mkdtempSync(join(runRoot, 'kinotta-e2e-home-'));
+tempRoots.push(process.env.KINOTTA_HOME);
+
+const fixtureName = process.env.KINOTTA_E2E_FIXTURE ?? 'showreel-project';
+const fixture = resolve(import.meta.dirname, '../fixtures/projects', fixtureName);
+const project = mkdtempSync(join(runRoot, 'kinotta-e2e-'));
+tempRoots.push(project);
+cpSync(fixture, project, { recursive: true });
+
+function setMtime(dir, when) {
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) setMtime(path, when);
+    utimesSync(path, when, when);
+  }
+  utimesSync(dir, when, when);
+}
+if (fixtureName === 'showreel-project') {
+  setMtime(join(project, 'reels', 'broll-cutdown'), new Date('2026-01-01T10:00:00Z'));
+  setMtime(join(project, 'reels', 'product-showreel'), new Date('2026-02-01T10:00:00Z'));
+}
+
+// A spec that reads files the server wrote asks for the temp project's path here.
+if (process.env.KINOTTA_E2E_PROJECT_FILE) writeFileSync(process.env.KINOTTA_E2E_PROJECT_FILE, project);
+
+register();
+// The engine sample's pages are built by the engine at start, so they show what it builds today.
+if (fixtureName === 'engine-project') (await import('../helpers/engine.ts')).buildEngineProject(project);
+if (fixtureName === 'broll-project') (await import('../helpers/engine.ts')).buildBrollProject(project);
+if (process.env.KINOTTA_E2E_GATED_TRANSCRIBER) {
+  // Reports 4 of the 12 seconds after a pause, then holds the words until the spec creates this file in the project.
+  const { startServer } = await import('../../server/main.ts');
+  const gate = join(project, '.release-transcript');
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const transcriber = async (_video, onProgress) => {
+    await sleep(1500);
+    onProgress?.(4);
+    while (!existsSync(gate)) await sleep(100);
+    onProgress?.(12);
+    return words;
+  };
+  const server = await startServer({ projectDir: project, port: Number(process.env.KINOTTA_E2E_PORT), transcriber });
+  closeOnSignals(server);
+  console.log(`Kinotta: ${server.url}`);
+} else if (process.env.KINOTTA_E2E_FAKE_TRANSCRIBER) {
+  // The server that starts reels gets fixed words instead of running the audio transcription.
+  const { startServer } = await import('../../server/main.ts');
+  const words = [
+    { text: 'hello', start: 0.5, end: 0.9 },
+    { text: 'there', start: 1, end: 1.4 },
+  ];
+  const server = await startServer({ projectDir: project, port: Number(process.env.KINOTTA_E2E_PORT), transcriber: async () => words });
+  closeOnSignals(server);
+  console.log(`Kinotta: ${server.url}`);
+} else {
+  const { main } = await import('../../server/cli.ts');
+  await main(['--project', project, '--port', process.env.KINOTTA_E2E_PORT ?? '4399', '--no-open']);
+}

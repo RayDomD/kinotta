@@ -1,0 +1,16 @@
+<title>02 Conflict counter</title>
+<style>.pn{position:absolute;left:-384px;top:-335px;width:768px;height:670px;display:grid;place-items:center;text-align:center;color:#1D1A16;font-size:48px;font-weight:800;line-height:1.05;letter-spacing:-.02em}
+.pn small{display:block;margin-top:28px;font-size:26px;font-weight:600;letter-spacing:0;color:#6F675C}.pn b{color:#D24B1F}</style>
+<div data-slot="shape">
+  <div class="L" id="Lcount"><div class="pn" id="conflict-panel"><div><b id="count">12</b> conflicts<small>and counting</small></div></div></div>
+</div><!--/shape-->
+<script>
+const $=id=>document.getElementById(id);
+M.scene({
+  W:1920,H:1080,bg:null,T:3.0,center:[1421,486],intro:null,
+  SH:{panel:{w:768,h:670,r:24,bg:'#F2EDE4',cam:1}},
+  start:'panel', SEQ:[],
+  // One more conflict on each keystroke beat.
+  layers:[{el:'Lcount',tin:null,tout:null,update:(t)=>M.setText($('count'),String(12+Math.floor(t/0.4)))}],
+});
+</script>

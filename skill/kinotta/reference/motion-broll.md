@@ -1,0 +1,139 @@
+<!-- Copied from the standalone motion-broll skill's SKILL.md (2026-10-03, T18). In this copy, `$SKILL` means the
+Kinotta skill folder. For a Kinotta footage reel, the Kinotta SKILL.md wins wherever the two disagree. -->
+
+# Motion B-roll
+
+You make motion-graphic clips for a creator's video. Every clip is **one shape that never cuts**: it morphs its size, corners and colour from state to state while its content swaps with a short blur. A cursor drives the changes with real clicks and drags, and every change lands on a spoken word.
+
+The output is a set of clips the creator drops into their editor. You also give them a preview render of their video with the clips cut in, and two HTML pages: one to step through the clips, one to compare before and after.
+
+Everything you need is in this skill folder:
+
+- `engine/`: the motion engine (`motion.js`), the page shell (`base.css`), `build.py` (clip → self-contained HTML), `render.js` (frame-by-frame render with motion blur), `beats.js` (contact sheets of stills), fonts (Geist, OFL).
+- `scripts/`: `setup.sh`, `inspect_video.py`, `words.py`, `make_pages.py`.
+- `reference/engine-api.md`: how to write a clip. **Read it before writing your first clip.**
+- `examples/opus-aoe2/`: six finished clips for a real 54-second video. Use them as the quality bar and as starting points.
+
+Below, `$SKILL` means this skill's folder. Work in a `motion/` folder in the user's project.
+
+## 1. Set up (first run only)
+
+```bash
+bash $SKILL/scripts/setup.sh ./motion
+```
+
+This checks for Node, Python 3 and ffmpeg, and installs Playwright + Chromium into `motion/node_modules`. Run every engine script with `NODE_PATH=./motion/node_modules`.
+
+## 2. Interview
+
+Follow [direction.md](../stages/direction.md) for the interview and choice sheets.
+
+## 3. Inspect the footage
+
+```bash
+python3 $SKILL/scripts/inspect_video.py motion/work/source.mp4 motion/work
+python3 $SKILL/scripts/words.py transcript.srt > motion/work/words.txt
+```
+
+Look at `motion/work/contact.png` yourself. `video.json` gives resolution, fps and layout sections:
+- **full:** the speaker fills the frame.
+- **pip:** the speaker is in a box and the rest is empty. It includes the box position and a warning if the box changes size or moves.
+
+Clips must match the video's resolution and fps. Word times from an SRT are estimates (±0.2s); treat them as such.
+
+## 4. Plan, and get approval before any code
+
+Show a table with one row per clip:
+
+| # | In–Out | The line it covers | What the shape does, on which words | Treatment | Why |
+
+**Creative direction: decide how much of the frame each clip takes.** This is the most important call; make it per clip and give the reason.
+
+- **Full-frame cutaway.** The frame is all speaker, and the line describes something to *see*: a product, a process, a comparison, a number, a chapter change.
+  - Cut away for the length of the idea (3–10s), then give the face back.
+  - Don't cut away in the first second of the hook or on personal, emotional or opinion lines.
+  - Leave at least ~2s of face between cutaways.
+- **Panel in the empty space.** The edit already leaves room: a PiP box, a split, a plain region.
+  - Render a transparent clip (`bg:null`) centred in the empty area, sized to stay clear of the speaker's box at every moment.
+  - It can run long (15s+) as one continuous morph, because the speaker stays on screen.
+  - If `inspect_video.py` reports the box changing, ask whether that's intended, then size for the largest box or split the panel at the change.
+- **Nothing.** The line is about the speaker, or it's too close to another clip.
+
+**Content rules:**
+- Show the subject's real objects: the folder, the terminal, the file, the product, the result. Pull them from the words. Map each idea onto an interaction from the vocabulary in `reference/engine-api.md` (pill + click, progress, check, status island, card with a drag, slider, toggle, tabs, chart + tooltip, search/filter, file drag-and-drop, terminal typing, side-by-side comparison, chapter card).
+- **Never invent numbers, quotes, prices or results.** Use relative bars, skeleton text lines or labels taken from the transcript, and list what is illustrative. Put real figures in only when the user gives them.
+- One idea per clip. A continuous stretch (a whole PiP section) can be one long clip with several states.
+- Pace to speech, not music: one change per spoken beat, about 0.4–1.2s apart.
+
+Wait for the user to approve or edit the plan.
+
+## 5. Build
+
+Write one fragment per clip in `motion/clips/NN-name.html`, following `reference/engine-api.md` and the examples. Then build:
+
+```bash
+python3 $SKILL/engine/build.py motion/dist motion/clips/*.html
+```
+
+Put each state change on its word: clip-local time = word time − clip in-point.
+
+## 6. Check stills on the key words and every beat
+
+Follow [check.md](../stages/check.md) for still checks.
+
+## 7. Render
+
+```bash
+NODE_PATH=./motion/node_modules node $SKILL/engine/render.js motion/dist/NN-name.html motion/out/NN-name_0m32s40.mp4 30000/1001
+```
+
+- Use the video's fps.
+- Panel clips (`bg:null`) must be written to `.mov`, which gives ProRes 4444 with alpha.
+- Name each file by its timeline in-point (`0m32s40` = 0:32.40).
+- Rendering takes 4 subframes per frame, so it is slower than real time. Run two clips in parallel on a multi-core machine.
+
+## 8. Deliver
+
+Before hand-over, measure readable intervals: tags at least 0.8 s, titles at least 1.5 s.
+Check that inserts and captions cover neither the speaker nor key words; document intentional
+full-frame cutaways separately. Run a short sample on light and dark grounds before the full
+render and inspect contrast, clipping and grain. Record intervals, samples and corrections in
+the reel's notes. Use the optional effects only when they serve the concept.
+
+
+Write `motion/plan.json` (schema in `reference/engine-api.md`). The preview is a Draft render of the reel's version,
+made by Kinotta (`kinotta render <reel> v<n> --preset draft` prints the file's path); copy it to
+`motion/out/preview.mp4`, then:
+
+```bash
+python3 $SKILL/scripts/make_pages.py motion/plan.json motion/out/preview.mp4
+```
+
+The user gets, all in `motion/out/`:
+- the clips
+- `TIMING.md`: file, in, out, the line it covers, the treatment, and what is illustrative
+- `preview.mp4`: their video cut by the plan's pieces with the clips and captions over it, original audio
+- `viewer.html`: step through the clips
+- `compare.html`: original vs preview, synced, as side by side, stacked or wipe
+
+Say plainly that the preview is for review: for the final cut they place the clips in their own editor, where they can nudge timing, add transitions and mix audio.
+
+## Style defaults
+
+The user's brand overrides these.
+
+- **Colour:** canvas `#E9E7E2`, ink `#0B0B0B`, white components, one accent `#FF5A1F`. Panel clips on dark footage use light shapes (`#F4F2EE`).
+- **Type and icons:** Geist for UI text, Geist Mono for code, file names and terminals. One icon set with one stroke weight (`M.icon`).
+- **Motion:** the engine's rise/state/sink curves and bounded state presets, sourced in `docs/research/2026-10-20-engine-defaults.md`. The signature entrance settles from 1.07 scale, 26px down and 20px blur over .5s. Brand curves override these; explicit spring pairs remain available for authored motion.
+- **Type scale:** display/headline/title/body/label/figure are 80/36/20/16/13/72px, exposed as `--type-*` tokens and `.type-*` classes. Video title/row/minimum tokens are 12.6/5.2/4.8vw. Geist remains the bundled OFL default; a plan's brand fonts override it.
+- **Banned:** unmotivated bouncy easing (playful drop-ins may use three steps and one small settle), particles, glows, gradients on UI chrome, mixed icon strokes, dead time, made-up data. Vary the shared effect templates across shots as section 5 of the Kinotta skill requires.
+
+## Gotchas
+
+- Never put `will-change` on anything the camera scales; text renders blurry.
+- Text swapping inside a morphing container needs its own enter and exit timing (`M.vis` din/lin/lout), or the old and new text overlap.
+- `mix-blend-mode: difference` labels must sit in a layer that has the blend mode itself. A filtered parent isolates them.
+- Items that slide under a highlight need `M.FAST` springs, or the highlight row sits empty for a moment.
+- Keep the cursor inside the frame at every camera zoom, including during morphs.
+- Word estimates from an SRT drift within a cue; put important changes on the first or last word of a cue when you can.
+- A clip ends by holding its last state; the composed page holds the last frame if its slot is longer.

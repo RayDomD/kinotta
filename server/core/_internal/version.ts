@@ -1,0 +1,267 @@
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import { EDITS_CSS, codeSources, isCodeOnly, readEditsCss } from './code-edits.ts';
+import { checkShotsAgainstPage, checkShotsFile, scanVersionPage } from './contract.ts';
+import { checkPartsManifest } from './parts.ts';
+import { assertPartsHashes, partsRevisionHashes, readPartsInputs } from './parts-files.ts';
+import { detectChanges } from './changes.ts';
+import { KinottaError } from './errors.ts';
+import { SAFE_SLUG, addFootage } from './footage.ts';
+import { readTitle } from './reels.ts';
+import { brollRequest } from './requests.ts';
+import { readSections } from './sections.ts';
+import { readState, stateFilePath, writeFileAtomic } from './state.ts';
+import { versionIssues } from './footage-issues.ts';
+import type { Overlay, Shot, Version, VersionEntry } from './types.ts';
+
+const REELS_DIR = 'reels';
+const SHOTS_FILE = 'shots.json';
+const PAGE_FILE = 'index.html';
+const STORYBOARD_VERSION = 1;
+const UNTITLED_SHOT = 'Untitled shot';
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+const isFile = (path: string): Promise<boolean> => stat(path).then((s) => s.isFile(), () => false);
+
+/** Regenerate needs a version-local plan, including versions frozen with a media plan. */
+export const canAgentRegenerate = (versionDir: string): Promise<boolean> => isFile(join(versionDir, 'plan.json'));
+
+async function versionNumbers(reelDir: string): Promise<number[]> {
+  return (await readdir(reelDir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory())
+    .map((e) => /^v(\d+)$/.exec(e.name))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]))
+    .sort((a, b) => a - b);
+}
+
+/** The newest version's number, or 0 for a reel with no version yet (one still being transcribed). */
+export async function newestVersionNumber(reelDir: string): Promise<number> {
+  return Math.max(0, ...(await versionNumbers(reelDir)));
+}
+
+/** The nearest surviving predecessor; saved version numbers may have gaps after deletion. */
+export async function previousVersionNumber(reelDir: string, number: number): Promise<number> {
+  return Math.max(0, ...(await versionNumbers(reelDir)).filter((candidate) => candidate < number));
+}
+
+async function reelMetadata(reelDir: string): Promise<Record<string, unknown>> {
+  try {
+    const value: unknown = JSON.parse(await readFile(join(reelDir, 'reel.json'), 'utf8'));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid reel metadata');
+    return value as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    throw new KinottaError('invalid', 'The reel metadata is unreadable. Repair reel.json before changing versions.');
+  }
+}
+
+/** Allocation is independent of the newest surviving folder. Deleted numbers keep their meaning. */
+export async function nextVersionNumber(reelDir: string): Promise<number> {
+  const metadata = await reelMetadata(reelDir);
+  return Math.max(await newestVersionNumber(reelDir), Number.isSafeInteger(metadata.versionHighWater) ? Number(metadata.versionHighWater) : 0) + 1;
+}
+
+/** Caller holds the reel lock. Reserve before publication or removal, including numbers from older builds. */
+export async function rememberVersionNumber(reelDir: string, number: number): Promise<void> {
+  const metadata = await reelMetadata(reelDir);
+  const highWater = Math.max(number, await newestVersionNumber(reelDir), Number.isSafeInteger(metadata.versionHighWater) ? Number(metadata.versionHighWater) : 0);
+  await writeFileAtomic(join(reelDir, 'reel.json'), `${JSON.stringify({ ...metadata, versionHighWater: highWater }, null, 2)}\n`);
+}
+
+export async function requireReelDir(projectDir: string, slug: string): Promise<string> {
+  const reelDir = join(projectDir, REELS_DIR, slug);
+  if (!SAFE_SLUG.test(slug) || !(await isDirectory(reelDir))) {
+    throw new KinottaError('not-found', `Reel "${slug}" not found.`);
+  }
+  return reelDir;
+}
+
+/** Every version folder of a reel, oldest first. v1 is the storyboard in this phase. */
+export async function listVersions(projectDir: string, slug: string): Promise<VersionEntry[]> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const numbers = await versionNumbers(reelDir);
+  const newest = numbers[numbers.length - 1];
+  return Promise.all(
+    numbers.map(async (number): Promise<VersionEntry> => {
+      const version = await readVersion(projectDir, slug, number).catch(() => null);
+      const comments = (await readState(stateFilePath(projectDir, slug, number), number).catch(() => ({ comments: [] }))).comments.length;
+      const issues = version === null ? 0 : versionIssues(version).length;
+      const entry: VersionEntry = { number, isNewest: number === newest, isStoryboard: number === STORYBOARD_VERSION, comments, issues, ...(version?.builtBy ? { builtBy: version.builtBy } : {}), ...(version?.frozenBy ? { frozenBy: version.frozenBy } : {}) };
+      if (number === STORYBOARD_VERSION) return entry;
+      // A reel with one section has nothing to tell apart, so its rail rows stay as they were.
+      return version !== null && version.sections.length > 1 && version.changedSections ? { ...entry, changedSections: version.changedSections } : entry;
+    }),
+  );
+}
+
+/**
+ * The one guard every comment change goes through (S6): only the newest version takes changes. Throws
+ * `not-found` for an unknown reel or version and `frozen` for an older one.
+ */
+export async function assertTakesComments(projectDir: string, slug: string, number: number): Promise<Version> {
+  const version = await readVersion(projectDir, slug, number);
+  if (!version.isNewest) {
+    const newest = await newestVersionNumber(join(projectDir, REELS_DIR, slug));
+    throw new KinottaError('frozen', `v${number} is a saved version. Only the newest version, v${newest}, takes comments.`);
+  }
+  return version;
+}
+
+/** shots.json as an object, or null with the reason it could not be read. Never throws. */
+async function readShotsFile(versionDir: string): Promise<{ file: Record<string, unknown> | null; problem: string | null }> {
+  let text: string;
+  try {
+    text = await readFile(join(versionDir, SHOTS_FILE), 'utf8');
+  } catch {
+    return { file: null, problem: 'file not found' };
+  }
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object');
+    return { file: parsed as Record<string, unknown>, problem: null };
+  } catch {
+    return { file: null, problem: 'not valid JSON' };
+  }
+}
+
+async function readPage(versionDir: string): Promise<string | null> {
+  try {
+    return await readFile(join(versionDir, PAGE_FILE), 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function listOf<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+/** The shots that can be read: an object with a number and a numeric start; a repeated number is dropped. The rest are contract issues. */
+function readShots(raw: unknown, duration: number): Shot[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const shots = raw.filter((s): s is Record<string, unknown> => {
+    if (s === null || typeof s !== 'object' || Array.isArray(s)) return false;
+    const shot = s as Record<string, unknown>;
+    const number = typeof shot.number === 'number' ? String(shot.number) : shot.number;
+    if (typeof number !== 'string' || number.trim() === '' || seen.has(number)) return false;
+    if (shot.start === undefined || shot.start === null || shot.start === '' || !Number.isFinite(Number(shot.start))) return false;
+    seen.add(number);
+    return true;
+  });
+  return shots.map((shot, i) => {
+    const start = Number(shot.start);
+    const next = shots[i + 1];
+    const end = next ? Number(next.start) : duration;
+    return {
+      ...(shot as object),
+      number: String(shot.number ?? ''),
+      start,
+      duration: Math.max(0, end - start),
+      // A shot with no title still needs a name on screen; the contract check reports the missing title.
+      title: typeof shot.title === 'string' && shot.title.trim() !== '' ? shot.title : UNTITLED_SHOT,
+      description: String(shot.description ?? ''),
+    } as Shot;
+  });
+}
+
+async function readVersionFiles(projectDir: string, slug: string, number: number, capturedDir?: string): Promise<Version> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const versionDir = capturedDir ?? join(reelDir, `v${number}`);
+  if (!Number.isInteger(number) || number < 1 || !(await isDirectory(versionDir))) {
+    throw new KinottaError('not-found', `Version ${number} of reel "${slug}" not found.`);
+  }
+  // A version that breaks the contract still opens (S5): problems become issues, not errors.
+  const { file: parsed, problem } = await readShotsFile(versionDir);
+  const file = parsed ?? {};
+  const page = await scanVersionPage(await readPage(versionDir), versionDir, projectDir);
+  const fileCheck = checkShotsFile(parsed, problem);
+  const hasDuration = !fileCheck.issues.some((i) => i.code === 'no-duration') && parsed !== null;
+  const lastStart = Math.max(0, ...fileCheck.shots.map((s) => s.start));
+  const pageEnd = Math.max(0, ...page.scenes.map((s) => s.start + s.duration));
+  const duration = hasDuration ? Number(file.duration) : Math.max(lastStart, pageEnd);
+  const parts = file.contract === 2 ? checkPartsManifest(file) : null;
+  if (parts?.manifest) {
+    try {
+      await readPartsInputs(reelDir, parts.manifest);
+      if (parts.manifest.revisionHashes) assertPartsHashes(parts.manifest.revisionHashes, await partsRevisionHashes(reelDir, parts.manifest));
+    }
+    catch (error) { fileCheck.issues.push({ code: 'parts-files', message: error instanceof Error ? error.message : 'Parts revision files could not be read.' }); }
+  }
+  const { sections, shots } = readSections(file.sections, parts?.shots ?? readShots(file.shots, duration), duration, (await readTitle(reelDir)) ?? slug);
+  const version: Version = {
+    ...(parts?.manifest ? { parts: parts.manifest } : {}),
+    number,
+    isNewest: number === (await newestVersionNumber(reelDir)),
+    agentRegenerate: await canAgentRegenerate(join(reelDir, `v${number}`)),
+    duration,
+    shots,
+    overlays: listOf<Overlay>(file.overlays),
+    sections,
+    // A version with no readable shots.json gets that one issue; its page problems would only be noise.
+    issues: parsed === null ? fileCheck.issues : [...fileCheck.issues, ...page.issues, ...checkShotsAgainstPage(fileCheck.shots, page.scenes)],
+  };
+  if (Array.isArray(file.changedSections)) version.changedSections = file.changedSections as string[];
+  if (typeof file.frozenBy === 'string') version.frozenBy = file.frozenBy;
+  if (typeof file.builtBy === 'string' && file.builtBy.trim() !== '') version.builtBy = file.builtBy;
+  if (await isCodeOnly(projectDir, reelDir)) {
+    version.code = { scenes: page.scenes.map((s) => s.name), offsets: await readEditsCss(versionDir) };
+    if (parsed && page.scenes.length > 0) version.clips = (await codeSources(versionDir)).sources.plan.clips;
+  }
+  const withFootage = await addFootage(projectDir, reelDir, versionDir, version);
+  const pictureFromFootage = withFootage.footage !== undefined || (withFootage.media !== undefined && !withFootage.media.legacy);
+  const hasBroll = withFootage.shots.length > 0 || (withFootage.clips?.length ?? 0) > 0;
+  if (pictureFromFootage && !hasBroll) withFootage.issues = withFootage.issues.filter((issue) => issue.code !== 'no-scenes');
+  if (withFootage.shots.length > 0) return withFootage;
+  return { ...withFootage, brollRequest: brollRequest(slug, (await readTitle(reelDir)) ?? slug, number) };
+}
+
+const readOrEmpty = (file: string): Promise<string> => readFile(file, 'utf8').catch(() => '');
+
+/** The page of version n as text and its element-offset stylesheet, each empty when it has none (for comparing two versions). */
+async function readPageText(reelDir: string, number: number): Promise<{ html: string; css: string }> {
+  const dir = join(reelDir, `v${number}`);
+  return { html: await readOrEmpty(join(dir, PAGE_FILE)), css: await readOrEmpty(join(dir, EDITS_CSS)) };
+}
+
+/**
+ * A version as its files say it is, plus (from v2 on) which of its sections changed since the version before (F4).
+ * Nothing here reads or writes the editor's state; the public read in carry.ts adds that.
+ */
+export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
+  const version = await readVersionFiles(projectDir, slug, number);
+  if (number < 2) return version;
+  const reelDir = join(projectDir, REELS_DIR, slug);
+  const previousNumber = await previousVersionNumber(reelDir, number);
+  let previous: Version;
+  try {
+    previous = await readVersionFiles(projectDir, slug, previousNumber);
+  } catch {
+    // The version before is missing or unreadable, so there is nothing to compare with.
+    return version;
+  }
+  const { changed, claimMismatch } = detectChanges(
+    { version: previous, ...(await readPageText(reelDir, previousNumber)) },
+    { version, ...(await readPageText(reelDir, number)) },
+  );
+  return { ...version, changedSections: changed, claimMismatch };
+}
+
+/** Reads a captured or staged page through the same contract and source resolvers as a version. */
+export const readCapturedVersion = (projectDir: string, slug: string, number: number, dir: string): Promise<Version> => readVersionFiles(projectDir, slug, number, dir);
+
+export async function requireVersionDir(projectDir: string, slug: string, number: number): Promise<{ reelDir: string; versionDir: string }> {
+  const reelDir = await requireReelDir(projectDir, slug);
+  const versionDir = join(reelDir, `v${number}`);
+  const found = Number.isInteger(number) && number >= 1 && (await stat(versionDir).then((s) => s.isDirectory(), () => false));
+  if (!found) throw new KinottaError('not-found', `Version ${number} of reel "${slug}" not found.`);
+  return { reelDir, versionDir };
+}

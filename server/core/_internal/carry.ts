@@ -1,0 +1,217 @@
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { scanPage } from './contract.ts';
+import { readState, serialized, stateFilePath, writeState } from './state.ts';
+import { ELEMENT_REMOVED, MOMENT_REMOVED } from './state.ts';
+import type { StoredComment } from './state.ts';
+import { pieceMap, toSource, toTimeline } from './pieces.ts';
+import type { PieceMap } from './pieces.ts';
+import type { Shot, Version } from './types.ts';
+import type { PlacementPin } from './types.ts';
+import { LEGACY_PREFIX, legacyMedia, legacySourceOfPlacement, mediaTimeline, remapMediaMoment, renameLegacySource, timelineMoment } from './media-model.ts';
+import { sameLegacyFootage } from './legacy-footage.ts';
+import { newestVersionNumber, previousVersionNumber, readVersion as readVersionFiles, requireReelDir } from './version.ts';
+
+/** The id of the section a shot belongs to. Every shot of a version has one, but a shot can be missing from a version. */
+export function sectionOfShot(version: Version, shot: Shot | undefined): string {
+  return shot?.section ?? version.sections[0]!.id;
+}
+
+/** The section a comment is in, by the shot its pin is on. */
+export function sectionOfComment(version: Version, comment: StoredComment): string {
+  const shot = version.shots.find((s) => s.number === comment.pin.shot);
+  return shot ? sectionOfShot(version, shot) : (comment.pin.section ?? version.sections[0]!.id);
+}
+
+/** The comment's id, if any hand-off of its version holds it. */
+export function isSent(handedOff: Record<string, { commentIds: string[] }> | undefined, id: string): boolean {
+  return Object.values(handedOff ?? {}).some((h) => h.commentIds.includes(id));
+}
+
+const TIME_DECIMALS = 1e6;
+const roundTime = (seconds: number): number => Math.round(seconds * TIME_DECIMALS) / TIME_DECIMALS;
+/** The engine rounds times to 6 decimals, so a moment on a join can read a hair early; it is looked up this much later. */
+const JOIN_NUDGE = 5e-7;
+
+/** A version's pieces as a map; none, or none that make a valid map, is one piece over the whole version. */
+function mapOf(version: Version): PieceMap {
+  try {
+    return pieceMap(version.pieces, version.duration);
+  } catch {
+    return pieceMap(undefined, version.duration);
+  }
+}
+
+/**
+ * Where a moment of `from`'s timeline is on `to`'s: through the source time both versions' pieces share. A moment in a
+ * snipped stretch has no place; `removed` then says so, and `time` is where the snip closed up (the start of the next
+ * piece in the source, else the end). `footage` is the legacy source of `to` that holds `from`'s footage, when known by
+ * content (see `footageOf`); otherwise the first legacy source is taken.
+ */
+export function remapMoment(from: Version, to: Version, time: number, anchor?: PlacementPin, footage?: string): { time: number; removed: boolean } {
+  if (from.media || to.media) {
+    // First conversion keeps the adapter's original source root. Old pins have reel times, not occurrence IDs.
+    const legacySource = !from.media && from.footage ? to.media?.sources.find((s) => (footage === undefined ? s.id.startsWith(LEGACY_PREFIX) : s.id === footage)) : undefined;
+    if (!from.media && from.footage && !legacySource) return { time: Math.min(time, to.duration), removed: true };
+    const legacy = legacySource ? legacyMedia({ video: legacySource.id.slice(LEGACY_PREFIX.length), pieces: from.pieces, duration: from.duration }) : null;
+    const before = from.media ? mediaTimeline(from.media, from.duration) : legacy ? mediaTimeline(legacy, from.duration) : { placements: [], duration: from.duration };
+    const after = to.media ? mediaTimeline(to.media, to.duration) : { placements: [], duration: to.duration };
+    // A pin made on the old footage path names its placement by that path; it follows the footage to its new name.
+    const oldRoot = footage !== undefined && anchor?.placement ? legacySourceOfPlacement(anchor.placement) : undefined;
+    return remapMediaMoment(before, after, time, oldRoot ? renameLegacySource(anchor, oldRoot, footage!) : anchor);
+  }
+  const target = mapOf(to);
+  const anchored = anchor?.sourceTime;
+  const source = anchored !== undefined ? anchored + JOIN_NUDGE : toSource(mapOf(from), time + JOIN_NUDGE);
+  const placed = source === null ? null : toTimeline(target, source);
+  if (placed !== null) return { time: roundTime(placed - JOIN_NUDGE), removed: false };
+  const after = [...target.pieces].sort((a, b) => a.in - b.in).find((p) => source !== null && p.in >= source);
+  return { time: roundTime(after ? after.at : target.length), removed: true };
+}
+
+/** The shot of `version` that plays at a time: the last one that has started, or the first when none has. */
+function shotAt(version: Version, time: number): Shot | undefined {
+  const ordered = [...version.shots].sort((a, b) => a.start - b.start);
+  return [...ordered].reverse().find((s) => s.start <= time) ?? ordered[0];
+}
+
+/** A version's page, for judging whether a pinned element is gone. */
+interface PageView {
+  html: string;
+  /** The scenes with valid timing. */
+  scenes: { start: number; duration: number }[];
+}
+
+/** The version's page, or null when it cannot be read (nothing is then judged gone). */
+async function readPage(projectDir: string, slug: string, number: number): Promise<PageView | null> {
+  try {
+    const html = await readFile(join(await requireReelDir(projectDir, slug), `v${number}`, 'index.html'), 'utf8');
+    return { html, scenes: scanPage(html).scenes };
+  } catch {
+    return null;
+  }
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Whether the page surely no longer has the element a pin is on. Conservative: a false "kept" beats a false "removed", so it
+ * is gone only when a scene with valid timing plays at the pin's moment and no `data-el="name"` is anywhere in the page,
+ * script string literals included. An element a script creates, or one outside any scene, is never judged gone.
+ */
+function elementGone(page: PageView | null, time: number, name: string): boolean {
+  if (page === null || !page.scenes.some((sc) => time >= sc.start && time < sc.start + sc.duration)) return false;
+  return !new RegExp(`data-el\\s*=\\s*\\\\?["']${escapeRegExp(name)}\\\\?["']`).test(page.html);
+}
+
+/**
+ * The comment as the new version holds it: a new id, its pin on the remapped moment. Marked when that moment is gone, else
+ * when the element it is pinned on is (an element pin follows its element); a mark it already had stays.
+ */
+export function carriedComment(comment: StoredComment, from: Version, to: Version, page: PageView | null, preserveOptions = false, footage?: string): StoredComment {
+  const oldShot = from.shots.find((shot) => shot.number === comment.pin.shot);
+  const name = comment.pin.kind === 'frame' ? comment.pin.shotName ?? oldShot?.name ?? (to.parts ? oldShot?.scene : undefined) : undefined;
+  const named = name ? to.shots.find((shot) => (shot.name ?? shot.scene) === name) : undefined;
+  const localTime = Math.max(0, comment.pin.time - (oldShot?.start ?? 0));
+  const moment = name ? { time: named ? named.start + Math.min(localTime, Math.max(0, named.duration - JOIN_NUDGE)) : Math.min(comment.pin.time, to.duration), removed: !named } : remapMoment(from, to, comment.pin.time, comment.pin, footage);
+  const shot = name ? named : shotAt(to, moment.time);
+  const section = shot?.section ?? (to.media ? to.sections.find((s) => s.start <= moment.time && s.end > moment.time)?.id ?? null : null);
+  // Converting a single-page reel to parts: a pin with no scene to follow takes the name of the parts shot it lands on.
+  const shotName = name ?? (to.parts && comment.pin.kind === 'frame' ? shot?.name : undefined);
+  const place = { version: to.number, section, shot: shot?.number ?? comment.pin.shot, time: moment.time, ...(shotName ? { shotName } : {}) };
+  const adopted = !from.media && from.footage && to.media && !moment.removed ? timelineMoment(mediaTimeline(to.media, to.duration), moment.time) : null;
+  const anchor = adopted ? { placement: adopted.placement, sourceTime: adopted.time } : {};
+  const target = comment.pin.kind === 'word' ? undefined : comment.pin.element;
+  const revision = comment.pin.kind === 'frame' ? comment.pin.alternate : undefined;
+  const alternateGone = revision !== undefined && shot !== undefined && shot.revision !== revision && !shot.alternates?.some((alternate) => alternate.revision === revision && !alternate.dismissed);
+  const state = moment.removed || comment.state === MOMENT_REMOVED ? MOMENT_REMOVED : alternateGone || comment.state === ELEMENT_REMOVED || (typeof target === 'string' && elementGone(page, moment.time, target)) ? ELEMENT_REMOVED : undefined;
+  const { options, ...carried } = comment;
+  return { ...carried, ...(preserveOptions && options !== undefined ? { options } : {}), id: randomUUID(), pin: { ...comment.pin, ...place, ...anchor }, ...(state ? { state } : {}), ...(alternateGone ? { stateReason: `The pinned alternate ${revision} is no longer offered on this shot.` } : {}) };
+}
+
+/**
+ * On first conversion (a legacy footage version followed by one with media), the legacy source of `to` that holds the same
+ * bytes as `from`'s footage, so pins follow the footage even when the new version names a copy of it. Undefined when that
+ * does not apply or no source matches; `remapMoment` then takes the first legacy source.
+ */
+async function footageOf(projectDir: string, slug: string, from: Version, to: Version): Promise<string | undefined> {
+  if (from.media || !from.footage || !to.media) return undefined;
+  const planDir = join(await requireReelDir(projectDir, slug), `v${to.number}`);
+  return sameLegacyFootage(projectDir, resolve(projectDir, from.footage.path), { media: to.media, planDir });
+}
+
+/**
+ * Hands the unsent comments of version n-1 over to version n, once (F4, E15), whoever built n: each follows its moment
+ * through source time. Comments already sent to an agent stay where they are, frozen with their batch. Both sides record
+ * the outcome, and settling twice does nothing. Comments only ever move from the version right before.
+ */
+async function settle(projectDir: string, slug: string, n: number): Promise<void> {
+  if (n < 2 || (await readState(stateFilePath(projectDir, slug, n), n)).carriedFrom !== undefined) return;
+  const previousNumber = await previousVersionNumber(await requireReelDir(projectDir, slug), n);
+  if (!previousNumber) return;
+  await settle(projectDir, slug, previousNumber);
+  const file = stateFilePath(projectDir, slug, n);
+  await serialized(file, async () => {
+    const state = await readState(file, n);
+    if (state.carriedFrom !== undefined) return;
+    const previousFile = stateFilePath(projectDir, slug, previousNumber);
+    const previousState = await readState(previousFile, previousNumber);
+    // A version before that saved nothing leaves nothing to carry or wait on, and gets no file written for it.
+    const hasHistory = previousState.comments.length > 0 || (previousState.waiting ?? []).length > 0 || Object.keys(previousState.handedOff ?? {}).length > 0;
+    if (!hasHistory) return;
+    const previous = await readVersionFiles(projectDir, slug, previousNumber);
+    const version = await readVersionFiles(projectDir, slug, n);
+    const changed = new Set(version.changedSections ?? []);
+    const page = await readPage(projectDir, slug, n);
+    const footage = await footageOf(projectDir, slug, previous, version);
+
+    // Every unsent comment goes with its moment; sent ones stay with their batch.
+    const carried: string[] = [];
+    const moved: StoredComment[] = [];
+    for (const comment of previousState.comments) {
+      if (isSent(previousState.handedOff, comment.id)) continue;
+      moved.push(carriedComment(comment, previous, version, page, false, footage));
+      carried.push(comment.id);
+    }
+    const stillWaiting = [...new Set([...(previousState.waiting ?? []), ...Object.keys(previousState.handedOff ?? {})])].filter(
+      (id) => !changed.has(id) && version.sections.some((s) => s.id === id),
+    );
+
+    // The older version first: the marker on the new one is what says settling is done.
+    await writeState(previousFile, { ...previousState, carriedTo: { version: n, carried } });
+    await writeState(file, {
+      ...state,
+      comments: [...state.comments, ...moved],
+      waiting: stillWaiting,
+      carriedFrom: { version: previousNumber, ids: moved.map((c) => c.id) },
+    });
+  });
+}
+
+/**
+ * Settles the newest version of a reel if it has not been (and the ones before it). Anything that reads or changes
+ * comments calls this first, so carry-forward happens on the first touch of a new version. Never throws: a reel that
+ * cannot be read is left for the caller's own checks to report.
+ */
+export async function settleNewest(projectDir: string, slug: string): Promise<void> {
+  try {
+    await settle(projectDir, slug, await newestVersionNumber(await requireReelDir(projectDir, slug)));
+  } catch {
+    // Unreadable versions or state carry nothing forward yet; the next touch tries again.
+  }
+}
+
+/** A version as the app sees it: its files, its changed sections, and the sections still waiting on an agent. */
+export async function readVersion(projectDir: string, slug: string, number: number): Promise<Version> {
+  await settleNewest(projectDir, slug);
+  return markWaiting(projectDir, slug, number, await readVersionFiles(projectDir, slug, number));
+}
+
+/** Marks the sections a version's state still has waiting on an agent, including ones handed off from it. */
+export async function markWaiting(projectDir: string, slug: string, number: number, version: Version): Promise<Version> {
+  const state = await readState(stateFilePath(projectDir, slug, number), number).catch(() => null);
+  if (state === null) return version;
+  const waiting = new Set([...(state.waiting ?? []), ...Object.keys(state.handedOff ?? {})]);
+  return { ...version, sections: version.sections.map((s) => (waiting.has(s.id) ? { ...s, waiting: true as const } : s)) };
+}

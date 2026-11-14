@@ -1,0 +1,14 @@
+{
+  "id": "filmed-3d",
+  "name": "Filmed 3D",
+  "scope": "builtin",
+  "look": "filmed-3d",
+  "settings": {
+    "broll": "medium",
+    "captions": "off",
+    "pace": "calm"
+  },
+  "yours": [],
+  "effects": [],
+  "rules": []
+}

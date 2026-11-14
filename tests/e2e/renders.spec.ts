@@ -1,0 +1,148 @@
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
+import { startServer } from '../../server/main.ts';
+import { copyFixture } from '../helpers/project.ts';
+import { expect, test } from '../helpers/editor-test.ts';
+import type { Locator, Page } from '../helpers/editor-test.ts';
+import { revealReelRail } from '../helpers/review-rail.ts';
+import { serverUrl } from './ports.ts';
+
+/** Two Drafts of the showreel, one after the other. */
+const RENDER_WAIT_MS = 150_000;
+
+// The showreel sample on its own server (playwright.config.ts), since renders are queued and cancelled on it.
+test.use({ baseURL: serverUrl('renders') });
+
+const phases = (page: Page): Locator => page.getByRole('navigation', { name: 'Phase' });
+const menuButton = (page: Page): Locator => page.getByRole('banner').getByRole('button', { name: 'Export' });
+const menu = (page: Page): Locator => page.getByRole('dialog', { name: 'Export' });
+const queue = (page: Page): Locator => menu(page).getByRole('list', { name: 'Queue' });
+
+async function renderDraft(page: Page, version: number): Promise<void> {
+  // Numbered snapshots remain renderable through the API while the UI shows Current.
+  const response = await page.request.post('/api/renders', { data: { reel: 'product-showreel', version, preset: 'draft' } });
+  expect(response.ok()).toBe(true);
+}
+
+test('renders run in the background: progress on every tab, a queue with cancel, and a ready notice', async ({ page }) => {
+  test.setTimeout(RENDER_WAIT_MS + 30_000);
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
+
+  await renderDraft(page, 2);
+  await renderDraft(page, 1);
+
+  // Every tab shows the running render on the top bar's render button.
+  await phases(page).getByRole('button', { name: /^Storyboard/ }).click();
+  await expect(menuButton(page)).toContainText(/Rendering v2 Quick preview \d+%/);
+  await expect(menuButton(page)).toContainText('1 waiting');
+  await expect(page.getByRole('status', { name: 'Render status' })).toHaveText('Rendering v2 Quick preview. 1 waiting.');
+  await expect(menuButton(page)).toHaveAttribute('aria-describedby', /.+/);
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(menuButton(page)).toContainText('Rendering v2 Quick preview');
+
+  // The render menu's queue: the running job with its progress and estimate, then the waiting one.
+  await menuButton(page).click();
+  const items = queue(page).getByRole('listitem');
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText(/v2 Quick preview · \d+%/);
+  // The estimate comes with the first frames, which can take a while when the machine is busy.
+  await expect(items.nth(0)).toContainText(/left/, { timeout: 30_000 });
+  await expect(items.nth(1)).toContainText('v1 Quick preview · waiting');
+
+  // Cancel the running one: it leaves the queue and the waiting one starts.
+  await items.nth(0).getByRole('button', { name: 'Cancel v2 Quick preview' }).click();
+  // Cancel stops every render process and removes the files first, slower when the machine is busy.
+  await expect(items).toHaveCount(1, { timeout: 30_000 });
+  await expect(items.nth(0)).toContainText(/v1 Quick preview · \d+%/, { timeout: 30_000 });
+  await page.keyboard.press('Escape');
+  await expect(menu(page)).toHaveCount(0);
+
+  // It finishes: the ready notice, on whatever tab is open, plays the file in Review.
+  await phases(page).getByRole('button', { name: /^Storyboard/ }).click();
+  const notice = page.getByRole('status', { name: 'Render ready' });
+  await expect(notice).toContainText('v1 Quick preview is ready', { timeout: RENDER_WAIT_MS });
+  await expect(notice.getByRole('button', { name: 'Show in folder' })).toBeVisible();
+  await notice.getByRole('button', { name: 'Play' }).click();
+  await expect(phases(page).getByRole('button', { name: 'Edit', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('main', { name: 'Review' }).getByLabel('Render product-showreel-v1-draft-540p30.mp4')).toBeVisible();
+
+  // The cancelled render left no file: only v1's Draft is in past renders, and nothing is rendering.
+  await expect(menuButton(page)).not.toContainText('Rendering');
+  await menuButton(page).click();
+  await expect(menu(page).getByRole('list', { name: 'Past renders' }).getByRole('listitem')).toHaveCount(1);
+  await expect(menu(page)).toContainText('Nothing rendering.');
+});
+
+test('a reel switch does not show another reel’s settings or past renders when loading fails', async ({ page }) => {
+  await page.route('**/api/reels/product-showreel/renders', (route) => route.fulfill({ json: {
+    renders: [{ file: 'product-showreel-v2-draft.mp4', version: 2, preset: 'draft', bytes: 100, at: '2026-10-06T00:00:00Z' }],
+  } }));
+  await page.route('**/api/reels/broll-cutdown/renders', (route) => route.fulfill({ status: 503, json: { error: 'Render list unavailable' } }));
+  await page.route('**/api/reels/broll-cutdown/render-settings', (route) => route.fulfill({ status: 503, json: { error: 'Settings unavailable' } }));
+
+  await page.goto('/');
+  const reels = page.getByRole('navigation', { name: 'Reels' });
+  await reels.getByRole('button', { name: /Product showreel/ }).click();
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
+  await revealReelRail(page);
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'More settings…', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Render Working' }).getByLabel('Size')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await menuButton(page).click();
+  await expect(menu(page)).toContainText('product-showreel-v2-draft.mp4');
+  await page.keyboard.press('Escape');
+
+  await revealReelRail(page);
+  await reels.getByRole('button', { name: /B-roll cutdown/ }).click();
+  await menuButton(page).click();
+  await expect(menu(page).getByRole('region', { name: 'Past renders', exact: true }).getByRole('alert')).toContainText('Render list unavailable');
+  await expect(menu(page)).not.toContainText('product-showreel-v2-draft.mp4');
+  await page.keyboard.press('Escape');
+  await phases(page).getByRole('button', { name: 'Edit', exact: true }).click();
+  await revealReelRail(page);
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'More settings…', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'Render Working' });
+  await expect(form.locator('.pk-render').getByRole('alert')).toContainText('Settings unavailable');
+  await expect(form.getByLabel('Size')).toHaveCount(0);
+  await expect(form.getByRole('button', { name: 'Render', exact: true })).toBeDisabled();
+});
+
+test('Export lists and plays a Final stored in the project output folder', async ({ page }) => {
+  test.setTimeout(RENDER_WAIT_MS + 30_000);
+  const dir = copyFixture('showreel-project');
+  const server = await startServer({ projectDir: dir, port: 0 });
+  try {
+    const response = await page.request.post(`${server.url}/api/renders`, { data: {
+      reel: 'product-showreel', version: 1, preset: 'final', size: 'half', fps: 24,
+    } });
+    expect(response.ok()).toBe(true);
+    const queued = await response.json();
+    await expect.poll(async () => {
+      const jobs = await (await page.request.get(`${server.url}/api/renders`)).json();
+      return jobs.jobs.some((job: { id: string }) => job.id === queued.id);
+    }, { timeout: RENDER_WAIT_MS }).toBe(false);
+
+    const file = 'product-showreel-v1-final-540p24.mp4';
+    expect(statSync(join(dir, 'output', 'product-showreel', file)).isFile()).toBe(true);
+    const listed = await (await page.request.get(`${server.url}/api/reels/product-showreel/renders`)).json();
+    expect(listed.renders).toContainEqual(expect.objectContaining({ file, preset: 'final' }));
+    await page.goto(server.url);
+    await page.getByRole('navigation', { name: 'Reels' }).getByRole('button', { name: /Product showreel/ }).click();
+    await menuButton(page).click();
+    const row = menu(page).getByRole('list', { name: 'Past renders' }).getByRole('listitem').filter({ hasText: file });
+    await expect(row).toHaveCount(1);
+    await row.getByRole('button', { name: 'Play', exact: true }).click();
+    const video = page.getByLabel(`Render ${file}`, { exact: true });
+    await expect(video).toBeVisible();
+    await video.focus();
+    await video.press('Space');
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false);
+  } finally {
+    await server.close();
+  }
+});

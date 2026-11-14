@@ -1,0 +1,9 @@
+[data-scene="diagram"] { position: absolute; inset: 0; overflow: hidden; color: var(--fx-ink); font-family: var(--fx-font); }
+[data-scene="diagram"] .ground { position:absolute; inset:0; background:var(--fx-ground, #181b1d); }
+[data-scene="diagram"] .title { position:absolute; left:220px; top:180px; font-size:88px; }
+[data-scene="diagram"] .steps { position:absolute; left:220px; right:220px; top:450px; display:flex; align-items:center; }
+[data-scene="diagram"] .step { position:relative; flex:none; margin-right:100px; }
+[data-scene="diagram"] .step:last-child { margin-right:0; }
+[data-scene="diagram"] .box { padding:60px 20px; border:3px solid var(--fx-accent); border-radius:24px; text-align:center; font-size:42px; }
+[data-scene="diagram"] .arrow { position:absolute; left:100%; top:50%; width:100px; height:3px; background:var(--fx-accent); transform-origin:left; }
+[data-scene="diagram"] .arrow::after { content:''; position:absolute; right:0; top:-7px; width:14px; height:14px; border-right:3px solid var(--fx-accent); border-top:3px solid var(--fx-accent); transform:rotate(45deg); }

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Explainer without seek v1</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#211b16;font-family:system-ui,sans-serif}
+[data-scene]{position:absolute;inset:0;display:grid;place-items:center}
+.s1{background:#211b16;color:#efe9df;font:800 9vh/1 system-ui}
+.s2{background:#ff8a1f;color:#1d140b;font:800 9vh/1 system-ui}
+.s3{background:#efe9df;color:#26221d;font:800 9vh/1 system-ui}
+</style></head>
+<body>
+<section class="s1" data-scene="question" data-start="0" data-duration="3"><span data-el="question">Why does sync break?</span></section>
+<section class="s2" data-scene="answer" data-start="3" data-duration="3"><span data-el="answer">Two writers, one file.</span></section>
+<section class="s3" data-scene="sign-off" data-start="6" data-duration="3"><span data-el="sign-off">See you next time.</span></section>
+<!-- The page never defines window.seek(seconds), so the editor cannot show any frame of it. -->
+</body></html>

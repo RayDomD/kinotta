@@ -1,0 +1,12 @@
+{
+  "contract": 1,
+  "duration": 6.2,
+  "shots": [
+    { "number": "01", "start": 0.8, "title": "New model pill",
+      "description": "The Opus 5.5 pill pops in and a New badge lands beside the name." },
+    { "number": "02", "start": 3.0, "title": "Replica card",
+      "description": "The pill morphs into the Age of Empires II card." },
+    { "number": "03", "start": 5.5, "title": "Effort levels",
+      "description": "The card becomes the effort levels and the cursor slides the indicator to Max." }
+  ]
+}

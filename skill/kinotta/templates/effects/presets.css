@@ -1,0 +1,20 @@
+/* Presets. Copy into the reel's shared stylesheet beside shared.css; set fonts and colours from the brand file. */
+
+/* Caption preset "talking head": one word at a time, key words large and bold, filler small. Read by captions and annotate. */
+:root {
+  --cap-font: "Montserrat", var(--fx-font);
+  --cap-key-size: 104px;
+  --cap-key-weight: 800;
+  --cap-filler-size: 38px;
+  --cap-filler-weight: 600;
+  --cap-top: 150px;
+  --cap-low: 800px;
+  --cap-shadow: 0 2px 4px oklch(.1 0 0 / .45), 0 8px 24px oklch(.1 0 0 / .35);
+}
+
+/* Grade presets as filter lists. live-grade reads them by name (data-grade="warm"); apply one statically with filter: var(--grade-warm). */
+:root {
+  --grade-warm: sepia(.32) saturate(1.35) brightness(1.04) contrast(1.05) hue-rotate(-8deg);
+  --grade-mono: grayscale(1) contrast(1.15) brightness(1.02);
+  --grade-cool: saturate(.85) brightness(.98) contrast(1.06) hue-rotate(12deg);
+}
