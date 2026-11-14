@@ -33,6 +33,34 @@ Versions are frozen once saved, so every earlier version and its comments stay a
 mechanical changes (gain, timing, captions, an element's position) are edits to **Working** that
 you can undo, not new versions.
 
+## Skill commands
+
+Type these in Claude Code inside your project. Each one runs one step of the skill and ends with
+something for you to check.
+
+| Command | What it does | What it writes | What you do next |
+|---|---|---|---|
+| `/kinotta setup` | Starts a project: checks that Kinotta is installed, finds your brand sources (or offers the built-in brand, another project's brand, or colours and fonts you type in). | `reels/brand.md`, and a `CONTEXT.md` map of where things live | Confirm the brand summary once |
+| `/kinotta direction` | Asks only what the brief leaves open (format, length, the moments in order, style, sound) and can show numbered choice sheets of fonts or looks. | The reel's notes and any choice sheets | Pick an option |
+| `/kinotta alternates` | Builds 2 to 4 animated options for a shot, recommended one first, each with a title and a one-line note. | New shot revisions and the shot list | Preview, Use or Not this in the Storyboard |
+| `/kinotta sound` | Adds a score, sound effects or voiceover as audio tracks, generated locally. | Audio tracks and placements, and the generated sound files | Listen and adjust in the editor |
+| `/kinotta check` | Looks at stills of each beat for anything cramped, clipped or unreadable, then runs `kinotta check`. | Its findings in the reel's notes | Review the checked reel |
+| `/kinotta edit` | Makes a small change (gain, mute, timing, captions, a word, an element's position) without building a new version. | An edit to Working, through `kinotta edit` | See it under Edits; undo if you want |
+
+Some steps start from what you do rather than from a command:
+
+| You | The skill |
+|---|---|
+| Ask for a reel ("make a 20-second launch reel") | Sets up the brand if needed, asks what's missing, builds v1 as shots from the effect templates, and checks it. |
+| Ask for b-roll over a video | Transcribes the audio, fixes misheard names, splits long videos into sections, and builds animated b-roll and captions over it. |
+| Paste a batch that starts with `Kinotta comments:` | Builds the next version from your pins, changing only what the comments name, and answers each one as done, partly done or not done. |
+| Press Auto or Regenerate in the editor | Kinotta runs the agent for you and checks its output before showing it. |
+
+Behind these, the skill calls the `kinotta` command: `kinotta build` publishes a new version,
+`kinotta check` tests it against the timing contract, `kinotta edit` records a small change, and
+`kinotta render` makes the video file. It never edits a saved version and never approves one for
+you.
+
 ## Main features
 
 - **Storyboard.** Every shot is shown as the live page paused at its moment, not a screenshot.
